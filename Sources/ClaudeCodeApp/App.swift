@@ -1,101 +1,267 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @main
 struct ClaudeCodeApp: App {
-    // ponytail: starts empty on purpose. Defaulting to $HOME made claude scan the home
-    // folder and trip every TCC prompt (iCloud Drive, Music, Documents) at launch.
-    // A folder chosen in NSOpenPanel carries user intent, so macOS grants it silently.
-    @State private var sessions: [CodeSession] = []
-    @State private var selection: UUID?
+    // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
+    // claude scan the home folder and trip every TCC prompt (iCloud Drive, Music,
+    // Documents) at launch. An NSOpenPanel choice carries intent, so macOS grants it.
+    @State private var projects: [Project] = []
+    /// nil = the all-projects screen; otherwise the project you are inside.
+    @State private var entered: UUID?
+    /// Notebook entries tag by file path, sessions by UUID string.
+    @State private var selection: String?
+
+    // ponytail: poll instead of an FSEvents watcher. The agents in the sidebar write
+    // these files while you watch them; re-listing a few dozen paths every 2s is less
+    // code than a recursive watcher and the tree is tiny. Revisit at thousands of files.
+    private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+
+    init() {
+        if CommandLine.arguments.contains("--selftest") {
+            NotebookSelfTest.run()
+            exit(0)
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
             NavigationSplitView {
-                List(sessions, selection: $selection) { session in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label(session.name, systemImage: session.agent.systemImage)
-                        Text("\(session.agent.displayName) · \(session.directory)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .tag(session.id)
-                    .contextMenu {
-                        Button("Close Session") { close(session.id) }
-                    }
-                }
-                .navigationTitle("Sessions")
-                .toolbar {
-                    ToolbarItemGroup {
-                        newSessionMenu
-                            .keyboardShortcut("n")
-                        Button("Close Session", systemImage: "minus") {
-                            if let selection { close(selection) }
-                        }
-                        .disabled(selection == nil)
-                    }
-                }
+                sidebar
             } detail: {
-                ZStack {
-                    if sessions.isEmpty {
-                        newSessionMenu
-                            .controlSize(.large)
-                    }
-                    // Keep every terminal mounted so switching rows does not restart the agent.
-                    ForEach(sessions) { session in
-                        AgentTerminal(directory: session.directory, agent: session.agent)
-                            .opacity(selection == session.id ? 1 : 0)
-                            .allowsHitTesting(selection == session.id)
-                            .accessibilityHidden(selection != session.id)
-                    }
-                }
+                detail
             }
-            .frame(minWidth: 700, minHeight: 440)
+            .frame(minWidth: 760, minHeight: 460)
+            .onReceive(tick) { _ in reload() }
         }
         .windowToolbarStyle(.unified)
     }
 
-    private var newSessionMenu: some View {
-        Menu("New Session", systemImage: "plus") {
-            Button("Claude Code…", systemImage: AgentKind.claude.systemImage) {
-                openSession(.claude)
+    private var enteredProject: Project? { projects.first { $0.id == entered } }
+
+    // MARK: - Sidebar
+
+    @ViewBuilder private var sidebar: some View {
+        if let project = enteredProject {
+            List(selection: $selection) { rows(for: project) }
+                .navigationTitle(project.name)
+                .toolbar {
+                    ToolbarItemGroup {
+                        Button("All Projects", systemImage: "chevron.left", action: leave)
+                            .keyboardShortcut("[")
+                        addMenu(for: project)
+                    }
+                }
+        } else {
+            List {
+                Section("Projects") {
+                    ForEach(projects) { project in
+                        Button { enter(project) } label: {
+                            Label(project.name, systemImage: "folder")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu { Button("Close Project") { close(project) } }
+                    }
+                }
             }
-            Button("Codex…", systemImage: AgentKind.codex.systemImage) {
-                openSession(.codex)
+            .navigationTitle("Projects")
+            .toolbar {
+                Button("Open Project Folder…", systemImage: "plus", action: openProject)
+                    .keyboardShortcut("n")
             }
         }
     }
 
-    private func openSession(_ agent: AgentKind) {
-        guard let directory = pickDirectory() else { return }
-        let session = CodeSession(directory: directory, agent: agent)
-        sessions.append(session)
-        selection = session.id
+    @ViewBuilder private func rows(for project: Project) -> some View {
+        Section("Notebook") {
+            OutlineGroup(project.entries, children: \.children) { entry in
+                Label(entry.title, systemImage: entry.icon)
+                    .tag(entry.id)
+            }
+            if !project.hasNotebook {
+                Text("No \(NotebookFormat.folderName) yet — adding an entry creates it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        Section("Sessions") {
+            ForEach(project.sessions) { session in
+                Label(session.title, systemImage: session.agent.systemImage)
+                    .tag(session.id.uuidString)
+                    .contextMenu {
+                        Button("Close Session") { close(session, in: project) }
+                    }
+            }
+            if project.sessions.isEmpty {
+                Text("No agent running here yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
-    private func close(_ id: UUID) {
-        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
-        sessions.remove(at: index)
-        if selection == id {
-            selection = sessions.indices.contains(index) ? sessions[index].id : sessions.last?.id
+    private func addMenu(for project: Project) -> some View {
+        Menu("New", systemImage: "plus") {
+            Section("Session") {
+                Button("Claude Code", systemImage: AgentKind.claude.systemImage) {
+                    addSession(.claude, to: project)
+                }
+                Button("Codex", systemImage: AgentKind.codex.systemImage) {
+                    addSession(.codex, to: project)
+                }
+            }
+            Section("Notebook") {
+                Button("Roadmap Entry…", systemImage: "map") { add(.roadmap, to: project) }
+                Button("Project…", systemImage: "shippingbox") { add(.project, to: project) }
+                Button("Task…", systemImage: "checkmark.circle") { add(.task, to: project) }
+                Button("Memory…", systemImage: "brain") { add(.memory, to: project) }
+                    .disabled(notebookProject(in: project) == nil)
+            }
+            Divider()
+            Button("Reveal in Finder", systemImage: "folder") {
+                NSWorkspace.shared.activateFileViewerSelecting([project.directory])
+            }
+            Button("Close Project", systemImage: "xmark") { close(project) }
+        }
+    }
+
+    // MARK: - Detail
+
+    private var detail: some View {
+        ZStack {
+            // ponytail: every terminal stays mounted for the life of the app. Leaving a
+            // project, switching rows, or browsing the home screen must not tear down a
+            // running agent's PTY, so these are hidden rather than removed.
+            ForEach(projects) { project in
+                ForEach(project.sessions) { session in
+                    AgentTerminal(directory: project.directory.path, agent: session.agent)
+                        .opacity(isVisible(session) ? 1 : 0)
+                        .allowsHitTesting(isVisible(session))
+                        .accessibilityHidden(!isVisible(session))
+                }
+            }
+            if entered == nil {
+                ProjectsHome(projects: projects, enter: enter, add: openProject, close: close)
+            } else if let entry = selectedEntry {
+                NotebookEditor(entry: entry).id(entry.id)
+            } else if selection == nil {
+                Text("Pick a notebook entry, or start a session with +")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func isVisible(_ session: CodeSession) -> Bool {
+        entered != nil && selection == session.id.uuidString
+    }
+
+    private var selectedEntry: NotebookEntry? {
+        guard let selection, let project = enteredProject else { return nil }
+        return NotebookLoader.find(selection, in: project.entries)
+    }
+
+    // MARK: - Projects
+
+    private func openProject() {
+        guard let path = pickDirectory(
+            message: "Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/."
+        ) else { return }
+        let directory = URL(fileURLWithPath: path)
+        if let existing = projects.first(where: { $0.directory.path == directory.path }) {
+            enter(existing)
+            return
+        }
+        let project = Project(directory: directory,
+                              entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+        projects.append(project)
+        enter(project)
+    }
+
+    private func enter(_ project: Project) {
+        entered = project.id
+        selection = nil
+    }
+
+    private func leave() {
+        entered = nil
+        selection = nil
+    }
+
+    private func close(_ project: Project) {
+        projects.removeAll { $0.id == project.id }
+        if entered == project.id { leave() }
+    }
+
+    private func reload() {
+        for index in projects.indices {
+            let entries = NotebookLoader.load(root: projects[index].notebookRoot)
+            if entries != projects[index].entries { projects[index].entries = entries }
+        }
+    }
+
+    // MARK: - Sessions
+
+    private func addSession(_ agent: AgentKind, to project: Project) {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        let existing = projects[index].sessions.filter { $0.agent == agent }.count
+        let session = CodeSession(agent: agent, title: "\(agent.displayName) \(existing + 1)")
+        projects[index].sessions.append(session)
+        selection = session.id.uuidString
+    }
+
+    private func close(_ session: CodeSession, in project: Project) {
+        guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        projects[index].sessions.removeAll { $0.id == session.id }
+        if selection == session.id.uuidString { selection = nil }
+    }
+
+    // MARK: - Notebook entries
+
+    /// The `.notebook/projects/<id>` the selection sits in — memory has to land in one.
+    private func notebookProject(in project: Project) -> String? {
+        guard let selection,
+              selection.hasPrefix(NotebookEntry.id(for: project.directory)),
+              let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
+        else { return nil }
+        return selection[marker.upperBound...].split(separator: "/").first.map(String.init)
+    }
+
+    private func add(_ kind: EntryKind, to project: Project) {
+        guard let title = askTitle(kind) else { return }
+        do {
+            let file = try NotebookFormat.create(kind, title: title, in: project.notebookRoot,
+                                                 project: notebookProject(in: project))
+            reload()
+            // Projects select their folder row, which opens project.md.
+            selection = NotebookEntry.id(for: kind == .project ? file.deletingLastPathComponent() : file)
+        } catch {
+            NSAlert(error: error).runModal()
         }
     }
 }
 
-private struct CodeSession: Identifiable {
-    let id = UUID()
-    let directory: String
-    let agent: AgentKind
-    var name: String { URL(fileURLWithPath: directory).lastPathComponent }
-}
-
-private func pickDirectory() -> String? {
+private func pickDirectory(message: String) -> String? {
     let panel = NSOpenPanel()
     panel.canChooseDirectories = true
     panel.canChooseFiles = false
     panel.allowsMultipleSelection = false
-    panel.message = "The coding agent will run in this folder."
+    panel.message = message
     return panel.runModal() == .OK ? panel.url?.path : nil
+}
+
+private func askTitle(_ kind: EntryKind) -> String? {
+    let alert = NSAlert()
+    alert.messageText = "New \(kind.displayName)"
+    alert.addButton(withTitle: "Create")
+    alert.addButton(withTitle: "Cancel")
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+    field.placeholderString = "Title"
+    alert.accessoryView = field
+    alert.window.initialFirstResponder = field
+    guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+    let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    return title.isEmpty ? nil : title
 }
