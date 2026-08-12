@@ -19,4 +19,6 @@ struct CodeSession: Identifiable, Equatable {
     let id = UUID()
     let agent: AgentKind
     let title: String
+    /// Passed to the agent as its opening prompt when the session starts.
+    let prompt: String?
 }

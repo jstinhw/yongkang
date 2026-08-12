@@ -10,10 +10,24 @@ enum AgentKind: String {
     var command: String { rawValue }
 }
 
+enum AgentCommand {
+    static func quoted(_ text: String) -> String {
+        "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// Both agents take an opening prompt as their first argument, which is how a new
+    /// project's notebook conversation starts without anyone typing it.
+    static func line(directory: String, agent: AgentKind, prompt: String?) -> String {
+        let start = prompt.map { "exec \(agent.command) \(quoted($0))" } ?? "exec \(agent.command)"
+        return "cd \(quoted(directory)) && \(start)"
+    }
+}
+
 /// A real PTY running the selected coding agent in the chosen directory.
 struct AgentTerminal: NSViewRepresentable {
     let directory: String
     let agent: AgentKind
+    let prompt: String?
 
     func makeCoordinator() -> Coordinator { Coordinator(agent: agent) }
 
@@ -23,10 +37,9 @@ struct AgentTerminal: NSViewRepresentable {
         view.processDelegate = context.coordinator
         // ponytail: interactive login shell, because a GUI app inherits a bare PATH and
         // agent CLIs commonly live in ~/.local/bin or nvm paths exported from .zshrc.
-        let quoted = "'" + directory.replacingOccurrences(of: "'", with: "'\\''") + "'"
         view.startProcess(
             executable: "/bin/zsh",
-            args: ["-ilc", "cd \(quoted) && exec \(agent.command)"],
+            args: ["-ilc", AgentCommand.line(directory: directory, agent: agent, prompt: prompt)],
             environment: Terminal.getEnvironmentVariables(termName: "xterm-256color", trueColor: true)
         )
         return view

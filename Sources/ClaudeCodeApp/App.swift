@@ -77,14 +77,18 @@ struct ClaudeCodeApp: App {
 
     @ViewBuilder private func rows(for project: Project) -> some View {
         Section("Notebook") {
-            OutlineGroup(project.entries, children: \.children) { entry in
-                Label(entry.title, systemImage: entry.icon)
-                    .tag(entry.id)
-            }
-            if !project.hasNotebook {
-                Text("No \(NotebookFormat.folderName) yet — adding an entry creates it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if project.hasNotebook {
+                OutlineGroup(project.entries, children: \.children) { entry in
+                    Label(entry.title, systemImage: entry.icon)
+                        .tag(entry.id)
+                }
+            } else {
+                // The shape of what the agent is about to write. Untagged, so these are
+                // dimmed and unselectable until the folders exist and the tree replaces them.
+                ForEach(NotebookFormat.folders, id: \.self) { folder in
+                    Label(folder, systemImage: NotebookLoader.icon(forFolder: folder))
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         Section("Sessions") {
@@ -96,9 +100,8 @@ struct ClaudeCodeApp: App {
                     }
             }
             if project.sessions.isEmpty {
-                Text("No agent running here yet.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Label("Notebook Setup", systemImage: AgentKind.claude.systemImage)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -137,7 +140,8 @@ struct ClaudeCodeApp: App {
             // running agent's PTY, so these are hidden rather than removed.
             ForEach(projects) { project in
                 ForEach(project.sessions) { session in
-                    AgentTerminal(directory: project.directory.path, agent: session.agent)
+                    AgentTerminal(directory: project.directory.path, agent: session.agent,
+                                  prompt: session.prompt)
                         .opacity(isVisible(session) ? 1 : 0)
                         .allowsHitTesting(isVisible(session))
                         .accessibilityHidden(!isVisible(session))
@@ -145,6 +149,12 @@ struct ClaudeCodeApp: App {
             }
             if entered == nil {
                 ProjectsHome(projects: projects, enter: enter, add: openProject, close: close)
+            } else if let project = needsIntake {
+                // An empty project has nothing to click, so it asks what it is instead.
+                ProjectIntake(project: project) { description in
+                    addSession(.claude, to: project,
+                               prompt: NotebookFormat.onboardingPrompt(description: description))
+                }
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
             } else if selection == nil {
@@ -156,6 +166,11 @@ struct ClaudeCodeApp: App {
 
     private func isVisible(_ session: CodeSession) -> Bool {
         entered != nil && selection == session.id.uuidString
+    }
+
+    /// A project with no notebook and no agent yet — the one case that starts a chat.
+    private var needsIntake: Project? {
+        enteredProject.flatMap { $0.hasNotebook || !$0.sessions.isEmpty ? nil : $0 }
     }
 
     private var selectedEntry: NotebookEntry? {
@@ -204,12 +219,12 @@ struct ClaudeCodeApp: App {
 
     // MARK: - Sessions
 
-    private func addSession(_ agent: AgentKind, to project: Project) {
+    private func addSession(_ agent: AgentKind, to project: Project, prompt: String? = nil) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         let existing = projects[index].sessions.filter { $0.agent == agent }.count
-        let session = CodeSession(agent: agent, title: "\(agent.displayName) \(existing + 1)")
-        projects[index].sessions.append(session)
-        selection = session.id.uuidString
+        let title = prompt == nil ? "\(agent.displayName) \(existing + 1)" : "Notebook Setup"
+        projects[index].sessions.append(CodeSession(agent: agent, title: title, prompt: prompt))
+        selection = projects[index].sessions.last?.id.uuidString
     }
 
     private func close(_ session: CodeSession, in project: Project) {

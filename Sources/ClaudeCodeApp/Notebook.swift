@@ -59,12 +59,22 @@ enum NotebookLoader {
                              children: children.filter { $0.id != page?.id })
     }
 
+    static func icon(forFolder folder: String) -> String {
+        switch folder {
+        case "roadmap": return "map"
+        case "projects": return "shippingbox"
+        case "tasks": return "checkmark.circle"
+        default: return "doc.text"
+        }
+    }
+
     private static func icon(for url: URL) -> String {
         let parts = url.pathComponents
         if parts.contains("memory") { return "brain" }
-        if parts.contains("roadmap") { return "map" }
-        if parts.contains("tasks") { return "checkmark.circle" }
-        if parts.contains("projects") { return "shippingbox" }
+        // `projects` before `tasks`, so a project someone named "tasks" still reads as one.
+        for folder in NotebookFormat.folders where parts.contains(folder) {
+            return icon(forFolder: folder)
+        }
         return "doc.text"
     }
 }

@@ -147,6 +147,42 @@ enum NotebookFormat {
         return formatter.string(from: Date())
     }
 
+    /// Opens the session an empty project starts with, seeded by what the user typed.
+    /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
+    /// point of an empty project is that nothing has been written to it yet — the
+    /// agent writes the first file.
+    static func onboardingPrompt(description: String) -> String {
+        """
+        This project has no notebook yet. We are going to start one together.
+
+        Here is what I want to build, in my words:
+
+        \(description)
+
+        Now talk it through with me — do not write any files during this part. Ask about
+        what is missing or ambiguous in what I just told you: the goal, who it is for,
+        the features, the constraints, what is explicitly out of scope, and what has to
+        happen before what. One focused question at a time, and keep going until you
+        could explain this project back to me without hand-waving.
+
+        Then show me the plan before you create anything: the roadmap entries, the
+        projects that get us there, which projects depend on which, and the tasks that
+        ship each one. Let me correct it.
+
+        Once I agree, create the notebook in .notebook/ here: write the format below
+        verbatim to .notebook/NOTEBOOK.md, then create the roadmap, project, memory and
+        task files it describes, filled in with what I told you and following its
+        frontmatter exactly.
+
+        Use only what I actually tell you. Where something is unknown, ask me or leave
+        the field empty — never invent goals, dates, owners or dependencies.
+
+        Here is the format to write verbatim to .notebook/NOTEBOOK.md, and then follow:
+
+        \(specText)
+        """
+    }
+
     static let specText = """
     # Notebook
 

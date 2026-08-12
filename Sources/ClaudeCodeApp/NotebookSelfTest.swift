@@ -47,11 +47,40 @@ enum NotebookSelfTest {
         precondition(projectRow.id == NotebookEntry.id(for: project.deletingLastPathComponent()),
                      "add(.project) selects the folder row by this id")
         precondition(projectRow.children!.map(\.title) == ["memory"])
+        // Icons come from the path, and memory sits under projects/ — it must win.
+        precondition(projectRow.icon == NotebookLoader.icon(forFolder: "projects"))
+        precondition(projectRow.children![0].children![0].icon == "brain")
         precondition(projectRow.children![0].children!.count == 1)
         precondition(NotebookLoader.find(NotebookEntry.id(for: first), in: tree)?.title == "wire-auth")
         // project.md + one memory + two tasks; bare folders are not pages.
         precondition(NotebookLoader.pageCount(tree) == 4)
 
+        // The onboarding prompt reaches the agent as a shell argument, and it is full of
+        // apostrophes, newlines, backticks and pipes. Round-trip it through a real shell.
+        let typed = "It's a CLI that syncs \"stuff\"\nfast; `now`"
+        let prompt = NotebookFormat.onboardingPrompt(description: typed)
+        precondition(prompt.contains(typed), "what the user typed reaches the agent")
+        precondition(prompt.contains("author's problem"), "the spec's apostrophes are what break quoting")
+        precondition(echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")
+        precondition(echo(AgentCommand.quoted("/a b'c")) == "/a b'c")
+        precondition(AgentCommand.line(directory: "/a b", agent: .claude, prompt: nil)
+                     == "cd '/a b' && exec claude")
+        precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
+                     == "cd '/a' && exec codex 'hi there'")
+
         print("notebook selftest ok")
+    }
+
+    /// What zsh actually passes to the agent for a given quoted argument.
+    private static func echo(_ quotedArgument: String) -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-c", "printf %s \(quotedArgument)"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try! process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 }

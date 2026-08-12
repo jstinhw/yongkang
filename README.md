@@ -21,7 +21,12 @@ project: sessions run in the project folder, the notebook is `.notebook/` inside
 
 Every project has a notebook. It stays empty until you add an entry — nothing is
 written to the folder before that, so opening a project never touches your repo.
-The first entry scaffolds:
+
+An empty project opens a compose box instead of a blank pane: describe what the
+project is for and press Return. That text starts a Claude Code session carrying the
+notebook format, primed to question you about the rest, show you a plan, and only
+then write `.notebook/`. The app writes nothing — the agent does, from what you told
+it. Entries look like:
 
 ```
 <project>/.notebook/
