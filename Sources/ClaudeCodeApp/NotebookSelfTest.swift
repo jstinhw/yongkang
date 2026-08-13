@@ -57,6 +57,15 @@ enum NotebookSelfTest {
 
         // The onboarding prompt reaches the agent as a shell argument, and it is full of
         // apostrophes, newlines, backticks and pipes. Round-trip it through a real shell.
+        // The agent copies paths straight out of the layout block. Every one has to be
+        // anchored to .notebook/, or it creates roadmap/ and tasks/ at the project root.
+        for folder in NotebookFormat.folders {
+            precondition(NotebookFormat.specText.contains(".notebook/\(folder)/"),
+                         "\(folder) is not anchored to .notebook/ in the spec")
+            precondition(!NotebookFormat.specText.contains("\n    \(folder)/"),
+                         "\(folder) still appears as a bare project-root path in the spec")
+        }
+
         let typed = "It's a CLI that syncs \"stuff\"\nfast; `now`"
         let prompt = NotebookFormat.onboardingPrompt(description: typed)
         precondition(prompt.contains(typed), "what the user typed reaches the agent")

@@ -169,15 +169,18 @@ enum NotebookFormat {
         projects that get us there, which projects depend on which, and the tasks that
         ship each one. Let me correct it.
 
-        Once I agree, create the notebook in .notebook/ here: write the format below
-        verbatim to .notebook/NOTEBOOK.md, then create the roadmap, project, memory and
-        task files it describes, filled in with what I told you and following its
-        frontmatter exactly.
+        Once I agree, write it all into `\(folderName)/` in this folder — every file this
+        produces goes in there and nowhere else. Do not create roadmap/, projects/ or
+        tasks/ at the project root, and leave everything outside `\(folderName)/` untouched.
+
+        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then create the
+        roadmap, project, memory and task files it describes, filled in with what I told
+        you and following its frontmatter exactly.
 
         Use only what I actually tell you. Where something is unknown, ask me or leave
         the field empty — never invent goals, dates, owners or dependencies.
 
-        Here is the format to write verbatim to .notebook/NOTEBOOK.md, and then follow:
+        Here is the format to write verbatim to `\(folderName)/\(specFile)`, and then follow:
 
         \(specText)
         """
@@ -191,14 +194,17 @@ enum NotebookFormat {
     with filesystem access can read and write it.
 
     This notebook belongs to the project folder holding it: it lives at
-    `<project>/.notebook/`, and the agents working on it run in `<project>`.
+    `<project>/\(folderName)/`, and the agents working on it run in `<project>`.
 
     ## Layout
 
-        roadmap/<id>.md               goals and bets — the why
-        projects/<id>/project.md      one project — the what
-        projects/<id>/memory/*.md     that project's memory: decisions, context, corrections
-        tasks/<id>.md                 shippable units of work — the how
+    Paths are relative to the project folder. Everything the notebook owns lives
+    under `\(folderName)/` — never write these at the project root.
+
+        \(folderName)/roadmap/<id>.md             goals and bets — the why
+        \(folderName)/projects/<id>/project.md    one project — the what
+        \(folderName)/projects/<id>/memory/*.md   that project's memory: decisions, context
+        \(folderName)/tasks/<id>.md               shippable units of work — the how
 
     Memory sits inside its project on purpose: it is archived, moved and handed off
     with the project, and one file per fact means several agents can write memory at
