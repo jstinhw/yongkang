@@ -17,6 +17,19 @@ struct Project: Identifiable, Equatable {
     var pageCount: Int { NotebookLoader.pageCount(entries) }
 }
 
+/// The open project list, as it survives a relaunch. Paths, not bookmarks: the app is
+/// not sandboxed, so a path is enough to reopen a folder the user already picked.
+enum OpenProjects {
+    static func encode(_ paths: [String]) -> String {
+        guard let data = try? JSONEncoder().encode(paths) else { return "[]" }
+        return String(data: data, encoding: .utf8) ?? "[]"
+    }
+
+    static func decode(_ text: String) -> [String] {
+        (try? JSONDecoder().decode([String].self, from: Data(text.utf8))) ?? []
+    }
+}
+
 struct CodeSession: Identifiable, Equatable {
     let id = UUID()
     let agent: AgentKind

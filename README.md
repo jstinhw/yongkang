@@ -14,6 +14,10 @@ A project is a folder. The app opens on the all-projects screen; click a card to
 one, `‹ All Projects` (⌘[) to leave. Agents keep running while you are away — terminals
 are hidden, never torn down.
 
+Open projects come back on the next launch. Only the folders are remembered, not the
+sessions — those PTYs died with the app — and a folder that has since moved is dropped
+from the list rather than shown broken.
+
 Inside a project the sidebar is its notebook and its sessions. Both belong to the
 project: sessions run in the project folder, the notebook is `.notebook/` inside it.
 

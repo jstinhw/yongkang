@@ -12,6 +12,9 @@ struct ClaudeCodeApp: App {
     @State private var entered: UUID?
     /// Notebook entries tag by file path, sessions by UUID string.
     @State private var selection: String?
+    /// Which folders were open last time. Sessions are not restored — the agents died
+    /// with the app — but the projects and their notebooks come back.
+    @AppStorage("openProjects") private var openProjects = "[]"
 
     // ponytail: poll instead of an FSEvents watcher. The agents in the sidebar write
     // these files while you watch them; re-listing a few dozen paths every 2s is less
@@ -33,6 +36,7 @@ struct ClaudeCodeApp: App {
                 detail
             }
             .frame(minWidth: 760, minHeight: 460)
+            .task { restore() }
             .onReceive(tick) { _ in reload() }
         }
         .windowToolbarStyle(.unified)
@@ -198,7 +202,25 @@ struct ClaudeCodeApp: App {
         let project = Project(directory: directory,
                               entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         projects.append(project)
+        persist()
         enter(project)
+    }
+
+    /// Reopens last session's folders, dropping any that have since been moved away.
+    private func restore() {
+        guard projects.isEmpty else { return }
+        projects = OpenProjects.decode(openProjects)
+            .filter { FileManager.default.fileExists(atPath: $0) }
+            .map { path in
+                let directory = URL(fileURLWithPath: path)
+                return Project(directory: directory,
+                               entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+            }
+        persist()
+    }
+
+    private func persist() {
+        openProjects = OpenProjects.encode(projects.map(\.directory.path))
     }
 
     private func enter(_ project: Project) {
@@ -214,6 +236,7 @@ struct ClaudeCodeApp: App {
 
     private func close(_ project: Project) {
         projects.removeAll { $0.id == project.id }
+        persist()
         if entered == project.id { leave() }
     }
 

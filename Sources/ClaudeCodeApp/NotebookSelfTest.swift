@@ -111,6 +111,12 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
                      == "cd '/a' && exec codex 'hi there'")
 
+        // The open-project list lives in defaults, where anything could be sitting.
+        let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]
+        precondition(OpenProjects.decode(OpenProjects.encode(paths)) == paths)
+        precondition(OpenProjects.decode("").isEmpty)
+        precondition(OpenProjects.decode("{\"not\": \"a list\"}").isEmpty)
+
         print("notebook selftest ok")
     }
 
