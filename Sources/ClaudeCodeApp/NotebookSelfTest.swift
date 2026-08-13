@@ -57,6 +57,40 @@ enum NotebookSelfTest {
 
         // The onboarding prompt reaches the agent as a shell argument, and it is full of
         // apostrophes, newlines, backticks and pipes. Round-trip it through a real shell.
+        // Frontmatter as agents actually write it: a title with a colon and commas, an
+        // inline dependency list, and a key the app has never heard of.
+        try! """
+        ---
+        id: tricky
+        kind: task
+        title: "Ship it: fast, cheap"
+        status: blocked
+        depends_on: [wire-auth, "gone-missing"]
+        project: launch-beta
+        target: ""
+        external: {}
+        ---
+
+        ## Done when
+        """.write(to: root.appendingPathComponent("tasks/tricky.md"), atomically: true, encoding: .utf8)
+        // No frontmatter at all — the board still has to place it.
+        try! "just notes\n".write(to: root.appendingPathComponent("roadmap/bare.md"),
+                                  atomically: true, encoding: .utf8)
+
+        let cards = NotebookIndex.load(root: root)
+        let tricky = cards.first { $0.id == "tricky" }!
+        precondition(tricky.title == "Ship it: fast, cheap")
+        precondition(tricky.status == "blocked")
+        precondition(tricky.dependsOn == ["wire-auth", "gone-missing"])
+        precondition(tricky.project == "launch-beta")
+        precondition(tricky.kind == .task)
+        let bare = cards.first { $0.url.lastPathComponent == "bare.md" }!
+        precondition(bare.id == "bare" && bare.title == "bare" && bare.kind == .roadmap,
+                     "a file without frontmatter falls back to its filename and folder")
+        precondition(cards.first { $0.id == "launch-beta" }?.kind == .project)
+        precondition(cards.contains { $0.kind == .memory && $0.project == "launch-beta" })
+        precondition(cards.count == NotebookLoader.pageCount(NotebookLoader.load(root: root)))
+
         // The agent copies paths straight out of the layout block. Every one has to be
         // anchored to .notebook/, or it creates roadmap/ and tasks/ at the project root.
         for folder in NotebookFormat.folders {

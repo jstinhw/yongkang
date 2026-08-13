@@ -78,6 +78,8 @@ struct ClaudeCodeApp: App {
     @ViewBuilder private func rows(for project: Project) -> some View {
         Section("Notebook") {
             if project.hasNotebook {
+                Label("Board", systemImage: "rectangle.split.3x1")
+                    .tag(boardID(project))
                 OutlineGroup(project.entries, children: \.children) { entry in
                     Label(entry.title, systemImage: entry.icon)
                         .tag(entry.id)
@@ -155,6 +157,10 @@ struct ClaudeCodeApp: App {
                     addSession(.claude, to: project,
                                prompt: NotebookFormat.onboardingPrompt(description: description))
                 }
+            } else if let project = enteredProject, selection == boardID(project) {
+                NotebookBoard(cards: project.cards) { url in
+                    selection = NotebookEntry.id(for: url)
+                }
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
             } else if selection == nil {
@@ -198,6 +204,7 @@ struct ClaudeCodeApp: App {
     private func enter(_ project: Project) {
         entered = project.id
         selection = nil
+        reload()
     }
 
     private func leave() {
@@ -210,10 +217,16 @@ struct ClaudeCodeApp: App {
         if entered == project.id { leave() }
     }
 
+    private func boardID(_ project: Project) -> String { "board:\(project.id.uuidString)" }
+
     private func reload() {
         for index in projects.indices {
             let entries = NotebookLoader.load(root: projects[index].notebookRoot)
             if entries != projects[index].entries { projects[index].entries = entries }
+            // Only the project you are inside pays for reading frontmatter.
+            guard projects[index].id == entered else { continue }
+            let cards = NotebookIndex.load(root: projects[index].notebookRoot)
+            if cards != projects[index].cards { projects[index].cards = cards }
         }
     }
 

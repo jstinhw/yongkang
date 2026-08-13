@@ -153,32 +153,44 @@ enum NotebookFormat {
     /// agent writes the first file.
     static func onboardingPrompt(description: String) -> String {
         """
-        This project has no notebook yet. We are going to start one together.
+        This project has no notebook yet. We are going to start one.
 
         Here is what I want to build, in my words:
 
         \(description)
 
-        Now talk it through with me — do not write any files during this part. Ask about
-        what is missing or ambiguous in what I just told you: the goal, who it is for,
-        the features, the constraints, what is explicitly out of scope, and what has to
-        happen before what. One focused question at a time, and keep going until you
-        could explain this project back to me without hand-waving.
+        First, ask me what you actually need to know — never as an open question. Come
+        with the answers already worked out: two to four concrete options, numbered,
+        your recommendation first and marked as such, so I can answer with a single
+        character. If none of them fit I will tell you.
 
-        Then show me the plan before you create anything: the roadmap entries, the
-        projects that get us there, which projects depend on which, and the tasks that
-        ship each one. Let me correct it.
+        Ask about what is missing or ambiguous in what I just told you: who it is for,
+        the features, the constraints, what is out of scope, and what has to happen
+        before what. One question at a time, a handful of them rather than an
+        interrogation, and write no files while we are talking.
 
-        Once I agree, write it all into `\(folderName)/` in this folder — every file this
-        produces goes in there and nowhere else. Do not create roadmap/, projects/ or
-        tasks/ at the project root, and leave everything outside `\(folderName)/` untouched.
+        Then write the notebook. Do not show me a plan first and do not wait for my
+        approval — I would rather read a real notebook than approve an imaginary one. I
+        will read it on the board and tell you what to change.
 
-        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then create the
-        roadmap, project, memory and task files it describes, filled in with what I told
-        you and following its frontmatter exactly.
+        It all goes into `\(folderName)/` in this folder — every file this produces goes in
+        there and nowhere else. Do not create roadmap/, projects/ or tasks/ at the
+        project root, and leave everything outside `\(folderName)/` untouched.
 
-        Use only what I actually tell you. Where something is unknown, ask me or leave
-        the field empty — never invent goals, dates, owners or dependencies.
+        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then the files it
+        describes, following its frontmatter exactly: my goals as roadmap entries, the
+        projects that get us there with `depends_on` where one blocks another, and the
+        tasks that ship each project, each carrying its `project:` and its own
+        `depends_on`. Order matters more than volume — the dependencies are what I am
+        going to read.
+
+        Where something is still vague once we have talked, make the call rather than
+        asking again, and record it: one memory entry in the project it affects, saying
+        what you assumed and why. Leave `owner` and any date empty rather than
+        inventing one.
+
+        When the files are written, stop and tell me in a few lines what you created and
+        which calls you made, then wait for my corrections.
 
         Here is the format to write verbatim to `\(folderName)/\(specFile)`, and then follow:
 

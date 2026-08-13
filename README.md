@@ -24,9 +24,10 @@ written to the folder before that, so opening a project never touches your repo.
 
 An empty project opens a compose box instead of a blank pane: describe what the
 project is for and press Return. That text starts a Claude Code session carrying the
-notebook format, primed to question you about the rest, show you a plan, and only
-then write `.notebook/`. The app writes nothing — the agent does, from what you told
-it. Entries look like:
+notebook format. It fills the gaps with a few multiple-choice questions — never open
+ones — then writes `.notebook/` without showing you a plan first — reading a real notebook on the board beats approving an
+imaginary one. Calls it had to make on your behalf land as memory entries, so they are
+visible and correctable. The app writes nothing; the agent does. Entries look like:
 
 ```
 <project>/.notebook/
@@ -41,6 +42,14 @@ Every entry is Markdown with YAML frontmatter (`id`, `kind`, `status`, `depends_
 `project`, `external`). Nothing else stores state, so the agents in the sidebar edit
 the notebook by editing files — no bridge, no API. The sidebar re-reads the tree every
 2s, so entries an agent writes show up on their own.
+
+## Board
+
+`Board` at the top of a project's notebook lays the three kinds out in columns, each
+ordered so nothing appears before what it depends on — the tasks column reads as the
+build order. Cards show status and what they wait on; an id nothing resolves to shows
+in orange, which is how you catch a typo in `depends_on`. Click a card to dim
+everything unrelated to it, and again to clear.
 
 Frontmatter keys are Notion properties, folders are databases, and `external.notion`
 holds the page id, so an exporter to Notion (or any third-party notebook) is a pure

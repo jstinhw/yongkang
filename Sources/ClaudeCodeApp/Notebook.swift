@@ -20,11 +20,15 @@ enum NotebookLoader {
         NotebookFormat.folders.compactMap { node(at: root.appendingPathComponent($0)) }
     }
 
-    static func pageCount(_ entries: [NotebookEntry]) -> Int {
-        entries.reduce(0) { total, entry in
-            total + (entry.url.pathExtension == "md" ? 1 : 0) + pageCount(entry.children ?? [])
+    /// Every Markdown page in the tree. Folder rows that carry a page (a project row
+    /// pointing at its project.md) count once, bare folders not at all.
+    static func pages(_ entries: [NotebookEntry]) -> [URL] {
+        entries.flatMap { entry in
+            (entry.url.pathExtension == "md" ? [entry.url] : []) + pages(entry.children ?? [])
         }
     }
+
+    static func pageCount(_ entries: [NotebookEntry]) -> Int { pages(entries).count }
 
     static func find(_ id: String, in entries: [NotebookEntry]) -> NotebookEntry? {
         for entry in entries {

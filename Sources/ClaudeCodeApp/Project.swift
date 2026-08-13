@@ -6,6 +6,8 @@ struct Project: Identifiable, Equatable {
     let id = UUID()
     let directory: URL
     var entries: [NotebookEntry] = []
+    /// Frontmatter for the board, read only while you are inside the project.
+    var cards: [NotebookCard] = []
     var sessions: [CodeSession] = []
 
     var name: String { directory.lastPathComponent }
