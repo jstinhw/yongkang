@@ -48,15 +48,21 @@ struct ClaudeCodeApp: App {
 
     @ViewBuilder private var sidebar: some View {
         if let project = enteredProject {
-            List(selection: $selection) { rows(for: project) }
-                .navigationTitle(project.name)
-                .toolbar {
-                    ToolbarItemGroup {
-                        Button("All Projects", systemImage: "chevron.left", action: leave)
-                            .keyboardShortcut("[")
-                        addMenu(for: project)
-                    }
+            List(selection: $selection) {
+                // A row rather than a toolbar icon: the way back has to be visible without
+                // hunting, and a lone chevron next to the New menu is not.
+                Button(action: leave) {
+                    Label("All Projects", systemImage: "chevron.left")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .keyboardShortcut("[")
+
+                rows(for: project)
+            }
+            .navigationTitle(project.name)
+            .toolbar { addMenu(for: project) }
         } else {
             List {
                 Section("Projects") {
