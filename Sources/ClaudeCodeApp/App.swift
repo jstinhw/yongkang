@@ -93,6 +93,7 @@ struct ClaudeCodeApp: App {
                 OutlineGroup(project.entries, children: \.children) { entry in
                     Label(entry.title, systemImage: entry.icon)
                         .tag(entry.id)
+                        .contextMenu { entryMenu(entry, in: project) }
                 }
             } else {
                 // The shape of what the agent is about to write. Untagged, so these are
@@ -116,6 +117,25 @@ struct ClaudeCodeApp: App {
                     .foregroundStyle(.tertiary)
             }
         }
+    }
+
+    /// Right-clicking a task in the tree assigns it, without going by way of the board.
+    @ViewBuilder private func entryMenu(_ entry: NotebookEntry, in project: Project) -> some View {
+        if let card = project.cards.first(where: { $0.url.path == entry.url.path }), card.kind == .task {
+            Button("Assign to Engineering Lead", systemImage: "person.2") {
+                assign([card], in: project)
+            }
+        }
+        Button("Reveal in Finder", systemImage: "folder") {
+            NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+        }
+    }
+
+    private func assign(_ tasks: [NotebookCard], in project: Project) {
+        guard !tasks.isEmpty else { return }
+        addSession(.claude, to: project,
+                   prompt: NotebookFormat.engineeringPrompt(tasks: tasks),
+                   title: "Engineering Lead")
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -165,12 +185,15 @@ struct ClaudeCodeApp: App {
                 // An empty project has nothing to click, so it asks what it is instead.
                 ProjectIntake(project: project) { description in
                     addSession(.claude, to: project,
-                               prompt: NotebookFormat.onboardingPrompt(description: description))
+                               prompt: NotebookFormat.onboardingPrompt(description: description),
+                               title: "Notebook Setup")
                 }
             } else if let project = enteredProject, selection == boardID(project) {
-                NotebookBoard(cards: project.cards) { url in
-                    selection = NotebookEntry.id(for: url)
-                }
+                NotebookBoard(
+                    cards: project.cards,
+                    open: { url in selection = NotebookEntry.id(for: url) },
+                    assign: { tasks in assign(tasks, in: project) }
+                )
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
             } else if selection == nil {
@@ -261,11 +284,15 @@ struct ClaudeCodeApp: App {
 
     // MARK: - Sessions
 
-    private func addSession(_ agent: AgentKind, to project: Project, prompt: String? = nil) {
+    private func addSession(_ agent: AgentKind, to project: Project,
+                            prompt: String? = nil, title: String? = nil) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
-        let existing = projects[index].sessions.filter { $0.agent == agent }.count
-        let title = prompt == nil ? "\(agent.displayName) \(existing + 1)" : "Notebook Setup"
-        projects[index].sessions.append(CodeSession(agent: agent, title: title, prompt: prompt))
+        // Second "Engineering Lead" becomes "Engineering Lead 2" — identical sidebar rows
+        // are unusable, and several leads at once is a normal thing to want.
+        let base = title ?? agent.displayName
+        let taken = projects[index].sessions.filter { $0.title == base || $0.title.hasPrefix(base + " ") }.count
+        let name = taken == 0 ? base : "\(base) \(taken + 1)"
+        projects[index].sessions.append(CodeSession(agent: agent, title: name, prompt: prompt))
         selection = projects[index].sessions.last?.id.uuidString
     }
 

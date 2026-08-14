@@ -55,6 +55,18 @@ build order. Cards show status and what they wait on; an id nothing resolves to 
 in orange, which is how you catch a typo in `depends_on`. Click a card to dim
 everything unrelated to it, and again to clear.
 
+## Shipping tasks
+
+Click any number of task cards and `Assign to Engineering Lead` starts a session that
+owns the batch: it reads each task file, hands the implementation to one subagent per
+task in dependency order, reviews what each returns against the task's "Done when",
+and sends back anything that falls short. It moves `status:` through `active` to
+`done` as it accepts work, then opens a PR with `gh` and stops — merging is yours.
+
+The engineers are that lead session's own subagents, not sibling terminals. Separate
+PTYs have no way to report back to a lead, so the review loop only closes inside one
+agent.
+
 Frontmatter keys are Notion properties, folders are databases, and `external.notion`
 holds the page id, so an exporter to Notion (or any third-party notebook) is a pure
 function over these files. `NOTEBOOK.md` spells out the mapping and the rules that keep

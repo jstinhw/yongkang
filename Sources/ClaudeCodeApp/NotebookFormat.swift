@@ -198,6 +198,52 @@ enum NotebookFormat {
         """
     }
 
+    /// Hands a batch of picked tasks to one lead session. The engineers are that
+    /// session's own subagents: separate PTYs would have no way to report back to it.
+    static func engineeringPrompt(tasks: [NotebookCard]) -> String {
+        let list = tasks.map { task in
+            var line = "- \(task.id) — \(task.title)\n  file: \(relativePath(task.url))"
+            if let project = task.project { line += "\n  project: \(project)" }
+            if !task.dependsOn.isEmpty { line += "\n  waits on: \(task.dependsOn.joined(separator: ", "))" }
+            return line
+        }.joined(separator: "\n")
+
+        return """
+        You are the engineering lead on this project. I picked these tasks out of the
+        notebook — ship them.
+
+        \(list)
+
+        Read each task file first: the body says what done means and the frontmatter says
+        what it waits on. Work in dependency order and never start a task whose blockers
+        are not done yet.
+
+        Delegate the implementation — do not write it yourself. Give each task to its own
+        subagent, with the task file and what done means, and run tasks that do not block
+        each other in parallel.
+
+        When a subagent reports back, review before you accept: read the diff and check it
+        does what the task says and nothing more. If it falls short, hand it back with what
+        is missing rather than fixing it yourself.
+
+        Keep the notebook true as you go — `status: active` when you hand a task out,
+        `status: done` only once you have accepted the work, and one memory entry in the
+        affected project for anything you learned that the next person would need.
+
+        When every task has passed your review, open the pull request: a branch, a commit
+        per task whose message says what it does, then `gh pr create` with a body listing
+        the tasks by notebook id. Then stop and tell me it is up for review. Do not merge
+        it — that call is mine. If `gh` is missing or not logged in, say so and leave the
+        branch pushed rather than guessing at another way.
+        """
+    }
+
+    /// `.notebook/tasks/x.md` — the agent runs in the project root, so give it that.
+    private static func relativePath(_ url: URL) -> String {
+        guard let range = url.path.range(of: "/\(folderName)/") else { return url.lastPathComponent }
+        return folderName + "/" + url.path[range.upperBound...]
+    }
+
     static let specText = """
     # Notebook
 

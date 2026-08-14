@@ -111,6 +111,18 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
                      == "cd '/a' && exec codex 'hi there'")
 
+        // Picked tasks reach the lead as a shell argument, titles and all.
+        let picked = cards.filter { $0.kind == .task }
+        precondition(picked.count >= 2)
+        let brief = NotebookFormat.engineeringPrompt(tasks: picked)
+        for task in picked {
+            precondition(brief.contains(task.id) && brief.contains(task.title))
+            precondition(brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
+                         "the lead needs a path it can open from the project root")
+        }
+        precondition(brief.contains("waits on: wire-auth"), "dependencies have to survive")
+        precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
+
         // The open-project list lives in defaults, where anything could be sitting.
         let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]
         precondition(OpenProjects.decode(OpenProjects.encode(paths)) == paths)

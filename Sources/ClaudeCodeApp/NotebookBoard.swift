@@ -5,19 +5,63 @@ import SwiftUI
 struct NotebookBoard: View {
     let cards: [NotebookCard]
     let open: (URL) -> Void
+    let assign: ([NotebookCard]) -> Void
 
-    @State private var selected: String?
+    @State private var selected: Set<String> = []
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            column("Roadmap", .roadmap)
+        // ponytail: no tap-to-clear on the background. A container tap gesture sitting
+        // under the cards is exactly what eats a click that should have selected one.
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                column("Roadmap", .roadmap)
+                Divider()
+                column("Projects", .project)
+                Divider()
+                column("Tasks", .task)
+            }
             Divider()
-            column("Projects", .project)
-            Divider()
-            column("Tasks", .task)
+            assignBar
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .onTapGesture { selected = nil }
+    }
+
+    /// Tasks are the only assignable kind — clicking a project does not enlist its work.
+    private var picked: [NotebookCard] {
+        ordered(cards.filter { $0.kind == .task && selected.contains($0.id) })
+    }
+
+    private var single: NotebookCard? {
+        selected.count == 1 ? cards.first { selected.contains($0.id) } : nil
+    }
+
+    /// Always on screen, so the action is discoverable before anything is picked and a
+    /// click that registers visibly changes something.
+    private var assignBar: some View {
+        HStack(spacing: 10) {
+            if picked.isEmpty {
+                Text("Click task cards to pick them for an engineering lead.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("\(picked.count) task\(picked.count == 1 ? "" : "s") picked")
+                    .font(.callout)
+                Text(picked.map(\.id).joined(separator: " → "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 12)
+            Button("Open File") { single.map { open($0.url) } }
+                .disabled(single == nil)
+            Button("Clear") { selected.removeAll() }
+                .disabled(selected.isEmpty)
+            Button("Assign to Engineering Lead") { assign(picked) }
+                .buttonStyle(.borderedProminent)
+                .disabled(picked.isEmpty)
+        }
+        .padding(12)
     }
 
     // MARK: - Columns
@@ -53,6 +97,15 @@ struct NotebookBoard: View {
     }
 
     private func view(of card: NotebookCard) -> some View {
+        // A Button, not a tap gesture: it consumes the click unambiguously and comes with
+        // keyboard and accessibility behaviour a gesture does not.
+        Button { selected.formSymmetricDifference([card.id]) } label: {
+            body(of: card)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func body(of card: NotebookCard) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(card.title)
@@ -67,34 +120,31 @@ struct NotebookBoard: View {
             if let blockers = blockers(of: card) {
                 blockers.font(.caption2)
             }
-            if selected == card.id {
-                Button("Open File") { open(card.url) }
-                    .controlSize(.small)
-            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(selected == card.id ? Color.accentColor : .clear)
+                .strokeBorder(selected.contains(card.id) ? Color.accentColor : .clear, lineWidth: 2)
         )
-        .opacity(selected == nil || related.contains(card.id) ? 1 : 0.3)
+        .opacity(selected.isEmpty || related.contains(card.id) ? 1 : 0.3)
         .contentShape(RoundedRectangle(cornerRadius: 8))
-        .onTapGesture { selected = selected == card.id ? nil : card.id }
     }
 
     // MARK: - Relationships
 
-    /// What the selected card touches: what it waits on, what waits on it, and the
-    /// project it belongs to (or, for a project, everything filed under it).
+    /// What the picked cards touch: what they wait on, what waits on them, and the
+    /// project they belong to (or, for a project, everything filed under it).
     private var related: Set<String> {
-        guard let selected, let card = cards.first(where: { $0.id == selected }) else { return [] }
-        var ids: Set<String> = [selected]
-        ids.formUnion(card.dependsOn)
-        ids.formUnion(cards.filter { $0.dependsOn.contains(selected) }.map(\.id))
-        ids.formUnion(cards.filter { $0.project == selected }.map(\.id))
-        if let project = card.project { ids.insert(project) }
+        guard !selected.isEmpty else { return [] }
+        var ids = selected
+        for card in cards where selected.contains(card.id) {
+            ids.formUnion(card.dependsOn)
+            if let project = card.project { ids.insert(project) }
+        }
+        ids.formUnion(cards.filter { $0.dependsOn.contains(where: selected.contains) }.map(\.id))
+        ids.formUnion(cards.filter { selected.contains($0.project ?? "") }.map(\.id))
         return ids
     }
 
