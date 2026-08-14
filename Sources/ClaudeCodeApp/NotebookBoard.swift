@@ -31,6 +31,11 @@ struct NotebookBoard: View {
         ordered(cards.filter { $0.kind == .task && selected.contains($0.id) })
     }
 
+    /// What actually gets shipped: the picks plus the unfinished work they wait on.
+    private var batch: [NotebookCard] {
+        NotebookIndex.withBlockers(picked, in: cards)
+    }
+
     private var single: NotebookCard? {
         selected.count == 1 ? cards.first { selected.contains($0.id) } : nil
     }
@@ -44,9 +49,10 @@ struct NotebookBoard: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                Text("\(picked.count) task\(picked.count == 1 ? "" : "s") picked")
+                let pulled = batch.count - picked.count
+                Text("\(picked.count) picked" + (pulled > 0 ? " · \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in" : ""))
                     .font(.callout)
-                Text(picked.map(\.id).joined(separator: " → "))
+                Text(batch.map(\.id).joined(separator: " → "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -57,9 +63,9 @@ struct NotebookBoard: View {
                 .disabled(single == nil)
             Button("Clear") { selected.removeAll() }
                 .disabled(selected.isEmpty)
-            Button("Assign to Engineering Lead") { assign(picked) }
+            Button("Assign to Engineering Lead") { assign(batch) }
                 .buttonStyle(.borderedProminent)
-                .disabled(picked.isEmpty)
+                .disabled(batch.isEmpty)
         }
         .padding(12)
     }
@@ -167,23 +173,8 @@ struct NotebookBoard: View {
         }
     }
 
-    // ponytail: Kahn's with ties left in file order, O(n²) over a column of cards. A
-    // cycle stops the sort and appends the rest rather than dropping anything.
     private func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
-        let present = Set(subset.map(\.id))
-        var remaining = subset
-        var placed: Set<String> = []
-        var result: [NotebookCard] = []
-
-        while !remaining.isEmpty {
-            let ready = remaining.filter { $0.dependsOn.filter(present.contains).allSatisfy(placed.contains) }
-            guard !ready.isEmpty else { return result + remaining }
-            result.append(contentsOf: ready)
-            placed.formUnion(ready.map(\.id))
-            let readyIDs = Set(ready.map(\.id))
-            remaining.removeAll { readyIDs.contains($0.id) }
-        }
-        return result
+        NotebookIndex.ordered(subset)
     }
 
     private func pill(_ status: String) -> some View {

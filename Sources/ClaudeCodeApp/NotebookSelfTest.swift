@@ -111,6 +111,22 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
                      == "cd '/a' && exec codex 'hi there'")
 
+        // A blocker is pulled into the batch rather than raised as a question.
+        func node(_ id: String, _ status: String, _ waits: [String]) -> NotebookCard {
+            NotebookCard(id: id, url: URL(fileURLWithPath: "/\(id).md"), kind: .task,
+                         title: id, status: status, project: nil, dependsOn: waits)
+        }
+        let graph = [node("a", "todo", ["b"]), node("b", "todo", ["c"]), node("c", "todo", []),
+                     node("d", "todo", ["done-one"]), node("done-one", "done", ["c"]),
+                     node("x", "todo", ["y"]), node("y", "todo", ["x"])]
+        precondition(NotebookIndex.withBlockers([graph[0]], in: graph).map(\.id) == ["c", "b", "a"],
+                     "blockers come along transitively, and ahead of what they block")
+        precondition(NotebookIndex.withBlockers([graph[3]], in: graph).map(\.id) == ["d"],
+                     "a finished blocker is not dragged back in, nor anything behind it")
+        precondition(Set(NotebookIndex.withBlockers([graph[5]], in: graph).map(\.id)) == ["x", "y"],
+                     "a dependency cycle terminates instead of hanging")
+        precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
+
         // Picked tasks reach the lead as a shell argument, titles and all.
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)

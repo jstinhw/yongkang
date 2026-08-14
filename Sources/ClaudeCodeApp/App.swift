@@ -131,10 +131,13 @@ struct ClaudeCodeApp: App {
         }
     }
 
+    /// Blockers come along whichever way the tasks were picked — expanding here means the
+    /// sidebar and the board cannot disagree about what a batch is.
     private func assign(_ tasks: [NotebookCard], in project: Project) {
-        guard !tasks.isEmpty else { return }
+        let batch = NotebookIndex.withBlockers(tasks, in: project.cards)
+        guard !batch.isEmpty else { return }
         addSession(.claude, to: project,
-                   prompt: NotebookFormat.engineeringPrompt(tasks: tasks),
+                   prompt: NotebookFormat.engineeringPrompt(tasks: batch),
                    title: "Engineering Lead")
     }
 

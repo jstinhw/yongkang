@@ -215,8 +215,13 @@ enum NotebookFormat {
         \(list)
 
         Read each task file first: the body says what done means and the frontmatter says
-        what it waits on. Work in dependency order and never start a task whose blockers
-        are not done yet.
+        what it waits on.
+
+        Work in dependency order, and never start a task whose blockers are not done. The
+        list above already includes the unfinished blockers of what I picked, so ship
+        those too. If you turn up another blocker that is not listed, pull it in and do it
+        first — do not stop to ask whether a blocker is in scope. It is: a task I asked
+        for is not shipped until the things it waits on are.
 
         Delegate the implementation — do not write it yourself. Give each task to its own
         subagent, with the task file and what done means, and run tasks that do not block

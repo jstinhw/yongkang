@@ -66,6 +66,43 @@ enum NotebookIndex {
             .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
+    /// The picked tasks plus every unfinished task they wait on, transitively. A blocker
+    /// is part of the job, not a question to put to the user.
+    static func withBlockers(_ picked: [NotebookCard], in cards: [NotebookCard]) -> [NotebookCard] {
+        let byID = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var chosen = Set(picked.map(\.id))
+        var queue = picked
+
+        while let card = queue.popLast() {
+            for id in card.dependsOn {
+                guard !chosen.contains(id), let blocker = byID[id],
+                      blocker.kind == .task, blocker.status != "done" else { continue }
+                chosen.insert(id)
+                queue.append(blocker)
+            }
+        }
+        return ordered(cards.filter { chosen.contains($0.id) })
+    }
+
+    // ponytail: Kahn's with ties left in file order, O(n²) over a handful of cards. A
+    // cycle stops the sort and appends the rest rather than dropping anything.
+    static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
+        let present = Set(subset.map(\.id))
+        var remaining = subset
+        var placed: Set<String> = []
+        var result: [NotebookCard] = []
+
+        while !remaining.isEmpty {
+            let ready = remaining.filter { $0.dependsOn.filter(present.contains).allSatisfy(placed.contains) }
+            guard !ready.isEmpty else { return result + remaining }
+            result.append(contentsOf: ready)
+            placed.formUnion(ready.map(\.id))
+            let readyIDs = Set(ready.map(\.id))
+            remaining.removeAll { readyIDs.contains($0.id) }
+        }
+        return result
+    }
+
     /// Fallback for a file whose frontmatter is missing or unreadable.
     private static func kind(from url: URL) -> EntryKind {
         let parts = url.pathComponents
