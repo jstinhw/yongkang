@@ -84,18 +84,24 @@ enum NotebookIndex {
         return ordered(cards.filter { chosen.contains($0.id) })
     }
 
-    // ponytail: Kahn's with ties left in file order, O(n²) over a handful of cards. A
-    // cycle stops the sort and appends the rest rather than dropping anything.
     static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
+        waves(subset).flatMap { $0 }
+    }
+
+    /// The same sort, kept in levels: everything in a wave can start once the waves before
+    /// it are done, which is what the board draws left to right.
+    // ponytail: Kahn's with ties left in file order, O(n²) over a handful of cards. A
+    // cycle stops the sort and lands the rest in one final wave rather than dropping any.
+    static func waves(_ subset: [NotebookCard]) -> [[NotebookCard]] {
         let present = Set(subset.map(\.id))
         var remaining = subset
         var placed: Set<String> = []
-        var result: [NotebookCard] = []
+        var result: [[NotebookCard]] = []
 
         while !remaining.isEmpty {
             let ready = remaining.filter { $0.dependsOn.filter(present.contains).allSatisfy(placed.contains) }
-            guard !ready.isEmpty else { return result + remaining }
-            result.append(contentsOf: ready)
+            guard !ready.isEmpty else { return result + [remaining] }
+            result.append(ready)
             placed.formUnion(ready.map(\.id))
             let readyIDs = Set(ready.map(\.id))
             remaining.removeAll { readyIDs.contains($0.id) }

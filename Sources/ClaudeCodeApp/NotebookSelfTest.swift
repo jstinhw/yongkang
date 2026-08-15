@@ -127,6 +127,27 @@ enum NotebookSelfTest {
                      "a dependency cycle terminates instead of hanging")
         precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
 
+        // Lanes are levels: everything in one can start once the lanes left of it are done.
+        precondition(NotebookIndex.waves(graph).map { $0.map(\.id) }
+                     == [["c"], ["b", "done-one"], ["a", "d"], ["x", "y"]],
+                     "a chain steps one lane at a time, and a cycle lands in the last lane")
+        precondition(NotebookIndex.waves([]).isEmpty)
+
+        // Clicking a project scopes the board to it, and takes the old scope's picks along.
+        let launch = cards.first { $0.id == "launch-beta" }!
+        let other = NotebookCard(id: "ship-ga", url: root, kind: .project, title: "GA",
+                                 status: "todo", project: nil, dependsOn: [])
+        let board = cards + [other]
+        let scoped = NotebookBoard.picking(launch, in: board, from: ["bare"])
+        precondition(scoped == ["bare", "launch-beta"], "a roadmap pick survives scoping")
+        let withTask = scoped.union(["tricky"])
+        precondition(NotebookBoard.picking(other, in: board, from: withTask) == ["bare", "ship-ga"],
+                     "swapping projects drops the picks that just left the task column")
+        precondition(NotebookBoard.picking(launch, in: board, from: withTask) == ["bare"],
+                     "clicking the scope again unscopes the board")
+        precondition(NotebookBoard.picking(tricky, in: board, from: withTask) == ["bare", "launch-beta"],
+                     "a task click toggles only itself")
+
         // Picked tasks reach the lead as a shell argument, titles and all.
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)
