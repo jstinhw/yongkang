@@ -106,7 +106,7 @@ struct ClaudeCodeApp: App {
         }
         Section("Sessions") {
             ForEach(project.sessions) { session in
-                Label(session.title, systemImage: session.agent.systemImage)
+                sessionRow(session)
                     .tag(session.id.uuidString)
                     .contextMenu {
                         Button("Close Session") { close(session, in: project) }
@@ -125,20 +125,48 @@ struct ClaudeCodeApp: App {
             Button("Assign to Engineering Lead", systemImage: "person.2") {
                 assign([card], in: project)
             }
+            .disabled(card.status == "done" || project.assignedTaskIDs.contains(card.id))
         }
         Button("Reveal in Finder", systemImage: "folder") {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
     }
 
+    /// A session's tasks, shown so you can tell what a lead is on without opening its
+    /// terminal. Two lines only for a session that was actually handed work.
+    @ViewBuilder private func sessionRow(_ session: CodeSession) -> some View {
+        if session.taskIDs.isEmpty {
+            Label(session.title, systemImage: session.icon)
+        } else {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(session.title, systemImage: session.icon)
+                Text(session.taskIDs.joined(separator: ", "))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+    }
+
     /// Blockers come along whichever way the tasks were picked — expanding here means the
-    /// sidebar and the board cannot disagree about what a batch is.
+    /// sidebar and the board cannot disagree about what a batch is. Also the one place that
+    /// excludes work a still-open lead session already has, so a task never goes to two
+    /// leads at once.
     private func assign(_ tasks: [NotebookCard], in project: Project) {
-        let batch = NotebookIndex.withBlockers(tasks, in: project.cards)
-        guard !batch.isEmpty else { return }
+        let batch = NotebookIndex.withBlockers(tasks, in: project.cards, excluding: project.assignedTaskIDs)
+        guard !batch.isEmpty else {
+            guard !tasks.isEmpty else { return }
+            let alert = NSAlert()
+            alert.messageText = "Nothing to assign"
+            alert.informativeText = "Every task here is already done, or already has an Engineering "
+                + "Lead on it — wait for that session to finish, or close it, before assigning again."
+            alert.runModal()
+            return
+        }
         addSession(.claude, to: project,
                    prompt: NotebookFormat.engineeringPrompt(tasks: batch),
-                   title: "Engineering Lead")
+                   title: "Engineering Lead", taskIDs: batch.map(\.id))
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -175,8 +203,7 @@ struct ClaudeCodeApp: App {
             // running agent's PTY, so these are hidden rather than removed.
             ForEach(projects) { project in
                 ForEach(project.sessions) { session in
-                    AgentTerminal(directory: project.directory.path, agent: session.agent,
-                                  prompt: session.prompt)
+                    AgentTerminal(line: session.line, label: session.title)
                         .opacity(isVisible(session) ? 1 : 0)
                         .allowsHitTesting(isVisible(session))
                         .accessibilityHidden(!isVisible(session))
@@ -194,8 +221,11 @@ struct ClaudeCodeApp: App {
             } else if let project = enteredProject, selection == boardID(project) {
                 NotebookBoard(
                     cards: project.cards,
+                    directory: project.directory,
+                    assigned: project.assignedTaskIDs,
                     open: { url in selection = NotebookEntry.id(for: url) },
-                    assign: { tasks in assign(tasks, in: project) }
+                    assign: { tasks in assign(tasks, in: project) },
+                    run: { card in runServices(card, in: project) }
                 )
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
@@ -288,15 +318,45 @@ struct ClaudeCodeApp: App {
     // MARK: - Sessions
 
     private func addSession(_ agent: AgentKind, to project: Project,
-                            prompt: String? = nil, title: String? = nil) {
+                            prompt: String? = nil, title: String? = nil, taskIDs: [String] = []) {
+        addSession(to: project, title: title ?? agent.displayName, icon: agent.systemImage,
+                   line: AgentCommand.line(directory: project.directory.path,
+                                           agent: agent, prompt: prompt),
+                   taskIDs: taskIDs)
+    }
+
+    private func addSession(to project: Project, title: String, icon: String, line: String,
+                            taskIDs: [String] = []) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         // Second "Engineering Lead" becomes "Engineering Lead 2" — identical sidebar rows
         // are unusable, and several leads at once is a normal thing to want.
-        let base = title ?? agent.displayName
-        let taken = projects[index].sessions.filter { $0.title == base || $0.title.hasPrefix(base + " ") }.count
-        let name = taken == 0 ? base : "\(base) \(taken + 1)"
-        projects[index].sessions.append(CodeSession(agent: agent, title: name, prompt: prompt))
+        let taken = projects[index].sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
+        let name = taken == 0 ? title : "\(title) \(taken + 1)"
+        projects[index].sessions.append(CodeSession(title: name, icon: icon, line: line, taskIDs: taskIDs))
         selection = projects[index].sessions.last?.id.uuidString
+    }
+
+    /// Everything the project needs to be looked at: one terminal per runnable repo, all
+    /// started together, because a front end reviewed without its service behind it is a
+    /// page of errors. Repos it cannot start are named rather than skipped in silence.
+    private func runServices(_ card: NotebookCard, in project: Project) {
+        let plan = Service.plan(for: card, in: project.directory)
+        for step in plan where step.command != nil {
+            addSession(to: project, title: "Run \(step.repo)", icon: "play.circle",
+                       line: AgentCommand.line(directory: step.directory.path, run: step.command!))
+        }
+        let stuck = plan.filter { $0.command == nil }
+        guard !stuck.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = plan.count == stuck.count ? "Nothing to run yet" : "Some repos did not start"
+        alert.informativeText = """
+        No start command found in: \(stuck.map(\.repo).joined(separator: ", ")).
+
+        A repo starts if it has a compose file, an npm dev/start script, Cargo.toml, \
+        go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
+        frontmatter to point at the folders that do.
+        """
+        alert.runModal()
     }
 
     private func close(_ session: CodeSession, in project: Project) {

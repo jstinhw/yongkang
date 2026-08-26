@@ -10,6 +10,9 @@ struct NotebookCard: Identifiable, Equatable {
     let status: String
     let project: String?
     let dependsOn: [String]
+    /// Projects only: the folders this work lands in, so the board can say what it touches
+    /// and the run button knows what to start. Empty means the project folder itself.
+    var repos: [String] = []
 }
 
 enum NotebookIndex {
@@ -29,7 +32,8 @@ enum NotebookIndex {
             title: fields["title"].flatMap { $0.isEmpty ? nil : $0 } ?? stem,
             status: fields["status"] ?? "",
             project: fields["project"].flatMap { $0.isEmpty ? nil : $0 },
-            dependsOn: list(fields["depends_on"] ?? "")
+            dependsOn: list(fields["depends_on"] ?? ""),
+            repos: list(fields["repos"] ?? "")
         )
     }
 
@@ -67,15 +71,20 @@ enum NotebookIndex {
     }
 
     /// The picked tasks plus every unfinished task they wait on, transitively. A blocker
-    /// is part of the job, not a question to put to the user.
-    static func withBlockers(_ picked: [NotebookCard], in cards: [NotebookCard]) -> [NotebookCard] {
+    /// is part of the job, not a question to put to the user. `excluding` keeps a task
+    /// already claimed by another Engineering Lead session out of the batch, whether it
+    /// was picked directly or would otherwise be pulled in as a blocker. A task already
+    /// `done` is dropped the same way — there is nothing left to assign it to do.
+    static func withBlockers(_ picked: [NotebookCard], in cards: [NotebookCard],
+                             excluding assigned: Set<String> = []) -> [NotebookCard] {
         let byID = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var chosen = Set(picked.map(\.id))
-        var queue = picked
+        let eligible = picked.filter { $0.status != "done" && !assigned.contains($0.id) }
+        var chosen = Set(eligible.map(\.id))
+        var queue = eligible
 
         while let card = queue.popLast() {
             for id in card.dependsOn {
-                guard !chosen.contains(id), let blocker = byID[id],
+                guard !chosen.contains(id), !assigned.contains(id), let blocker = byID[id],
                       blocker.kind == .task, blocker.status != "done" else { continue }
                 chosen.insert(id)
                 queue.append(blocker)

@@ -15,6 +15,9 @@ struct Project: Identifiable, Equatable {
     /// No `.notebook` on disk means no entries — the folder is left untouched.
     var hasNotebook: Bool { !entries.isEmpty }
     var pageCount: Int { NotebookLoader.pageCount(entries) }
+    /// Tasks an open session already has. The WIP set: assigning again while a lead is
+    /// still on a task would just hand it to a second one.
+    var assignedTaskIDs: Set<String> { Set(sessions.flatMap(\.taskIDs)) }
 }
 
 /// The open project list, as it survives a relaunch. Paths, not bookmarks: the app is
@@ -30,10 +33,14 @@ enum OpenProjects {
     }
 }
 
+/// A terminal in the sidebar. It holds the shell line rather than an agent, because a
+/// running service is the same thing to the window: a PTY in a directory.
 struct CodeSession: Identifiable, Equatable {
     let id = UUID()
-    let agent: AgentKind
     let title: String
-    /// Passed to the agent as its opening prompt when the session starts.
-    let prompt: String?
+    let icon: String
+    let line: String
+    /// Tasks this session was handed, in the order it was given them. Empty for anything
+    /// that is not an Engineering Lead — a plain session was not assigned work.
+    var taskIDs: [String] = []
 }

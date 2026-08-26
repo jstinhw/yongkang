@@ -127,11 +127,54 @@ enum NotebookSelfTest {
                      "a dependency cycle terminates instead of hanging")
         precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
 
+        // A task already claimed by another lead is not handed to a second one, whether it
+        // was picked directly or would otherwise be pulled in as a blocker.
+        precondition(NotebookIndex.withBlockers([graph[0]], in: graph, excluding: ["a"]).isEmpty,
+                     "an already-assigned pick is dropped, not reassigned")
+        precondition(NotebookIndex.withBlockers([graph[0]], in: graph, excluding: ["b"]).map(\.id) == ["a"],
+                     "an already-assigned blocker is not pulled in twice")
+        precondition(NotebookIndex.withBlockers([graph[4]], in: graph).isEmpty,
+                     "a task already done cannot be picked again, nor does it drag in its own blockers")
+
+        var wip = Project(directory: tmp)
+        wip.sessions = [CodeSession(title: "Engineering Lead", icon: "person.2", line: "", taskIDs: ["a", "b"]),
+                        CodeSession(title: "Engineering Lead 2", icon: "person.2", line: "", taskIDs: ["c"])]
+        precondition(wip.assignedTaskIDs == ["a", "b", "c"],
+                     "a project's WIP set is the union of its open sessions' tasks")
+
         // Lanes are levels: everything in one can start once the lanes left of it are done.
         precondition(NotebookIndex.waves(graph).map { $0.map(\.id) }
                      == [["c"], ["b", "done-one"], ["a", "d"], ["x", "y"]],
                      "a chain steps one lane at a time, and a cycle lands in the last lane")
         precondition(NotebookIndex.waves([]).isEmpty)
+
+        // A repo says how it starts, and compose wins over the app it brings up with it.
+        let repo = tmp.appendingPathComponent("web")
+        try! fm.createDirectory(at: repo, withIntermediateDirectories: true)
+        precondition(Service.command(in: repo) == nil, "an empty folder has nothing to run")
+        try! #"{"scripts": {"build": "tsc", "dev": "next dev"}, "dependencies": {"start": "1"}}"#
+            .write(to: repo.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+        precondition(Service.command(in: repo) == "npm run dev",
+                     "the script has to come out of scripts, not any key that reads like one")
+        try! "services:\n".write(to: repo.appendingPathComponent("compose.yaml"),
+                                 atomically: true, encoding: .utf8)
+        precondition(Service.command(in: repo) == "docker compose up",
+                     "compose starts the database the app needs, so it wins")
+        precondition(Service.directory("~/x", in: tmp).path == NSString(string: "~/x").expandingTildeInPath)
+        precondition(Service.directory("web", in: tmp).path == repo.path)
+
+        let hasRepos = NotebookCard(id: "p", url: tmp, kind: .project, title: "P", status: "todo",
+                                    project: nil, dependsOn: [], repos: ["web", "api"])
+        let plan = Service.plan(for: hasRepos, in: tmp)
+        precondition(plan.map(\.repo) == ["web", "api"])
+        precondition(plan[0].command == "docker compose up" && plan[1].command == nil,
+                     "a repo that is not there yet is reported, not dropped")
+        let noRepos = NotebookCard(id: "p", url: tmp, kind: .project, title: "P", status: "todo",
+                                   project: nil, dependsOn: [])
+        precondition(Service.plan(for: noRepos, in: tmp).map(\.directory.path) == [tmp.path],
+                     "a project without repos is its own folder")
+        precondition(AgentCommand.line(directory: "/a b", run: "npm run dev")
+                     == "cd '/a b' && npm run dev")
 
         // Clicking a project scopes the board to it, and takes the old scope's picks along.
         let launch = cards.first { $0.id == "launch-beta" }!

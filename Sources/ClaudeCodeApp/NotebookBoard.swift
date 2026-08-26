@@ -7,8 +7,14 @@ import SwiftUI
 /// relationship with.
 struct NotebookBoard: View {
     let cards: [NotebookCard]
+    /// The project folder, which is what `repos:` paths are relative to.
+    let directory: URL
+    /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
+    /// pickable for a new batch.
+    let assigned: Set<String>
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
+    let run: (NotebookCard) -> Void
 
     @State private var selected: Set<String> = []
 
@@ -37,9 +43,10 @@ struct NotebookBoard: View {
         NotebookIndex.ordered(cards.filter { $0.kind == .task && selected.contains($0.id) })
     }
 
-    /// What actually gets shipped: the picks plus the unfinished work they wait on.
+    /// What actually gets shipped: the picks plus the unfinished work they wait on, minus
+    /// anything a still-open lead session already has.
     private var batch: [NotebookCard] {
-        NotebookIndex.withBlockers(picked, in: cards)
+        NotebookIndex.withBlockers(picked, in: cards, excluding: assigned)
     }
 
     private var single: NotebookCard? {
@@ -181,13 +188,20 @@ struct NotebookBoard: View {
 
     // MARK: - Cards
 
+    @ViewBuilder
     private func view(of card: NotebookCard) -> some View {
-        // A Button, not a tap gesture: it consumes the click unambiguously and comes with
-        // keyboard and accessibility behaviour a gesture does not.
-        Button { selected = NotebookBoard.picking(card, in: cards, from: selected) } label: {
-            body(of: card)
+        if card.kind == .task && (assigned.contains(card.id) || card.status == "done") {
+            // Already has a lead on it, or already shipped — not a Button, so it cannot be
+            // picked into a batch that would just hand it out again.
+            body(of: card).opacity(0.6)
+        } else {
+            // A Button, not a tap gesture: it consumes the click unambiguously and comes with
+            // keyboard and accessibility behaviour a gesture does not.
+            Button { selected = NotebookBoard.picking(card, in: cards, from: selected) } label: {
+                body(of: card)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     /// One project at a time: picking a project swaps the scope rather than adding to it,
@@ -208,10 +222,13 @@ struct NotebookBoard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !card.status.isEmpty { pill(card.status) }
+                if assigned.contains(card.id) { pill("wip") }
+                if card.kind == .project { runButton(card) }
             }
             Text(subtitle(of: card))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+            if card.kind == .project { repos(of: card) }
             if let waits = edge("waits on ", card.dependsOn) { waits.font(.caption2) }
             if let blocks = edge("blocks ", dependents(of: card)) { blocks.font(.caption2) }
         }
@@ -224,6 +241,36 @@ struct NotebookBoard: View {
         )
         .opacity(selected.isEmpty || related.contains(card.id) ? 1 : 0.3)
         .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Starting the project is a click on the project, not a menu somewhere else. Borderless
+    /// inside the card's own Button so it takes the click rather than selecting the card.
+    private func runButton(_ card: NotebookCard) -> some View {
+        Button { run(card) } label: {
+            Image(systemName: "play.fill").font(.caption2)
+        }
+        .buttonStyle(.borderless)
+        .help("Run this project's services")
+    }
+
+    /// What the work touches, and whether it can be started. A repo that is not on disk
+    /// yet — the usual state before anything is scaffolded — says so in orange rather than
+    /// looking like a repo with nothing to run.
+    private func repos(of card: NotebookCard) -> some View {
+        let plan = Service.plan(for: card, in: directory)
+        return VStack(alignment: .leading, spacing: 3) {
+            ForEach(plan, id: \.repo) { step in
+                let missing = !FileManager.default.fileExists(atPath: step.directory.path)
+                HStack(spacing: 4) {
+                    Image(systemName: missing ? "questionmark.folder" : "folder")
+                    Text(step.repo)
+                    Text(missing ? "not created yet" : (step.command ?? "nothing to run"))
+                        .foregroundStyle(missing || step.command == nil ? Color.orange : .secondary)
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: - Relationships
@@ -281,6 +328,7 @@ struct NotebookBoard: View {
         case "done": return .green
         case "active": return .blue
         case "blocked": return .orange
+        case "wip": return .purple
         default: return .gray
         }
     }

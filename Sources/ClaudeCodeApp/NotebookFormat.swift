@@ -97,6 +97,7 @@ enum NotebookFormat {
             fields.append(("depends_on", "[]"))
             fields.append(("owner", "\"\""))
         }
+        if kind == .project { fields.append(("repos", "[]")) }
         fields.append(contentsOf: [("created", day), ("updated", day), ("external", "{}")])
 
         let front = fields.map { "\($0.0): \($0.1)" }.joined(separator: "\n")
@@ -179,9 +180,9 @@ enum NotebookFormat {
 
         Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then the files it
         describes, following its frontmatter exactly: my goals as roadmap entries, the
-        projects that get us there with `depends_on` where one blocks another, and the
-        tasks that ship each project, each carrying its `project:` and its own
-        `depends_on`. Order matters more than volume — the dependencies are what I am
+        projects that get us there with `depends_on` where one blocks another and `repos`
+        naming the folders each one's work lands in, and the tasks that ship each project,
+        each carrying its `project:` and its own `depends_on`. Order matters more than volume — the dependencies are what I am
         going to read.
 
         Where something is still vague once we have talked, make the call rather than
@@ -235,7 +236,9 @@ enum NotebookFormat {
 
         Keep the notebook true as you go — `status: active` when you hand a task out,
         `status: done` only once you have accepted the work, and one memory entry in the
-        affected project for anything you learned that the next person would need.
+        affected project for anything you learned that the next person would need. If the
+        work lands in a folder the project's `repos:` does not list, add it: that key is
+        what lets the project be started and reviewed.
 
         Some tasks need something that lives in my accounts — a Vercel or GitHub login, a
         dashboard-provisioned database, a secret, a paid plan. Those are the only things
@@ -296,6 +299,8 @@ enum NotebookFormat {
         title: "One line"
         status: todo | active | blocked | done     (not on memory)
         depends_on: []      ids that must land first (not on memory)
+        repos: []           projects only — folders the work lands in, relative to the
+                            project folder: [.] for the folder itself, [web, api] for two
         project: <id>       tasks and memory only
         owner: ""           free text — the format fixes no roles
         created: YYYY-MM-DD
@@ -315,6 +320,14 @@ enum NotebookFormat {
     `depends_on` holds ids and crosses kinds freely: a task may depend on another
     task, a project on another project. Nothing enforces acyclicity — that is the
     author's problem.
+
+    ## Repos
+
+    A project's `repos` are the folders its work lands in: one for an app that is its
+    own folder, several when a web app and the service behind it are separate. Fill it
+    in — it is what says which code a project touches before anyone opens it, and the
+    board starts each folder the way the folder itself says to (a compose file, an npm
+    `dev` script, Cargo, go, a Makefile `dev` target).
 
     ## Memory
 

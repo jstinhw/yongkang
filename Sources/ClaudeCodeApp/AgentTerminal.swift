@@ -21,15 +21,21 @@ enum AgentCommand {
         let start = prompt.map { "exec \(agent.command) \(quoted($0))" } ?? "exec \(agent.command)"
         return "cd \(quoted(directory)) && \(start)"
     }
+
+    /// A service is whatever the repo starts with, so no `exec` — the command may be a
+    /// pipeline or a shell function, and the login shell has to stay around to run it.
+    static func line(directory: String, run command: String) -> String {
+        "cd \(quoted(directory)) && \(command)"
+    }
 }
 
-/// A real PTY running the selected coding agent in the chosen directory.
+/// A real PTY running one shell line in the chosen directory.
 struct AgentTerminal: NSViewRepresentable {
-    let directory: String
-    let agent: AgentKind
-    let prompt: String?
+    let line: String
+    /// Named in the exit notice, so a dead process says which one it was.
+    let label: String
 
-    func makeCoordinator() -> Coordinator { Coordinator(agent: agent) }
+    func makeCoordinator() -> Coordinator { Coordinator(label: label) }
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         // Non-zero frame matters: a 0x0 terminal starts the PTY at 0 columns and the TUI dies.
@@ -39,7 +45,7 @@ struct AgentTerminal: NSViewRepresentable {
         // agent CLIs commonly live in ~/.local/bin or nvm paths exported from .zshrc.
         view.startProcess(
             executable: "/bin/zsh",
-            args: ["-ilc", AgentCommand.line(directory: directory, agent: agent, prompt: prompt)],
+            args: ["-ilc", line],
             environment: Terminal.getEnvironmentVariables(termName: "xterm-256color", trueColor: true)
         )
         return view
@@ -52,15 +58,15 @@ struct AgentTerminal: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
-        private let agent: AgentKind
+        private let label: String
 
-        init(agent: AgentKind) {
-            self.agent = agent
+        init(label: String) {
+            self.label = label
         }
 
         func processTerminated(source: TerminalView, exitCode: Int32?) {
             let code = exitCode.map(String.init) ?? "?"
-            source.feed(text: "\r\n\u{1b}[33m[\(agent.displayName) exited (\(code)) — pick the folder again to restart]\u{1b}[0m\r\n")
+            source.feed(text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
         }
 
         func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
