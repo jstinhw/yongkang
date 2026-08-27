@@ -104,6 +104,15 @@ struct ClaudeCodeApp: App {
                 }
             }
         }
+        let preview = previewRows(for: project)
+        if !preview.isEmpty {
+            Section("Preview") {
+                ForEach(preview, id: \.id) { row in
+                    Label(row.repo, systemImage: "play.rectangle")
+                        .tag(row.id)
+                }
+            }
+        }
         Section("Sessions") {
             ForEach(project.sessions) { session in
                 sessionRow(session)
@@ -227,6 +236,10 @@ struct ClaudeCodeApp: App {
                     assign: { tasks in assign(tasks, in: project) },
                     run: { card in runServices(card, in: project) }
                 )
+            } else if let project = enteredProject, let step = previewStep(in: project) {
+                ProjectPreview(repo: step.repo, services: step.services,
+                               run: { runServices([step], in: project) })
+                    .id(selection)
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
             } else if selection == nil {
@@ -304,6 +317,29 @@ struct ClaudeCodeApp: App {
 
     private func boardID(_ project: Project) -> String { "board:\(project.id.uuidString)" }
 
+    private func previewID(_ project: Project, _ directory: URL) -> String {
+        "preview:\(project.id.uuidString):\(directory.path)"
+    }
+
+    /// One sidebar row per repo actually on disk, deduped across every notebook project.
+    private func previewRows(for project: Project)
+        -> [(id: String, repo: String, directory: URL, services: [Service.Runnable])] {
+        let steps = project.cards.filter { $0.kind == .project }
+            .flatMap { Service.plan(for: $0, in: project.directory) }
+        return Service.dedupedByDirectory(steps).map { step in
+            (id: previewID(project, step.directory), repo: step.repo,
+             directory: step.directory, services: step.services)
+        }
+    }
+
+    /// The repo a preview tag points at, or nil if `selection` is not one.
+    private func previewStep(in project: Project)
+        -> (repo: String, directory: URL, services: [Service.Runnable])? {
+        guard let selection else { return nil }
+        guard let row = previewRows(for: project).first(where: { $0.id == selection }) else { return nil }
+        return (row.repo, row.directory, row.services)
+    }
+
     private func reload() {
         for index in projects.indices {
             let entries = NotebookLoader.load(root: projects[index].notebookRoot)
@@ -336,25 +372,49 @@ struct ClaudeCodeApp: App {
         selection = projects[index].sessions.last?.id.uuidString
     }
 
-    /// Everything the project needs to be looked at: one terminal per runnable repo, all
-    /// started together, because a front end reviewed without its service behind it is a
-    /// page of errors. Repos it cannot start are named rather than skipped in silence.
+    /// Every service in a project's repos, started at once — the board's "run the whole
+    /// project" action.
     private func runServices(_ card: NotebookCard, in project: Project) {
-        let plan = Service.plan(for: card, in: project.directory)
-        for step in plan where step.command != nil {
-            addSession(to: project, title: "Run \(step.repo)", icon: "play.circle",
-                       line: AgentCommand.line(directory: step.directory.path, run: step.command!))
+        runServices(Service.plan(for: card, in: project.directory), in: project)
+    }
+
+    /// One terminal per runnable service, all started together, because a front end
+    /// reviewed without its service behind it is a page of errors. A service named after
+    /// its repo (the common single-app case) keeps that name; one of several under a repo
+    /// is named `repo/service`. Anything with nothing to run is named rather than skipped
+    /// in silence.
+    ///
+    /// A service already running is shown, not started again: a second `npm run dev`
+    /// fights the first one for its port, and the loser exits — which is exactly what was
+    /// pushing a "default to :3000" preview onto whatever port the collision left it on.
+    private func runServices(_ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
+                             in project: Project) {
+        let named = steps.flatMap { step in
+            step.services.map { service in
+                (label: service.name == step.repo ? step.repo : "\(step.repo)/\(service.name)",
+                 directory: service.directory, command: service.command)
+            }
         }
-        let stuck = plan.filter { $0.command == nil }
+        for service in named where service.command != nil {
+            let title = "Run \(service.label)"
+            if let running = project.sessions.first(where: { $0.title == title }) {
+                selection = running.id.uuidString
+                continue
+            }
+            addSession(to: project, title: title, icon: "play.circle",
+                       line: AgentCommand.line(directory: service.directory.path, run: service.command!))
+        }
+        let stuck = named.filter { $0.command == nil }
         guard !stuck.isEmpty else { return }
         let alert = NSAlert()
-        alert.messageText = plan.count == stuck.count ? "Nothing to run yet" : "Some repos did not start"
+        alert.messageText = named.count == stuck.count ? "Nothing to run yet" : "Some services did not start"
         alert.informativeText = """
-        No start command found in: \(stuck.map(\.repo).joined(separator: ", ")).
+        No start command found in: \(stuck.map(\.label).joined(separator: ", ")).
 
-        A repo starts if it has a compose file, an npm dev/start script, Cargo.toml, \
+        A service starts if it has a compose file, an npm dev/start script, Cargo.toml, \
         go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
-        frontmatter to point at the folders that do.
+        frontmatter to point at the folders that do, or split a repo that holds more than \
+        one app into `apps/` or `services/` subfolders so each is found on its own.
         """
         alert.runModal()
     }

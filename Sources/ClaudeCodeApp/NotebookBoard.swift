@@ -264,13 +264,22 @@ struct NotebookBoard: View {
                 HStack(spacing: 4) {
                     Image(systemName: missing ? "questionmark.folder" : "folder")
                     Text(step.repo)
-                    Text(missing ? "not created yet" : (step.command ?? "nothing to run"))
-                        .foregroundStyle(missing || step.command == nil ? Color.orange : .secondary)
+                    Text(missing ? "not created yet" : summary(step.services))
+                        .foregroundStyle(missing || step.services.allSatisfy { $0.command == nil }
+                                        ? Color.orange : .secondary)
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// One service reads as its command; several read as a count — the repo card is a
+    /// summary, the preview tab is where each one gets its own line.
+    private func summary(_ services: [Service.Runnable]) -> String {
+        guard services.count > 1 else { return services.first?.command ?? "nothing to run" }
+        let runnable = services.filter { $0.command != nil }.count
+        return "\(services.count) services" + (runnable < services.count ? " (\(runnable) runnable)" : "")
     }
 
     // MARK: - Relationships

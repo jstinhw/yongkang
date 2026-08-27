@@ -329,6 +329,13 @@ enum NotebookFormat {
     board starts each folder the way the folder itself says to (a compose file, an npm
     `dev` script, Cargo, go, a Makefile `dev` target).
 
+    A repo holding more than one app is a monorepo, not one blob to start with a single
+    command: put each independently-runnable app under its own folder in `apps/` (or
+    `services/`), each with its own start command, so a web frontend and the API behind
+    it come up and get reviewed separately. A compose file naming its services works too —
+    either way, each app is found and started on its own, not lumped into whatever one
+    command the repo root happens to have.
+
     ## Memory
 
     One fact or decision per file, named `YYYY-MM-DD-<slug>.md`. Append; do not

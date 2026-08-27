@@ -162,17 +162,60 @@ enum NotebookSelfTest {
                      "compose starts the database the app needs, so it wins")
         precondition(Service.directory("~/x", in: tmp).path == NSString(string: "~/x").expandingTildeInPath)
         precondition(Service.directory("web", in: tmp).path == repo.path)
+        precondition(Service.isFrontend(repo), "a package.json is the preview's frontend signal")
+        precondition(!Service.isFrontend(tmp.appendingPathComponent("api")),
+                     "a repo with no package.json is not treated as a frontend app")
 
         let hasRepos = NotebookCard(id: "p", url: tmp, kind: .project, title: "P", status: "todo",
                                     project: nil, dependsOn: [], repos: ["web", "api"])
         let plan = Service.plan(for: hasRepos, in: tmp)
         precondition(plan.map(\.repo) == ["web", "api"])
-        precondition(plan[0].command == "docker compose up" && plan[1].command == nil,
+        precondition(plan[0].services.count == 1 && plan[1].services.count == 1,
+                     "no monorepo split and no named compose services is one service each")
+        precondition(plan[0].services.first?.command == "docker compose up" && plan[1].services.first?.command == nil,
                      "a repo that is not there yet is reported, not dropped")
         let noRepos = NotebookCard(id: "p", url: tmp, kind: .project, title: "P", status: "todo",
                                    project: nil, dependsOn: [])
         precondition(Service.plan(for: noRepos, in: tmp).map(\.directory.path) == [tmp.path],
                      "a project without repos is its own folder")
+
+        // Several notebook projects with no repos: of their own all fall back to the same
+        // project root — that must collapse to one preview row, not one per project.
+        let sameFolder = [noRepos, noRepos, noRepos].flatMap { Service.plan(for: $0, in: tmp) }
+        precondition(sameFolder.count == 3, "the bug reproduces: three project cards, three plan entries")
+        precondition(Service.dedupedByDirectory(sameFolder).count == 1,
+                     "three project cards pointing at the same folder is one preview, not three")
+        let twoRepos = NotebookCard(id: "p2", url: tmp, kind: .project, title: "P2", status: "todo",
+                                    project: nil, dependsOn: [], repos: ["web", "api"])
+        let mixed = Service.dedupedByDirectory(sameFolder + Service.plan(for: twoRepos, in: tmp))
+        precondition(mixed.map(\.repo) == [tmp.lastPathComponent, "web", "api"],
+                     "a distinct repo is kept, only the duplicate root collapses")
+
+        // A monorepo's apps/ folder names each service on its own, independently runnable.
+        let mono = tmp.appendingPathComponent("mono")
+        try! fm.createDirectory(at: mono.appendingPathComponent("apps/api"), withIntermediateDirectories: true)
+        try! fm.createDirectory(at: mono.appendingPathComponent("apps/web"), withIntermediateDirectories: true)
+        try! "module x\n".write(to: mono.appendingPathComponent("apps/api/go.mod"), atomically: true, encoding: .utf8)
+        try! #"{"scripts": {"dev": "next dev"}}"#
+            .write(to: mono.appendingPathComponent("apps/web/package.json"), atomically: true, encoding: .utf8)
+        let monoServices = Service.services(in: mono)
+        precondition(monoServices.map(\.name) == ["api", "web"], "apps/ names each service, sorted")
+        precondition(monoServices.map(\.command) == ["go run .", "npm run dev"])
+
+        // A compose file names its own services too, one `docker compose up <name>` each.
+        let composed = tmp.appendingPathComponent("composed")
+        try! fm.createDirectory(at: composed, withIntermediateDirectories: true)
+        try! "services:\n  web:\n    build: .\n  worker:\n    build: ./worker\n"
+            .write(to: composed.appendingPathComponent("docker-compose.yml"), atomically: true, encoding: .utf8)
+        let composedServices = Service.services(in: composed)
+        precondition(composedServices.map(\.name) == ["web", "worker"], "compose names its own services")
+        precondition(composedServices.map(\.command) == ["docker compose up web", "docker compose up worker"])
+
+        // apps/ is the more specific signal — it wins even when a root compose file is also there.
+        try! "services:\n  db:\n    image: postgres\n"
+            .write(to: mono.appendingPathComponent("docker-compose.yml"), atomically: true, encoding: .utf8)
+        precondition(Service.services(in: mono).map(\.name) == ["api", "web"],
+                     "a monorepo split wins over a root compose file")
         precondition(AgentCommand.line(directory: "/a b", run: "npm run dev")
                      == "cd '/a b' && npm run dev")
 
