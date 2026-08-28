@@ -36,11 +36,31 @@ enum OpenProjects {
 /// A terminal in the sidebar. It holds the shell line rather than an agent, because a
 /// running service is the same thing to the window: a PTY in a directory.
 struct CodeSession: Identifiable, Equatable {
-    let id = UUID()
+    let id: UUID
     let title: String
     let icon: String
     let line: String
     /// Tasks this session was handed, in the order it was given them. Empty for anything
     /// that is not an Engineering Lead — a plain session was not assigned work.
     var taskIDs: [String] = []
+    /// Set once the underlying process exits — a dead session is never routed more work.
+    var exited: Bool = false
+    /// Subagents this session has spawned, read off its own Claude Code transcript on
+    /// disk. Always empty for Codex and service-runner sessions — they never get a
+    /// matching `--session-id`, so there is nothing on disk to find.
+    var subagents: [SubagentStatus] = []
+
+    /// Explicit, rather than the synthesized memberwise init, because `id` needs to be
+    /// settable: the caller has to hand in the same UUID it passed Claude Code as
+    /// `--session-id`, so this row's id is the key that finds that session's transcript.
+    init(id: UUID = UUID(), title: String, icon: String, line: String,
+         taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = []) {
+        self.id = id
+        self.title = title
+        self.icon = icon
+        self.line = line
+        self.taskIDs = taskIDs
+        self.exited = exited
+        self.subagents = subagents
+    }
 }

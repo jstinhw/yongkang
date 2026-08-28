@@ -12,6 +12,13 @@ struct ClaudeCodeApp: App {
     @State private var entered: UUID?
     /// Notebook entries tag by file path, sessions by UUID string.
     @State private var selection: String?
+    /// Text queued to be typed into a running session, keyed by session id — how a task
+    /// reaches a lead that already exists instead of starting a competing one.
+    @State private var pendingInput: [UUID: String] = [:]
+    /// The lines of whichever subagent `selection` currently points at. Kept apart from
+    /// `CodeSession.subagents`, which only ever holds each one's status, because reading
+    /// and parsing a whole transcript is only worth doing for the one actually on screen.
+    @State private var subagentTranscript: [ClaudeTranscripts.TranscriptLine] = []
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
@@ -141,27 +148,84 @@ struct ClaudeCodeApp: App {
         }
     }
 
-    /// A session's tasks, shown so you can tell what a lead is on without opening its
-    /// terminal. Two lines only for a session that was actually handed work.
+    /// A session's tasks and any subagents it has spawned, shown so you can tell what a
+    /// lead is doing without opening its terminal. One line only for a plain session.
     @ViewBuilder private func sessionRow(_ session: CodeSession) -> some View {
-        if session.taskIDs.isEmpty {
+        if session.taskIDs.isEmpty && session.subagents.isEmpty {
             Label(session.title, systemImage: session.icon)
         } else {
             VStack(alignment: .leading, spacing: 2) {
                 Label(session.title, systemImage: session.icon)
-                Text(session.taskIDs.joined(separator: ", "))
-                    .font(.caption2)
+                if !session.taskIDs.isEmpty {
+                    Text(session.taskIDs.joined(separator: ", "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                ForEach(session.subagents) { subagentRow($0, in: session) }
+            }
+        }
+    }
+
+    /// One line per subagent a lead has spawned — a dot while it is still running, a check
+    /// once the lead's own transcript has a result for it. Clicking one always lands on
+    /// that exact subagent's own parsed transcript — nothing in Claude Code's CLI can be
+    /// scripted to jump straight to one specific subagent by id (`/tasks` only auto-opens
+    /// a detail view when it is the *only* task running; with more than one, which is the
+    /// normal case for a lead mid-batch, it shows a picker no matter what is sent to it).
+    /// The terminal button is the live-TUI attempt: exact when there is just the one
+    /// subagent, a list to pick from otherwise.
+    private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
+        Button {
+            selection = subagentTag(session, subagent)
+            reload()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: subagent.running ? "circle.dotted" : "checkmark.circle")
+                    .foregroundStyle(subagent.running ? Color.accentColor : Color.secondary)
+                Text(subagent.description)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                Spacer(minLength: 4)
+                liveTerminalButton(subagent, in: session)
+            }
+            .font(.caption2)
+            .padding(.leading, 14)
+        }
+        .buttonStyle(.plain)
+        .help(subagent.agentType)
+        .contextMenu {
+            Button("Reveal Transcript in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([subagent.transcriptURL])
             }
         }
+    }
+
+    /// Borderless inside the row's own Button so it takes the click rather than selecting
+    /// the row underneath it — the same trick the board's run button uses. Brings the
+    /// lead's terminal forward and sends `/tasks`, Claude Code's own best-effort attempt at
+    /// switching to a subagent — exact with one subagent running, a picker with several.
+    private func liveTerminalButton(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
+        Button {
+            selection = session.id.uuidString
+            pendingInput[session.id] = "/tasks"
+        } label: {
+            Image(systemName: "terminal")
+        }
+        .buttonStyle(.borderless)
+        .help("Try opening in the live terminal (\(subagent.description))")
     }
 
     /// Blockers come along whichever way the tasks were picked — expanding here means the
     /// sidebar and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work a still-open lead session already has, so a task never goes to two
     /// leads at once.
+    ///
+    /// A lead that is still running is talked to, not duplicated: the new batch is typed
+    /// into its own terminal as a follow-up message, the same as telling a person who is
+    /// already working "also pick these up" rather than hiring a second lead.
     private func assign(_ tasks: [NotebookCard], in project: Project) {
         let batch = NotebookIndex.withBlockers(tasks, in: project.cards, excluding: project.assignedTaskIDs)
         guard !batch.isEmpty else {
@@ -171,6 +235,12 @@ struct ClaudeCodeApp: App {
             alert.informativeText = "Every task here is already done, or already has an Engineering "
                 + "Lead on it — wait for that session to finish, or close it, before assigning again."
             alert.runModal()
+            return
+        }
+        if let lead = project.sessions.first(where: { $0.title.hasPrefix("Engineering Lead") && !$0.exited }) {
+            appendTaskIDs(batch.map(\.id), to: lead, in: project)
+            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch)
+            selection = lead.id.uuidString
             return
         }
         addSession(.claude, to: project,
@@ -212,7 +282,9 @@ struct ClaudeCodeApp: App {
             // running agent's PTY, so these are hidden rather than removed.
             ForEach(projects) { project in
                 ForEach(project.sessions) { session in
-                    AgentTerminal(line: session.line, label: session.title)
+                    AgentTerminal(line: session.line, label: session.title,
+                                  pending: pendingBinding(session),
+                                  onExit: { markExited(session, in: project) })
                         .opacity(isVisible(session) ? 1 : 0)
                         .allowsHitTesting(isVisible(session))
                         .accessibilityHidden(!isVisible(session))
@@ -240,6 +312,9 @@ struct ClaudeCodeApp: App {
                 ProjectPreview(repo: step.repo, services: step.services,
                                run: { runServices([step], in: project) })
                     .id(selection)
+            } else if let project = enteredProject, let found = selectedSubagent(in: project) {
+                SubagentViewer(session: found.session, subagent: found.subagent, lines: subagentTranscript)
+                    .id(selection)
             } else if let entry = selectedEntry {
                 NotebookEditor(entry: entry).id(entry.id)
             } else if selection == nil {
@@ -261,6 +336,22 @@ struct ClaudeCodeApp: App {
     private var selectedEntry: NotebookEntry? {
         guard let selection, let project = enteredProject else { return nil }
         return NotebookLoader.find(selection, in: project.entries)
+    }
+
+    private func subagentTag(_ session: CodeSession, _ subagent: SubagentStatus) -> String {
+        "subagent:\(session.id.uuidString):\(subagent.id)"
+    }
+
+    /// The subagent `selection` currently points at, if any — matched by the tag
+    /// `subagentTag` puts on each row, the same way `previewStep`/`selectedEntry` decode theirs.
+    private func selectedSubagent(in project: Project) -> (session: CodeSession, subagent: SubagentStatus)? {
+        guard let selection else { return nil }
+        for session in project.sessions {
+            if let subagent = session.subagents.first(where: { subagentTag(session, $0) == selection }) {
+                return (session, subagent)
+            }
+        }
+        return nil
     }
 
     // MARK: - Projects
@@ -344,31 +435,50 @@ struct ClaudeCodeApp: App {
         for index in projects.indices {
             let entries = NotebookLoader.load(root: projects[index].notebookRoot)
             if entries != projects[index].entries { projects[index].entries = entries }
-            // Only the project you are inside pays for reading frontmatter.
+            // Only the project you are inside pays for reading frontmatter, or for
+            // checking sessions' transcripts for subagents.
             guard projects[index].id == entered else { continue }
             let cards = NotebookIndex.load(root: projects[index].notebookRoot)
             if cards != projects[index].cards { projects[index].cards = cards }
+            for sIndex in projects[index].sessions.indices where !projects[index].sessions[sIndex].exited {
+                let session = projects[index].sessions[sIndex]
+                let subagents = ClaudeTranscripts.subagents(sessionID: session.id,
+                                                             projectDirectory: projects[index].directory)
+                if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
+            }
         }
+        reloadSubagentTranscript()
+    }
+
+    /// Only the subagent actually on screen pays for having its transcript read and
+    /// parsed — everything else is covered by the status list above.
+    private func reloadSubagentTranscript() {
+        guard let project = enteredProject, let found = selectedSubagent(in: project) else { return }
+        let fresh = ClaudeTranscripts.transcript(at: found.subagent.transcriptURL)
+        if fresh.count != subagentTranscript.count { subagentTranscript = fresh }
     }
 
     // MARK: - Sessions
 
     private func addSession(_ agent: AgentKind, to project: Project,
                             prompt: String? = nil, title: String? = nil, taskIDs: [String] = []) {
-        addSession(to: project, title: title ?? agent.displayName, icon: agent.systemImage,
+        // Generated up front so the same id names both the CLI's --session-id and this
+        // session's own row — that is what lets its transcript be found again later.
+        let id = UUID()
+        addSession(id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
                    line: AgentCommand.line(directory: project.directory.path,
-                                           agent: agent, prompt: prompt),
+                                           agent: agent, prompt: prompt, sessionID: id),
                    taskIDs: taskIDs)
     }
 
-    private func addSession(to project: Project, title: String, icon: String, line: String,
+    private func addSession(id: UUID = UUID(), to project: Project, title: String, icon: String, line: String,
                             taskIDs: [String] = []) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         // Second "Engineering Lead" becomes "Engineering Lead 2" — identical sidebar rows
         // are unusable, and several leads at once is a normal thing to want.
         let taken = projects[index].sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
-        projects[index].sessions.append(CodeSession(title: name, icon: icon, line: line, taskIDs: taskIDs))
+        projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line, taskIDs: taskIDs))
         selection = projects[index].sessions.last?.id.uuidString
     }
 
@@ -423,6 +533,24 @@ struct ClaudeCodeApp: App {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].sessions.removeAll { $0.id == session.id }
         if selection == session.id.uuidString { selection = nil }
+    }
+
+    /// A computed binding into `pendingInput`, keyed by session — AgentTerminal clears it
+    /// once it has typed the text in.
+    private func pendingBinding(_ session: CodeSession) -> Binding<String?> {
+        Binding(get: { pendingInput[session.id] }, set: { pendingInput[session.id] = $0 })
+    }
+
+    private func markExited(_ session: CodeSession, in project: Project) {
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }),
+              let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id }) else { return }
+        projects[pIndex].sessions[sIndex].exited = true
+    }
+
+    private func appendTaskIDs(_ ids: [String], to session: CodeSession, in project: Project) {
+        guard let pIndex = projects.firstIndex(where: { $0.id == project.id }),
+              let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id }) else { return }
+        projects[pIndex].sessions[sIndex].taskIDs += ids
     }
 
     // MARK: - Notebook entries

@@ -17,8 +17,16 @@ enum AgentCommand {
 
     /// Both agents take an opening prompt as their first argument, which is how a new
     /// project's notebook conversation starts without anyone typing it.
-    static func line(directory: String, agent: AgentKind, prompt: String?) -> String {
-        let start = prompt.map { "exec \(agent.command) \(quoted($0))" } ?? "exec \(agent.command)"
+    ///
+    /// `sessionID` only means anything to Claude Code — passing `--session-id` makes its
+    /// transcript land at a path the app already knows, so it can go find that session's
+    /// subagents later. Codex gets none: it picks its own id and never has a transcript
+    /// the app goes looking for.
+    static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil) -> String {
+        let sessionFlag = agent == .claude
+            ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
+        let command = "\(agent.command) \(sessionFlag)".trimmingCharacters(in: .whitespaces)
+        let start = prompt.map { "exec \(command) \(quoted($0))" } ?? "exec \(command)"
         return "cd \(quoted(directory)) && \(start)"
     }
 
@@ -34,8 +42,15 @@ struct AgentTerminal: NSViewRepresentable {
     let line: String
     /// Named in the exit notice, so a dead process says which one it was.
     let label: String
+    /// Text queued to be typed into this session's already-running process, Enter and
+    /// all — how a task reaches a lead that is already working instead of starting a
+    /// competing one. Cleared once sent.
+    @Binding var pending: String?
+    /// Fired once, right when the process exits — the signal that this session can no
+    /// longer be talked to.
+    let onExit: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(label: label) }
+    func makeCoordinator() -> Coordinator { Coordinator(label: label, onExit: onExit) }
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         // Non-zero frame matters: a 0x0 terminal starts the PTY at 0 columns and the TUI dies.
@@ -51,7 +66,24 @@ struct AgentTerminal: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: LocalProcessTerminalView, context: Context) {}
+    func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
+        // SwiftUI can call this more than once for the same state change (this terminal
+        // becoming visible alongside `pending` being set triggers it from two directions
+        // at once) — clearing `pending` is deferred to avoid mutating state mid-update, so
+        // without this guard a fast second call would still see it set and send it twice.
+        guard let text = pending, view.process.running, !context.coordinator.sending else { return }
+        context.coordinator.sending = true
+        // ponytail: bracketed paste so embedded newlines land as one message instead of
+        // submitting early, then a real Enter to send it — exactly what a paste followed
+        // by Return looks like to the process. Untested against Claude Code's own reader;
+        // if it does not honor bracketed paste this degrades to that same early-submit.
+        let payload = "\u{1b}[200~" + text + "\u{1b}[201~\r"
+        view.process.send(data: Array(payload.utf8)[...])
+        DispatchQueue.main.async {
+            pending = nil
+            context.coordinator.sending = false
+        }
+    }
 
     static func dismantleNSView(_ view: LocalProcessTerminalView, coordinator: Coordinator) {
         view.terminate()
@@ -59,14 +91,20 @@ struct AgentTerminal: NSViewRepresentable {
 
     final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
         private let label: String
+        private let onExit: () -> Void
+        /// Set while a queued `pending` send is in flight, so a repeat `updateNSView` call
+        /// before the async clear lands does not send it a second time.
+        var sending = false
 
-        init(label: String) {
+        init(label: String, onExit: @escaping () -> Void) {
             self.label = label
+            self.onExit = onExit
         }
 
         func processTerminated(source: TerminalView, exitCode: Int32?) {
             let code = exitCode.map(String.init) ?? "?"
             source.feed(text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
+            onExit()
         }
 
         func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}

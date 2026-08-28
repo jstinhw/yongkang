@@ -110,6 +110,64 @@ enum NotebookSelfTest {
                      == "cd '/a b' && exec claude")
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
                      == "cd '/a' && exec codex 'hi there'")
+        let sid = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: "hi", sessionID: sid)
+                     == "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'")
+        precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: nil, sessionID: sid)
+                     == "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
+                     == "cd '/a' && exec codex 'hi'",
+                     "codex never understands --session-id, so passing one changes nothing")
+
+        // Subagent transcripts live under a project's slugged folder — the slug, the pure
+        // finished-detection, and an end-to-end read against fixture files.
+        precondition(ClaudeTranscripts.sessionFolder(sessionID: sid, projectDirectory: URL(fileURLWithPath: "/a/b c"),
+                                                      claudeHome: URL(fileURLWithPath: "/home/.claude")).path
+                     == "/home/.claude/projects/-a-b c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        precondition(ClaudeTranscripts.isFinished("toolu_1", in: "{\"tool_use_id\":\"toolu_1\"}"))
+        precondition(ClaudeTranscripts.isFinished("toolu_1", in: "{\"tool_use_id\": \"toolu_1\"}"))
+        precondition(!ClaudeTranscripts.isFinished("toolu_1", in: "{\"id\":\"toolu_1\"}"),
+                     "a tool_use block must not read as its own result")
+
+        let claudeHome = tmp.appendingPathComponent(".claude")
+        let sessionID = UUID()
+        let sessionFolder = ClaudeTranscripts.sessionFolder(sessionID: sessionID, projectDirectory: tmp,
+                                                             claudeHome: claudeHome)
+        let subagentsDir = sessionFolder.appendingPathComponent("subagents")
+        try! fm.createDirectory(at: subagentsDir, withIntermediateDirectories: true)
+        try! #"{"agentType":"claude-code-guide","description":"Research X","toolUseId":"toolu_done"}"#
+            .write(to: subagentsDir.appendingPathComponent("agent-done1.meta.json"), atomically: true, encoding: .utf8)
+        try! #"{"agentType":"Explore","description":"Find Y","toolUseId":"toolu_running"}"#
+            .write(to: subagentsDir.appendingPathComponent("agent-running1.meta.json"), atomically: true, encoding: .utf8)
+        try! #"{"type":"tool_result","tool_use_id":"toolu_done"}"#
+            .write(to: sessionFolder.appendingPathExtension("jsonl"), atomically: true, encoding: .utf8)
+
+        let subagents = ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp, claudeHome: claudeHome)
+        precondition(subagents.map(\.description) == ["Find Y", "Research X"], "sorted by description")
+        precondition(subagents.first { $0.id == "done1" }?.running == false,
+                     "a result in the parent transcript means done")
+        precondition(subagents.first { $0.id == "running1" }?.running == true, "no result yet means still running")
+        precondition(subagents.first { $0.id == "done1" }?.agentType == "claude-code-guide")
+        precondition(subagents.first { $0.id == "done1" }?.transcriptURL
+                     == subagentsDir.appendingPathComponent("agent-done1.jsonl"))
+        precondition(ClaudeTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp, claudeHome: claudeHome).isEmpty,
+                     "a session with no subagents folder reads as empty, not a crash")
+
+        // The viewer's own read: a task, a tool call (thinking dropped along the way), its
+        // result, and a reply, out of the same shape a subagent's own transcript is in.
+        let subagentLog = subagentsDir.appendingPathComponent("agent-done1.jsonl")
+        try! [
+            #"{"type":"user","message":{"role":"user","content":"Do the thing"}}"#,
+            #"{"type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hmm"},{"type":"tool_use","name":"WebSearch","input":{"query":"claude code"}}]}}"#,
+            #"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"some results here"}]}}"#,
+            #"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Here is the answer"}]}}"#,
+        ].joined(separator: "\n").write(to: subagentLog, atomically: true, encoding: .utf8)
+        let parsed = ClaudeTranscripts.transcript(at: subagentLog)
+        precondition(parsed.map(\.label) == ["Task", "Tool", "Result", "Reply"], "thinking blocks are dropped")
+        precondition(parsed.map(\.text) == ["Do the thing", "WebSearch(query: claude code)",
+                                            "some results here", "Here is the answer"])
+        precondition(ClaudeTranscripts.transcript(at: subagentsDir.appendingPathComponent("missing.jsonl")).isEmpty,
+                     "a transcript that is not there yet reads as empty, not a crash")
 
         // A blocker is pulled into the batch rather than raised as a question.
         func node(_ id: String, _ status: String, _ waits: [String]) -> NotebookCard {
@@ -245,6 +303,16 @@ enum NotebookSelfTest {
         }
         precondition(brief.contains("waits on: wire-auth"), "dependencies have to survive")
         precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
+
+        // A follow-up batch for a lead already running carries the same task detail, without
+        // re-briefing it as if it were a fresh assignment.
+        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked)
+        for task in picked {
+            precondition(follow.contains(task.id) && follow.contains(task.title))
+        }
+        precondition(follow.contains("waits on: wire-auth"), "dependencies have to survive a follow-up too")
+        precondition(!follow.contains("You are the engineering lead"),
+                     "a follow-up talks to the session that is already running, not a new one")
 
         // The open-project list lives in defaults, where anything could be sitting.
         let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]
