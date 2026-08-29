@@ -199,21 +199,23 @@ enum NotebookFormat {
         """
     }
 
-    /// Hands a batch of picked tasks to one lead session. The engineers are that
-    /// session's own subagents: separate PTYs would have no way to report back to it.
-    static func engineeringPrompt(tasks: [NotebookCard]) -> String {
-        let list = tasks.map { task in
+    private static func taskList(_ tasks: [NotebookCard]) -> String {
+        tasks.map { task in
             var line = "- \(task.id) — \(task.title)\n  file: \(relativePath(task.url))"
             if let project = task.project { line += "\n  project: \(project)" }
             if !task.dependsOn.isEmpty { line += "\n  waits on: \(task.dependsOn.joined(separator: ", "))" }
             return line
         }.joined(separator: "\n")
+    }
 
-        return """
+    /// Hands a batch of picked tasks to one lead session. The engineers are that
+    /// session's own subagents: separate PTYs would have no way to report back to it.
+    static func engineeringPrompt(tasks: [NotebookCard]) -> String {
+        """
         You are the engineering lead on this project. I picked these tasks out of the
         notebook — ship them.
 
-        \(list)
+        \(taskList(tasks))
 
         Read each task file first: the body says what done means and the frontmatter says
         what it waits on.
@@ -258,6 +260,19 @@ enum NotebookFormat {
         the tasks by notebook id. Then stop and tell me it is up for review. Do not merge
         it — that call is mine. If `gh` is missing or not logged in, say so and leave the
         branch pushed rather than guessing at another way.
+        """
+    }
+
+    /// A second (or third) batch for a lead session that is already running — talked to
+    /// like the ongoing conversation it is, not re-briefed as if it were new.
+    static func additionalTasksPrompt(tasks: [NotebookCard]) -> String {
+        """
+        More tasks for you, on top of what you already have — same rules as before: read
+        each one first, delegate to its own subagent, pull in any blocker that turns up
+        even if it is not listed here, review before you accept, and fold these into the
+        same PR when you open it rather than a second one.
+
+        \(taskList(tasks))
         """
     }
 
