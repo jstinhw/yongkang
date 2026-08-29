@@ -5,9 +5,10 @@ import SwiftUI
 enum NotebookStyle {
     static func color(of status: String) -> Color {
         switch status {
-        case "done": return .green
+        case "done", "succeeded": return .green
         case "active": return .blue
-        case "blocked": return .orange
+        case "blocked", "partial": return .orange
+        case "failed": return .red
         case "wip": return .purple
         default: return .gray
         }

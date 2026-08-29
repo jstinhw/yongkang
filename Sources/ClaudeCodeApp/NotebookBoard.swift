@@ -12,6 +12,7 @@ struct NotebookBoard: View {
     /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
     /// pickable for a new batch.
     let assigned: Set<String>
+    let showDone: Bool
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
     let run: (NotebookCard) -> Void
@@ -40,7 +41,8 @@ struct NotebookBoard: View {
 
     /// Tasks are the only assignable kind — clicking a project does not enlist its work.
     private var picked: [NotebookCard] {
-        NotebookIndex.ordered(cards.filter { $0.kind == .task && selected.contains($0.id) })
+        NotebookIndex.ordered(NotebookIndex.visible(
+            cards.filter { $0.kind == .task && selected.contains($0.id) }, showDone: showDone))
     }
 
     /// What actually gets shipped: the picks plus the unfinished work they wait on, minus
@@ -56,7 +58,8 @@ struct NotebookBoard: View {
     /// The one project the board is scoped to. Tasks outside it are not on screen, so they
     /// cannot be picked — a batch is one project's work plus whatever it waits on.
     private var scope: String? {
-        cards.first { $0.kind == .project && selected.contains($0.id) }?.id
+        NotebookIndex.visible(cards.filter { $0.kind == .project }, showDone: showDone)
+            .first { selected.contains($0.id) }?.id
     }
 
     /// The scoped project's own card, so the lanes can open with its title and
@@ -130,7 +133,8 @@ struct NotebookBoard: View {
     /// up by another project's work keeps its lane, so it does not read as ready to start.
     private var waves: [[NotebookCard]] {
         guard let scope else { return [] }
-        return NotebookIndex.waves(cards.filter { $0.kind == .task })
+        return NotebookIndex.waves(NotebookIndex.visible(cards.filter { $0.kind == .task },
+                                                          showDone: showDone))
             .map { $0.filter { $0.project == scope } }
             .filter { !$0.isEmpty }
     }
@@ -201,7 +205,9 @@ struct NotebookBoard: View {
     }
 
     private func items(of kind: EntryKind) -> [NotebookCard] {
-        NotebookIndex.ordered(cards.filter { $0.kind == kind })
+        let items = cards.filter { $0.kind == kind }
+        return NotebookIndex.ordered(kind == .project
+            ? NotebookIndex.visible(items, showDone: showDone) : items)
     }
 
     private func heading(_ title: String, count: Int) -> some View {
@@ -377,9 +383,11 @@ struct NotebookBoard: View {
         for card in cards where selected.contains(card.id) {
             ids.formUnion(card.dependsOn)
             if let project = card.project { ids.insert(project) }
+            if let roadmap = card.roadmap { ids.insert(roadmap) }
         }
         ids.formUnion(cards.filter { $0.dependsOn.contains(where: selected.contains) }.map(\.id))
         ids.formUnion(cards.filter { selected.contains($0.project ?? "") }.map(\.id))
+        ids.formUnion(cards.filter { selected.contains($0.roadmap ?? "") }.map(\.id))
         return ids
     }
 

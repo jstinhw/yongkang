@@ -40,12 +40,20 @@ visible and correctable. The app writes nothing; the agent does. Entries look li
   projects/<id>/project.md    one project
   projects/<id>/memory/*.md   that project's memory, one fact per file
   tasks/<id>.md               shippable work, linked to a project by frontmatter
+  runs/<timestamp>-<id>.md    one agent-team session and its handoff
 ```
 
-Every entry is Markdown with YAML frontmatter (`id`, `kind`, `status`, `depends_on`,
-`project`, `external`). Nothing else stores state, so the agents in the sidebar edit
+Every entry is Markdown with flat YAML frontmatter (`id`, `kind`, `status`, `depends_on`,
+`roadmap`, `project`, `subject`, `external`). Nothing else stores state, so the agents in the sidebar edit
 the notebook by editing files — no bridge, no API. The sidebar re-reads the tree every
 2s, so entries an agent writes show up on their own.
+
+Roadmaps and memories open as human-readable native pages, like projects and tasks;
+run records stay on disk for agents but are hidden from notebook navigation. Edit opens
+the underlying Markdown. A save is refused if an agent changed
+the file after the editor loaded it, so concurrent work cannot be silently overwritten.
+The first body paragraph is the short human brief. Durable facts remain project memory;
+each managed agent-team session appends one run record with its result and handoff.
 
 ## Board
 
@@ -54,6 +62,9 @@ ordered so nothing appears before what it depends on — the tasks column reads 
 build order. Cards show status and what they wait on; an id nothing resolves to shows
 in orange, which is how you catch a typo in `depends_on`. Click a card to dim
 everything unrelated to it, and again to clear.
+
+Completed projects and tasks are hidden from the sidebar, board and project task lists
+by default. `Show Completed` in the toolbar reveals them everywhere at once.
 
 ## Shipping tasks
 
@@ -66,6 +77,20 @@ and sends back anything that falls short. It moves `status:` through `active` to
 The engineers are that lead session's own subagents, not sibling terminals. Separate
 PTYs have no way to report back to a lead, so the review loop only closes inside one
 agent.
+
+## Blocks
+
+An agent that needs you — a token, a consent screen, an approval — writes
+`.notebook/blocks/<slug>.md` and keeps waiting. Those files are the `Blocks` section of
+the sidebar: what is being asked, and what it holds up. Open one and `Do It Now` opens
+the provider's page and starts a session whose only job is that gate: one instruction at
+a time, the configuration and verification done for you, and never a secret echoed back
+or written down.
+
+Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
+made by that session, or by `Mark Resolved` if you did it yourself. The app sees it on
+the next poll and tells the waiting agent to carry on. The file is the whole channel;
+there is nothing else to keep in sync, and a block survives a restart.
 
 Frontmatter keys are Notion properties, folders are databases, and `external.notion`
 holds the page id, so an exporter to Notion (or any third-party notebook) is a pure

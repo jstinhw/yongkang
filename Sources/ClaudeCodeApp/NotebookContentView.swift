@@ -71,6 +71,26 @@ struct NotebookContentView: View {
                     .font(.callout)
                 }
             }
+        case .numberedList(let items):
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("\(index + 1).")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                        resolved(item)
+                    }
+                    .font(.callout)
+                }
+            }
+        case .code(let code):
+            ScrollView(.horizontal) {
+                Text(code)
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
         }
     }
 

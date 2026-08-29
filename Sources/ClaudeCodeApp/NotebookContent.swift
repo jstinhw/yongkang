@@ -18,6 +18,8 @@ enum NotebookContent {
         case paragraph(String)
         case checklist([ChecklistItem])
         case list([String])
+        case numberedList([String])
+        case code(String)
     }
 
     struct ChecklistItem: Equatable {
@@ -38,6 +40,9 @@ enum NotebookContent {
         var paragraph: [String] = []
         var checklist: [ChecklistItem] = []
         var list: [String] = []
+        var numbered: [String] = []
+        var code: [String] = []
+        var fenced = false
 
         func flushParagraph() {
             guard !paragraph.isEmpty else { return }
@@ -54,7 +59,17 @@ enum NotebookContent {
             blocks.append(.list(list))
             list = []
         }
-        func flushBlocks() { flushParagraph(); flushChecklist(); flushList() }
+        func flushNumbered() {
+            guard !numbered.isEmpty else { return }
+            blocks.append(.numberedList(numbered))
+            numbered = []
+        }
+        func flushCode() {
+            guard !code.isEmpty else { return }
+            blocks.append(.code(code.joined(separator: "\n")))
+            code = []
+        }
+        func flushBlocks() { flushParagraph(); flushChecklist(); flushList(); flushNumbered(); flushCode() }
         func flushSection() {
             flushBlocks()
             if !blocks.isEmpty { result.append(Section(heading: heading, blocks: blocks)) }
@@ -64,6 +79,23 @@ enum NotebookContent {
         for raw in body.components(separatedBy: "\n") {
             let line = raw.trimmingCharacters(in: .whitespaces)
             let hashes = line.prefix { $0 == "#" }
+
+            if fenced {
+                if line.hasPrefix("```") { fenced = false; flushCode() } else { code.append(raw) }
+                continue
+            }
+            if line.hasPrefix("```") {
+                flushBlocks()
+                fenced = true
+                continue
+            }
+            if raw.hasPrefix("    "), paragraph.isEmpty, checklist.isEmpty,
+               list.isEmpty, numbered.isEmpty {
+                flushParagraph(); flushChecklist(); flushList(); flushNumbered()
+                code.append(String(raw.dropFirst(4)))
+                continue
+            }
+            flushCode()
 
             if !hashes.isEmpty, line.count > hashes.count,
                line[line.index(line.startIndex, offsetBy: hashes.count)] == " " {
@@ -78,26 +110,39 @@ enum NotebookContent {
                     flushBlocks()
                 }
             } else if line.hasPrefix("- [x] ") || line.hasPrefix("- [X] ") {
-                flushParagraph(); flushList()
+                flushParagraph(); flushList(); flushNumbered()
                 checklist.append(ChecklistItem(text: String(line.dropFirst(6)), done: true))
             } else if line.hasPrefix("- [ ] ") {
-                flushParagraph(); flushList()
+                flushParagraph(); flushList(); flushNumbered()
                 checklist.append(ChecklistItem(text: String(line.dropFirst(6)), done: false))
             } else if line.hasPrefix("- ") {
-                flushParagraph(); flushChecklist()
+                flushParagraph(); flushChecklist(); flushNumbered()
                 list.append(String(line.dropFirst(2)))
+            } else if let item = numberedItem(line) {
+                flushParagraph(); flushChecklist(); flushList()
+                numbered.append(item)
             } else if line.isEmpty {
                 flushBlocks()
             } else if !checklist.isEmpty {
                 checklist[checklist.count - 1].text += " " + line
             } else if !list.isEmpty {
                 list[list.count - 1] += " " + line
+            } else if !numbered.isEmpty {
+                numbered[numbered.count - 1] += " " + line
             } else {
                 paragraph.append(line)
             }
         }
         flushSection()
         return result
+    }
+
+    private static func numberedItem(_ line: String) -> String? {
+        guard let stop = line.firstIndex(of: "."), stop != line.startIndex else { return nil }
+        let prefix = line[..<stop]
+        let after = line.index(after: stop)
+        guard prefix.allSatisfy(\.isNumber), after < line.endIndex, line[after] == " " else { return nil }
+        return String(line[line.index(after: after)...])
     }
 
     // MARK: - Cross-links

@@ -8,6 +8,8 @@ struct Project: Identifiable, Equatable {
     var entries: [NotebookEntry] = []
     /// Frontmatter for the board, read only while you are inside the project.
     var cards: [NotebookCard] = []
+    /// What the agents need from the user before they can go on, read the same way.
+    var blocks: [UserBlock] = []
     var sessions: [CodeSession] = []
 
     var name: String { directory.lastPathComponent }

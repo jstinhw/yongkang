@@ -17,6 +17,11 @@ struct NotebookEntry: Identifiable, Equatable {
 enum NotebookLoader {
     /// Empty when the project has no `.notebook` — nothing is created to read it.
     static func load(root: URL) -> [NotebookEntry] {
+        NotebookFormat.visibleFolders.compactMap { node(at: root.appendingPathComponent($0)) }
+    }
+
+    /// Runs stay out of human navigation but remain indexed for links and agent context.
+    static func loadAll(root: URL) -> [NotebookEntry] {
         NotebookFormat.folders.compactMap { node(at: root.appendingPathComponent($0)) }
     }
 
@@ -29,6 +34,19 @@ enum NotebookLoader {
     }
 
     static func pageCount(_ entries: [NotebookEntry]) -> Int { pages(entries).count }
+
+    /// Hide completed project/task rows and their children; folders and context pages stay.
+    static func display(_ entries: [NotebookEntry], cards: [NotebookCard],
+                        showDone: Bool) -> [NotebookEntry] {
+        entries.compactMap { entry in
+            let card = cards.first { NotebookEntry.id(for: $0.url) == NotebookEntry.id(for: entry.url) }
+            if !showDone, let card, (card.kind == .project || card.kind == .task), card.status == "done" {
+                return nil
+            }
+            return NotebookEntry(id: entry.id, url: entry.url, title: entry.title, icon: entry.icon,
+                                 children: entry.children.map { display($0, cards: cards, showDone: showDone) })
+        }
+    }
 
     static func find(_ id: String, in entries: [NotebookEntry]) -> NotebookEntry? {
         for entry in entries {
@@ -68,6 +86,7 @@ enum NotebookLoader {
         case "roadmap": return "map"
         case "projects": return "shippingbox"
         case "tasks": return "checkmark.circle"
+        case "runs": return "clock.arrow.circlepath"
         default: return "doc.text"
         }
     }

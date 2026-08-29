@@ -44,16 +44,24 @@ struct NotebookEditor: View {
         loaded = text
     }
 
-    // ponytail: last write wins. Only touches disk when you actually typed, so an
-    // agent's edits survive a look-but-don't-touch visit. Add an mtime check if
-    // humans and agents start editing the same file at the same second.
     private func save() {
         guard isPage, text != loaded else { return }
         do {
+            let disk = try String(contentsOf: entry.url, encoding: .utf8)
+            guard !Self.hasConflict(loaded: loaded, disk: disk) else {
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "This page changed while you were editing"
+                alert.informativeText = "Your text is still here and was not saved. Copy it, then reopen the page to merge the agent's changes."
+                alert.runModal()
+                return
+            }
             try text.write(to: entry.url, atomically: true, encoding: .utf8)
             loaded = text
         } catch {
             NSAlert(error: error).runModal()
         }
     }
+
+    static func hasConflict(loaded: String, disk: String) -> Bool { loaded != disk }
 }

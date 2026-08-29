@@ -13,11 +13,19 @@ struct NotebookCard: Identifiable, Equatable {
     /// Projects only: the folders this work lands in, so the board can say what it touches
     /// and the run button knows what to start. Empty means the project folder itself.
     var repos: [String] = []
+    var roadmap: String? = nil
+    var subject: String? = nil
+    var memoryType: String = ""
+    var result: String = ""
 }
 
 enum NotebookIndex {
+    static func visible(_ cards: [NotebookCard], showDone: Bool) -> [NotebookCard] {
+        showDone ? cards : cards.filter { $0.status != "done" }
+    }
+
     static func load(root: URL) -> [NotebookCard] {
-        NotebookLoader.pages(NotebookLoader.load(root: root)).compactMap(card(at:))
+        NotebookLoader.pages(NotebookLoader.loadAll(root: root)).compactMap(card(at:))
     }
 
     static func card(at url: URL) -> NotebookCard? {
@@ -33,7 +41,11 @@ enum NotebookIndex {
             status: fields["status"] ?? "",
             project: fields["project"].flatMap { $0.isEmpty ? nil : $0 },
             dependsOn: list(fields["depends_on"] ?? ""),
-            repos: list(fields["repos"] ?? "")
+            repos: list(fields["repos"] ?? ""),
+            roadmap: fields["roadmap"].flatMap { $0.isEmpty ? nil : $0 },
+            subject: fields["subject"].flatMap { $0.isEmpty ? nil : $0 },
+            memoryType: fields["memory_type"] ?? "",
+            result: fields["result"] ?? ""
         )
     }
 
@@ -132,6 +144,7 @@ enum NotebookIndex {
     private static func kind(from url: URL) -> EntryKind {
         let parts = url.pathComponents
         if parts.contains("memory") { return .memory }
+        if parts.contains("runs") { return .run }
         if parts.contains("roadmap") { return .roadmap }
         if parts.contains("tasks") { return .task }
         return .project

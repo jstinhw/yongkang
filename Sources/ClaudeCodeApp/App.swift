@@ -19,6 +19,11 @@ struct ClaudeCodeApp: App {
     /// `CodeSession.subagents`, which only ever holds each one's status, because reading
     /// and parsing a whole transcript is only worth doing for the one actually on screen.
     @State private var subagentTranscript: [ClaudeTranscripts.TranscriptLine] = []
+    /// Completed notebook work is historical noise until the user asks for it.
+    @State private var showDone = false
+    /// Blocks already reported back to the session that was waiting, so a cleared block
+    /// says so once rather than on every 2-second poll.
+    @State private var deliveredBlocks: Set<String> = []
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
@@ -69,7 +74,13 @@ struct ClaudeCodeApp: App {
                 rows(for: project)
             }
             .navigationTitle(project.name)
-            .toolbar { addMenu(for: project) }
+            .toolbar {
+                Button(showDone ? "Hide Completed" : "Show Completed",
+                       systemImage: showDone ? "eye.slash" : "eye") {
+                    showDone.toggle()
+                }
+                addMenu(for: project)
+            }
         } else {
             List {
                 Section("Projects") {
@@ -97,9 +108,9 @@ struct ClaudeCodeApp: App {
             if project.hasNotebook {
                 Label("Board", systemImage: "rectangle.split.3x1")
                     .tag(boardID(project))
-                OutlineGroup(project.entries, children: \.children) { entry in
-                    // A project or task row opens its own parsed page, not raw
-                    // frontmatter — everything else (roadmap, memory) still opens as text.
+                OutlineGroup(NotebookLoader.display(project.entries, cards: project.cards,
+                                                    showDone: showDone), children: \.children) { entry in
+                    // Every known entry opens a human page first; Edit opens the raw file.
                     let card = project.cards.first { $0.url.path == entry.url.path }
                     Label(entry.title, systemImage: entry.icon)
                         .tag(entryTag(card, fallback: entry.id))
@@ -108,7 +119,7 @@ struct ClaudeCodeApp: App {
             } else {
                 // The shape of what the agent is about to write. Untagged, so these are
                 // dimmed and unselectable until the folders exist and the tree replaces them.
-                ForEach(NotebookFormat.folders, id: \.self) { folder in
+                ForEach(NotebookFormat.visibleFolders, id: \.self) { folder in
                     Label(folder, systemImage: NotebookLoader.icon(forFolder: folder))
                         .foregroundStyle(.tertiary)
                 }
@@ -134,6 +145,32 @@ struct ClaudeCodeApp: App {
             if project.sessions.isEmpty {
                 Label("Notebook Setup", systemImage: AgentKind.claude.systemImage)
                     .foregroundStyle(.tertiary)
+            }
+        }
+        Section("Blocks") {
+            let blocks = project.blocks.filter { showDone || $0.waiting }
+            ForEach(blocks) { block in
+                blockRow(block).tag(blockTag(block))
+            }
+            if blocks.isEmpty {
+                Label("Nothing waiting on you", systemImage: "checkmark.seal")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    /// A block names what it holds up underneath it — an approval with no context is a
+    /// question you cannot answer without going to find the session that asked it.
+    @ViewBuilder private func blockRow(_ block: UserBlock) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Label(block.title, systemImage: block.waiting ? "hand.raised" : "checkmark.circle")
+                .foregroundStyle(block.waiting ? Color.primary : .secondary)
+            if let task = block.task {
+                Text(task)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
     }
@@ -242,12 +279,15 @@ struct ClaudeCodeApp: App {
         }
         if let lead = project.sessions.first(where: { $0.title.hasPrefix("Engineering Lead") && !$0.exited }) {
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
-            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch)
+            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id)
             selection = lead.id.uuidString
             return
         }
-        addSession(.claude, to: project,
-                   prompt: NotebookFormat.engineeringPrompt(tasks: batch),
+        // The id is minted here so the prompt can carry it: a lead that knows its own
+        // session id can write it into any block it raises, and the answer comes back here.
+        let id = UUID()
+        addSession(.claude, id: id, to: project,
+                   prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
     }
 
@@ -310,6 +350,7 @@ struct ClaudeCodeApp: App {
                     cards: project.cards,
                     directory: project.directory,
                     assigned: project.assignedTaskIDs,
+                    showDone: showDone,
                     open: { url in selection = NotebookEntry.id(for: url) },
                     assign: { tasks in assign(tasks, in: project) },
                     run: { card in runServices(card, in: project) },
@@ -325,10 +366,26 @@ struct ClaudeCodeApp: App {
                     assign: { tasks in assign(tasks, in: project) }
                 )
                 .id(card.id)
+            } else if let project = enteredProject, let card = scopedPageCard(in: project) {
+                NotebookEntryDetail(
+                    card: card,
+                    cards: project.cards,
+                    open: { url in selection = NotebookEntry.id(for: url) }
+                )
+                .id(card.id)
             } else if let project = enteredProject, let step = previewStep(in: project) {
                 ProjectPreview(repo: step.repo, services: step.services,
                                run: { runServices([step], in: project) })
                     .id(selection)
+            } else if let project = enteredProject, let block = selectedBlock(in: project) {
+                BlockDetail(
+                    block: block,
+                    cards: project.cards,
+                    waiting: waitingSession(for: block, in: project),
+                    start: { startUnblock(block, in: project) },
+                    resolve: { Blocks.resolve(block); reload() }
+                )
+                .id(block.id)
             } else if let project = enteredProject, let found = selectedSubagent(in: project) {
                 SubagentViewer(session: found.session, subagent: found.subagent, lines: subagentTranscript)
                     .id(selection)
@@ -369,6 +426,46 @@ struct ClaudeCodeApp: App {
             }
         }
         return nil
+    }
+
+    // MARK: - Blocks
+
+    private func blockTag(_ block: UserBlock) -> String { "block:\(block.id)" }
+
+    private func selectedBlock(in project: Project) -> UserBlock? {
+        project.blocks.first { blockTag($0) == selection }
+    }
+
+    /// The session this block is holding up. A block names its own session, so the answer
+    /// reaches the lead that asked even with several running; one written without a
+    /// session id falls back to the newest live lead, which is the single-lead case.
+    private func waitingSession(for block: UserBlock, in project: Project) -> CodeSession? {
+        if let id = block.session {
+            return project.sessions.first { $0.id == id && !$0.exited }
+        }
+        return project.sessions.last { $0.title.hasPrefix("Engineering Lead") && !$0.exited }
+    }
+
+    /// The button on a block: the provider's own page in the browser, and a session whose
+    /// only job is this one gate. It is a full session rather than a message to the lead
+    /// because the lead is busy waiting — and because setup is a conversation (paste this,
+    /// approve that) that should not be interleaved with the work it is blocking.
+    private func startUnblock(_ block: UserBlock, in project: Project) {
+        if let link = block.link { NSWorkspace.shared.open(link) }
+        addSession(.claude, to: project, prompt: NotebookFormat.unblockPrompt(block: block),
+                   title: "Unblock \(block.title)")
+    }
+
+    /// A block whose file has flipped to done is news the waiting session cannot see —
+    /// it is sitting at a prompt. Typing it in is what closes the loop the user opened by
+    /// pressing the button.
+    private func deliverUnblocks(in project: Project) {
+        for block in project.blocks where !block.waiting && !deliveredBlocks.contains(block.id) {
+            guard let session = waitingSession(for: block, in: project) else { continue }
+            deliveredBlocks.insert(block.id)
+            pendingInput[session.id] = NotebookFormat.unblockedMessage(block: block)
+            selection = session.id.uuidString
+        }
     }
 
     // MARK: - Projects
@@ -429,13 +526,14 @@ struct ClaudeCodeApp: App {
 
     private func projectTag(_ cardID: String) -> String { "project:\(cardID)" }
     private func taskTag(_ cardID: String) -> String { "task:\(cardID)" }
+    private func pageTag(_ cardID: String) -> String { "page:\(cardID)" }
 
-    /// The tag a sidebar row selects with — a project or task opens its own parsed
-    /// page; anything else (roadmap, memory) keeps opening as the raw file it is.
+    /// The tag a sidebar row selects with — known entries open a human page first.
     private func entryTag(_ card: NotebookCard?, fallback: String) -> String {
         switch card?.kind {
         case .project: return projectTag(card!.id)
         case .task: return taskTag(card!.id)
+        case .roadmap, .memory, .run: return pageTag(card!.id)
         default: return fallback
         }
     }
@@ -450,6 +548,16 @@ struct ClaudeCodeApp: App {
         return String(selection.dropFirst("task:".count))
     }
 
+    private func pageScope(_ selection: String?) -> String? {
+        guard let selection, selection.hasPrefix("page:") else { return nil }
+        return String(selection.dropFirst("page:".count))
+    }
+
+    private func scopedPageCard(in project: Project) -> NotebookCard? {
+        guard let id = pageScope(selection) else { return nil }
+        return project.cards.first { $0.id == id }
+    }
+
     /// The card `selection` points at, if it is a tag of `kind`.
     private func scopedCard(in project: Project, kind: EntryKind) -> NotebookCard? {
         let scope = kind == .project ? projectScope(selection) : taskScope(selection)
@@ -462,6 +570,7 @@ struct ClaudeCodeApp: App {
             cards: project.cards,
             directory: project.directory,
             assigned: project.assignedTaskIDs,
+            showDone: showDone,
             open: { url in selection = NotebookEntry.id(for: url) },
             assign: { tasks in assign(tasks, in: project) },
             run: { card in runServices(card, in: project) }
@@ -500,6 +609,9 @@ struct ClaudeCodeApp: App {
             guard projects[index].id == entered else { continue }
             let cards = NotebookIndex.load(root: projects[index].notebookRoot)
             if cards != projects[index].cards { projects[index].cards = cards }
+            let blocks = Blocks.load(root: projects[index].notebookRoot)
+            if blocks != projects[index].blocks { projects[index].blocks = blocks }
+            deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices where !projects[index].sessions[sIndex].exited {
                 let session = projects[index].sessions[sIndex]
                 let subagents = ClaudeTranscripts.subagents(sessionID: session.id,
@@ -520,14 +632,15 @@ struct ClaudeCodeApp: App {
 
     // MARK: - Sessions
 
-    private func addSession(_ agent: AgentKind, to project: Project,
+    /// `id` is generated up front so the same id names both the CLI's `--session-id` and
+    /// this session's own row — that is what lets its transcript be found again later, and
+    /// what a caller passes in when the prompt itself has to name the session.
+    private func addSession(_ agent: AgentKind, id: UUID = UUID(), to project: Project,
                             prompt: String? = nil, title: String? = nil, taskIDs: [String] = []) {
-        // Generated up front so the same id names both the CLI's --session-id and this
-        // session's own row — that is what lets its transcript be found again later.
-        let id = UUID()
         addSession(id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
                    line: AgentCommand.line(directory: project.directory.path,
-                                           agent: agent, prompt: prompt, sessionID: id),
+                                           agent: agent, prompt: prompt, sessionID: id,
+                                           brief: title?.hasPrefix("Engineering Lead") == true),
                    taskIDs: taskIDs)
     }
 
@@ -629,13 +742,33 @@ struct ClaudeCodeApp: App {
         guard let title = askTitle(kind) else { return }
         do {
             let file = try NotebookFormat.create(kind, title: title, in: project.notebookRoot,
-                                                 project: notebookProject(in: project))
+                                                 project: notebookProject(in: project),
+                                                 roadmap: notebookRoadmap(in: project),
+                                                 subject: notebookSubject(in: project))
             reload()
-            // Projects select their folder row, which opens project.md.
-            selection = NotebookEntry.id(for: kind == .project ? file.deletingLastPathComponent() : file)
+            let id = kind == .project ? file.deletingLastPathComponent().lastPathComponent
+                                      : file.deletingPathExtension().lastPathComponent
+            switch kind {
+            case .project: selection = projectTag(id)
+            case .task: selection = taskTag(id)
+            case .roadmap, .memory, .run: selection = pageTag(id)
+            }
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    private func notebookRoadmap(in project: Project) -> String? {
+        if let id = pageScope(selection), project.cards.contains(where: { $0.id == id && $0.kind == .roadmap }) {
+            return id
+        }
+        let roadmaps = project.cards.filter { $0.kind == .roadmap }
+        return roadmaps.count == 1 ? roadmaps[0].id : nil
+    }
+
+    private func notebookSubject(in project: Project) -> String? {
+        if let id = taskScope(selection) ?? projectScope(selection) ?? pageScope(selection) { return id }
+        return notebookProject(in: project)
     }
 }
 

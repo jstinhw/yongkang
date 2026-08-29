@@ -11,6 +11,7 @@ struct ProjectDetail: View {
     /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
     /// pickable for a new batch.
     let assigned: Set<String>
+    let showDone: Bool
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
     let run: (NotebookCard) -> Void
@@ -20,10 +21,11 @@ struct ProjectDetail: View {
     @State private var picked: Set<String> = []
     @State private var content: [NotebookContent.Section] = []
 
-    private var tasks: [NotebookCard] {
+    private var allTasks: [NotebookCard] {
         NotebookIndex.ordered(cards.filter { $0.kind == .task && $0.project == card.id })
     }
-    private var done: Int { tasks.filter { $0.status == "done" }.count }
+    private var tasks: [NotebookCard] { NotebookIndex.visible(allTasks, showDone: showDone) }
+    private var done: Int { allTasks.filter { $0.status == "done" }.count }
 
     private var pickedTasks: [NotebookCard] {
         NotebookIndex.ordered(tasks.filter { picked.contains($0.id) })
@@ -59,7 +61,7 @@ struct ProjectDetail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                NotebookStyle.statusRing(card.status, progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count), size: 20)
+                NotebookStyle.statusRing(card.status, progress: allTasks.isEmpty ? 0 : Double(done) / Double(allTasks.count), size: 20)
                 Text(card.title)
                     .font(.title2.weight(.semibold))
                 if !card.status.isEmpty { NotebookStyle.pill(card.status) }
@@ -70,17 +72,22 @@ struct ProjectDetail: View {
                     .buttonStyle(.borderless)
                     .help("Run this project's services")
             }
-            if !tasks.isEmpty {
+            if !allTasks.isEmpty {
                 HStack(spacing: 8) {
-                    ProgressView(value: Double(done), total: Double(tasks.count))
+                    ProgressView(value: Double(done), total: Double(allTasks.count))
                         .progressViewStyle(.linear)
                         .tint(NotebookStyle.color(of: card.status))
                         .frame(width: 160)
-                    Text("\(done) of \(tasks.count) done")
+                    Text("\(done) of \(allTasks.count) done")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
+            }
+            if let roadmap = card.roadmap.flatMap({ id in cards.first { $0.id == id && $0.kind == .roadmap } }) {
+                Text("for \(roadmap.title)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) { waits.font(.caption) }
             if let blocks = NotebookStyle.edge("blocks ", NotebookStyle.dependents(of: card, in: cards), in: cards) {
@@ -95,7 +102,7 @@ struct ProjectDetail: View {
     /// whatever's headed underneath it. A `## Tasks` list that is nothing but links to
     /// this project's own tasks is dropped: the task list below already shows them.
     private var description: some View {
-        NotebookContentView(sections: content, cards: cards, redundant: Set(tasks.map(\.id)))
+        NotebookContentView(sections: content, cards: cards, redundant: Set(allTasks.map(\.id)))
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
@@ -147,7 +154,8 @@ struct ProjectDetail: View {
         VStack(alignment: .leading, spacing: 16) {
             heading("Tasks", count: tasks.count)
             if tasks.isEmpty {
-                Text("This project has no tasks yet.")
+                Text(allTasks.isEmpty ? "This project has no tasks yet."
+                                      : "All tasks are complete. Use Show Completed to view them.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {

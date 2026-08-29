@@ -17,15 +17,22 @@ enum NotebookSelfTest {
         precondition(NotebookLoader.load(root: root).isEmpty, "a project with no .notebook reads as empty")
         precondition(!fm.fileExists(atPath: tmp.path), "and nothing is written to the project folder")
 
-        let project = try! NotebookFormat.create(.project, title: "Launch Beta", in: root, project: nil)
+        let project = try! NotebookFormat.create(.project, title: "Launch Beta", in: root,
+                                                 project: nil, roadmap: "ship-beta")
         precondition(fm.fileExists(atPath: root.appendingPathComponent("NOTEBOOK.md").path),
                      "the first entry scaffolds the notebook")
         precondition(project.path.hasSuffix("projects/launch-beta/project.md"))
-        precondition(try! String(contentsOf: project, encoding: .utf8).contains("id: launch-beta"))
+        let projectText = try! String(contentsOf: project, encoding: .utf8)
+        precondition(projectText.contains("id: launch-beta"))
+        precondition(projectText.contains("roadmap: ship-beta"))
 
         let memory = try! NotebookFormat.create(.memory, title: "Chose SQLite", in: root, project: "launch-beta")
         precondition(memory.path.contains("projects/launch-beta/memory/"))
         precondition(memory.lastPathComponent.hasSuffix("-chose-sqlite.md"))
+        let memoryText = try! String(contentsOf: memory, encoding: .utf8)
+        for field in ["subject: launch-beta", "memory_type: note", "source: user", "supersedes: []"] {
+            precondition(memoryText.contains(field), "memory frontmatter missing \(field)")
+        }
         var threw = false
         do { _ = try NotebookFormat.create(.memory, title: "Orphan", in: root, project: nil) } catch { threw = true }
         precondition(threw, "memory needs a project")
@@ -39,8 +46,17 @@ enum NotebookSelfTest {
             precondition(task.contains(field), "task frontmatter missing \(field)")
         }
 
+        let run = try! NotebookFormat.create(.run, title: "Auth partially wired", in: root,
+                                             project: "launch-beta", subject: "wire-auth")
+        let runText = try! String(contentsOf: run, encoding: .utf8)
+        for field in ["kind: run", "project: launch-beta", "subject: wire-auth", "result: partial"] {
+            precondition(runText.contains(field), "run frontmatter missing \(field)")
+        }
+
         let tree = NotebookLoader.load(root: root)
         precondition(tree.map(\.title) == ["roadmap", "projects", "tasks"])
+        precondition(NotebookLoader.find(NotebookEntry.id(for: run), in: tree) == nil,
+                     "run history stays out of human notebook navigation")
         let projectRow = tree.first { $0.title == "projects" }!.children!.first!
         precondition(projectRow.title == "launch-beta")
         precondition(projectRow.url.lastPathComponent == "project.md", "a project row opens its own page")
@@ -52,7 +68,19 @@ enum NotebookSelfTest {
         precondition(projectRow.children![0].children![0].icon == "brain")
         precondition(projectRow.children![0].children!.count == 1)
         precondition(NotebookLoader.find(NotebookEntry.id(for: first), in: tree)?.title == "wire-auth")
-        // project.md + one memory + two tasks; bare folders are not pages.
+        let doneRows = [
+            NotebookCard(id: "launch-beta", url: project, kind: .project, title: "Launch Beta",
+                         status: "done", project: nil, dependsOn: []),
+            NotebookCard(id: "wire-auth", url: first, kind: .task, title: "Wire auth",
+                         status: "done", project: "launch-beta", dependsOn: []),
+        ]
+        let unfinishedTree = NotebookLoader.display(tree, cards: doneRows, showDone: false)
+        precondition(NotebookLoader.find(projectRow.id, in: unfinishedTree) == nil)
+        precondition(NotebookLoader.find(NotebookEntry.id(for: first), in: unfinishedTree) == nil)
+        precondition(NotebookLoader.find(projectRow.id,
+                                         in: NotebookLoader.display(tree, cards: doneRows, showDone: true)) != nil,
+                     "Show Completed restores done project and task rows")
+        // project.md + one memory + two tasks; runs and bare folders are not shown.
         precondition(NotebookLoader.pageCount(tree) == 4)
 
         // The onboarding prompt reaches the agent as a shell argument, and it is full of
@@ -88,8 +116,10 @@ enum NotebookSelfTest {
         precondition(bare.id == "bare" && bare.title == "bare" && bare.kind == .roadmap,
                      "a file without frontmatter falls back to its filename and folder")
         precondition(cards.first { $0.id == "launch-beta" }?.kind == .project)
+        precondition(cards.first { $0.id == "launch-beta" }?.roadmap == "ship-beta")
         precondition(cards.contains { $0.kind == .memory && $0.project == "launch-beta" })
-        precondition(cards.count == NotebookLoader.pageCount(NotebookLoader.load(root: root)))
+        precondition(cards.contains { $0.kind == .run && $0.subject == "wire-auth" && $0.result == "partial" })
+        precondition(cards.count == NotebookLoader.pageCount(NotebookLoader.loadAll(root: root)))
 
         // The agent copies paths straight out of the layout block. Every one has to be
         // anchored to .notebook/, or it creates roadmap/ and tasks/ at the project root.
@@ -104,6 +134,7 @@ enum NotebookSelfTest {
         let prompt = NotebookFormat.onboardingPrompt(description: typed)
         precondition(prompt.contains(typed), "what the user typed reaches the agent")
         precondition(prompt.contains("author's problem"), "the spec's apostrophes are what break quoting")
+        precondition(prompt.contains("append one run record"), "setup sessions must leave a handoff")
         precondition(echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")
         precondition(echo(AgentCommand.quoted("/a b'c")) == "/a b'c")
         precondition(AgentCommand.line(directory: "/a b", agent: .claude, prompt: nil)
@@ -115,6 +146,10 @@ enum NotebookSelfTest {
                      == "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'")
         precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: nil, sessionID: sid)
                      == "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: "lead", sessionID: sid,
+                                       brief: true)
+                     == "cd '/a' && exec claude --brief --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
+                     "engineering leads can notify the user without changing ordinary sessions")
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
                      == "cd '/a' && exec codex 'hi'",
                      "codex never understands --session-id, so passing one changes nothing")
@@ -184,6 +219,8 @@ enum NotebookSelfTest {
         precondition(Set(NotebookIndex.withBlockers([graph[5]], in: graph).map(\.id)) == ["x", "y"],
                      "a dependency cycle terminates instead of hanging")
         precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
+        precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: false).map(\.id) == ["a"])
+        precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: true).map(\.id) == ["a", "done-one"])
 
         // A task already claimed by another lead is not handed to a second one, whether it
         // was picked directly or would otherwise be pulled in as a blocker.
@@ -313,6 +350,24 @@ enum NotebookSelfTest {
         precondition(content[1].blocks == [.paragraph("Stays `todo` on purpose.")])
         precondition(content[2].blocks == [.list(["[[a]]", "[[b]] — annotated, so it stays"])])
 
+        let rich = NotebookContent.sections("""
+        ## Steps
+
+        1. Open settings
+        2. Save the value
+
+            select * from todos;
+
+        ```sh
+        npm test
+        ```
+        """)
+        precondition(rich[0].blocks == [
+            .numberedList(["Open settings", "Save the value"]),
+            .code("select * from todos;"),
+            .code("npm test"),
+        ], "memory pages keep numbered procedures and code readable")
+
         // Cross-links: a bare `[[id]]` list item is a pure reference; one with trailing
         // prose is not, even though it still contains a link.
         precondition(NotebookContent.wikilinks(in: "See [[a]] and [[b]] too") == ["a", "b"])
@@ -340,7 +395,10 @@ enum NotebookSelfTest {
         // Picked tasks reach the lead as a shell argument, titles and all.
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)
-        let brief = NotebookFormat.engineeringPrompt(tasks: picked)
+        let leadID = UUID()
+        let brief = NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID)
+        precondition(brief.contains(leadID.uuidString.lowercased()),
+                     "a lead has to know its own session id to route a block's answer back")
         precondition(brief.hasPrefix("/engineering-lead "), "task batches invoke the dispatcher skill")
         for task in picked {
             precondition(brief.contains(task.id) && brief.contains(task.title))
@@ -351,12 +409,57 @@ enum NotebookSelfTest {
         precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
 
         // A follow-up batch reinvokes the same dispatcher with the same task detail.
-        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked)
+        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked, sessionID: leadID)
         for task in picked {
             precondition(follow.contains(task.id) && follow.contains(task.title))
         }
         precondition(follow.contains("waits on: wire-auth"), "dependencies have to survive a follow-up too")
         precondition(follow.hasPrefix("/engineering-lead "), "follow-ups use the dispatcher skill too")
+
+        // A block, exactly as the engineering-lead skill writes one, and the loop it opens:
+        // read it back, hand it to a session, resolve it, tell the waiting lead.
+        precondition(Blocks.load(root: root).isEmpty, "no gate hit, no blocks folder")
+        let blockFile = Blocks.root(in: root).appendingPathComponent("github-token.md")
+        try! fm.createDirectory(at: Blocks.root(in: root), withIntermediateDirectories: true)
+        try! """
+        ---
+        id: github-token
+        kind: block
+        title: "GitHub needs a personal access token"
+        status: open
+        session: \(leadID.uuidString.lowercased())
+        task: wire-auth
+        url: https://github.com/settings/tokens/new?scopes=repo
+        action: "Create a token with repo scope and authenticate the GitHub MCP with it."
+        ---
+
+        The subagent finished the local work and cannot push.
+
+        ## Needed from you
+
+        - [ ] Generate the token and paste it back.
+        """.write(to: blockFile, atomically: true, encoding: .utf8)
+
+        let block = Blocks.load(root: root).first!
+        precondition(block.waiting && block.session == leadID && block.task == "wire-auth")
+        precondition(block.link?.host == "github.com", "the page the user has to be on")
+        precondition(block.body.contains("Generate the token"), "the checklist is what the user reads")
+        let guide = NotebookFormat.unblockPrompt(block: block)
+        precondition(guide == "/unblock .notebook/blocks/github-token.md",
+                     "the guiding session is the skill, pointed at the file it flips to done")
+        precondition(echo(AgentCommand.quoted(guide)) == guide, "block prompt mangled by the shell")
+
+        Blocks.resolve(block)
+        let cleared = Blocks.load(root: root).first!
+        precondition(!cleared.waiting, "resolving a block is one frontmatter edit")
+        precondition(cleared.title == block.title && cleared.action == block.action,
+                     "and touches nothing else in the file")
+        precondition(NotebookFormat.unblockedMessage(block: cleared).contains(block.title),
+                     "the waiting lead is told which block cleared")
+
+        precondition(!NotebookEditor.hasConflict(loaded: "same", disk: "same"))
+        precondition(NotebookEditor.hasConflict(loaded: "mine", disk: "agent"),
+                     "an agent edit must not be overwritten by a stale editor")
 
         // The open-project list lives in defaults, where anything could be sitting.
         let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]

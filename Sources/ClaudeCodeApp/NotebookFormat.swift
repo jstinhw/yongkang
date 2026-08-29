@@ -1,7 +1,7 @@
 import Foundation
 
 enum EntryKind: String, CaseIterable {
-    case roadmap, project, task, memory
+    case roadmap, project, task, memory, run
 
     var displayName: String { rawValue.capitalized }
 }
@@ -23,7 +23,8 @@ enum NotebookError: LocalizedError {
 enum NotebookFormat {
     static let folderName = ".notebook"
     static let specFile = "NOTEBOOK.md"
-    static let folders = ["roadmap", "projects", "tasks"]
+    static let folders = ["roadmap", "projects", "tasks", "runs"]
+    static let visibleFolders = ["roadmap", "projects", "tasks"]
 
     /// Where a project keeps its notebook. Nothing is written until the first entry:
     /// a project with no `.notebook` stays untouched and simply reads as empty.
@@ -40,7 +41,8 @@ enum NotebookFormat {
         }
     }
 
-    static func create(_ kind: EntryKind, title: String, in root: URL, project: String?) throws -> URL {
+    static func create(_ kind: EntryKind, title: String, in root: URL, project: String?,
+                       roadmap: String? = nil, subject: String? = nil) throws -> URL {
         let base = slug(title)
         try scaffold(root)
         guard !base.isEmpty else { throw NotebookError.emptyTitle }
@@ -66,14 +68,21 @@ enum NotebookFormat {
             }
             try fm.createDirectory(at: dir.appendingPathComponent("memory"), withIntermediateDirectories: true)
             return try write(dir.appendingPathComponent("project.md"), id: dir.lastPathComponent,
-                             kind: kind, title: title, project: nil, day: day)
+                             kind: kind, title: title, project: nil, roadmap: roadmap, day: day)
 
         case .memory:
             guard let project, !project.isEmpty else { throw NotebookError.missingProject }
             let dir = root.appendingPathComponent("projects/\(project)/memory")
             let file = unique(dir.appendingPathComponent("\(day)-\(base).md"))
             return try write(file, id: file.deletingPathExtension().lastPathComponent,
-                             kind: kind, title: title, project: project, day: day)
+                             kind: kind, title: title, project: project,
+                             subject: subject ?? project, day: day)
+
+        case .run:
+            let file = unique(root.appendingPathComponent("runs/\(timestamp())-\(base).md"))
+            return try write(file, id: file.deletingPathExtension().lastPathComponent,
+                             kind: kind, title: title, project: project,
+                             subject: subject ?? project, day: day)
         }
     }
 
@@ -85,19 +94,32 @@ enum NotebookFormat {
     // MARK: - Writing
 
     private static func write(_ file: URL, id: String, kind: EntryKind,
-                              title: String, project: String?, day: String) throws -> URL {
+                              title: String, project: String?, roadmap: String? = nil,
+                              subject: String? = nil, day: String) throws -> URL {
         var fields: [(String, String)] = [
             ("id", id),
             ("kind", kind.rawValue),
             ("title", yaml(title)),
         ]
-        if kind != .memory { fields.append(("status", "todo")) }
-        if kind == .task || kind == .memory { fields.append(("project", project ?? "")) }
-        if kind != .memory {
+        if kind != .memory && kind != .run { fields.append(("status", "todo")) }
+        if kind == .project { fields.append(("roadmap", roadmap ?? "")) }
+        if kind == .task || kind == .memory || kind == .run {
+            fields.append(("project", project ?? ""))
+        }
+        if kind == .memory || kind == .run { fields.append(("subject", subject ?? "")) }
+        if kind != .memory && kind != .run {
             fields.append(("depends_on", "[]"))
             fields.append(("owner", "\"\""))
         }
         if kind == .project { fields.append(("repos", "[]")) }
+        if kind == .memory {
+            fields.append(contentsOf: [("memory_type", "note"), ("source", "user"),
+                                       ("supersedes", "[]")])
+        }
+        if kind == .run {
+            fields.append(contentsOf: [("result", "partial"), ("agent", "\"\""),
+                                       ("started", "\"\""), ("ended", "\"\"")])
+        }
         fields.append(contentsOf: [("created", day), ("updated", day), ("external", "{}")])
 
         let front = fields.map { "\($0.0): \($0.1)" }.joined(separator: "\n")
@@ -118,6 +140,8 @@ enum NotebookFormat {
             return "## Done when\n\n- [ ] \n"
         case .memory:
             return "The fact or decision, and why it went that way.\n"
+        case .run:
+            return "What changed and what the next agent needs to know.\n\n## Handoff\n\n## Completed\n\n## Verification\n"
         }
     }
 
@@ -148,6 +172,15 @@ enum NotebookFormat {
         return formatter.string(from: Date())
     }
 
+    /// RFC-3339 punctuation is awkward in Finder names; the sortable compact form stays
+    /// in the filename while exact timestamps live in run frontmatter.
+    private static func timestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HHmmssZ"
+        return formatter.string(from: Date())
+    }
+
     /// Opens the session an empty project starts with, seeded by what the user typed.
     /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
     /// point of an empty project is that nothing has been written to it yet — the
@@ -175,20 +208,25 @@ enum NotebookFormat {
         will read it on the board and tell you what to change.
 
         It all goes into `\(folderName)/` in this folder — every file this produces goes in
-        there and nowhere else. Do not create roadmap/, projects/ or tasks/ at the
+        there and nowhere else. Do not create roadmap/, projects/, tasks/ or runs/ at the
         project root, and leave everything outside `\(folderName)/` untouched.
 
         Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then the files it
         describes, following its frontmatter exactly: my goals as roadmap entries, the
-        projects that get us there with `depends_on` where one blocks another and `repos`
-        naming the folders each one's work lands in, and the tasks that ship each project,
-        each carrying its `project:` and its own `depends_on`. Order matters more than volume — the dependencies are what I am
-        going to read.
+        projects that get us there, each carrying its `roadmap:`, `depends_on` where one
+        blocks another and `repos` naming the folders its work lands in, and the tasks
+        that ship each project, each carrying its `project:` and its own `depends_on`.
+        Order matters more than volume — the dependencies are what I am going to read.
 
         Where something is still vague once we have talked, make the call rather than
         asking again, and record it: one memory entry in the project it affects, saying
-        what you assumed and why. Leave `owner` and any date empty rather than
+        what you assumed and why. Leave `owner` and any unknown date empty rather than
         inventing one.
+
+        Before your final reply, append one run record under `.notebook/runs/` for this
+        setup session. Use the primary roadmap id as `subject`, summarize the result in
+        the first body paragraph, and put corrections or unfinished work under
+        `## Handoff`. Do not copy the transcript into it.
 
         When the files are written, stop and tell me in a few lines what you created and
         which calls you made, then wait for my corrections.
@@ -209,17 +247,34 @@ enum NotebookFormat {
     }
 
     /// The reusable skill owns orchestration; the opening prompt only carries the batch.
-    static func engineeringPrompt(tasks: [NotebookCard]) -> String {
-        "/engineering-lead \(taskList(tasks))"
+    /// The session id goes in so a block this lead writes says who is waiting on it —
+    /// with two leads running, the answer has to come back to the right one.
+    static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID) -> String {
+        "/engineering-lead session: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))"
     }
 
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.
-    static func additionalTasksPrompt(tasks: [NotebookCard]) -> String {
-        engineeringPrompt(tasks: tasks)
+    static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID) -> String {
+        engineeringPrompt(tasks: tasks, sessionID: sessionID)
+    }
+
+    /// Opens the session that walks the user through one block. The skill owns how to
+    /// guide; the prompt only says which block, because the file itself already carries
+    /// the rest — and it is the way back, too: setting `status: done` in it is what
+    /// releases the session waiting behind it.
+    static func unblockPrompt(block: UserBlock) -> String {
+        "/unblock \(relativePath(block.url))"
+    }
+
+    /// Typed into the waiting session once its block clears — the same words a person
+    /// would use coming back to say the account is set up now.
+    static func unblockedMessage(block: UserBlock) -> String {
+        let detail = block.resolution.isEmpty ? "" : " \(block.resolution)"
+        return "Unblocked: \(block.title).\(detail) Continue from where you stopped."
     }
 
     /// `.notebook/tasks/x.md` — the agent runs in the project root, so give it that.
-    private static func relativePath(_ url: URL) -> String {
+    static func relativePath(_ url: URL) -> String {
         guard let range = url.path.range(of: "/\(folderName)/") else { return url.lastPathComponent }
         return folderName + "/" + url.path[range.upperBound...]
     }
@@ -243,6 +298,7 @@ enum NotebookFormat {
         \(folderName)/projects/<id>/project.md    one project — the what
         \(folderName)/projects/<id>/memory/*.md   that project's memory: decisions, context
         \(folderName)/tasks/<id>.md               shippable units of work — the how
+        \(folderName)/runs/<timestamp>-<id>.md    one agent-team session — the handoff
 
     Memory sits inside its project on purpose: it is archived, moved and handed off
     with the project, and one file per fact means several agents can write memory at
@@ -252,13 +308,22 @@ enum NotebookFormat {
 
         ---
         id: <slug>          stable, never changes — the filename may, this may not
-        kind: roadmap | project | task | memory
-        title: "One line"
-        status: todo | active | blocked | done     (not on memory)
-        depends_on: []      ids that must land first (not on memory)
+        kind: roadmap | project | task | memory | run
+        title: "One-line human summary"
+        status: todo | active | blocked | done     (state pages only)
+        depends_on: []      ids that must land first (state pages only)
         repos: []           projects only — folders the work lands in, relative to the
                             project folder: [.] for the folder itself, [web, api] for two
-        project: <id>       tasks and memory only
+        roadmap: <id>       projects only
+        project: <id>       tasks, memory and project-scoped runs
+        subject: <id>       memory and runs — the entry this record explains
+        memory_type: decision | fact | constraint | assumption | note
+        source: user | agent | code | external
+        supersedes: []      memory ids made stale by this memory
+        result: succeeded | partial | blocked | failed | cancelled   (runs only)
+        agent: ""           runs only
+        started: RFC-3339   runs only
+        ended: RFC-3339     runs only
         owner: ""           free text — the format fixes no roles
         created: YYYY-MM-DD
         updated: YYYY-MM-DD
@@ -269,8 +334,14 @@ enum NotebookFormat {
 
     ## Body
 
-    CommonMark. Tasks use `- [ ]` checkboxes for subtasks. Cross-link entries with
-    `[[id]]`.
+    CommonMark. The first body paragraph is a one-to-three-sentence brief for a human;
+    details follow under `##` headings. Omit empty sections. Tasks use `- [ ]`
+    checkboxes for acceptance criteria. Cross-link entries with `[[id]]`.
+
+    State pages (roadmap, project and task) are mutable current truth. Do not append
+    dated work logs to them. Roadmaps normally use Goal, Success, Context,
+    Requirements, Projects and Not doing; projects use Outcome, Done when, Context,
+    Approach, Tasks and Decisions; tasks use Done when, Context and Constraints.
 
     ## Dependencies
 
@@ -295,8 +366,19 @@ enum NotebookFormat {
 
     ## Memory
 
-    One fact or decision per file, named `YYYY-MM-DD-<slug>.md`. Append; do not
-    rewrite history. Supersede a stale fact with a new entry that links `[[the-old-id]]`.
+    One durable fact, decision, constraint or assumption per file, named
+    `YYYY-MM-DD-<slug>.md`. Append; do not rewrite history. Point `subject` at the
+    entry it explains. Supersede stale memory with a new entry whose `supersedes`
+    names the old id. Runs are history, not canonical truth: promote anything the next
+    agent must rely on into durable memory.
+
+    ## Runs
+
+    One top-level Yongkang session per file. The lead consolidates its subagents into
+    that record; raw transcripts stay outside the notebook. Use an RFC-3339 timestamp
+    in the filename and frontmatter, then a short brief followed by Handoff, Completed,
+    Verification, Changed and Learned sections as applicable. Never store secrets,
+    environment values or machine-local transcript paths.
 
     ## Third-party notebooks (Notion et al.)
 
@@ -305,10 +387,10 @@ enum NotebookFormat {
 
     | here                                   | Notion             |
     |----------------------------------------|--------------------|
-    | folder (`roadmap/`, `projects/`, `tasks/`) | database        |
+    | folder (`roadmap/`, `projects/`, `tasks/`, `runs/`) | database |
     | `.md` file                             | page in that database |
     | frontmatter key                        | page property      |
-    | `depends_on`, `project`                | relation property  |
+    | `depends_on`, `roadmap`, `project`, `subject` | relation property |
     | body                                   | page content blocks |
     | `external.notion`                      | page id, so sync is idempotent |
 

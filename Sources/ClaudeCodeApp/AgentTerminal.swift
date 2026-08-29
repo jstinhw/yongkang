@@ -22,10 +22,12 @@ enum AgentCommand {
     /// transcript land at a path the app already knows, so it can go find that session's
     /// subagents later. Codex gets none: it picks its own id and never has a transcript
     /// the app goes looking for.
-    static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil) -> String {
+    static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
+                     brief: Bool = false) -> String {
+        let briefFlag = agent == .claude && brief ? "--brief " : ""
         let sessionFlag = agent == .claude
             ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
-        let command = "\(agent.command) \(sessionFlag)".trimmingCharacters(in: .whitespaces)
+        let command = "\(agent.command) \(briefFlag)\(sessionFlag)".trimmingCharacters(in: .whitespaces)
         let start = prompt.map { "exec \(command) \(quoted($0))" } ?? "exec \(command)"
         return "cd \(quoted(directory)) && \(start)"
     }
