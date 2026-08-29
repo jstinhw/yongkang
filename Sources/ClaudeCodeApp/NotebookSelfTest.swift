@@ -341,6 +341,7 @@ enum NotebookSelfTest {
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)
         let brief = NotebookFormat.engineeringPrompt(tasks: picked)
+        precondition(brief.hasPrefix("/engineering-lead "), "task batches invoke the dispatcher skill")
         for task in picked {
             precondition(brief.contains(task.id) && brief.contains(task.title))
             precondition(brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
@@ -349,15 +350,13 @@ enum NotebookSelfTest {
         precondition(brief.contains("waits on: wire-auth"), "dependencies have to survive")
         precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
 
-        // A follow-up batch for a lead already running carries the same task detail, without
-        // re-briefing it as if it were a fresh assignment.
+        // A follow-up batch reinvokes the same dispatcher with the same task detail.
         let follow = NotebookFormat.additionalTasksPrompt(tasks: picked)
         for task in picked {
             precondition(follow.contains(task.id) && follow.contains(task.title))
         }
         precondition(follow.contains("waits on: wire-auth"), "dependencies have to survive a follow-up too")
-        precondition(!follow.contains("You are the engineering lead"),
-                     "a follow-up talks to the session that is already running, not a new one")
+        precondition(follow.hasPrefix("/engineering-lead "), "follow-ups use the dispatcher skill too")
 
         // The open-project list lives in defaults, where anything could be sitting.
         let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]

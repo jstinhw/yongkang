@@ -208,72 +208,14 @@ enum NotebookFormat {
         }.joined(separator: "\n")
     }
 
-    /// Hands a batch of picked tasks to one lead session. The engineers are that
-    /// session's own subagents: separate PTYs would have no way to report back to it.
+    /// The reusable skill owns orchestration; the opening prompt only carries the batch.
     static func engineeringPrompt(tasks: [NotebookCard]) -> String {
-        """
-        You are the engineering lead on this project. I picked these tasks out of the
-        notebook — ship them.
-
-        \(taskList(tasks))
-
-        Read each task file first: the body says what done means and the frontmatter says
-        what it waits on.
-
-        The list is the whole job, already in dependency order and already carrying every
-        unfinished blocker of what I picked. Ship all of it. A blocker being unfinished is
-        why it is on the list, never a reason to hand the batch back to me — a task I
-        asked for is not shipped until the things it waits on are. If you turn up another
-        blocker that is not listed, pull it in and do it first. Do not ask me to scope
-        this, and do not ask me to do any of it myself.
-
-        Delegate the implementation — do not write it yourself. Give each task to its own
-        subagent, with the task file and what done means, and run tasks that do not block
-        each other in parallel. Blockers get their own subagents like anything else: the
-        team is however many engineers the batch needs.
-
-        When a subagent reports back, review before you accept: read the diff and check it
-        does what the task says and nothing more. If it falls short, hand it back with what
-        is missing rather than fixing it yourself.
-
-        Keep the notebook true as you go — `status: active` when you hand a task out,
-        `status: done` only once you have accepted the work, and one memory entry in the
-        affected project for anything you learned that the next person would need. If the
-        work lands in a folder the project's `repos:` does not list, add it: that key is
-        what lets the project be started and reviewed.
-
-        Some tasks need something that lives in my accounts — a Vercel or GitHub login, a
-        dashboard-provisioned database, a secret, a paid plan. Those are the only things
-        you may come to me for, and never at the start. Build everything that can be built
-        without them first: scaffold the app, stand up a local substitute where the cloud
-        piece is not there yet — a local database, a dev server, a stub behind the same
-        env var — and take every task behind it as far as it goes locally. Leave the
-        account task itself `todo` and say why; do not mark it done off a local stand-in.
-
-        Come to me once, at the end, when everything left is waiting on me and nothing
-        else can move. One message, every account thing you need in it: what is blocked,
-        and numbered steps for exactly what I click or run. Never a menu of options for me
-        to pick scope from — deciding what to build is your job, not mine.
-
-        When every task has passed your review, open the pull request: a branch, a commit
-        per task whose message says what it does, then `gh pr create` with a body listing
-        the tasks by notebook id. Then stop and tell me it is up for review. Do not merge
-        it — that call is mine. If `gh` is missing or not logged in, say so and leave the
-        branch pushed rather than guessing at another way.
-        """
+        "/engineering-lead \(taskList(tasks))"
     }
 
-    /// A second (or third) batch for a lead session that is already running — talked to
-    /// like the ongoing conversation it is, not re-briefed as if it were new.
+    /// Reinvoke the same dispatcher for a later batch in the existing lead session.
     static func additionalTasksPrompt(tasks: [NotebookCard]) -> String {
-        """
-        More tasks for you, on top of what you already have — same rules as before: read
-        each one first, delegate to its own subagent, pull in any blocker that turns up
-        even if it is not listed here, review before you accept, and fold these into the
-        same PR when you open it rather than a second one.
-
-        \(taskList(tasks))
-        """
+        engineeringPrompt(tasks: tasks)
     }
 
     /// `.notebook/tasks/x.md` — the agent runs in the project root, so give it that.
