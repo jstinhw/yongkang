@@ -55,6 +55,16 @@ enum NotebookIndex {
         return fields
     }
 
+    /// A page's Markdown after its frontmatter block — what a project's detail page
+    /// actually shows, as opposed to the raw file `NotebookEditor` edits.
+    static func body(_ text: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---",
+              let close = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" })
+        else { return text }
+        return lines[(close + 1)...].joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     static func list(_ value: String) -> [String] {
         value.trimmingCharacters(in: CharacterSet(charactersIn: "[] "))
             .split(separator: ",")

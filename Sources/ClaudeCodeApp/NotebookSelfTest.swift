@@ -277,6 +277,51 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a b", run: "npm run dev")
                      == "cd '/a b' && npm run dev")
 
+        // A project or task page is parsed into structured content, not shown as raw
+        // Markdown — real pages restate the title as `# `, put a checklist right after
+        // the intro with no heading of its own, and wrap a checklist item's text onto a
+        // continuation line with no bullet.
+        precondition(NotebookIndex.body("no frontmatter here") == "no frontmatter here")
+        let real = """
+        # Scaffold the app
+
+        Intro line one
+        intro line two.
+
+        - [x] done item
+        - [ ] open item that wraps onto a
+              continuation line
+
+        ## Blocked on accounts
+
+        Stays `todo` on purpose.
+
+        ## Tasks
+
+        - [[a]]
+        - [[b]] — annotated, so it stays
+
+        """
+        let content = NotebookContent.sections(real)
+        precondition(content.map(\.heading) == [nil, "Blocked on accounts", "Tasks"],
+                     "the `# ` title restates the frontmatter and is dropped, not shown as a section")
+        precondition(content[0].blocks == [
+            .paragraph("Intro line one intro line two."),
+            .checklist([.init(text: "done item", done: true),
+                        .init(text: "open item that wraps onto a continuation line", done: false)]),
+        ], "a wrapped checklist line folds into the item it continues, not a stray paragraph")
+        precondition(content[1].blocks == [.paragraph("Stays `todo` on purpose.")])
+        precondition(content[2].blocks == [.list(["[[a]]", "[[b]] — annotated, so it stays"])])
+
+        // Cross-links: a bare `[[id]]` list item is a pure reference; one with trailing
+        // prose is not, even though it still contains a link.
+        precondition(NotebookContent.wikilinks(in: "See [[a]] and [[b]] too") == ["a", "b"])
+        precondition(NotebookContent.isPureLinks("[[a]]"))
+        precondition(!NotebookContent.isPureLinks("[[a]] — why it matters"))
+        precondition(!NotebookContent.isPureLinks("no link here"))
+        precondition(NotebookContent.tokens("open [[x")
+                     == [.text("open "), .text("[[x")], "an unmatched [[ is kept as plain text")
+
         // Clicking a project scopes the board to it, and takes the old scope's picks along.
         let launch = cards.first { $0.id == "launch-beta" }!
         let other = NotebookCard(id: "ship-ga", url: root, kind: .project, title: "GA",

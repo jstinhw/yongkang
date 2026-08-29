@@ -98,11 +98,11 @@ struct ClaudeCodeApp: App {
                 Label("Board", systemImage: "rectangle.split.3x1")
                     .tag(boardID(project))
                 OutlineGroup(project.entries, children: \.children) { entry in
-                    // A project row opens straight into its own scoped board — the tasks
-                    // it's for, not raw frontmatter — everything else still opens as text.
-                    let scoped = project.cards.first { $0.url.path == entry.url.path && $0.kind == .project }
+                    // A project or task row opens its own parsed page, not raw
+                    // frontmatter — everything else (roadmap, memory) still opens as text.
+                    let card = project.cards.first { $0.url.path == entry.url.path }
                     Label(entry.title, systemImage: entry.icon)
-                        .tag(scoped.map { projectTag($0.id) } ?? entry.id)
+                        .tag(entryTag(card, fallback: entry.id))
                         .contextMenu { entryMenu(entry, in: project) }
                 }
             } else {
@@ -303,9 +303,28 @@ struct ClaudeCodeApp: App {
                                title: "Notebook Setup")
                 }
             } else if let project = enteredProject, selection == boardID(project) {
-                boardView(for: project, scope: nil)
-            } else if let project = enteredProject, let scope = projectScope(selection) {
-                boardView(for: project, scope: scope).id(scope)
+                boardView(for: project)
+            } else if let project = enteredProject, let card = scopedCard(in: project, kind: .project) {
+                ProjectDetail(
+                    card: card,
+                    cards: project.cards,
+                    directory: project.directory,
+                    assigned: project.assignedTaskIDs,
+                    open: { url in selection = NotebookEntry.id(for: url) },
+                    assign: { tasks in assign(tasks, in: project) },
+                    run: { card in runServices(card, in: project) },
+                    openTask: { task in selection = taskTag(task.id) }
+                )
+                .id(card.id)
+            } else if let project = enteredProject, let card = scopedCard(in: project, kind: .task) {
+                TaskDetail(
+                    card: card,
+                    cards: project.cards,
+                    assigned: project.assignedTaskIDs,
+                    open: { url in selection = NotebookEntry.id(for: url) },
+                    assign: { tasks in assign(tasks, in: project) }
+                )
+                .id(card.id)
             } else if let project = enteredProject, let step = previewStep(in: project) {
                 ProjectPreview(repo: step.repo, services: step.services,
                                run: { runServices([step], in: project) })
@@ -409,19 +428,40 @@ struct ClaudeCodeApp: App {
     private func boardID(_ project: Project) -> String { "board:\(project.id.uuidString)" }
 
     private func projectTag(_ cardID: String) -> String { "project:\(cardID)" }
+    private func taskTag(_ cardID: String) -> String { "task:\(cardID)" }
 
-    /// The card id out of a `projectTag`, if `selection` is one.
+    /// The tag a sidebar row selects with — a project or task opens its own parsed
+    /// page; anything else (roadmap, memory) keeps opening as the raw file it is.
+    private func entryTag(_ card: NotebookCard?, fallback: String) -> String {
+        switch card?.kind {
+        case .project: return projectTag(card!.id)
+        case .task: return taskTag(card!.id)
+        default: return fallback
+        }
+    }
+
+    /// The card id out of a `projectTag`/`taskTag`, if `selection` is one of them.
     private func projectScope(_ selection: String?) -> String? {
         guard let selection, selection.hasPrefix("project:") else { return nil }
         return String(selection.dropFirst("project:".count))
     }
+    private func taskScope(_ selection: String?) -> String? {
+        guard let selection, selection.hasPrefix("task:") else { return nil }
+        return String(selection.dropFirst("task:".count))
+    }
 
-    private func boardView(for project: Project, scope: String?) -> some View {
+    /// The card `selection` points at, if it is a tag of `kind`.
+    private func scopedCard(in project: Project, kind: EntryKind) -> NotebookCard? {
+        let scope = kind == .project ? projectScope(selection) : taskScope(selection)
+        guard let scope else { return nil }
+        return project.cards.first { $0.id == scope && $0.kind == kind }
+    }
+
+    private func boardView(for project: Project) -> some View {
         NotebookBoard(
             cards: project.cards,
             directory: project.directory,
             assigned: project.assignedTaskIDs,
-            scope: scope,
             open: { url in selection = NotebookEntry.id(for: url) },
             assign: { tasks in assign(tasks, in: project) },
             run: { card in runServices(card, in: project) }

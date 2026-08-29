@@ -16,21 +16,7 @@ struct NotebookBoard: View {
     let assign: ([NotebookCard]) -> Void
     let run: (NotebookCard) -> Void
 
-    @State private var selected: Set<String>
-
-    /// `scope` seeds the initial selection — clicking a project elsewhere in the app (the
-    /// sidebar tree) opens straight into that project's tasks rather than the unscoped board.
-    init(cards: [NotebookCard], directory: URL, assigned: Set<String>, scope: String? = nil,
-         open: @escaping (URL) -> Void, assign: @escaping ([NotebookCard]) -> Void,
-         run: @escaping (NotebookCard) -> Void) {
-        self.cards = cards
-        self.directory = directory
-        self.assigned = assigned
-        self.open = open
-        self.assign = assign
-        self.run = run
-        _selected = State(initialValue: scope.map { [$0] } ?? [])
-    }
+    @State private var selected: Set<String> = []
 
     var body: some View {
         // ponytail: no tap-to-clear on the background. A container tap gesture sitting
@@ -94,7 +80,7 @@ struct NotebookBoard: View {
         return HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(project.title)
                 .font(.title3.weight(.semibold))
-            if !project.status.isEmpty { pill(project.status) }
+            if !project.status.isEmpty { NotebookStyle.pill(project.status) }
             Spacer(minLength: 12)
             if total > 0 {
                 Text("\(done)/\(total) done")
@@ -268,7 +254,7 @@ struct NotebookBoard: View {
         let (done, total) = progress(of: card)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                statusRing(card.status, progress: total > 0 ? Double(done) / Double(total) : 0)
+                NotebookStyle.statusRing(card.status, progress: total > 0 ? Double(done) / Double(total) : 0)
                 Text(card.title)
                     .font(.callout.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
@@ -282,7 +268,7 @@ struct NotebookBoard: View {
                 HStack(spacing: 6) {
                     ProgressView(value: Double(done), total: Double(total))
                         .progressViewStyle(.linear)
-                        .tint(color(of: card.status))
+                        .tint(NotebookStyle.color(of: card.status))
                     Text("\(done)/\(total)")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -290,8 +276,8 @@ struct NotebookBoard: View {
                 }
             }
             repos(of: card)
-            if let waits = edge("waits on ", card.dependsOn) { waits.font(.caption2) }
-            if let blocks = edge("blocks ", dependents(of: card)) { blocks.font(.caption2) }
+            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) { waits.font(.caption2) }
+            if let blocks = NotebookStyle.edge("blocks ", NotebookStyle.dependents(of: card, in: cards), in: cards) { blocks.font(.caption2) }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -302,25 +288,6 @@ struct NotebookBoard: View {
         )
         .opacity(selected.isEmpty || related.contains(card.id) ? 1 : 0.3)
         .contentShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    /// Linear's issue-status glyph: an outline in the status color, filled in as tasks
-    /// complete, swapped for a solid check once the project itself is done.
-    private func statusRing(_ status: String, progress: Double) -> some View {
-        ZStack {
-            Circle().stroke(color(of: status).opacity(0.3), lineWidth: 2)
-            if status == "done" {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.green)
-            } else if progress > 0 {
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color(of: status), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-        }
-        .frame(width: 13, height: 13)
     }
 
     /// One project at a time: picking a project swaps the scope rather than adding to it,
@@ -341,14 +308,14 @@ struct NotebookBoard: View {
                     .font(.callout.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if !card.status.isEmpty { pill(card.status) }
-                if assigned.contains(card.id) { pill("wip") }
+                if !card.status.isEmpty { NotebookStyle.pill(card.status) }
+                if assigned.contains(card.id) { NotebookStyle.pill("wip") }
             }
             Text(subtitle(of: card))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            if let waits = edge("waits on ", card.dependsOn) { waits.font(.caption2) }
-            if let blocks = edge("blocks ", dependents(of: card)) { blocks.font(.caption2) }
+            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) { waits.font(.caption2) }
+            if let blocks = NotebookStyle.edge("blocks ", NotebookStyle.dependents(of: card, in: cards), in: cards) { blocks.font(.caption2) }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -424,39 +391,5 @@ struct NotebookBoard: View {
         return parts.joined(separator: " · ")
     }
 
-    /// The other end of the edge: what is held up by this card. `depends_on` only points
-    /// one way, so without this a card cannot say what is waiting on it.
-    private func dependents(of card: NotebookCard) -> [String] {
-        cards.filter { $0.dependsOn.contains(card.id) }.map(\.id)
-    }
 
-    /// Unknown ids show in orange — a typo in `depends_on` is otherwise invisible.
-    private func edge(_ label: String, _ ids: [String]) -> Text? {
-        guard !ids.isEmpty else { return nil }
-        return ids.reduce(Text(label).foregroundColor(.secondary)) { text, id in
-            let known = cards.contains { $0.id == id }
-            let separator = id == ids.first ? "" : ", "
-            return text + Text(separator).foregroundColor(.secondary)
-                + Text(known ? id : "\(id)?").foregroundColor(known ? .secondary : .orange)
-        }
-    }
-
-    private func pill(_ status: String) -> some View {
-        Text(status)
-            .font(.caption2.weight(.medium))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(color(of: status))
-            .background(Capsule().fill(color(of: status).opacity(0.15)))
-    }
-
-    private func color(of status: String) -> Color {
-        switch status {
-        case "done": return .green
-        case "active": return .blue
-        case "blocked": return .orange
-        case "wip": return .purple
-        default: return .gray
-        }
-    }
 }
