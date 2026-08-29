@@ -16,7 +16,21 @@ struct NotebookBoard: View {
     let assign: ([NotebookCard]) -> Void
     let run: (NotebookCard) -> Void
 
-    @State private var selected: Set<String> = []
+    @State private var selected: Set<String>
+
+    /// `scope` seeds the initial selection — clicking a project elsewhere in the app (the
+    /// sidebar tree) opens straight into that project's tasks rather than the unscoped board.
+    init(cards: [NotebookCard], directory: URL, assigned: Set<String>, scope: String? = nil,
+         open: @escaping (URL) -> Void, assign: @escaping ([NotebookCard]) -> Void,
+         run: @escaping (NotebookCard) -> Void) {
+        self.cards = cards
+        self.directory = directory
+        self.assigned = assigned
+        self.open = open
+        self.assign = assign
+        self.run = run
+        _selected = State(initialValue: scope.map { [$0] } ?? [])
+    }
 
     var body: some View {
         // ponytail: no tap-to-clear on the background. A container tap gesture sitting
@@ -57,6 +71,40 @@ struct NotebookBoard: View {
     /// cannot be picked — a batch is one project's work plus whatever it waits on.
     private var scope: String? {
         cards.first { $0.kind == .project && selected.contains($0.id) }?.id
+    }
+
+    /// The scoped project's own card, so the lanes can open with its title and
+    /// progress instead of a bare "Tasks" label — a project page, not just a filter.
+    private var scopedProject: NotebookCard? {
+        guard let scope else { return nil }
+        return cards.first { $0.id == scope }
+    }
+
+    /// This project's tasks, and how many are done — the number Linear puts next to a
+    /// project's name everywhere it's listed.
+    private func progress(of project: NotebookCard) -> (done: Int, total: Int) {
+        let tasks = cards.filter { $0.kind == .task && $0.project == project.id }
+        return (tasks.filter { $0.status == "done" }.count, tasks.count)
+    }
+
+    /// The lanes' own header once a project is picked: title, status, and completion —
+    /// a small project page rather than a generic "Tasks" list.
+    private func projectHeader(_ project: NotebookCard) -> some View {
+        let (done, total) = progress(of: project)
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(project.title)
+                .font(.title3.weight(.semibold))
+            if !project.status.isEmpty { pill(project.status) }
+            Spacer(minLength: 12)
+            if total > 0 {
+                Text("\(done)/\(total) done")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     /// Always on screen, so the action is discoverable before anything is picked and a
@@ -103,7 +151,11 @@ struct NotebookBoard: View {
 
     private var lanes: some View {
         VStack(alignment: .leading, spacing: 0) {
-            heading("Tasks", count: waves.reduce(0) { $0 + $1.count })
+            if let project = scopedProject {
+                projectHeader(project)
+            } else {
+                heading("Tasks", count: waves.reduce(0) { $0 + $1.count })
+            }
             if scope == nil {
                 placeholder("Pick a project on the left to see its tasks.")
             } else if waves.isEmpty {
@@ -194,14 +246,81 @@ struct NotebookBoard: View {
             // Already has a lead on it, or already shipped — not a Button, so it cannot be
             // picked into a batch that would just hand it out again.
             body(of: card).opacity(0.6)
-        } else {
+        } else if card.kind == .project {
             // A Button, not a tap gesture: it consumes the click unambiguously and comes with
             // keyboard and accessibility behaviour a gesture does not.
+            Button { selected = NotebookBoard.picking(card, in: cards, from: selected) } label: {
+                projectCard(card)
+            }
+            .buttonStyle(.plain)
+        } else {
             Button { selected = NotebookBoard.picking(card, in: cards, from: selected) } label: {
                 body(of: card)
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// A project's own card design: a Linear-style status ring in place of a text pill,
+    /// and a completion bar in place of the plain status word — the rail's projects are
+    /// where "how far along is this" actually matters at a glance.
+    private func projectCard(_ card: NotebookCard) -> some View {
+        let (done, total) = progress(of: card)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                statusRing(card.status, progress: total > 0 ? Double(done) / Double(total) : 0)
+                Text(card.title)
+                    .font(.callout.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                runButton(card)
+            }
+            Text(subtitle(of: card))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            if total > 0 {
+                HStack(spacing: 6) {
+                    ProgressView(value: Double(done), total: Double(total))
+                        .progressViewStyle(.linear)
+                        .tint(color(of: card.status))
+                    Text("\(done)/\(total)")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            repos(of: card)
+            if let waits = edge("waits on ", card.dependsOn) { waits.font(.caption2) }
+            if let blocks = edge("blocks ", dependents(of: card)) { blocks.font(.caption2) }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(selected.contains(card.id) ? Color.accentColor : .clear, lineWidth: 2)
+        )
+        .opacity(selected.isEmpty || related.contains(card.id) ? 1 : 0.3)
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Linear's issue-status glyph: an outline in the status color, filled in as tasks
+    /// complete, swapped for a solid check once the project itself is done.
+    private func statusRing(_ status: String, progress: Double) -> some View {
+        ZStack {
+            Circle().stroke(color(of: status).opacity(0.3), lineWidth: 2)
+            if status == "done" {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.green)
+            } else if progress > 0 {
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(color(of: status), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+        }
+        .frame(width: 13, height: 13)
     }
 
     /// One project at a time: picking a project swaps the scope rather than adding to it,
@@ -214,6 +333,7 @@ struct NotebookBoard: View {
         return selected.contains(card.id) ? kept : kept.union([card.id])
     }
 
+    /// Roadmap and task cards — projects get their own design in `projectCard`.
     private func body(of card: NotebookCard) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -223,12 +343,10 @@ struct NotebookBoard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !card.status.isEmpty { pill(card.status) }
                 if assigned.contains(card.id) { pill("wip") }
-                if card.kind == .project { runButton(card) }
             }
             Text(subtitle(of: card))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            if card.kind == .project { repos(of: card) }
             if let waits = edge("waits on ", card.dependsOn) { waits.font(.caption2) }
             if let blocks = edge("blocks ", dependents(of: card)) { blocks.font(.caption2) }
         }

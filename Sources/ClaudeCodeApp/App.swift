@@ -98,8 +98,11 @@ struct ClaudeCodeApp: App {
                 Label("Board", systemImage: "rectangle.split.3x1")
                     .tag(boardID(project))
                 OutlineGroup(project.entries, children: \.children) { entry in
+                    // A project row opens straight into its own scoped board — the tasks
+                    // it's for, not raw frontmatter — everything else still opens as text.
+                    let scoped = project.cards.first { $0.url.path == entry.url.path && $0.kind == .project }
                     Label(entry.title, systemImage: entry.icon)
-                        .tag(entry.id)
+                        .tag(scoped.map { projectTag($0.id) } ?? entry.id)
                         .contextMenu { entryMenu(entry, in: project) }
                 }
             } else {
@@ -300,14 +303,9 @@ struct ClaudeCodeApp: App {
                                title: "Notebook Setup")
                 }
             } else if let project = enteredProject, selection == boardID(project) {
-                NotebookBoard(
-                    cards: project.cards,
-                    directory: project.directory,
-                    assigned: project.assignedTaskIDs,
-                    open: { url in selection = NotebookEntry.id(for: url) },
-                    assign: { tasks in assign(tasks, in: project) },
-                    run: { card in runServices(card, in: project) }
-                )
+                boardView(for: project, scope: nil)
+            } else if let project = enteredProject, let scope = projectScope(selection) {
+                boardView(for: project, scope: scope).id(scope)
             } else if let project = enteredProject, let step = previewStep(in: project) {
                 ProjectPreview(repo: step.repo, services: step.services,
                                run: { runServices([step], in: project) })
@@ -391,7 +389,9 @@ struct ClaudeCodeApp: App {
 
     private func enter(_ project: Project) {
         entered = project.id
-        selection = nil
+        // A notebook project opens on its board, not a blank pane — nothing to click
+        // otherwise until you find "Board" in the tree yourself.
+        selection = project.hasNotebook ? boardID(project) : nil
         reload()
     }
 
@@ -407,6 +407,26 @@ struct ClaudeCodeApp: App {
     }
 
     private func boardID(_ project: Project) -> String { "board:\(project.id.uuidString)" }
+
+    private func projectTag(_ cardID: String) -> String { "project:\(cardID)" }
+
+    /// The card id out of a `projectTag`, if `selection` is one.
+    private func projectScope(_ selection: String?) -> String? {
+        guard let selection, selection.hasPrefix("project:") else { return nil }
+        return String(selection.dropFirst("project:".count))
+    }
+
+    private func boardView(for project: Project, scope: String?) -> some View {
+        NotebookBoard(
+            cards: project.cards,
+            directory: project.directory,
+            assigned: project.assignedTaskIDs,
+            scope: scope,
+            open: { url in selection = NotebookEntry.id(for: url) },
+            assign: { tasks in assign(tasks, in: project) },
+            run: { card in runServices(card, in: project) }
+        )
+    }
 
     private func previewID(_ project: Project, _ directory: URL) -> String {
         "preview:\(project.id.uuidString):\(directory.path)"
@@ -557,6 +577,7 @@ struct ClaudeCodeApp: App {
 
     /// The `.notebook/projects/<id>` the selection sits in — memory has to land in one.
     private func notebookProject(in project: Project) -> String? {
+        if let scope = projectScope(selection) { return scope }
         guard let selection,
               selection.hasPrefix(NotebookEntry.id(for: project.directory)),
               let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
