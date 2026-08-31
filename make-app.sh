@@ -5,6 +5,8 @@ cd "$(dirname "$0")"
 swift build -c release
 
 APP=".build/ClaudeCode.app"
+# `open` only reactivates an already-running instance, so it'd show the old binary.
+pkill -x ClaudeCode 2>/dev/null || true
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp .build/release/ClaudeCodeApp "$APP/Contents/MacOS/ClaudeCode"
