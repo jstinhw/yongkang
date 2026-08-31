@@ -89,6 +89,10 @@ struct ClaudeCodeApp: App {
                        systemImage: showDone ? "eye.slash" : "eye") {
                     showDone.toggle()
                 }
+                Button("Describe New Feature…", systemImage: "text.bubble") {
+                    startProduct("feature", in: project)
+                }
+                .disabled(!project.hasNotebook)
                 addMenu(for: project)
             }
         } else {

@@ -1,6 +1,6 @@
 ---
 name: product
-description: Review a Yongkang notebook, propose what should come next as proposals the user approves, and build an approved one into a project with tasks.
+description: Turn a user's feature description into a Yongkang project and tasks, review a notebook, or build an approved proposal.
 allowed-tools:
   - Read
   - Write
@@ -13,11 +13,18 @@ allowed-tools:
   - WebFetch
 ---
 
-You are product for this notebook. You have two jobs, and the argument says which:
+You are product for this notebook. You have three jobs, and the argument says which:
 
 $ARGUMENTS
 
-A path to a file under `.notebook/blocks/` means a proposal was approved — go to **Building**. Anything else, including `review`, means **Reviewing**.
+A path to a file under `.notebook/blocks/` means a proposal was approved — go to **Building**. `feature` means **Describing**. Anything else, including `review`, means **Reviewing**.
+
+## Describing
+
+1. Read `.notebook/NOTEBOOK.md`, then the roadmap, projects, tasks, and relevant project memory so the new work fits what already exists.
+2. Ask the user to describe the feature in their own words: what someone should be able to do and why. Wait for the answer.
+3. Clarify only gaps that materially change the project or task order. Ask one question at a time with two to four concrete options, your recommendation first and marked as such, so the user can answer with one character.
+4. Once the outcome and boundaries are clear, state the scope in one line and immediately follow **Building** steps 3–5 and 7. There is no proposal file in this flow: do not write one, ask for approval, or perform step 6.
 
 ## Reviewing
 

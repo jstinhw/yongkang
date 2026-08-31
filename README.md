@@ -70,6 +70,10 @@ by default. `Show Completed` in the toolbar reveals them everywhere at once.
 
 ## Product review
 
+`Describe New Feature…` in the project toolbar starts a Product conversation. Describe
+what the user should be able to do; the agent asks only the decisions that change the
+scope, then writes one project and its dependency-ordered tasks directly to the notebook.
+
 `Product Review` on the board starts a session that reads the whole notebook — roadmap,
 projects, tasks, memory, the last run records — and works out what should come next: a
 roadmap entry no project covers, a project with no tasks, work blocked on nobody. It
