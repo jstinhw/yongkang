@@ -249,13 +249,14 @@ enum NotebookFormat {
     /// The reusable skill owns orchestration; the opening prompt only carries the batch.
     /// The session id goes in so a block this lead writes says who is waiting on it —
     /// with two leads running, the answer has to come back to the right one.
-    static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID) -> String {
-        "/engineering-lead session: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))"
+    static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
+        agent.skill("engineering-lead",
+                    arguments: "session: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))")
     }
 
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.
-    static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID) -> String {
-        engineeringPrompt(tasks: tasks, sessionID: sessionID)
+    static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
+        engineeringPrompt(tasks: tasks, sessionID: sessionID, agent: agent)
     }
 
     /// Opens the session that walks the user through one block — a forward-deployed
@@ -265,13 +266,9 @@ enum NotebookFormat {
     /// waiting behind it.
     /// A proposal is settled by the same product agent that raised it, which is why the
     /// file names its own kind: pressing the button has to reach whoever can act on it.
-    static func unblockPrompt(block: UserBlock) -> String {
-        "/\(block.isProposal ? "product" : "fde-dev") \(relativePath(block.url))"
+    static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
+        agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
     }
-
-    /// Product reads the notebook itself, so the review has nothing to carry — the board
-    /// it is asked to look at is the folder it is already standing in.
-    static let productReviewPrompt = "/product review"
 
     /// Typed into the waiting session once its block clears — the same words a person
     /// would use coming back to say the account is set up now.

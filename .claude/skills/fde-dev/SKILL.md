@@ -8,6 +8,7 @@ allowed-tools:
   - WebSearch
   - WebFetch
   - Bash(claude mcp *)
+  - Bash(codex mcp *)
   - Bash(open https://*)
   - Bash(open 'https://*)
 ---

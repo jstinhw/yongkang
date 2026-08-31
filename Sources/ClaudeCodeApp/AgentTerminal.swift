@@ -1,13 +1,19 @@
 import SwiftUI
 import SwiftTerm
 
-enum AgentKind: String {
+enum AgentKind: String, CaseIterable, Identifiable {
     case claude
     case codex
 
+    var id: Self { self }
     var displayName: String { self == .claude ? "Claude Code" : "Codex" }
     var systemImage: String { self == .claude ? "sparkles" : "chevron.left.forwardslash.chevron.right" }
     var command: String { rawValue }
+
+    /// Claude Code and Codex discover the same skills, but invoke them differently.
+    func skill(_ name: String, arguments: String) -> String {
+        "\(self == .claude ? "/" : "$")\(name) \(arguments)"
+    }
 }
 
 enum AgentCommand {

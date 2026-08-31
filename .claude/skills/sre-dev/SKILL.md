@@ -59,4 +59,4 @@ One sentence on what is blocked and why only the user can clear it.
 
 Never write a secret, token, or environment value into the block file, the notebook, or anything the repo tracks. Secrets belong in the provider's own store, the MCP's auth command, or an untracked env file.
 
-Do not implement application code, edit the notebook beyond your block file, change task `status:`, commit, open a pull request, or start a subagent. Never ask the user to restart Claude Code or follow a dashboard workflow — that is what the block is for.
+Do not implement application code, edit the notebook beyond your block file, change task `status:`, commit, open a pull request, or start a subagent. Never ask the user to restart the agent or follow a dashboard workflow — that is what the block is for.

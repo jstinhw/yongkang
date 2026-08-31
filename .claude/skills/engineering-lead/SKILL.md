@@ -10,6 +10,8 @@ allowed-tools:
   - WebFetch
   - Bash(claude mcp *)
   - Bash(claude --resume *)
+  - Bash(codex mcp *)
+  - Bash(codex resume *)
   - Bash(open https://*)
   - Bash(open 'https://*)
 ---
@@ -82,4 +84,4 @@ One sentence on what is blocked and why only the user can clear it.
 
 Never hand the user a multi-step procedure. The steps go in the block file; the `fde-dev` session gives them one at a time. If you do have to ask directly, open the page yourself, in the same message, quoted so an unquoted `&` does not background the command: `open 'https://github.com/settings/tokens/new?scopes=repo,workflow'`. Put that same URL in the block's `url:`.
 
-Do not inspect the repository beyond the listed task files, implement or review the work, edit the notebook outside task `status:` and block files, run verification, or commit. Never ask the user to restart Claude Code, rerun the task, execute MCP commands, or follow a service dashboard workflow.
+Do not inspect the repository beyond the listed task files, implement or review the work, edit the notebook outside task `status:` and block files, run verification, or commit. Never ask the user to restart the agent, rerun the task, execute MCP commands, or follow a service dashboard workflow.

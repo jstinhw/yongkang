@@ -2,6 +2,8 @@
 
 macOS window that runs multiple `claude` or `codex` CLI sessions in real PTYs (SwiftTerm). Add, switch, and close sessions from the left sidebar. Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
+Inside a project, use the Agent switch in the toolbar to choose Claude Code or Codex. The choice is remembered and applies to new notebook setup, Product, Engineering Lead, unblock, and plain sessions; sessions already running keep their original agent.
+
 ```sh
 ./make-app.sh && open .build/ClaudeCode.app
 ```
@@ -27,7 +29,7 @@ Every project has a notebook. It stays empty until you add an entry — nothing 
 written to the folder before that, so opening a project never touches your repo.
 
 An empty project opens a compose box instead of a blank pane: describe what the
-project is for and press Return. That text starts a Claude Code session carrying the
+project is for and press Return. That text starts a session with the selected agent, carrying the
 notebook format. It fills the gaps with a few multiple-choice questions — never open
 ones — then writes `.notebook/` without showing you a plan first — reading a real notebook on the board beats approving an
 imaginary one. Calls it had to make on your behalf land as memory entries, so they are
@@ -91,8 +93,10 @@ or a list of reproductions. It moves `status:` through `active` to `done` as QA 
 work, then opens a PR with `gh` and stops — merging is yours.
 
 The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `frontend-dev`,
-`backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. Sessions run in the project folder you
-opened, not here, so those skills have to exist in `~/.claude/skills/` too.
+`backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. `.agents/skills/` links to those same files
+for Codex, so the two agents cannot drift. Sessions run in the project folder you opened,
+not here, so install the same role folders in `~/.claude/skills/` and `~/.agents/skills/`
+(symlinks to one shared folder are fine) when using the app with other projects.
 
 The engineers are that lead session's own subagents, not sibling terminals. Separate
 PTYs have no way to report back to a lead, so the review loop only closes inside one

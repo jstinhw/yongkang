@@ -17,7 +17,7 @@ struct ProjectIntake: View {
                 .font(.title2.weight(.semibold))
             Text("""
                  Describe the project: the goal, what you are building and for whom, the \
-                 features, the constraints, what is out of scope. Claude Code fills the gaps \
+                 features, the constraints, what is out of scope. The agent fills the gaps \
                  with a few multiple-choice questions, then writes the notebook without \
                  waiting for approval — read it on the board and tell it what to change.
                  """)

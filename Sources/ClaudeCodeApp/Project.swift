@@ -42,6 +42,9 @@ struct CodeSession: Identifiable, Equatable {
     let title: String
     let icon: String
     let line: String
+    /// Nil for service terminals; agent sessions keep their provider so follow-up skill
+    /// prompts still use the right syntax after the toolbar selection changes.
+    let agent: AgentKind?
     /// Tasks this session was handed, in the order it was given them. Empty for anything
     /// that is not an Engineering Lead — a plain session was not assigned work.
     var taskIDs: [String] = []
@@ -55,12 +58,13 @@ struct CodeSession: Identifiable, Equatable {
     /// Explicit, rather than the synthesized memberwise init, because `id` needs to be
     /// settable: the caller has to hand in the same UUID it passed Claude Code as
     /// `--session-id`, so this row's id is the key that finds that session's transcript.
-    init(id: UUID = UUID(), title: String, icon: String, line: String,
+    init(id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
          taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = []) {
         self.id = id
         self.title = title
         self.icon = icon
         self.line = line
+        self.agent = agent
         self.taskIDs = taskIDs
         self.exited = exited
         self.subagents = subagents

@@ -27,6 +27,9 @@ struct ClaudeCodeApp: App {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
+    /// The provider for every new agent session. Running sessions keep the provider they
+    /// started with; switching a process underneath a live PTY is not possible.
+    @AppStorage("agentKind") private var agent = AgentKind.claude
 
     // ponytail: poll instead of an FSEvents watcher. The agents in the sidebar write
     // these files while you watch them; re-listing a few dozen paths every 2s is less
@@ -75,6 +78,13 @@ struct ClaudeCodeApp: App {
             }
             .navigationTitle(project.name)
             .toolbar {
+                Picker("Agent", selection: $agent) {
+                    ForEach(AgentKind.allCases) { kind in
+                        Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 210)
                 Button(showDone ? "Hide Completed" : "Show Completed",
                        systemImage: showDone ? "eye.slash" : "eye") {
                     showDone.toggle()
@@ -143,7 +153,7 @@ struct ClaudeCodeApp: App {
                     }
             }
             if project.sessions.isEmpty {
-                Label("Notebook Setup", systemImage: AgentKind.claude.systemImage)
+                Label("Notebook Setup", systemImage: agent.systemImage)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -279,27 +289,26 @@ struct ClaudeCodeApp: App {
             return
         }
         if let lead = project.sessions.first(where: { $0.title.hasPrefix("Engineering Lead") && !$0.exited }) {
+            let leadAgent = lead.agent ?? .claude
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
-            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id)
+            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
+                                                                         agent: leadAgent)
             selection = lead.id.uuidString
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
         // session id can write it into any block it raises, and the answer comes back here.
         let id = UUID()
-        addSession(.claude, id: id, to: project,
-                   prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id),
+        addSession(agent, id: id, to: project,
+                   prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
     }
 
     private func addMenu(for project: Project) -> some View {
         Menu("New", systemImage: "plus") {
             Section("Session") {
-                Button("Claude Code", systemImage: AgentKind.claude.systemImage) {
-                    addSession(.claude, to: project)
-                }
-                Button("Codex", systemImage: AgentKind.codex.systemImage) {
-                    addSession(.codex, to: project)
+                Button(agent.displayName, systemImage: agent.systemImage) {
+                    addSession(agent, to: project)
                 }
             }
             Section("Notebook") {
@@ -339,7 +348,7 @@ struct ClaudeCodeApp: App {
             } else if let project = needsIntake {
                 // An empty project has nothing to click, so it asks what it is instead.
                 ProjectIntake(project: project) { description in
-                    addSession(.claude, to: project,
+                    addSession(agent, to: project,
                                prompt: NotebookFormat.onboardingPrompt(description: description),
                                title: "Notebook Setup")
                 }
@@ -458,9 +467,11 @@ struct ClaudeCodeApp: App {
     /// session has said anything lands the user on a token screen with no idea what it is
     /// for; the engineer explains first, and opens the page when the user is ready for it.
     private func startUnblock(_ block: UserBlock, in project: Project) {
-        let prompt = NotebookFormat.unblockPrompt(block: block)
-        guard !block.isProposal else { return startProduct(prompt, in: project) }
-        addSession(.claude, to: project, prompt: prompt, title: "Unblock \(block.title)")
+        guard !block.isProposal else {
+            return startProduct(NotebookFormat.relativePath(block.url), in: project)
+        }
+        addSession(agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
+                   title: "Unblock \(block.title)")
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —
@@ -589,19 +600,19 @@ struct ClaudeCodeApp: App {
     /// `blocks/` rather than straight into the notebook, so nothing lands on the board
     /// without the user agreeing to it — the same folder, and the same button, as a gate.
     private func startProductReview(in project: Project) {
-        startProduct(NotebookFormat.productReviewPrompt, in: project)
+        startProduct("review", in: project)
     }
 
     /// One product voice per project. A second session would propose against a board the
     /// first one is already rewriting, so a running one is talked to instead — the same
     /// rule the Engineering Lead follows for a second batch.
-    private func startProduct(_ prompt: String, in project: Project) {
+    private func startProduct(_ arguments: String, in project: Project) {
         if let running = project.sessions.first(where: { $0.title == "Product" && !$0.exited }) {
-            pendingInput[running.id] = prompt
+            pendingInput[running.id] = (running.agent ?? .claude).skill("product", arguments: arguments)
             selection = running.id.uuidString
             return
         }
-        addSession(.claude, to: project, prompt: prompt, title: "Product")
+        addSession(agent, to: project, prompt: agent.skill("product", arguments: arguments), title: "Product")
     }
 
     private func previewID(_ project: Project, _ directory: URL) -> String {
@@ -639,7 +650,9 @@ struct ClaudeCodeApp: App {
             let blocks = Blocks.load(root: projects[index].notebookRoot)
             if blocks != projects[index].blocks { projects[index].blocks = blocks }
             deliverUnblocks(in: projects[index])
-            for sIndex in projects[index].sessions.indices where !projects[index].sessions[sIndex].exited {
+            for sIndex in projects[index].sessions.indices
+                where !projects[index].sessions[sIndex].exited
+                    && projects[index].sessions[sIndex].agent == .claude {
                 let session = projects[index].sessions[sIndex]
                 let subagents = ClaudeTranscripts.subagents(sessionID: session.id,
                                                              projectDirectory: projects[index].directory)
@@ -668,17 +681,18 @@ struct ClaudeCodeApp: App {
                    line: AgentCommand.line(directory: project.directory.path,
                                            agent: agent, prompt: prompt, sessionID: id,
                                            brief: title?.hasPrefix("Engineering Lead") == true),
-                   taskIDs: taskIDs)
+                   agent: agent, taskIDs: taskIDs)
     }
 
     private func addSession(id: UUID = UUID(), to project: Project, title: String, icon: String, line: String,
-                            taskIDs: [String] = []) {
+                            agent: AgentKind? = nil, taskIDs: [String] = []) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         // Second "Engineering Lead" becomes "Engineering Lead 2" — identical sidebar rows
         // are unusable, and several leads at once is a normal thing to want.
         let taken = projects[index].sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
-        projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line, taskIDs: taskIDs))
+        projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
+                                                    agent: agent, taskIDs: taskIDs))
         selection = projects[index].sessions.last?.id.uuidString
     }
 

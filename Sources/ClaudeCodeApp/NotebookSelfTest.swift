@@ -153,6 +153,8 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
                      == "cd '/a' && exec codex 'hi'",
                      "codex never understands --session-id, so passing one changes nothing")
+        precondition(AgentKind.claude.skill("product", arguments: "review") == "/product review")
+        precondition(AgentKind.codex.skill("product", arguments: "review") == "$product review")
 
         // Subagent transcripts live under a project's slugged folder — the slug, the pure
         // finished-detection, and an end-to-end read against fixture files.
@@ -396,7 +398,7 @@ enum NotebookSelfTest {
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)
         let leadID = UUID()
-        let brief = NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID)
+        let brief = NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID, agent: .claude)
         precondition(brief.contains(leadID.uuidString.lowercased()),
                      "a lead has to know its own session id to route a block's answer back")
         precondition(brief.hasPrefix("/engineering-lead "), "task batches invoke the dispatcher skill")
@@ -409,12 +411,14 @@ enum NotebookSelfTest {
         precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
 
         // A follow-up batch reinvokes the same dispatcher with the same task detail.
-        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked, sessionID: leadID)
+        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked, sessionID: leadID, agent: .claude)
         for task in picked {
             precondition(follow.contains(task.id) && follow.contains(task.title))
         }
         precondition(follow.contains("waits on: wire-auth"), "dependencies have to survive a follow-up too")
         precondition(follow.hasPrefix("/engineering-lead "), "follow-ups use the dispatcher skill too")
+        precondition(NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID, agent: .codex)
+            .hasPrefix("$engineering-lead "), "Codex uses its skill invocation syntax")
 
         // A block, exactly as the engineering-lead skill writes one, and the loop it opens:
         // read it back, hand it to a session, resolve it, tell the waiting lead.
@@ -451,10 +455,12 @@ enum NotebookSelfTest {
         precondition(block.body.contains("Generate the token"), "the checklist is what the user reads")
         precondition(block.body.contains("Authenticate the GitHub MCP"),
                      "SRE's procedure rides along for the FDE to deliver one step at a time")
-        let guide = NotebookFormat.unblockPrompt(block: block)
+        let guide = NotebookFormat.unblockPrompt(block: block, agent: .claude)
         precondition(guide == "/fde-dev .notebook/blocks/github-token.md",
                      "the guiding session is the FDE skill, pointed at the file it flips to done")
         precondition(echo(AgentCommand.quoted(guide)) == guide, "block prompt mangled by the shell")
+        precondition(NotebookFormat.unblockPrompt(block: block, agent: .codex)
+                     == "$fde-dev .notebook/blocks/github-token.md")
 
         // A proposal shares the folder, the list and the button — it differs in who the
         // button reaches, and in that nothing is sitting blocked behind it.
@@ -478,9 +484,11 @@ enum NotebookSelfTest {
                   atomically: true, encoding: .utf8)
         let proposal = Blocks.load(root: root).first { $0.isProposal }!
         precondition(proposal.waiting && proposal.session == nil, "nothing waits behind a proposal")
-        precondition(NotebookFormat.unblockPrompt(block: proposal) == "/product .notebook/blocks/add-checkout.md",
+        precondition(NotebookFormat.unblockPrompt(block: proposal, agent: .claude)
+                     == "/product .notebook/blocks/add-checkout.md",
                      "approving a proposal goes back to product, not to an engineer")
-        precondition(!block.isProposal && NotebookFormat.unblockPrompt(block: block).hasPrefix("/fde-dev "),
+        precondition(!block.isProposal
+                     && NotebookFormat.unblockPrompt(block: block, agent: .claude).hasPrefix("/fde-dev "),
                      "a gate still reaches the forward-deployed engineer")
 
         Blocks.resolve(block)
