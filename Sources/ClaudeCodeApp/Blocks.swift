@@ -14,6 +14,10 @@ struct UserBlock: Identifiable, Equatable {
     let slug: String
     let title: String
     let status: String
+    /// `block` for a gate an agent cannot pass, `proposal` for work product wants to add.
+    /// Both are the same thing to this folder — something only the user can settle — and
+    /// differ only in who is sent to settle it.
+    let kind: String
     /// The session waiting on this, when it named itself. Nil routes to the newest lead.
     let session: UUID?
     /// What the session started by the button is told to get done.
@@ -27,6 +31,7 @@ struct UserBlock: Identifiable, Equatable {
     let body: String
 
     var waiting: Bool { status != "done" }
+    var isProposal: Bool { kind == "proposal" }
 }
 
 enum Blocks {
@@ -57,6 +62,7 @@ enum Blocks {
             slug: slug,
             title: fields["title"].flatMap { $0.isEmpty ? nil : $0 } ?? slug,
             status: fields["status"].flatMap { $0.isEmpty ? nil : $0 } ?? "open",
+            kind: fields["kind"].flatMap { $0.isEmpty ? nil : $0 } ?? "block",
             session: fields["session"].flatMap(UUID.init(uuidString:)),
             action: fields["action"] ?? "",
             link: link?.scheme?.hasPrefix("http") == true ? link : nil,

@@ -456,8 +456,35 @@ enum NotebookSelfTest {
                      "the guiding session is the FDE skill, pointed at the file it flips to done")
         precondition(echo(AgentCommand.quoted(guide)) == guide, "block prompt mangled by the shell")
 
+        // A proposal shares the folder, the list and the button — it differs in who the
+        // button reaches, and in that nothing is sitting blocked behind it.
+        try! """
+        ---
+        id: add-checkout
+        kind: proposal
+        title: "Add a shared checkout flow"
+        status: open
+        session: ""
+        task: launch-beta
+        action: "Add the checkout project and decompose it into tasks."
+        ---
+
+        The roadmap promises checkout and no project covers it.
+
+        ## What it would add
+
+        - One project: `checkout`.
+        """.write(to: Blocks.root(in: root).appendingPathComponent("add-checkout.md"),
+                  atomically: true, encoding: .utf8)
+        let proposal = Blocks.load(root: root).first { $0.isProposal }!
+        precondition(proposal.waiting && proposal.session == nil, "nothing waits behind a proposal")
+        precondition(NotebookFormat.unblockPrompt(block: proposal) == "/product .notebook/blocks/add-checkout.md",
+                     "approving a proposal goes back to product, not to an engineer")
+        precondition(!block.isProposal && NotebookFormat.unblockPrompt(block: block).hasPrefix("/fde-dev "),
+                     "a gate still reaches the forward-deployed engineer")
+
         Blocks.resolve(block)
-        let cleared = Blocks.load(root: root).first!
+        let cleared = Blocks.load(root: root).first { $0.id == block.id }!
         precondition(!cleared.waiting, "resolving a block is one frontmatter edit")
         precondition(cleared.title == block.title && cleared.action == block.action,
                      "and touches nothing else in the file")

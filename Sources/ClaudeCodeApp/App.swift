@@ -163,7 +163,8 @@ struct ClaudeCodeApp: App {
     /// question you cannot answer without going to find the session that asked it.
     @ViewBuilder private func blockRow(_ block: UserBlock) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label(block.title, systemImage: block.waiting ? "hand.raised" : "checkmark.circle")
+            Label(block.title, systemImage: block.waiting
+                  ? (block.isProposal ? "lightbulb" : "hand.raised") : "checkmark.circle")
                 .foregroundStyle(block.waiting ? Color.primary : .secondary)
             if let task = block.task {
                 Text(task)
@@ -440,6 +441,8 @@ struct ClaudeCodeApp: App {
     /// reaches the lead that asked even with several running; one written without a
     /// session id falls back to the newest live lead, which is the single-lead case.
     private func waitingSession(for block: UserBlock, in project: Project) -> CodeSession? {
+        // Nothing sits blocked on a proposal — product raised it and went home.
+        guard !block.isProposal else { return nil }
         if let id = block.session {
             return project.sessions.first { $0.id == id && !$0.exited }
         }
@@ -455,8 +458,9 @@ struct ClaudeCodeApp: App {
     /// session has said anything lands the user on a token screen with no idea what it is
     /// for; the engineer explains first, and opens the page when the user is ready for it.
     private func startUnblock(_ block: UserBlock, in project: Project) {
-        addSession(.claude, to: project, prompt: NotebookFormat.unblockPrompt(block: block),
-                   title: "Unblock \(block.title)")
+        let prompt = NotebookFormat.unblockPrompt(block: block)
+        guard !block.isProposal else { return startProduct(prompt, in: project) }
+        addSession(.claude, to: project, prompt: prompt, title: "Unblock \(block.title)")
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —
@@ -576,8 +580,28 @@ struct ClaudeCodeApp: App {
             showDone: showDone,
             open: { url in selection = NotebookEntry.id(for: url) },
             assign: { tasks in assign(tasks, in: project) },
+            review: { startProductReview(in: project) },
             run: { card in runServices(card, in: project) }
         )
+    }
+
+    /// Product looks at the board and says what should come next. It writes proposals into
+    /// `blocks/` rather than straight into the notebook, so nothing lands on the board
+    /// without the user agreeing to it — the same folder, and the same button, as a gate.
+    private func startProductReview(in project: Project) {
+        startProduct(NotebookFormat.productReviewPrompt, in: project)
+    }
+
+    /// One product voice per project. A second session would propose against a board the
+    /// first one is already rewriting, so a running one is talked to instead — the same
+    /// rule the Engineering Lead follows for a second batch.
+    private func startProduct(_ prompt: String, in project: Project) {
+        if let running = project.sessions.first(where: { $0.title == "Product" && !$0.exited }) {
+            pendingInput[running.id] = prompt
+            selection = running.id.uuidString
+            return
+        }
+        addSession(.claude, to: project, prompt: prompt, title: "Product")
     }
 
     private func previewID(_ project: Project, _ directory: URL) -> String {

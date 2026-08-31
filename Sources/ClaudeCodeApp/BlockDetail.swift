@@ -40,10 +40,14 @@ struct BlockDetail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Image(systemName: block.waiting ? "hand.raised.fill" : "checkmark.circle.fill")
+                Image(systemName: block.waiting
+                      ? (block.isProposal ? "lightbulb.fill" : "hand.raised.fill")
+                      : "checkmark.circle.fill")
                     .foregroundStyle(block.waiting ? Color.orange : .green)
                 Text(block.title).font(.title2.weight(.semibold))
-                NotebookStyle.pill(block.waiting ? "waiting on you" : "done")
+                NotebookStyle.pill(block.waiting
+                                   ? (block.isProposal ? "needs your review" : "waiting on you")
+                                   : "done")
                 Spacer(minLength: 12)
             }
             Text(subtitle)
@@ -59,9 +63,13 @@ struct BlockDetail: View {
     }
 
     private var subtitle: String {
+        let parent = block.task.flatMap { id in cards.first { $0.id == id } }
+        if block.isProposal {
+            let lead = block.waiting ? "Product proposes this" : "Built out"
+            return parent.map { "\(lead) — advances \($0.title)" } ?? lead
+        }
         let who = waiting.map { "\($0.title) is waiting" } ?? "Nothing is waiting on it any more"
-        guard let task = block.task, let card = cards.first(where: { $0.id == task }) else { return who }
-        return "\(who) — holds up \(card.title)"
+        return parent.map { "\(who) — holds up \($0.title)" } ?? who
     }
 
     private func load() {
@@ -69,17 +77,23 @@ struct BlockDetail: View {
         content = NotebookContent.sections(NotebookIndex.body(text))
     }
 
+    private var footer: String {
+        guard block.waiting else { return "Cleared." }
+        return block.isProposal
+            ? "Approving writes the project and its tasks onto the board. Nothing is assigned yet."
+            : "An engineer will explain this first, then walk you through it one step at a time."
+    }
+
     private var actionBar: some View {
         HStack(spacing: 10) {
-            Text(block.waiting
-                 ? "An engineer will explain this first, then walk you through it one step at a time."
-                 : "Cleared.")
+            Text(footer)
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
-            Button("Mark Resolved", action: resolve)
+            Button(block.isProposal ? "Dismiss" : "Mark Resolved", action: resolve)
                 .disabled(!block.waiting)
-            Button("Do It Now", systemImage: "play.fill", action: start)
+            Button(block.isProposal ? "Approve" : "Do It Now",
+                   systemImage: block.isProposal ? "checkmark" : "play.fill", action: start)
                 .buttonStyle(.borderedProminent)
                 .disabled(!block.waiting)
         }

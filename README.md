@@ -66,6 +66,21 @@ everything unrelated to it, and again to clear.
 Completed projects and tasks are hidden from the sidebar, board and project task lists
 by default. `Show Completed` in the toolbar reveals them everywhere at once.
 
+## Product review
+
+`Product Review` on the board starts a session that reads the whole notebook — roadmap,
+projects, tasks, memory, the last run records — and works out what should come next: a
+roadmap entry no project covers, a project with no tasks, work blocked on nobody. It
+proposes at most three next steps, ranked, and writes each one to `.notebook/blocks/` as
+a proposal. It changes nothing else: looking at the board must not move it.
+
+Proposals show up under `Blocks` with the gates, marked `needs your review`. Each says
+why now, the project and tasks it would add, what it deliberately leaves out, and the one
+decision that would change its shape. `Approve` sends it back to the same product
+session, which asks that one open question if there is one, then writes the project and
+decomposes it into tasks with their `depends_on` order — the board the engineering lead
+dispatches from. `Dismiss` drops it. Nothing is assigned; picking tasks stays yours.
+
 ## Shipping tasks
 
 Click any number of task cards and `Assign to Engineering Lead` starts a session that
@@ -75,7 +90,7 @@ reviews the work itself; each finished task goes to a QA subagent and comes back
 or a list of reproductions. It moves `status:` through `active` to `done` as QA accepts
 work, then opens a PR with `gh` and stops — merging is yours.
 
-The roles are skills in `.claude/skills/`: `engineering-lead`, `frontend-dev`,
+The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `frontend-dev`,
 `backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. Sessions run in the project folder you
 opened, not here, so those skills have to exist in `~/.claude/skills/` too.
 
@@ -85,9 +100,13 @@ agent.
 
 ## Blocks
 
-An agent that needs you — a token, a consent screen, an approval — writes
-`.notebook/blocks/<slug>.md` and keeps waiting. Those files are the `Blocks` section of
-the sidebar: what is being asked, and what it holds up. SRE writes the procedure into
+Anything only you can settle lives in `.notebook/blocks/` and shows in the `Blocks`
+section of the sidebar — a product proposal waiting for your opinion, or an agent that
+needs a token, a consent screen, an approval and is sitting there until it has one. The
+row says what is being asked and what it holds up; the button sends it to whoever can act
+on it, which for a proposal is product and for a gate is an engineer.
+
+A gate is written by the agent that hit it, and it keeps waiting. SRE writes the procedure into
 the block under `## Steps`, addressed to an engineer rather than to you, and asks you
 nothing itself.
 

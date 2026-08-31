@@ -15,6 +15,7 @@ struct NotebookBoard: View {
     let showDone: Bool
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
+    let review: () -> Void
     let run: (NotebookCard) -> Void
 
     @State private var selected: Set<String> = []
@@ -116,6 +117,9 @@ struct NotebookBoard: View {
                     .truncationMode(.tail)
             }
             Spacer(minLength: 12)
+            // Never disabled and never about the picks: this one asks what should be on the
+            // board at all, which is the question an empty or stalled board most needs.
+            Button("Product Review", systemImage: "sparkles", action: review)
             Button("Open File") { single.map { open($0.url) } }
                 .disabled(single == nil)
             Button("Clear") { selected.removeAll() }

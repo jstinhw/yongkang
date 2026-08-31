@@ -263,9 +263,15 @@ enum NotebookFormat {
     /// the file already carries the rest: SRE's step-by-step procedure to deliver one step
     /// at a time, and the way back — setting `status: done` in it releases the session
     /// waiting behind it.
+    /// A proposal is settled by the same product agent that raised it, which is why the
+    /// file names its own kind: pressing the button has to reach whoever can act on it.
     static func unblockPrompt(block: UserBlock) -> String {
-        "/fde-dev \(relativePath(block.url))"
+        "/\(block.isProposal ? "product" : "fde-dev") \(relativePath(block.url))"
     }
+
+    /// Product reads the notebook itself, so the review has nothing to carry — the board
+    /// it is asked to look at is the folder it is already standing in.
+    static let productReviewPrompt = "/product review"
 
     /// Typed into the waiting session once its block clears — the same words a person
     /// would use coming back to say the account is set up now.
