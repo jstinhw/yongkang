@@ -258,12 +258,13 @@ enum NotebookFormat {
         engineeringPrompt(tasks: tasks, sessionID: sessionID)
     }
 
-    /// Opens the session that walks the user through one block. The skill owns how to
-    /// guide; the prompt only says which block, because the file itself already carries
-    /// the rest — and it is the way back, too: setting `status: done` in it is what
-    /// releases the session waiting behind it.
+    /// Opens the session that walks the user through one block — a forward-deployed
+    /// engineer, whose skill owns how to guide. The prompt only says which block, because
+    /// the file already carries the rest: SRE's step-by-step procedure to deliver one step
+    /// at a time, and the way back — setting `status: done` in it releases the session
+    /// waiting behind it.
     static func unblockPrompt(block: UserBlock) -> String {
-        "/unblock \(relativePath(block.url))"
+        "/fde-dev \(relativePath(block.url))"
     }
 
     /// Typed into the waiting session once its block clears — the same words a person

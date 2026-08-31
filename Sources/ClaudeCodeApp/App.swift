@@ -446,12 +446,15 @@ struct ClaudeCodeApp: App {
         return project.sessions.last { $0.title.hasPrefix("Engineering Lead") && !$0.exited }
     }
 
-    /// The button on a block: the provider's own page in the browser, and a session whose
-    /// only job is this one gate. It is a full session rather than a message to the lead
-    /// because the lead is busy waiting — and because setup is a conversation (paste this,
-    /// approve that) that should not be interleaved with the work it is blocking.
+    /// The button on a block starts a session whose only job is this one gate. It is a full
+    /// session rather than a message to the lead because the lead is busy waiting — and
+    /// because setup is a conversation (paste this, approve that) that should not be
+    /// interleaved with the work it is blocking.
+    ///
+    /// The page is deliberately not opened here. A browser tab that appears before the
+    /// session has said anything lands the user on a token screen with no idea what it is
+    /// for; the engineer explains first, and opens the page when the user is ready for it.
     private func startUnblock(_ block: UserBlock, in project: Project) {
-        if let link = block.link { NSWorkspace.shared.open(link) }
         addSession(.claude, to: project, prompt: NotebookFormat.unblockPrompt(block: block),
                    title: "Unblock \(block.title)")
     }

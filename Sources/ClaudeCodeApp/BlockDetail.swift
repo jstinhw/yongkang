@@ -72,7 +72,7 @@ struct BlockDetail: View {
     private var actionBar: some View {
         HStack(spacing: 10) {
             Text(block.waiting
-                 ? "A session will walk you through this one step at a time, then tell the agent to carry on."
+                 ? "An engineer will explain this first, then walk you through it one step at a time."
                  : "Cleared.")
                 .font(.callout)
                 .foregroundStyle(.secondary)

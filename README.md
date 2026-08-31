@@ -69,10 +69,15 @@ by default. `Show Completed` in the toolbar reveals them everywhere at once.
 ## Shipping tasks
 
 Click any number of task cards and `Assign to Engineering Lead` starts a session that
-owns the batch: it reads each task file, hands the implementation to one subagent per
-task in dependency order, reviews what each returns against the task's "Done when",
-and sends back anything that falls short. It moves `status:` through `active` to
-`done` as it accepts work, then opens a PR with `gh` and stops — merging is yours.
+owns the batch: it reads each task file and hands it, in dependency order, to the
+specialist that owns it — frontend, backend, or SRE for anything that deploys. It never
+reviews the work itself; each finished task goes to a QA subagent and comes back a pass
+or a list of reproductions. It moves `status:` through `active` to `done` as QA accepts
+work, then opens a PR with `gh` and stops — merging is yours.
+
+The roles are skills in `.claude/skills/`: `engineering-lead`, `frontend-dev`,
+`backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. Sessions run in the project folder you
+opened, not here, so those skills have to exist in `~/.claude/skills/` too.
 
 The engineers are that lead session's own subagents, not sibling terminals. Separate
 PTYs have no way to report back to a lead, so the review loop only closes inside one
@@ -82,10 +87,16 @@ agent.
 
 An agent that needs you — a token, a consent screen, an approval — writes
 `.notebook/blocks/<slug>.md` and keeps waiting. Those files are the `Blocks` section of
-the sidebar: what is being asked, and what it holds up. Open one and `Do It Now` opens
-the provider's page and starts a session whose only job is that gate: one instruction at
-a time, the configuration and verification done for you, and never a secret echoed back
-or written down.
+the sidebar: what is being asked, and what it holds up. SRE writes the procedure into
+the block under `## Steps`, addressed to an engineer rather than to you, and asks you
+nothing itself.
+
+`Do It Now` starts a forward-deployed engineer whose only job is that gate. It opens no
+browser tab: first it says what is being set up and what it unblocks, and waits for you
+to say go. Then it takes SRE's steps and sits with you through them one at a time — the
+page for this step opened with the instruction that needs it, one reply, the
+configuration and verification done for you between them, and never a secret echoed back
+or written down. You never see the list.
 
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark Resolved` if you did it yourself. The app sees it on

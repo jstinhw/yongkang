@@ -438,15 +438,22 @@ enum NotebookSelfTest {
         ## Needed from you
 
         - [ ] Generate the token and paste it back.
+
+        ## Steps
+
+        1. Open the token page with repo scope ticked.
+        2. Authenticate the GitHub MCP with the pasted token.
         """.write(to: blockFile, atomically: true, encoding: .utf8)
 
         let block = Blocks.load(root: root).first!
         precondition(block.waiting && block.session == leadID && block.task == "wire-auth")
         precondition(block.link?.host == "github.com", "the page the user has to be on")
         precondition(block.body.contains("Generate the token"), "the checklist is what the user reads")
+        precondition(block.body.contains("Authenticate the GitHub MCP"),
+                     "SRE's procedure rides along for the FDE to deliver one step at a time")
         let guide = NotebookFormat.unblockPrompt(block: block)
-        precondition(guide == "/unblock .notebook/blocks/github-token.md",
-                     "the guiding session is the skill, pointed at the file it flips to done")
+        precondition(guide == "/fde-dev .notebook/blocks/github-token.md",
+                     "the guiding session is the FDE skill, pointed at the file it flips to done")
         precondition(echo(AgentCommand.quoted(guide)) == guide, "block prompt mangled by the shell")
 
         Blocks.resolve(block)
