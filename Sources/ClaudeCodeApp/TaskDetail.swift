@@ -7,8 +7,11 @@ struct TaskDetail: View {
     let cards: [NotebookCard]
     /// Whether a still-open Engineering Lead session already has this task.
     let assigned: Set<String>
+    /// The subagents dispatched for this task, with the lead session that spawned each.
+    let working: [(CodeSession, SubagentStatus)]
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
+    let check: (CodeSession, SubagentStatus) -> Void
 
     @State private var content: [NotebookContent.Section] = []
 
@@ -25,6 +28,7 @@ struct TaskDetail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
+                    if !working.isEmpty { workers }
                     if !content.isEmpty {
                         NotebookContentView(sections: content, cards: cards)
                             .padding(14)
@@ -66,6 +70,37 @@ struct TaskDetail: View {
                 blocks.font(.caption)
             }
         }
+    }
+
+    // MARK: - Who is on it
+
+    /// A lead's subagents are inside its session, not sibling terminals, so this is the
+    /// only place the task itself says who is working on it. `Check` opens that subagent's
+    /// own transcript — the closest thing to watching it work, since neither CLI can be
+    /// told to open one specific subagent.
+    private var workers: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Working on it")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(working, id: \.1.id) { session, subagent in
+                HStack(spacing: 8) {
+                    Image(systemName: subagent.running ? "circle.dotted" : "checkmark.circle")
+                        .foregroundStyle(subagent.running ? Color.accentColor : Color.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(subagent.description)
+                        Text("\(subagent.agentType) · \(session.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 12)
+                    Button("Check") { check(session, subagent) }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
     }
 
     private func load() {

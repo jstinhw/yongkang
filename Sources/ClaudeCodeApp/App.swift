@@ -18,7 +18,7 @@ struct ClaudeCodeApp: App {
     /// The lines of whichever subagent `selection` currently points at. Kept apart from
     /// `CodeSession.subagents`, which only ever holds each one's status, because reading
     /// and parsing a whole transcript is only worth doing for the one actually on screen.
-    @State private var subagentTranscript: [ClaudeTranscripts.TranscriptLine] = []
+    @State private var subagentTranscript: [TranscriptLine] = []
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
@@ -260,12 +260,13 @@ struct ClaudeCodeApp: App {
 
     /// Borderless inside the row's own Button so it takes the click rather than selecting
     /// the row underneath it — the same trick the board's run button uses. Brings the
-    /// lead's terminal forward and sends `/tasks`, Claude Code's own best-effort attempt at
-    /// switching to a subagent — exact with one subagent running, a picker with several.
+    /// lead's terminal forward and sends that CLI's own subagent picker: `/tasks` in Claude
+    /// Code, `/agent` in Codex. Both are best-effort — exact with one subagent running, a
+    /// list to pick from with several, since neither can be told which one to open.
     private func liveTerminalButton(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
         Button {
             selection = session.id.uuidString
-            pendingInput[session.id] = "/tasks"
+            pendingInput[session.id] = session.agent == .codex ? "/agent" : "/tasks"
         } label: {
             Image(systemName: "terminal")
         }
@@ -376,8 +377,13 @@ struct ClaudeCodeApp: App {
                     card: card,
                     cards: project.cards,
                     assigned: project.assignedTaskIDs,
+                    working: workers(on: card.id, in: project),
                     open: { url in selection = NotebookEntry.id(for: url) },
-                    assign: { tasks in assign(tasks, in: project) }
+                    assign: { tasks in assign(tasks, in: project) },
+                    check: { session, subagent in
+                        selection = subagentTag(session, subagent)
+                        reload()
+                    }
                 )
                 .id(card.id)
             } else if let project = enteredProject, let card = scopedPageCard(in: project) {
@@ -424,6 +430,14 @@ struct ClaudeCodeApp: App {
     private var selectedEntry: NotebookEntry? {
         guard let selection, let project = enteredProject else { return nil }
         return NotebookLoader.find(selection, in: project.entries)
+    }
+
+    /// Every subagent in this project that was dispatched for one task, whichever lead
+    /// spawned it. The link is the subagent's own name, matched when it is read off disk.
+    private func workers(on taskID: String, in project: Project) -> [(CodeSession, SubagentStatus)] {
+        project.sessions.flatMap { session in
+            session.subagents.filter { $0.taskID == taskID }.map { (session, $0) }
+        }
     }
 
     private func subagentTag(_ session: CodeSession, _ subagent: SubagentStatus) -> String {
@@ -656,21 +670,36 @@ struct ClaudeCodeApp: App {
             deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices
                 where !projects[index].sessions[sIndex].exited
-                    && projects[index].sessions[sIndex].agent == .claude {
+                    && projects[index].sessions[sIndex].agent != nil {
                 let session = projects[index].sessions[sIndex]
-                let subagents = ClaudeTranscripts.subagents(sessionID: session.id,
-                                                             projectDirectory: projects[index].directory)
+                let subagents = subagents(of: session, in: projects[index].directory)
                 if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
             }
         }
         reloadSubagentTranscript()
     }
 
+    /// Each provider writes its subagents somewhere else — Claude Code beside the parent
+    /// session, Codex as sibling rollouts pointing back at it — so the session's own agent
+    /// picks the reader. A service terminal has neither and is skipped by the caller.
+    private func subagents(of session: CodeSession, in directory: URL) -> [SubagentStatus] {
+        switch session.agent {
+        case .codex:
+            return CodexTranscripts.subagents(sessionID: session.id, projectDirectory: directory,
+                                              taskIDs: session.taskIDs)
+        default:
+            return ClaudeTranscripts.subagents(sessionID: session.id, projectDirectory: directory,
+                                               taskIDs: session.taskIDs)
+        }
+    }
+
     /// Only the subagent actually on screen pays for having its transcript read and
     /// parsed — everything else is covered by the status list above.
     private func reloadSubagentTranscript() {
         guard let project = enteredProject, let found = selectedSubagent(in: project) else { return }
-        let fresh = ClaudeTranscripts.transcript(at: found.subagent.transcriptURL)
+        let fresh = found.session.agent == .codex
+            ? CodexTranscripts.transcript(at: found.subagent.transcriptURL)
+            : ClaudeTranscripts.transcript(at: found.subagent.transcriptURL)
         if fresh.count != subagentTranscript.count { subagentTranscript = fresh }
     }
 

@@ -109,6 +109,18 @@ The engineers are that lead session's own subagents, not sibling terminals. Sepa
 PTYs have no way to report back to a lead, so the review loop only closes inside one
 agent.
 
+A task's own page lists the subagents working on it under `Working on it`, running or
+done, and `Check` opens that one's transcript — read live off disk, which is as close as
+either CLI gets to attaching to a single subagent (`/tasks` in Claude Code and `/agent` in
+Codex both open a picker, and neither can be told which row to take; the terminal button
+beside a subagent in the sidebar sends whichever of the two its session speaks). The link
+is the subagent's own name: the lead names each one `<task-id>-<role>`, Claude keeps that
+as the subagent's description and Codex slugs it into the spawned thread's name, and the
+app matches them back to the task either way. Claude subagents are read from
+`~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id
+rather than taking one, is found by the session id the app's opening prompt quotes and
+then by the rollouts in `~/.codex/sessions/` pointing back at that thread.
+
 ## Blocks
 
 Anything only you can settle lives in `.notebook/blocks/` and shows in the `Blocks`

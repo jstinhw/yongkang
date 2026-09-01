@@ -1,12 +1,42 @@
 import Foundation
 
-/// One subagent a Claude Code session has spawned, read off its own transcript on disk.
+/// One subagent an agent session has spawned, read off its own transcript on disk —
+/// Claude Code's `subagents/` folder or Codex's rollout tree, whichever this session is.
 struct SubagentStatus: Identifiable, Equatable {
     let id: String
     let description: String
     let agentType: String
     let running: Bool
     let transcriptURL: URL
+    /// The task this subagent was dispatched for, matched off its own label. Nil when the
+    /// label names no task in the batch — a compaction or review subagent, or a lead that
+    /// ignored the naming rule.
+    var taskID: String? = nil
+}
+
+/// One human-readable line pulled out of a subagent's transcript: the task it was given,
+/// each tool it called, that tool's result, and its replies. Everything else in the file —
+/// thinking blocks, bookkeeping fields — is left out rather than guessed at.
+struct TranscriptLine: Identifiable {
+    let id = UUID()
+    let label: String
+    let text: String
+}
+
+/// What both providers share: neither CLI records which notebook task a subagent is for,
+/// so the link is the subagent's own label. The engineering-lead skill puts the task id in
+/// every name it spawns; Claude keeps that as the Agent call's `description`, Codex slugs
+/// it into `agent_path`, and normalizing both to the same shape matches them either way.
+enum Subagents {
+    static func normalize(_ text: String) -> String {
+        String(text.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
+    }
+
+    /// Longest id first, so a label naming `edit-todo-api` is not claimed by `edit-todo`.
+    static func taskID(in label: String, from taskIDs: [String]) -> String? {
+        let haystack = normalize(label)
+        return taskIDs.sorted { $0.count > $1.count }.first { haystack.contains(normalize($0)) }
+    }
 }
 
 /// Reads a Claude Code session's subagents straight off the same on-disk transcripts
@@ -45,7 +75,7 @@ enum ClaudeTranscripts {
     /// Empty for a session with no `--session-id` match on disk yet — including every
     /// Codex or service-runner session, which never gets one.
     static func subagents(
-        sessionID: UUID, projectDirectory: URL,
+        sessionID: UUID, projectDirectory: URL, taskIDs: [String] = [],
         claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     ) -> [SubagentStatus] {
         let folder = sessionFolder(sessionID: sessionID, projectDirectory: projectDirectory, claudeHome: claudeHome)
@@ -64,17 +94,9 @@ enum ClaudeTranscripts {
             let agentID = String(url.lastPathComponent.dropFirst("agent-".count).dropLast(".meta.json".count))
             return SubagentStatus(id: agentID, description: meta.description, agentType: meta.agentType,
                                    running: !isFinished(meta.toolUseId, in: transcript),
-                                   transcriptURL: subagentsDir.appendingPathComponent("agent-\(agentID).jsonl"))
+                                   transcriptURL: subagentsDir.appendingPathComponent("agent-\(agentID).jsonl"),
+                                   taskID: Subagents.taskID(in: meta.description, from: taskIDs))
         }.sorted { $0.description < $1.description }
-    }
-
-    /// One human-readable line pulled out of a subagent's own transcript: the task it was
-    /// given, each tool it called, that tool's result, and its replies. Everything else in
-    /// the file — thinking blocks, bookkeeping fields — is left out rather than guessed at.
-    struct TranscriptLine: Identifiable {
-        let id = UUID()
-        let label: String
-        let text: String
     }
 
     static func transcript(at url: URL) -> [TranscriptLine] {
@@ -114,7 +136,7 @@ enum ClaudeTranscripts {
 
     /// A `tool_result`'s content is either a plain string or a list of `{type, text}`
     /// blocks — this reads either shape rather than assuming one.
-    private static func resultText(_ value: Any?) -> String {
+    static func resultText(_ value: Any?) -> String {
         if let text = value as? String { return text }
         if let blocks = value as? [[String: Any]] {
             let texts = blocks.compactMap { $0["text"] as? String }
@@ -125,7 +147,7 @@ enum ClaudeTranscripts {
 
     /// A one-line gist of an arbitrary JSON value — tool inputs carry whatever shape the
     /// tool defines, so this reads what it can instead of matching every one.
-    private static func describe(_ value: Any?) -> String {
+    static func describe(_ value: Any?) -> String {
         switch value {
         case let text as String: return text
         case let number as NSNumber: return number.stringValue
@@ -136,7 +158,7 @@ enum ClaudeTranscripts {
         }
     }
 
-    private static func truncate(_ text: String) -> String {
+    static func truncate(_ text: String) -> String {
         text.count > 500 ? String(text.prefix(500)) + "…" : text
     }
 }

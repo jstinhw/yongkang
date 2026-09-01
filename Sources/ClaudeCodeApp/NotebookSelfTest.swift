@@ -218,6 +218,70 @@ enum NotebookSelfTest {
         precondition(ClaudeTranscripts.transcript(at: subagentsDir.appendingPathComponent("missing.jsonl")).isEmpty,
                      "a transcript that is not there yet reads as empty, not a crash")
 
+        // Neither CLI records which task a subagent is for, so the link is its own name —
+        // however that provider slugs it, and longest id first so a prefix cannot steal it.
+        let batch = ["edit-todo", "edit-todo-api", "deploy-to-vercel"]
+        precondition(Subagents.taskID(in: "edit_todo_frontend_dev", from: batch) == "edit-todo")
+        precondition(Subagents.taskID(in: "qa-dev: deploy-to-vercel", from: batch) == "deploy-to-vercel")
+        precondition(Subagents.taskID(in: "Edit Todo API (backend)", from: batch) == "edit-todo-api",
+                     "the longer id wins over the one that is its prefix")
+        precondition(Subagents.taskID(in: "Compact conversation", from: batch) == nil,
+                     "a subagent named after no task belongs to no task")
+        precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
+                                                  taskIDs: ["research-x"], claudeHome: claudeHome)
+                     .first { $0.id == "done1" }?.taskID == "research-x",
+                     "a Claude subagent carries the task its description names")
+
+        // Codex picks its own thread id, so its lead is found by the session id its opening
+        // prompt quotes, and its subagents by the rollouts pointing back at that thread.
+        let codexHome = tmp.appendingPathComponent(".codex")
+        let day = codexHome.appendingPathComponent("sessions/2026/09/01")
+        try! fm.createDirectory(at: day, withIntermediateDirectories: true)
+        let codexSession = UUID()
+        func rollout(_ name: String, _ lines: [String]) -> URL {
+            let url = day.appendingPathComponent(name)
+            try! lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+            return url
+        }
+        _ = rollout("rollout-lead.jsonl", [
+            #"{"type":"session_meta","payload":{"id":"thread-lead","cwd":"\#(tmp.path)","source":"cli"}}"#,
+            #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"session: \#(codexSession.uuidString.lowercased())"}]}}"#,
+        ])
+        _ = rollout("rollout-other.jsonl", [
+            #"{"type":"session_meta","payload":{"id":"thread-other","cwd":"\#(tmp.path)","source":"cli"}}"#,
+        ])
+        let spawn = #"{"subagent":{"thread_spawn":{"parent_thread_id":"thread-lead","agent_path":"/root/edit_todo_frontend","agent_nickname":"Hilbert","agent_role":null}}}"#
+        let child = rollout("rollout-child.jsonl", [
+            #"{"type":"session_meta","payload":{"id":"thread-child","cwd":"\#(tmp.path)","source":\#(spawn)}}"#,
+            #"{"type":"response_item","payload":{"type":"agent_message","content":[{"type":"input_text","text":"Message Type: NEW_TASK"},{"type":"encrypted_content","encrypted_content":"gAAA"}]}}"#,
+            #"{"type":"response_item","payload":{"type":"reasoning","summary":[]}}"#,
+            #"{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"ls"}}"#,
+            #"{"type":"response_item","payload":{"type":"custom_tool_call_output","output":[{"type":"input_text","text":"one file"}]}}"#,
+            #"{"type":"event_msg","payload":{"type":"agent_message","message":"ignored, the response_item beside it says the same"}}"#,
+            #"{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Done"}]}}"#,
+            #"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        ])
+        CodexTranscripts.launched = .distantPast
+        let codexAgents = CodexTranscripts.subagents(sessionID: codexSession, projectDirectory: tmp,
+                                                     taskIDs: ["edit-todo"], codexHome: codexHome)
+        precondition(codexAgents.map(\.description) == ["edit_todo_frontend"],
+                     "only the rollouts spawned by this session's own thread are its subagents")
+        precondition(codexAgents.first?.taskID == "edit-todo", "linked by the name the lead spawned it under")
+        precondition(codexAgents.first?.agentType == "Hilbert", "no role recorded falls back to the nickname")
+        precondition(codexAgents.first?.running == true, "a turn started and not completed is still running")
+        precondition(CodexTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp,
+                                                codexHome: codexHome).isEmpty,
+                     "a session whose thread is not on disk reads as empty, not a crash")
+        try! (((try! String(contentsOf: child, encoding: .utf8))
+               + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#))
+            .write(to: child, atomically: true, encoding: .utf8)
+        precondition(CodexTranscripts.isRunning(child) == false, "the last marker written wins")
+
+        let codexLines = CodexTranscripts.transcript(at: child)
+        precondition(codexLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
+                     "reasoning and the duplicate event_msg lines are dropped")
+        precondition(codexLines.map(\.text) == ["Message Type: NEW_TASK", "exec(ls)", "one file", "Done"])
+
         // A blocker is pulled into the batch rather than raised as a question.
         func node(_ id: String, _ status: String, _ waits: [String], project: String? = nil) -> NotebookCard {
             NotebookCard(id: id, url: URL(fileURLWithPath: "/\(id).md"), kind: .task,

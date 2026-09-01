@@ -32,6 +32,8 @@ $ARGUMENTS
    Project: <project id>
    ```
 
+   Name every subagent `<task-id>-<role>`, e.g. `edit-todo-frontend-dev` — the app links a running subagent to its task by that name and shows it on the task page, so a subagent named anything else is one the user cannot find.
+
    Add one `Handover:` line only if an earlier subagent in this batch left something this one cannot read from the repo. Nothing else — no acceptance criteria, no context, no block format, no reminders about what not to do. The specialist reads the task file itself and every rule it needs is in its own skill; repeating them here writes a second, staler set of instructions that contradicts the first.
 3. Dispatch in dependency order. Tasks with no dependency between them go out together; a task waits for what it `depends_on` to pass QA first.
 4. When a specialist returns, hand the task file and what it changed to a `qa-dev` subagent before you accept anything. QA passes → set `status: done`. QA fails → send its findings back to the same specialist and repeat. You do not review the code yourself.

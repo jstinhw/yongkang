@@ -7,7 +7,7 @@ import SwiftUI
 struct SubagentViewer: View {
     let session: CodeSession
     let subagent: SubagentStatus
-    let lines: [ClaudeTranscripts.TranscriptLine]
+    let lines: [TranscriptLine]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,7 +51,7 @@ struct SubagentViewer: View {
         .padding(12)
     }
 
-    private func row(_ line: ClaudeTranscripts.TranscriptLine) -> some View {
+    private func row(_ line: TranscriptLine) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(line.label.uppercased())
                 .font(.caption2.weight(.semibold))
