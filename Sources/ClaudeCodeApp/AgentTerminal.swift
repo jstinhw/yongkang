@@ -10,9 +10,40 @@ enum AgentKind: String, CaseIterable, Identifiable {
     var systemImage: String { self == .claude ? "sparkles" : "chevron.left.forwardslash.chevron.right" }
     var command: String { rawValue }
 
-    /// Claude Code and Codex discover the same skills, but invoke them differently.
-    func skill(_ name: String, arguments: String) -> String {
+    func skillInvocation(_ name: String, arguments: String) -> String {
         "\(self == .claude ? "/" : "$")\(name) \(arguments)"
+    }
+
+    /// Packaged sessions carry the app's exact skill text, so opening another project
+    /// cannot silently pick a stale global skill or no skill at all. `instructions` keeps
+    /// the pure branch testable; development builds fall back to native discovery.
+    func skill(_ name: String, arguments: String, instructions: String? = nil) -> String {
+        guard let instructions = instructions ?? BundledSkills.load(name) else {
+            return skillInvocation(name, arguments: arguments)
+        }
+        return """
+        Follow the bundled `\(name)` skill below. Treat `<arguments>` as `$ARGUMENTS`.
+
+        <skill>
+        \(instructions)
+        </skill>
+
+        <arguments>
+        \(arguments)
+        </arguments>
+        """
+    }
+}
+
+enum BundledSkills {
+    static func load(_ name: String) -> String? {
+        let executableResources = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
+        for root in [Bundle.main.resourceURL, executableResources].compactMap({ $0 }) {
+            let file = root.appendingPathComponent("skills/\(name)/SKILL.md")
+            if let text = try? String(contentsOf: file, encoding: .utf8) { return text }
+        }
+        return nil
     }
 }
 

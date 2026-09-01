@@ -90,7 +90,7 @@ struct ClaudeCodeApp: App {
                     showDone.toggle()
                 }
                 Button("Describe New Feature…", systemImage: "text.bubble") {
-                    startProduct("feature", in: project)
+                    startProduct("describe", in: project)
                 }
                 .disabled(!project.hasNotebook)
                 addMenu(for: project)

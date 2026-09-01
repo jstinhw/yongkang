@@ -8,8 +8,9 @@ APP=".build/ClaudeCode.app"
 # `open` only reactivates an already-running instance, so it'd show the old binary.
 pkill -x ClaudeCode 2>/dev/null || true
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/ClaudeCodeApp "$APP/Contents/MacOS/ClaudeCode"
+cp -R .claude/skills "$APP/Contents/Resources/skills"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

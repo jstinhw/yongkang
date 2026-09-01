@@ -71,14 +71,16 @@ by default. `Show Completed` in the toolbar reveals them everywhere at once.
 ## Product review
 
 `Describe New Feature…` in the project toolbar starts a Product conversation. Describe
-what the user should be able to do; the agent asks only the decisions that change the
-scope, then writes one project and its dependency-ordered tasks directly to the notebook.
+what the user should be able to do; the agent does not research or invent features in this
+mode. It asks only the decisions that change the scope, then writes one project and its
+dependency-ordered tasks directly to the notebook.
 
 `Product Review` on the board starts a session that reads the whole notebook — roadmap,
-projects, tasks, memory, the last run records — and works out what should come next: a
-roadmap entry no project covers, a project with no tasks, work blocked on nobody. It
-proposes at most three next steps, ranked, and writes each one to `.notebook/blocks/` as
-a proposal. It changes nothing else: looking at the board must not move it.
+projects, tasks, memory, the last run records — inspects the product, researches relevant
+current alternatives when useful, and works out what should come next. It proposes at
+most three projects with their likely tasks, ranked, and writes each one to
+`.notebook/blocks/` as a proposal. It changes nothing else: looking at the board must not
+move it.
 
 Proposals show up under `Blocks` with the gates, marked `needs your review`. Each says
 why now, the project and tasks it would add, what it deliberately leaves out, and the one
@@ -98,9 +100,10 @@ work, then opens a PR with `gh` and stops — merging is yours.
 
 The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `frontend-dev`,
 `backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. `.agents/skills/` links to those same files
-for Codex, so the two agents cannot drift. Sessions run in the project folder you opened,
-not here, so install the same role folders in `~/.claude/skills/` and `~/.agents/skills/`
-(symlinks to one shared folder are fine) when using the app with other projects.
+for Codex, so the two agents cannot drift. The app bundles the exact skill text into every
+managed session. Install the same role folders in `~/.claude/skills/` and
+`~/.agents/skills/` only for specialist subagents, which start outside the app's launcher
+(symlinks to one shared folder are fine).
 
 The engineers are that lead session's own subagents, not sibling terminals. Separate
 PTYs have no way to report back to a lead, so the review loop only closes inside one
