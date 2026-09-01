@@ -20,8 +20,8 @@ Open projects come back on the next launch. Only the folders are remembered, not
 sessions — those PTYs died with the app — and a folder that has since moved is dropped
 from the list rather than shown broken.
 
-Inside a project the sidebar is its notebook and its sessions. Both belong to the
-project: sessions run in the project folder, the notebook is `.notebook/` inside it.
+Inside a project the sidebar is its notebook and its agents. Both belong to the
+project: agent sessions run in the project folder, the notebook is `.notebook/` inside it.
 
 ## Notebooks
 
@@ -116,7 +116,11 @@ Codex both open a picker, and neither can be told which row to take; the termina
 beside a subagent in the sidebar sends whichever of the two its session speaks). The link
 is the subagent's own name: the lead names each one `<task-id>-<role>`, Claude keeps that
 as the subagent's description and Codex slugs it into the spawned thread's name, and the
-app matches them back to the task either way. Claude subagents are read from
+app matches them back to the task either way. `Agents` in the sidebar shows that hierarchy
+directly: Engineering Lead is the parent and every `<task-id>-<role>` agent is its child.
+Selecting the lead opens its task/agent board; its `Agents / Session` switch opens the
+underlying live terminal when needed. A solved task drops off unless `Show Completed` is
+on. Claude subagents are read from
 `~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id
 rather than taking one, is found by the session id the app's opening prompt quotes and
 then by the rollouts in `~/.codex/sessions/` pointing back at that thread.

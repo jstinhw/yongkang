@@ -14,6 +14,13 @@ struct SubagentStatus: Identifiable, Equatable {
     var taskID: String? = nil
 }
 
+/// The subagents attached to one assigned task, including an empty group while that task
+/// waits for a dependency or for the lead to dispatch its first specialist.
+struct SubagentTaskGroup: Identifiable {
+    let id: String
+    let subagents: [SubagentStatus]
+}
+
 /// One human-readable line pulled out of a subagent's transcript: the task it was given,
 /// each tool it called, that tool's result, and its replies. Everything else in the file —
 /// thinking blocks, bookkeeping fields — is left out rather than guessed at.
@@ -36,6 +43,16 @@ enum Subagents {
     static func taskID(in label: String, from taskIDs: [String]) -> String? {
         let haystack = normalize(label)
         return taskIDs.sorted { $0.count > $1.count }.first { haystack.contains(normalize($0)) }
+    }
+
+    static func grouped(_ subagents: [SubagentStatus], by taskIDs: [String]) -> [SubagentTaskGroup] {
+        taskIDs.map { taskID in
+            SubagentTaskGroup(id: taskID, subagents: subagents.filter { $0.taskID == taskID })
+        }
+    }
+
+    static func runningTaskIDs(_ subagents: [SubagentStatus]) -> Set<String> {
+        Set(subagents.compactMap { $0.running ? $0.taskID : nil })
     }
 }
 
@@ -64,12 +81,41 @@ enum ClaudeTranscripts {
             .appendingPathComponent(sessionID.uuidString.lowercased())
     }
 
-    /// A `tool_use_id` shows up in a transcript exactly once, as the key on its
-    /// `tool_result` — a substring check is enough, and far cheaper than parsing every
-    /// line as JSON on every 2-second poll.
-    static func isFinished(_ toolUseID: String, in transcript: String) -> Bool {
-        transcript.contains("\"tool_use_id\":\"\(toolUseID)\"")
-            || transcript.contains("\"tool_use_id\": \"\(toolUseID)\"")
+    /// Foreground agents return their work in the first tool result. Background agents
+    /// return an immediate launch receipt instead, then emit a task notification only
+    /// when they stop. A later SendMessage resumes that same agent until it notifies again.
+    static func isFinished(
+        agentID: String, label: String, toolUseID: String, in transcript: String
+    ) -> Bool {
+        let lines = transcript.split(separator: "\n")
+        guard let result = lines.firstIndex(where: { jsonField("tool_use_id", equals: toolUseID, in: $0) })
+        else { return false }
+        guard lines[result].contains("Async agent launched")
+                || lines[result].contains("working in the background")
+        else { return true }
+
+        var finished = false
+        let task = "<task-id>\(agentID)</task-id>"
+        for line in lines[result...] {
+            if line.contains(task)
+                && ["completed", "failed", "killed"].contains(where: {
+                    line.contains("<status>\($0)</status>")
+                }) {
+                finished = true
+            } else if jsonField("name", equals: "SendMessage", in: line)
+                        && ([agentID, label].contains(where: {
+                            jsonField("recipient", equals: $0, in: line)
+                                || jsonField("to", equals: $0, in: line)
+                        })) {
+                finished = false
+            }
+        }
+        return finished
+    }
+
+    private static func jsonField(_ key: String, equals value: String, in line: Substring) -> Bool {
+        line.contains("\"\(key)\":\"\(value)\"")
+            || line.contains("\"\(key)\": \"\(value)\"")
     }
 
     /// Empty for a session with no `--session-id` match on disk yet — including every
@@ -93,7 +139,8 @@ enum ClaudeTranscripts {
                   let meta = try? JSONDecoder().decode(SubagentMeta.self, from: data) else { return nil }
             let agentID = String(url.lastPathComponent.dropFirst("agent-".count).dropLast(".meta.json".count))
             return SubagentStatus(id: agentID, description: meta.description, agentType: meta.agentType,
-                                   running: !isFinished(meta.toolUseId, in: transcript),
+                                   running: !isFinished(agentID: agentID, label: meta.description,
+                                                        toolUseID: meta.toolUseId, in: transcript),
                                    transcriptURL: subagentsDir.appendingPathComponent("agent-\(agentID).jsonl"),
                                    taskID: Subagents.taskID(in: meta.description, from: taskIDs))
         }.sorted { $0.description < $1.description }

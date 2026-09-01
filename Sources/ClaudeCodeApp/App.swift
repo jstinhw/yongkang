@@ -2,6 +2,13 @@ import SwiftUI
 import AppKit
 import Combine
 
+private enum EngineeringLeadPane: String, CaseIterable, Identifiable {
+    case agents = "Agents"
+    case session = "Session"
+
+    var id: Self { self }
+}
+
 @main
 struct ClaudeCodeApp: App {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
@@ -10,7 +17,7 @@ struct ClaudeCodeApp: App {
     @State private var projects: [Project] = []
     /// nil = the all-projects screen; otherwise the project you are inside.
     @State private var entered: UUID?
-    /// Notebook entries tag by file path, sessions by UUID string.
+    /// Notebook entries tag by file path, terminals by UUID, and lead boards by `lead:`.
     @State private var selection: String?
     /// Text queued to be typed into a running session, keyed by session id — how a task
     /// reaches a lead that already exists instead of starting a competing one.
@@ -148,16 +155,16 @@ struct ClaudeCodeApp: App {
                 }
             }
         }
-        Section("Sessions") {
+        Section("Agents") {
             ForEach(project.sessions) { session in
-                sessionRow(session)
-                    .tag(session.id.uuidString)
+                sessionRow(session, in: project)
+                    .tag(sessionTag(session))
                     .contextMenu {
                         Button("Close Session") { close(session, in: project) }
                     }
             }
             if project.sessions.isEmpty {
-                Label("Notebook Setup", systemImage: agent.systemImage)
+                Label("No agents running", systemImage: agent.systemImage)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -203,23 +210,44 @@ struct ClaudeCodeApp: App {
         }
     }
 
-    /// A session's tasks and any subagents it has spawned, shown so you can tell what a
-    /// lead is doing without opening its terminal. One line only for a plain session.
-    @ViewBuilder private func sessionRow(_ session: CodeSession) -> some View {
-        if session.taskIDs.isEmpty && session.subagents.isEmpty {
+    /// Agent sessions form the roots; spawned agents sit directly beneath their parent.
+    /// Selecting a lead opens its orchestration board, not its underlying PTY.
+    @ViewBuilder private func sessionRow(_ session: CodeSession, in project: Project) -> some View {
+        let wipTaskIDs = wipTaskIDs(session, in: project)
+        let subagents = visibleSubagents(session, in: project)
+        if !isEngineeringLead(session) && subagents.isEmpty {
             Label(session.title, systemImage: session.icon)
         } else {
             VStack(alignment: .leading, spacing: 2) {
-                Label(session.title, systemImage: session.icon)
-                if !session.taskIDs.isEmpty {
-                    Text(session.taskIDs.joined(separator: ", "))
+                HStack {
+                    Label(session.title, systemImage: session.icon)
+                    Spacer(minLength: 4)
+                    Text("\(wipTaskIDs.count) task\(wipTaskIDs.count == 1 ? "" : "s") · "
+                         + "\(subagents.filter(\.running).count) running")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
                 }
-                ForEach(session.subagents) { subagentRow($0, in: session) }
+                ForEach(subagents) { subagentRow($0, in: session) }
             }
+        }
+    }
+
+    private func wipTaskIDs(_ session: CodeSession, in project: Project) -> [String] {
+        let done = Set(project.cards.filter { $0.kind == .task && $0.status == "done" }.map(\.id))
+        let running = Subagents.runningTaskIDs(session.subagents)
+        return session.taskIDs.filter { !done.contains($0) || running.contains($0) }
+    }
+
+    /// A lead spawns a specialist and a QA subagent per task, so a finished batch leaves a
+    /// column of rows for work nobody is going to look at again. Once QA accepts a task and
+    /// its status goes `done`, every subagent that ran for it drops off the lead — the same
+    /// rule, and the same `Show Completed` escape hatch, as the tasks themselves. A
+    /// subagent whose name matched no task stays: nothing said it was finished.
+    private func visibleSubagents(_ session: CodeSession, in project: Project) -> [SubagentStatus] {
+        guard !showDone else { return session.subagents }
+        let wip = Set(wipTaskIDs(session, in: project))
+        return session.subagents.filter { subagent in
+            subagent.taskID.map(wip.contains) ?? true
         }
     }
 
@@ -237,6 +265,8 @@ struct ClaudeCodeApp: App {
             reload()
         } label: {
             HStack(spacing: 4) {
+                Image(systemName: "arrow.turn.down.right")
+                    .foregroundStyle(.tertiary)
                 Image(systemName: subagent.running ? "circle.dotted" : "checkmark.circle")
                     .foregroundStyle(subagent.running ? Color.accentColor : Color.secondary)
                 Text(subagent.description)
@@ -298,7 +328,7 @@ struct ClaudeCodeApp: App {
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
             pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
                                                                          agent: leadAgent)
-            selection = lead.id.uuidString
+            selection = leadTag(lead.id)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
@@ -307,6 +337,7 @@ struct ClaudeCodeApp: App {
         addSession(agent, id: id, to: project,
                    prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
+        selection = leadTag(id)
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -340,9 +371,7 @@ struct ClaudeCodeApp: App {
             // running agent's PTY, so these are hidden rather than removed.
             ForEach(projects) { project in
                 ForEach(project.sessions) { session in
-                    AgentTerminal(line: session.line, label: session.title,
-                                  pending: pendingBinding(session),
-                                  onExit: { markExited(session, in: project) })
+                    sessionTerminal(session, in: project)
                         .opacity(isVisible(session) ? 1 : 0)
                         .allowsHitTesting(isVisible(session))
                         .accessibilityHidden(!isVisible(session))
@@ -359,6 +388,22 @@ struct ClaudeCodeApp: App {
                 }
             } else if let project = enteredProject, selection == boardID(project) {
                 boardView(for: project)
+            } else if let project = enteredProject, let lead = selectedLead(in: project) {
+                VStack(spacing: 0) {
+                    engineeringLeadToolbar(lead, in: project)
+                    Divider()
+                    EngineeringLeadBoard(
+                        session: lead,
+                        cards: project.cards,
+                        showDone: showDone,
+                        openTask: { selection = taskTag($0) },
+                        openSubagent: { subagent in
+                            selection = subagentTag(lead, subagent)
+                            reload()
+                        }
+                    )
+                }
+                .background(Color(nsColor: .windowBackgroundColor))
             } else if let project = enteredProject, let card = scopedCard(in: project, kind: .project) {
                 ProjectDetail(
                     card: card,
@@ -418,8 +463,69 @@ struct ClaudeCodeApp: App {
         }
     }
 
+    @ViewBuilder private func sessionTerminal(_ session: CodeSession, in project: Project) -> some View {
+        if isEngineeringLead(session) {
+            VStack(spacing: 0) {
+                engineeringLeadToolbar(session, in: project)
+                Divider()
+                terminal(session, in: project)
+            }
+        } else {
+            terminal(session, in: project)
+        }
+    }
+
+    private func terminal(_ session: CodeSession, in project: Project) -> some View {
+        AgentTerminal(line: session.line, label: session.title,
+                      pending: pendingBinding(session),
+                      onExit: { markExited(session, in: project) })
+    }
+
+    private func engineeringLeadToolbar(_ session: CodeSession, in project: Project) -> some View {
+        let running = Subagents.runningTaskIDs(session.subagents)
+        let done = session.taskIDs.filter { taskID in
+            !running.contains(taskID)
+                && project.cards.contains { $0.kind == .task && $0.id == taskID && $0.status == "done" }
+        }.count
+        return HStack(spacing: 10) {
+            Label(session.title, systemImage: session.icon)
+                .font(.headline)
+            NotebookStyle.pill("\(wipTaskIDs(session, in: project).count) wip")
+            if done > 0 { NotebookStyle.pill("\(done) done") }
+            Spacer(minLength: 12)
+            Picker("Engineering Lead view", selection: engineeringLeadPane(session)) {
+                ForEach(EngineeringLeadPane.allCases) { pane in Text(pane.rawValue).tag(pane) }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func engineeringLeadPane(_ session: CodeSession) -> Binding<EngineeringLeadPane> {
+        Binding(
+            get: { selection == session.id.uuidString ? .session : .agents },
+            set: { selection = $0 == .session ? session.id.uuidString : leadTag(session.id) }
+        )
+    }
+
     private func isVisible(_ session: CodeSession) -> Bool {
         entered != nil && selection == session.id.uuidString
+    }
+
+    private func isEngineeringLead(_ session: CodeSession) -> Bool {
+        session.title.hasPrefix("Engineering Lead")
+    }
+
+    private func leadTag(_ id: UUID) -> String { "lead:\(id.uuidString)" }
+    private func sessionTag(_ session: CodeSession) -> String {
+        isEngineeringLead(session) ? leadTag(session.id) : session.id.uuidString
+    }
+
+    private func selectedLead(in project: Project) -> CodeSession? {
+        project.sessions.first { isEngineeringLead($0) && leadTag($0.id) == selection }
     }
 
     /// A project with no notebook and no agent yet — the one case that starts a chat.
@@ -779,7 +885,10 @@ struct ClaudeCodeApp: App {
     private func close(_ session: CodeSession, in project: Project) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].sessions.removeAll { $0.id == session.id }
-        if selection == session.id.uuidString { selection = nil }
+        if selection == session.id.uuidString || selection == leadTag(session.id)
+            || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true {
+            selection = nil
+        }
     }
 
     /// A computed binding into `pendingInput`, keyed by session — AgentTerminal clears it

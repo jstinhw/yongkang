@@ -173,10 +173,28 @@ enum NotebookSelfTest {
         precondition(ClaudeTranscripts.sessionFolder(sessionID: sid, projectDirectory: URL(fileURLWithPath: "/a/b c"),
                                                       claudeHome: URL(fileURLWithPath: "/home/.claude")).path
                      == "/home/.claude/projects/-a-b c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
-        precondition(ClaudeTranscripts.isFinished("toolu_1", in: "{\"tool_use_id\":\"toolu_1\"}"))
-        precondition(ClaudeTranscripts.isFinished("toolu_1", in: "{\"tool_use_id\": \"toolu_1\"}"))
-        precondition(!ClaudeTranscripts.isFinished("toolu_1", in: "{\"id\":\"toolu_1\"}"),
+        precondition(ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                  toolUseID: "toolu_1",
+                                                  in: "{\"tool_use_id\":\"toolu_1\"}"))
+        precondition(ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                  toolUseID: "toolu_1",
+                                                  in: "{\"tool_use_id\": \"toolu_1\"}"))
+        precondition(!ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                   toolUseID: "toolu_1", in: "{\"id\":\"toolu_1\"}"),
                      "a tool_use block must not read as its own result")
+        let asyncLaunch = #"{"tool_use_id":"toolu_async","content":"Async agent launched successfully. The agent is working in the background."}"#
+        let stopped = #"{"content":"<task-id>agent1</task-id><status>completed</status>"}"#
+        let resumed = #"{"name":"SendMessage","input":{"recipient":"agent1"}}"#
+        precondition(!ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                   toolUseID: "toolu_async", in: asyncLaunch),
+                     "an async launch receipt means the agent is still running")
+        precondition(ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                  toolUseID: "toolu_async", in: asyncLaunch + "\n" + stopped),
+                     "the matching task notification ends a background agent")
+        precondition(!ClaudeTranscripts.isFinished(agentID: "agent1", label: "task-frontend",
+                                                   toolUseID: "toolu_async",
+                                                   in: [asyncLaunch, stopped, resumed].joined(separator: "\n")),
+                     "messaging a stopped agent resumes it")
 
         let claudeHome = tmp.appendingPathComponent(".claude")
         let sessionID = UUID()
@@ -227,6 +245,19 @@ enum NotebookSelfTest {
                      "the longer id wins over the one that is its prefix")
         precondition(Subagents.taskID(in: "Compact conversation", from: batch) == nil,
                      "a subagent named after no task belongs to no task")
+        let grouped = Subagents.grouped([
+            SubagentStatus(id: "frontend", description: "build-ui-foundation-frontend-dev",
+                           agentType: "frontend-dev", running: false, transcriptURL: tmp,
+                           taskID: "build-ui-foundation"),
+            SubagentStatus(id: "qa", description: "build-ui-foundation-qa-dev",
+                           agentType: "qa-dev", running: true, transcriptURL: tmp,
+                           taskID: "build-ui-foundation")
+        ], by: ["build-ui-foundation", "waiting-on-dependency"])
+        precondition(grouped.map(\.id) == ["build-ui-foundation", "waiting-on-dependency"]
+                     && grouped.map(\.subagents.count) == [2, 0],
+                     "a lead's subagents are grouped under every assigned task")
+        precondition(Subagents.runningTaskIDs(grouped.flatMap(\.subagents)) == ["build-ui-foundation"],
+                     "a running child keeps its task in WIP")
         precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
                                                   taskIDs: ["research-x"], claudeHome: claudeHome)
                      .first { $0.id == "done1" }?.taskID == "research-x",
