@@ -7,9 +7,9 @@ import Foundation
 /// Codex picks its own thread id, so unlike Claude Code there is no `--session-id` to hand
 /// it. The join is the prompt instead: every managed session's opening prompt carries this
 /// app's session id, and the rollout records that prompt, so the thread that quotes it is
-/// this row's thread. Its subagents are then the rollouts whose `parent_thread_id` is that
-/// thread — which is what `codex agents` lists, read off disk instead of over the daemon
-/// socket, because the app already polls files and a socket would be a second channel.
+/// this row's thread. Its subagents are then every rollout whose parent chain reaches that
+/// thread — read off disk instead of over the daemon socket, because the app already polls
+/// files and a socket would be a second channel.
 enum CodexTranscripts {
     /// One rollout's opening `session_meta` line, which never changes once written.
     private struct Meta {
@@ -43,12 +43,24 @@ enum CodexTranscripts {
     ) -> [SubagentStatus] {
         let rollouts = rollouts(in: codexHome)
         guard let thread = thread(for: sessionID, in: projectDirectory, rollouts: rollouts) else { return [] }
-        return rollouts.compactMap { url -> SubagentStatus? in
-            guard let meta = meta(at: url), meta.isSubagent, meta.parentThreadID == thread else { return nil }
+        let entries = rollouts.compactMap { url in meta(at: url).map { (url, $0) } }
+        let parents = Dictionary(entries.map { ($0.1.threadID, $0.1) }, uniquingKeysWith: { first, _ in first })
+        return entries.compactMap { url, meta -> SubagentStatus? in
+            guard meta.isSubagent, isDescendant(meta, of: thread, in: parents) else { return nil }
             return SubagentStatus(id: meta.threadID, description: meta.label, agentType: meta.role,
                                   running: isRunning(url), transcriptURL: url,
                                   taskID: Subagents.taskID(in: meta.label, from: taskIDs))
         }.sorted { $0.description < $1.description }
+    }
+
+    private static func isDescendant(_ meta: Meta, of root: String, in threads: [String: Meta]) -> Bool {
+        var parent = meta.parentThreadID
+        var visited: Set<String> = []
+        while let thread = parent, visited.insert(thread).inserted {
+            if thread == root { return true }
+            parent = threads[thread]?.parentThreadID
+        }
+        return false
     }
 
     /// The Codex thread this app session is driving. Cached once found: a PTY keeps its

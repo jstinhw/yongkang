@@ -292,14 +292,21 @@ enum NotebookSelfTest {
             #"{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Done"}]}}"#,
             #"{"type":"event_msg","payload":{"type":"task_started"}}"#,
         ])
+        let grandchildSpawn = #"{"subagent":{"thread_spawn":{"parent_thread_id":"thread-child","agent_path":"/root/edit_todo_qa","agent_nickname":"Noether","agent_role":"qa-dev"}}}"#
+        _ = rollout("rollout-grandchild.jsonl", [
+            #"{"type":"session_meta","payload":{"id":"thread-grandchild","cwd":"\#(tmp.path)","source":\#(grandchildSpawn)}}"#,
+            #"{"type":"event_msg","payload":{"type":"task_started"}}"#,
+        ])
         CodexTranscripts.launched = .distantPast
         let codexAgents = CodexTranscripts.subagents(sessionID: codexSession, projectDirectory: tmp,
                                                      taskIDs: ["edit-todo"], codexHome: codexHome)
-        precondition(codexAgents.map(\.description) == ["edit_todo_frontend"],
-                     "only the rollouts spawned by this session's own thread are its subagents")
-        precondition(codexAgents.first?.taskID == "edit-todo", "linked by the name the lead spawned it under")
+        precondition(codexAgents.map(\.description) == ["edit_todo_frontend", "edit_todo_qa"],
+                     "every descendant of this session's thread is affiliated with the lead")
+        precondition(codexAgents.allSatisfy { $0.taskID == "edit-todo" },
+                     "descendants stay linked by the task in their names")
         precondition(codexAgents.first?.agentType == "Hilbert", "no role recorded falls back to the nickname")
-        precondition(codexAgents.first?.running == true, "a turn started and not completed is still running")
+        precondition(codexAgents.last?.agentType == "qa-dev", "a recorded descendant role is kept")
+        precondition(codexAgents.allSatisfy(\.running), "started descendants remain running until complete")
         precondition(CodexTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp,
                                                 codexHome: codexHome).isEmpty,
                      "a session whose thread is not on disk reads as empty, not a crash")

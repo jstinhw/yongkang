@@ -5,17 +5,11 @@ import SwiftUI
 struct EngineeringLeadBoard: View {
     let session: CodeSession
     let cards: [NotebookCard]
-    let showDone: Bool
     let openTask: (String) -> Void
     let openSubagent: (SubagentStatus) -> Void
 
-    private var done: Set<String> {
-        Set(cards.filter { $0.kind == .task && $0.status == "done" }.map(\.id))
-    }
-
     private var taskIDs: [String] {
-        let running = Subagents.runningTaskIDs(session.subagents)
-        return showDone ? session.taskIDs : session.taskIDs.filter { !done.contains($0) || running.contains($0) }
+        session.taskIDs
     }
 
     private var groups: [SubagentTaskGroup] {

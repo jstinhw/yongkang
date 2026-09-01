@@ -119,8 +119,8 @@ as the subagent's description and Codex slugs it into the spawned thread's name,
 app matches them back to the task either way. `Agents` in the sidebar shows that hierarchy
 directly: Engineering Lead is the parent and every `<task-id>-<role>` agent is its child.
 Selecting the lead opens its task/agent board; its `Agents / Session` switch opens the
-underlying live terminal when needed. A solved task drops off unless `Show Completed` is
-on. Claude subagents are read from
+underlying live terminal when needed. Agent rows are expandable and keep every affiliated
+descendant visible, including agents on solved tasks. Claude subagents are read from
 `~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id
 rather than taking one, is found by the session id the app's opening prompt quotes and
 then by the rollouts in `~/.codex/sessions/` pointing back at that thread.

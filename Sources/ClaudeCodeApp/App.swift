@@ -26,6 +26,8 @@ struct ClaudeCodeApp: App {
     /// `CodeSession.subagents`, which only ever holds each one's status, because reading
     /// and parsing a whole transcript is only worth doing for the one actually on screen.
     @State private var subagentTranscript: [TranscriptLine] = []
+    /// Agent trees start open; this only remembers the roots the user collapsed.
+    @State private var collapsedAgents: Set<UUID> = []
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
@@ -214,41 +216,47 @@ struct ClaudeCodeApp: App {
     /// Selecting a lead opens its orchestration board, not its underlying PTY.
     @ViewBuilder private func sessionRow(_ session: CodeSession, in project: Project) -> some View {
         let wipTaskIDs = wipTaskIDs(session, in: project)
-        let subagents = visibleSubagents(session, in: project)
-        if !isEngineeringLead(session) && subagents.isEmpty {
-            Label(session.title, systemImage: session.icon)
+        if session.subagents.isEmpty {
+            sessionHeader(session, wipTaskIDs: wipTaskIDs)
         } else {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Label(session.title, systemImage: session.icon)
-                    Spacer(minLength: 4)
-                    Text("\(wipTaskIDs.count) task\(wipTaskIDs.count == 1 ? "" : "s") · "
-                         + "\(subagents.filter(\.running).count) running")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+            DisclosureGroup(isExpanded: agentExpansion(session)) {
+                ForEach(session.subagents) { subagentRow($0, in: session) }
+            } label: {
+                Button { selection = sessionTag(session) } label: {
+                    sessionHeader(session, wipTaskIDs: wipTaskIDs)
                 }
-                ForEach(subagents) { subagentRow($0, in: session) }
+                .buttonStyle(.plain)
             }
         }
+    }
+
+    private func sessionHeader(_ session: CodeSession, wipTaskIDs: [String]) -> some View {
+        HStack {
+            Label(session.title, systemImage: session.icon)
+            Spacer(minLength: 4)
+            if isEngineeringLead(session) {
+                Text("\(wipTaskIDs.count) task\(wipTaskIDs.count == 1 ? "" : "s") · "
+                     + "\(session.subagents.filter(\.running).count) running")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func agentExpansion(_ session: CodeSession) -> Binding<Bool> {
+        Binding(
+            get: { !collapsedAgents.contains(session.id) },
+            set: { expanded in
+                if expanded { collapsedAgents.remove(session.id) }
+                else { collapsedAgents.insert(session.id) }
+            }
+        )
     }
 
     private func wipTaskIDs(_ session: CodeSession, in project: Project) -> [String] {
         let done = Set(project.cards.filter { $0.kind == .task && $0.status == "done" }.map(\.id))
         let running = Subagents.runningTaskIDs(session.subagents)
         return session.taskIDs.filter { !done.contains($0) || running.contains($0) }
-    }
-
-    /// A lead spawns a specialist and a QA subagent per task, so a finished batch leaves a
-    /// column of rows for work nobody is going to look at again. Once QA accepts a task and
-    /// its status goes `done`, every subagent that ran for it drops off the lead — the same
-    /// rule, and the same `Show Completed` escape hatch, as the tasks themselves. A
-    /// subagent whose name matched no task stays: nothing said it was finished.
-    private func visibleSubagents(_ session: CodeSession, in project: Project) -> [SubagentStatus] {
-        guard !showDone else { return session.subagents }
-        let wip = Set(wipTaskIDs(session, in: project))
-        return session.subagents.filter { subagent in
-            subagent.taskID.map(wip.contains) ?? true
-        }
     }
 
     /// One line per subagent a lead has spawned — a dot while it is still running, a check
@@ -395,7 +403,6 @@ struct ClaudeCodeApp: App {
                     EngineeringLeadBoard(
                         session: lead,
                         cards: project.cards,
-                        showDone: showDone,
                         openTask: { selection = taskTag($0) },
                         openSubagent: { subagent in
                             selection = subagentTag(lead, subagent)
