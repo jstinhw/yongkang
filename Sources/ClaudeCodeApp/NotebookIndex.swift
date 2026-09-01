@@ -92,27 +92,65 @@ enum NotebookIndex {
             .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
-    /// The picked tasks plus every unfinished task they wait on, transitively. A blocker
-    /// is part of the job, not a question to put to the user. `excluding` keeps a task
-    /// already claimed by another Engineering Lead session out of the batch, whether it
-    /// was picked directly or would otherwise be pulled in as a blocker. A task already
-    /// `done` is dropped the same way — there is nothing left to assign it to do.
+    /// The picked tasks plus every unfinished task they wait on, transitively. A project
+    /// dependency expands to that project's unfinished tasks: project pages themselves
+    /// cannot be assigned to a specialist. A blocker is part of the job, not a question
+    /// to put to the user. `excluding` keeps a task already claimed by another Engineering
+    /// Lead session out of the batch, whether it was picked directly or would otherwise
+    /// be pulled in as a blocker. A task already `done` is dropped the same way — there is
+    /// nothing left to assign it to do.
     static func withBlockers(_ picked: [NotebookCard], in cards: [NotebookCard],
                              excluding assigned: Set<String> = []) -> [NotebookCard] {
         let byID = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
+        // Keep task and unknown ids as written, but turn an unfinished project into the
+        // concrete task ids that can finish it. If a project has no work to assign, leave
+        // its id visible so the lead can report the inconsistent notebook instead of
+        // silently treating it as complete.
+        func concrete(_ ids: [String], visiting: Set<String> = []) -> [String] {
+            var result: [String] = []
+            for id in ids {
+                guard let card = byID[id], card.kind == .project else {
+                    result.append(id)
+                    continue
+                }
+                guard card.status != "done" else { continue }
+                guard !visiting.contains(id) else {
+                    result.append(id)
+                    continue
+                }
+                let tasks = cards.filter {
+                    $0.kind == .task && $0.project == id && $0.status != "done"
+                }.map(\.id)
+                let expanded = concrete(card.dependsOn + tasks, visiting: visiting.union([id]))
+                result.append(contentsOf: expanded.isEmpty ? [id] : expanded)
+            }
+            var seen: Set<String> = []
+            return result.filter { seen.insert($0).inserted }
+        }
+
+        func normalized(_ card: NotebookCard) -> NotebookCard {
+            let dependencies = concrete(card.dependsOn)
+            guard dependencies != card.dependsOn else { return card }
+            return NotebookCard(id: card.id, url: card.url, kind: card.kind, title: card.title,
+                                status: card.status, project: card.project, dependsOn: dependencies,
+                                repos: card.repos, roadmap: card.roadmap, subject: card.subject,
+                                memoryType: card.memoryType, result: card.result)
+        }
+
         let eligible = picked.filter { $0.status != "done" && !assigned.contains($0.id) }
         var chosen = Set(eligible.map(\.id))
         var queue = eligible
 
         while let card = queue.popLast() {
-            for id in card.dependsOn {
+            for id in concrete(card.dependsOn) {
                 guard !chosen.contains(id), !assigned.contains(id), let blocker = byID[id],
                       blocker.kind == .task, blocker.status != "done" else { continue }
                 chosen.insert(id)
                 queue.append(blocker)
             }
         }
-        return ordered(cards.filter { chosen.contains($0.id) })
+        return ordered(cards.filter { chosen.contains($0.id) }.map(normalized))
     }
 
     static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {

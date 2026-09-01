@@ -219,9 +219,9 @@ enum NotebookSelfTest {
                      "a transcript that is not there yet reads as empty, not a crash")
 
         // A blocker is pulled into the batch rather than raised as a question.
-        func node(_ id: String, _ status: String, _ waits: [String]) -> NotebookCard {
+        func node(_ id: String, _ status: String, _ waits: [String], project: String? = nil) -> NotebookCard {
             NotebookCard(id: id, url: URL(fileURLWithPath: "/\(id).md"), kind: .task,
-                         title: id, status: status, project: nil, dependsOn: waits)
+                         title: id, status: status, project: project, dependsOn: waits)
         }
         let graph = [node("a", "todo", ["b"]), node("b", "todo", ["c"]), node("c", "todo", []),
                      node("d", "todo", ["done-one"]), node("done-one", "done", ["c"]),
@@ -232,6 +232,28 @@ enum NotebookSelfTest {
                      "a finished blocker is not dragged back in, nor anything behind it")
         precondition(Set(NotebookIndex.withBlockers([graph[5]], in: graph).map(\.id)) == ["x", "y"],
                      "a dependency cycle terminates instead of hanging")
+
+        // A task can wait on a whole project. Pull in that project's unfinished tasks,
+        // not the project card: only task files can be assigned to Engineering Lead.
+        let projectBlocker = NotebookCard(id: "edit-and-order", url: URL(fileURLWithPath: "/project.md"),
+                                          kind: .project, title: "Edit and order", status: "todo",
+                                          project: nil, dependsOn: ["todo-crud"])
+        let finishedProject = NotebookCard(id: "todo-crud", url: URL(fileURLWithPath: "/crud.md"),
+                                           kind: .project, title: "CRUD", status: "done",
+                                           project: nil, dependsOn: [])
+        let projectGraph = [
+            node("builder-ui-foundation", "todo", ["edit-and-order"], project: "builder-ui-redesign"),
+            projectBlocker,
+            node("edit-todo", "active", ["toggle-and-delete"], project: "edit-and-order"),
+            node("sort-order", "done", ["toggle-and-delete"], project: "edit-and-order"),
+            finishedProject,
+            node("toggle-and-delete", "done", [], project: "todo-crud")
+        ]
+        let projectBatch = NotebookIndex.withBlockers([projectGraph[0]], in: projectGraph)
+        precondition(projectBatch.map(\.id) == ["edit-todo", "builder-ui-foundation"],
+                     "an unfinished project blocker contributes all of its unfinished tasks")
+        precondition(projectBatch.last?.dependsOn == ["edit-todo"],
+                     "the lead sees the concrete task prerequisite, not an unassignable project page")
         precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
         precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: false).map(\.id) == ["a"])
         precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: true).map(\.id) == ["a", "done-one"])
