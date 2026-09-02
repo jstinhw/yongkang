@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// What is being asked of the user, and the button that starts doing it. The body of a
-/// block is written as a checklist by whoever hit the gate, so it renders exactly like a
-/// task page — the difference is the action bar: this one starts a session whose whole
-/// job is walking the user through it and then releasing the agent that is waiting.
+/// block is written as steps by whoever hit the gate, so it renders like any other page —
+/// what makes this screen different is the bar: it starts a session whose whole job is
+/// walking you through this one thing and then releasing the agent that is waiting.
 struct BlockDetail: View {
     let block: UserBlock
     let cards: [NotebookCard]
@@ -14,56 +14,68 @@ struct BlockDetail: View {
 
     @State private var content: [NotebookContent.Section] = []
 
+    private var parent: NotebookCard? {
+        block.task.flatMap { id in cards.first { $0.id == id } }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    if !content.isEmpty {
-                        NotebookContentView(sections: content, cards: cards)
-                            .padding(14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 10)
-                                .fill(Color(nsColor: .controlBackgroundColor)))
+            HStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        header
+                        if !content.isEmpty {
+                            NotebookContentView(sections: content, cards: cards)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .cardSurface(padding: 16)
+                        }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                inspector
             }
-            Divider()
             actionBar
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
         .task(id: block.id) { load() }
     }
 
+    private var tint: Color {
+        block.waiting ? (block.isProposal ? Theme.violet : Theme.amber) : Theme.green
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: block.waiting
                       ? (block.isProposal ? "lightbulb.fill" : "hand.raised.fill")
                       : "checkmark.circle.fill")
-                    .foregroundStyle(block.waiting ? Color.orange : .green)
-                Text(block.title).font(.title2.weight(.semibold))
-                NotebookStyle.pill(block.waiting
-                                   ? (block.isProposal ? "needs your review" : "waiting on you")
-                                   : "done")
+                    .font(.system(size: 16))
+                    .foregroundStyle(tint)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 11).fill(tint.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 11)
+                        .strokeBorder(tint.opacity(0.3), lineWidth: 1))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(block.title).font(Typo.display(21))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        NotebookStyle.pill(block.waiting
+                                           ? (block.isProposal ? "needs your review" : "waiting on you")
+                                           : "done", tint)
+                        Text(subtitle).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    }
+                }
                 Spacer(minLength: 12)
             }
-            Text(subtitle)
-                .font(.callout)
-                .foregroundStyle(.secondary)
             if !block.resolution.isEmpty {
-                Text(block.resolution).font(.callout)
-            }
-            if let link = block.link {
-                Link(link.absoluteString, destination: link).font(.caption)
+                Text(block.resolution).font(Typo.text(12.5)).foregroundStyle(Color(hex: 0xC7D0DC))
             }
         }
     }
 
     private var subtitle: String {
-        let parent = block.task.flatMap { id in cards.first { $0.id == id } }
         if block.isProposal {
             let lead = block.waiting ? "Product proposes this" : "Built out"
             return parent.map { "\(lead) — advances \($0.title)" } ?? lead
@@ -72,31 +84,106 @@ struct BlockDetail: View {
         return parent.map { "\(who) — holds up \($0.title)" } ?? who
     }
 
-    private func load() {
-        let text = (try? String(contentsOf: block.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
+    // MARK: - Inspector
+
+    private var inspector: some View {
+        Inspector {
+            if let parent {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Holds up")
+                    HStack(spacing: 10) {
+                        NotebookStyle.statusRing(parent.status, progress: 0, size: 16)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(parent.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                                .lineLimit(2).multilineTextAlignment(.leading)
+                            Text(parent.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardSurface(padding: 15)
+            }
+
+            if let waiting {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Waiting agent")
+                    HStack(spacing: 10) {
+                        RoleTile(role: waiting.isEngineeringLead ? "lead" : waiting.title)
+                        Text(waiting.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+                        Spacer(minLength: 0)
+                        NotebookStyle.pill("blocked", Theme.amber)
+                    }
+                }
+            }
+
+            if let link = block.link {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("The page you need")
+                    Link(destination: link) {
+                        HStack(spacing: 9) {
+                            Image(systemName: "link").font(.system(size: 12))
+                                .foregroundStyle(Theme.accent)
+                            Text(link.absoluteString).font(Typo.mono(10.5))
+                                .foregroundStyle(Theme.accent).lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
+                        .overlay(RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            if !block.isProposal {
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "lock.shield").font(.system(size: 12)).foregroundStyle(Theme.red)
+                    Text("No secret is ever echoed back to you or written into the notebook.")
+                        .font(Typo.text(11)).foregroundStyle(Color(hex: 0xF1BDBD))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.red.opacity(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Theme.red.opacity(0.18), lineWidth: 1))
+            }
+        }
+    }
+
+    // MARK: - Action bar
+
+    private var actionBar: some View {
+        ActionBar {
+            Text(footer).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+            Spacer(minLength: 12)
+            Button(block.isProposal ? "Dismiss" : "Mark resolved", action: resolve)
+                .buttonStyle(.console)
+                .disabled(!block.waiting)
+            Button(action: start) {
+                Label(block.isProposal ? "Approve" : "Do it now",
+                      systemImage: block.isProposal ? "checkmark" : "bolt.fill")
+            }
+            .buttonStyle(.consolePrimary)
+            .disabled(!block.waiting)
+        }
     }
 
     private var footer: String {
         guard block.waiting else { return "Cleared." }
         return block.isProposal
             ? "Approving writes the project and its tasks onto the board. Nothing is assigned yet."
-            : "An engineer will explain this first, then walk you through it one step at a time."
+            : "An engineer explains this first, then walks you through it one step at a time."
     }
 
-    private var actionBar: some View {
-        HStack(spacing: 10) {
-            Text(footer)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Button(block.isProposal ? "Dismiss" : "Mark Resolved", action: resolve)
-                .disabled(!block.waiting)
-            Button(block.isProposal ? "Approve" : "Do It Now",
-                   systemImage: block.isProposal ? "checkmark" : "play.fill", action: start)
-                .buttonStyle(.borderedProminent)
-                .disabled(!block.waiting)
-        }
-        .padding(12)
+    private func load() {
+        let text = (try? String(contentsOf: block.url, encoding: .utf8)) ?? ""
+        content = NotebookContent.sections(NotebookIndex.body(text))
     }
 }

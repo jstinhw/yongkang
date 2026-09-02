@@ -23,9 +23,7 @@ struct NotebookContentView: View {
         if !blocks.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 if let heading = section.heading {
-                    Text(heading.uppercased())
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    SectionLabel(heading)
                 }
                 ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                     blockView(block)
@@ -47,28 +45,28 @@ struct NotebookContentView: View {
     private func blockView(_ block: NotebookContent.Block) -> some View {
         switch block {
         case .paragraph(let text):
-            resolved(text).font(.body)
+            resolved(text).font(Typo.text(13)).lineSpacing(3).foregroundStyle(Color(hex: 0xC7D0DC))
         case .checklist(let items):
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: item.done ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(item.done ? Color.green : Color.secondary)
+                        Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                         resolved(item.text)
-                            .strikethrough(item.done)
-                            .foregroundStyle(item.done ? .secondary : .primary)
+                            .foregroundStyle(item.done ? Theme.tx2 : Color(hex: 0xC7D0DC))
                     }
-                    .font(.callout)
+                    .font(Typo.text(12.5))
                 }
             }
         case .list(let items):
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .top, spacing: 6) {
-                        Text("•").foregroundStyle(.secondary)
-                        resolved(item)
+                        Text("•").foregroundStyle(Theme.tx3)
+                        resolved(item).foregroundStyle(Color(hex: 0xC7D0DC))
                     }
-                    .font(.callout)
+                    .font(Typo.text(12.5))
                 }
             }
         case .numberedList(let items):
@@ -76,21 +74,23 @@ struct NotebookContentView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 6) {
                         Text("\(index + 1).")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                        resolved(item)
+                            .font(Typo.mono(11.5))
+                            .foregroundStyle(Theme.tx3)
+                        resolved(item).foregroundStyle(Color(hex: 0xC7D0DC))
                     }
-                    .font(.callout)
+                    .font(Typo.text(12.5))
                 }
             }
         case .code(let code):
             ScrollView(.horizontal) {
                 Text(code)
-                    .font(.system(.callout, design: .monospaced))
+                    .font(Typo.mono(11.5))
+                    .foregroundStyle(Theme.tx2)
                     .textSelection(.enabled)
-                    .padding(8)
+                    .padding(10)
             }
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x0E1116)))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
         }
     }
 
@@ -107,7 +107,7 @@ struct NotebookContentView: View {
             case .link(let id):
                 let card = cards.first { $0.id == id }
                 return acc + Text(card?.title ?? id)
-                    .foregroundColor(card == nil ? .orange : Color.accentColor)
+                    .foregroundColor(card == nil ? Theme.amber : Theme.accent)
                     .fontWeight(.medium)
             }
         }

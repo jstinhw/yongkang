@@ -23,15 +23,23 @@ struct ProjectPreview: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Button("Run All Services", systemImage: "play.fill") { run() }
+                Button { run() } label: { Label("Run all services", systemImage: "play.fill") }
+                    .buttonStyle(.console)
                 Spacer()
                 if hasFrontend {
                     TextField("http://localhost:3000", text: $address, onCommit: load)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 260)
-                    Button("Go", action: load)
-                    Button("Reload", systemImage: "arrow.clockwise") { webView.reload() }
-                        .labelStyle(.iconOnly)
+                        .textFieldStyle(.plain)
+                        .font(Typo.mono(11))
+                        .padding(.horizontal, 10)
+                        .frame(width: 260, height: 30)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Theme.line2, lineWidth: 1))
+                    Button("Go", action: load).buttonStyle(.console)
+                    Button { webView.reload() } label: {
+                        Label("Reload", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.console)
                 }
             }
             .padding(10)
@@ -42,12 +50,12 @@ struct ProjectPreview: View {
                 WebPane(webView: webView).onAppear(perform: load)
             } else {
                 Text("No frontend app among \(repo)'s services — nothing to open here.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(Typo.text(13))
+                    .foregroundStyle(Theme.tx3)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
     }
 
     /// Every service under this repo, run independently — the point of a monorepo split.
@@ -55,10 +63,10 @@ struct ProjectPreview: View {
         HStack(spacing: 16) {
             ForEach(services, id: \.name) { service in
                 HStack(spacing: 4) {
-                    Text(service.name).font(.caption.weight(.medium))
+                    Text(service.name).font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx2)
                     Text(service.command ?? "nothing to run")
-                        .font(.caption2)
-                        .foregroundStyle(service.command == nil ? Color.orange : .secondary)
+                        .font(Typo.mono(10.5))
+                        .foregroundStyle(service.command == nil ? Theme.amber : Theme.tx3)
                 }
             }
             Spacer()

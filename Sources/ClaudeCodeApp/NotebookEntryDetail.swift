@@ -15,35 +15,43 @@ struct NotebookEntryDetail: View {
                 header
                 if !content.isEmpty {
                     NotebookContentView(sections: content, cards: cards)
-                        .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(nsColor: .controlBackgroundColor)))
+                        .cardSurface(padding: 16)
                 }
             }
-            .padding(20)
+            .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
         .task(id: card.id) { load() }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(alignment: .top, spacing: 11) {
                 Image(systemName: icon)
-                    .foregroundStyle(.secondary)
-                Text(card.title)
-                    .font(.title2.weight(.semibold))
-                if !badge.isEmpty { NotebookStyle.pill(badge) }
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.tx3)
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Theme.line2, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(card.title).font(Typo.display(21))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        if !badge.isEmpty { NotebookStyle.pill(badge) }
+                    }
+                }
                 Spacer(minLength: 12)
-                Button("Edit", systemImage: "pencil") { open(card.url) }
-                    .buttonStyle(.borderless)
+                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
+                    .buttonStyle(.consoleGhost)
             }
             if !metadata.isEmpty {
                 Text(metadata.joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Typo.text(11.5))
+                    .foregroundStyle(Theme.tx3)
             }
         }
     }

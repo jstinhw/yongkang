@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// One task's own page — its checklist, its notes, where it sits in the graph — instead
-/// of the raw Markdown file.
+/// One task's own page — what it is, what "done" means for it, and who is on it right now
+/// — instead of the raw Markdown file. The checklist is the only progress a task actually
+/// records, so it gets the room.
 struct TaskDetail: View {
     let card: NotebookCard
     let cards: [NotebookCard]
@@ -22,112 +23,185 @@ struct TaskDetail: View {
     private var batch: [NotebookCard] {
         NotebookIndex.withBlockers([card], in: cards, excluding: assigned)
     }
+    private var checklist: [NotebookContent.ChecklistItem] {
+        content.flatMap { section in
+            section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
+                if case let .checklist(items) = block { return items }
+                return []
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    if !working.isEmpty { workers }
-                    if !content.isEmpty {
-                        NotebookContentView(sections: content, cards: cards)
-                            .padding(14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+            HStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        header
+                        if !content.isEmpty {
+                            NotebookContentView(sections: content, cards: cards)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .cardSurface(padding: 16)
+                        }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                inspector
             }
-            Divider()
             actionBar
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
         .task(id: card.id) { load() }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                NotebookStyle.statusRing(card.status, progress: card.status == "active" ? 0.4 : 0, size: 18)
-                Text(card.title)
-                    .font(.title2.weight(.semibold))
-                if !card.status.isEmpty { NotebookStyle.pill(card.status) }
-                if assigned.contains(card.id) { NotebookStyle.pill("wip") }
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top, spacing: 12) {
+                NotebookStyle.statusRing(card.status,
+                                         progress: checklist.isEmpty ? 0
+                                            : Double(checklist.filter(\.done).count) / Double(checklist.count),
+                                         size: 24)
+                    .padding(.top, 3)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(card.title).font(Typo.display(22))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        if !card.status.isEmpty { NotebookStyle.pill(card.status) }
+                        if assigned.contains(card.id) { NotebookStyle.pill("wip") }
+                    }
+                }
                 Spacer(minLength: 12)
-                Button("Edit", systemImage: "pencil") { open(card.url) }
-                    .buttonStyle(.borderless)
+                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
+                    .buttonStyle(.consoleGhost)
             }
-            if let project {
-                Text("in \(project.title)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) { waits.font(.caption) }
-            if let blocks = NotebookStyle.edge("blocks ", NotebookStyle.dependents(of: card, in: cards), in: cards) {
-                blocks.font(.caption)
-            }
+            graph
         }
     }
 
-    // MARK: - Who is on it
-
-    /// A lead's subagents are inside its session, not sibling terminals, so this is the
-    /// only place the task itself says who is working on it. `Check` opens that subagent's
-    /// own transcript — the closest thing to watching it work, since neither CLI can be
-    /// told to open one specific subagent.
-    private var workers: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Working on it")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ForEach(working, id: \.1.id) { session, subagent in
-                HStack(spacing: 8) {
-                    Image(systemName: subagent.running ? "circle.dotted" : "checkmark.circle")
-                        .foregroundStyle(subagent.running ? Color.accentColor : Color.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(subagent.description)
-                        Text("\(subagent.agentType) · \(session.title)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 12)
-                    Button("Check") { check(session, subagent) }
+    /// Where the task sits in the chain, as chips rather than a sentence: this is what the
+    /// lead dispatches from, so it should read at a glance.
+    private var graph: some View {
+        let blocks = NotebookStyle.dependents(of: card, in: cards)
+        return HStack(spacing: 8) {
+            ForEach(card.dependsOn, id: \.self) { id in
+                NotebookStyle.chip("waits on \(id)", mono: true)
+            }
+            if !card.dependsOn.isEmpty {
+                Image(systemName: "arrow.right").font(.system(size: 11)).foregroundStyle(Theme.tx4)
+            }
+            HStack(spacing: 6) {
+                StateDot(color: NotebookStyle.color(of: card.status))
+                Text("this task").font(Typo.text(11)).foregroundStyle(Color(hex: 0xC7D0DC))
+            }
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: 0x171C25)))
+            .overlay(RoundedRectangle(cornerRadius: 7)
+                .strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))
+            if !blocks.isEmpty {
+                Image(systemName: "arrow.right").font(.system(size: 11)).foregroundStyle(Theme.tx4)
+                ForEach(blocks, id: \.self) { id in
+                    NotebookStyle.chip("blocks \(id)", mono: true)
                 }
             }
+            Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
     }
 
-    private func load() {
-        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
+    // MARK: - Inspector
+
+    private var inspector: some View {
+        Inspector {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel("Working on it", trailing: working.isEmpty ? nil : "\(working.count)")
+                if working.isEmpty {
+                    Text(locked ? "No agent is on it right now."
+                                : "Nobody yet — assign it to a lead.")
+                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                }
+                ForEach(working, id: \.1.id) { session, subagent in
+                    Button { check(session, subagent) } label: {
+                        HStack(spacing: 10) {
+                            RoleTile(role: subagent.agentType)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(subagent.agentType).font(Typo.text(11.5))
+                                    .foregroundStyle(Theme.tx)
+                                Text(session.title).font(Typo.text(10))
+                                    .foregroundStyle(Theme.tx3).lineLimit(1)
+                            }
+                            Spacer(minLength: 6)
+                            NotebookStyle.pill(subagent.running ? "Running" : "Done",
+                                               subagent.running ? Theme.accent : Theme.green)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cardSurface(radius: 10, padding: 11)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let project {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("In project")
+                    HStack(spacing: 10) {
+                        NotebookStyle.statusRing(project.status, progress: projectProgress, size: 16)
+                        Text(project.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+
+            if !checklist.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Done when",
+                                 trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
+                    MeterBar(value: Double(checklist.filter(\.done).count) / Double(checklist.count),
+                             tint: Theme.green)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var projectProgress: Double {
+        guard let project else { return 0 }
+        let tasks = cards.filter { $0.kind == .task && $0.project == project.id }
+        guard !tasks.isEmpty else { return 0 }
+        return Double(tasks.filter { $0.status == "done" }.count) / Double(tasks.count)
     }
 
     // MARK: - Action bar
 
     private var actionBar: some View {
-        HStack(spacing: 10) {
-            Text(status)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+        ActionBar {
+            Text(NotebookFormat.relativePath(card.url))
+                .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
-            Button("Open File") { open(card.url) }
-            Button("Assign to Engineering Lead") { assign(batch) }
-                .buttonStyle(.borderedProminent)
-                .disabled(locked)
+            if locked {
+                Text(card.status == "done" ? "Done — nothing to assign."
+                                           : "An Engineering Lead already has this task.")
+                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+            } else if batch.count > 1 {
+                Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
+                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+            }
+            Button { assign([card]) } label: {
+                Label("Assign to Engineering Lead",
+                      systemImage: "point.3.connected.trianglepath.dotted")
+            }
+            .buttonStyle(.consolePrimary)
+            .disabled(locked)
         }
-        .padding(12)
     }
 
-    private var status: String {
-        if card.status == "done" { return "Done." }
-        if assigned.contains(card.id) { return "Already assigned to an Engineering Lead." }
-        let pulled = batch.count - 1
-        return pulled > 0 ? "\(pulled) blocker\(pulled == 1 ? "" : "s") pulled in with it." : "Ready to assign."
+    private func load() {
+        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
+        content = NotebookContent.sections(NotebookIndex.body(text))
     }
 }

@@ -5,130 +5,100 @@ import SwiftUI
 /// separate session to attach to for just this one task — so this, kept fresh by the same
 /// poll that finds the subagent itself, is the closest thing to watching it work.
 ///
-/// Laid out as a feed rather than a log: one card per step, tinted and glyphed by kind, so
-/// the shape of the work (asked → tried → got back → answered) reads at a glance instead of
-/// having to be picked out of a wall of left-aligned text.
+/// Laid out as steps on a spine rather than a log: one card per step, glyphed by kind, so
+/// the shape of the work (asked → tried → got back → answered) reads at a glance. The
+/// inspector beside it is the task the steps are for — the question you would otherwise
+/// have to leave the screen to answer.
 struct SubagentViewer: View {
     let session: CodeSession
     let subagent: SubagentStatus
     let lines: [TranscriptLine]
+    let task: NotebookCard?
+    let openTask: (String) -> Void
+
+    @State private var checklist: [NotebookContent.ChecklistItem] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
-            if lines.isEmpty {
-                empty
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(lines) { row($0).id($0.id) }
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                if lines.isEmpty {
+                    empty
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(lines.enumerated()), id: \.element.id) { index, line in
+                                    step(line, last: index == lines.count - 1).id(line.id)
+                                }
+                            }
+                            .padding(.horizontal, 22)
+                            .padding(.vertical, 14)
                         }
-                        .padding(14)
+                        .onAppear { scrollToEnd(proxy) }
+                        .onChange(of: lines.count) { _ in scrollToEnd(proxy) }
                     }
-                    .onAppear { scrollToEnd(proxy) }
-                    .onChange(of: lines.count) { _ in scrollToEnd(proxy) }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Theme.bg)
+            inspector
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .task(id: task?.id) { load() }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 11) {
-            Image(systemName: roleGlyph)
-                .font(.system(size: 15))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(Color.accentColor.opacity(0.12)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(subagent.description).font(.headline)
-                Text("\(subagent.agentType) · spawned by \(session.title)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            RoleTile(role: subagent.agentType, size: 36)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(subagent.agentType).font(Typo.display(15))
+                Text("spawned by \(session.title)"
+                     + (task.map { " · on \($0.title)" } ?? ""))
+                    .font(Typo.text(11)).foregroundStyle(Theme.tx3)
             }
             Spacer(minLength: 12)
-            status
+            NotebookStyle.chip("\(lines.count) steps", mono: true)
+            NotebookStyle.pill(subagent.running ? "Running" : "Done",
+                               subagent.running ? Theme.accent : Theme.green,
+                               live: subagent.running)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(Color(nsColor: .windowBackgroundColor))
-    }
-
-    /// The same status language as the board: blue while it works, green once it is done.
-    private var status: some View {
-        let color = NotebookStyle.color(of: subagent.running ? "active" : "done")
-        return HStack(spacing: 5) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(subagent.running ? "Running" : "Done")
-                .font(.caption.weight(.medium))
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(color.opacity(0.12)))
-    }
-
-    /// The specialist skills the lead dispatches, each with its own face — a batch usually
-    /// has several of these open at once, and the glyph tells them apart before the words do.
-    private var roleGlyph: String {
-        let role = subagent.agentType.lowercased()
-        if role.contains("frontend") { return "paintbrush" }
-        if role.contains("backend") { return "server.rack" }
-        if role.contains("qa") { return "checkmark.seal" }
-        if role.contains("sre") { return "cloud" }
-        if role.contains("fde") { return "person.2" }
-        if role.contains("explore") || role.contains("research") { return "magnifyingglass" }
-        return "sparkles"
-    }
-
-    private var empty: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "hourglass")
-                .font(.system(size: 22))
-                .foregroundStyle(.tertiary)
-            Text("Nothing recorded yet.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 22)
+        .padding(.top, 16)
+        .padding(.bottom, 6)
     }
 
     // MARK: - One step
 
-    private func row(_ line: TranscriptLine) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 5) {
-                Image(systemName: glyph(for: line.label)).font(.caption2)
-                Text(line.label.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .kerning(0.5)
+    private func step(_ line: TranscriptLine, last: Bool) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack(alignment: .top) {
+                if !last {
+                    Rectangle().fill(Theme.line)
+                        .frame(width: 1)
+                        .padding(.top, 24)
+                }
+                Image(systemName: glyph(for: line.label))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(color(for: line.label))
+                    .frame(width: 23, height: 23)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x12161E)))
+                    .overlay(RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color(hex: 0x242B37), lineWidth: 1))
             }
-            .foregroundStyle(color(for: line.label))
-            body(of: line)
+            .frame(width: 23)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(line.label.uppercased())
+                    .font(Typo.section).tracking(1.4)
+                    .foregroundStyle(color(for: line.label))
+                body(of: line)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface(radius: 11, padding: 13)
         }
-        .padding(.vertical, 9)
-        .padding(.leading, 13)
-        .padding(.trailing, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // A hairline as well as a fill: on a light macOS appearance a card and the page
-        // behind it are both near-white, so the fill alone draws no card at all.
-        .background {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.08)))
-        }
-        // The kind's color as a spine down the card, rather than a second block of tinted
-        // background competing with the text it is meant to be labelling.
-        .overlay(alignment: .leading) {
-            Capsule()
-                .fill(color(for: line.label).opacity(0.7))
-                .frame(width: 3)
-                .padding(.vertical, 7)
-        }
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder private func body(of line: TranscriptLine) -> some View {
@@ -138,22 +108,106 @@ struct SubagentViewer: View {
             let split = line.text.firstIndex(of: "(")
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text(split.map { String(line.text[..<$0]) } ?? line.text)
-                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.tx)
                 Text(split.map { String(line.text[$0...]) } ?? "")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.tx2)
             }
-            .font(.system(.callout, design: .monospaced))
+            .font(Typo.mono(11.5))
             .textSelection(.enabled)
         case "Result":
             Text(line.text)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .font(Typo.mono(10.5))
+                .foregroundStyle(Theme.tx2)
+                .lineSpacing(2)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x0E1116)))
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
                 .textSelection(.enabled)
         default:
             Text(line.text)
-                .font(.callout)
+                .font(Typo.text(12.5))
+                .foregroundStyle(Color(hex: 0xC7D0DC))
+                .lineSpacing(2)
                 .textSelection(.enabled)
         }
+    }
+
+    // MARK: - Inspector
+
+    private var inspector: some View {
+        Inspector {
+            if let task {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Task")
+                    Button { openTask(task.id) } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(task.title).font(Typo.text(13)).foregroundStyle(Theme.tx)
+                                .multilineTextAlignment(.leading)
+                            HStack(spacing: 7) {
+                                Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                                if !task.status.isEmpty { NotebookStyle.pill(task.status) }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                if !checklist.isEmpty {
+                    VStack(alignment: .leading, spacing: 9) {
+                        SectionLabel("Done when",
+                                     trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
+                        ForEach(Array(checklist.enumerated()), id: \.offset) { _, item in
+                            HStack(alignment: .top, spacing: 9) {
+                                Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(item.done ? Theme.green : Theme.tx4)
+                                    .padding(.top, 1)
+                                Text(item.text).font(Typo.text(11.5))
+                                    .foregroundStyle(item.done ? Color(hex: 0xC7D0DC) : Theme.tx3)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel("Task")
+                    Text("This agent's name matches no task in the batch — a review or "
+                         + "compaction agent, most likely.")
+                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel("Transcript")
+                Text(subagent.transcriptURL.path)
+                    .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                    .lineLimit(3).truncationMode(.middle)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
+                    .overlay(RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([subagent.transcriptURL])
+                } label: {
+                    Label("Reveal transcript", systemImage: "folder")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.console)
+            }
+        }
+    }
+
+    private var empty: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "hourglass").font(.system(size: 22)).foregroundStyle(Theme.tx4)
+            Text("Nothing recorded yet.").font(Typo.text(13)).foregroundStyle(Theme.tx3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func glyph(for label: String) -> String {
@@ -168,12 +222,16 @@ struct SubagentViewer: View {
 
     private func color(for label: String) -> Color {
         switch label {
-        case "Task": return .purple
-        case "Tool": return .blue
-        case "Result": return .secondary
-        case "Reply": return .green
-        default: return .secondary
+        case "Task": return Theme.violet
+        case "Tool": return Theme.accent
+        case "Result": return Theme.tx2
+        case "Reply": return Theme.green
+        default: return Theme.tx2
         }
+    }
+
+    private func load() {
+        checklist = task.map { NotebookIndex.checklist(at: $0.url) } ?? []
     }
 
     private func scrollToEnd(_ proxy: ScrollViewProxy) {

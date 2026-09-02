@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// One project's own page — what it's for, how far along it is, and its tasks — the
-/// way Linear opens a project: a description and a status-grouped issue list, not the
-/// cross-project dependency board.
+/// One project's own page — what it's for, how far along it is, and its tasks grouped by
+/// state. The board next door is the cross-project build order; this is the one project,
+/// the way Linear opens a project rather than a graph.
 struct ProjectDetail: View {
     let card: NotebookCard
     let cards: [NotebookCard]
@@ -15,7 +15,7 @@ struct ProjectDetail: View {
     let open: (URL) -> Void
     let assign: ([NotebookCard]) -> Void
     let run: (NotebookCard) -> Void
-    /// Opens a task's own page — separate from picking it, which the rest of the row does.
+    /// Opens a task's own page — separate from picking it, which the ring does.
     let openTask: (NotebookCard) -> Void
 
     @State private var picked: Set<String> = []
@@ -33,107 +33,94 @@ struct ProjectDetail: View {
     private var batch: [NotebookCard] {
         NotebookIndex.withBlockers(pickedTasks, in: cards, excluding: assigned)
     }
-    private var single: NotebookCard? {
-        picked.count == 1 ? tasks.first { picked.contains($0.id) } : nil
-    }
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 22) {
                     header
-                    if !content.isEmpty { description }
+                    if !content.isEmpty {
+                        NotebookContentView(sections: content, cards: cards,
+                                            redundant: Set(allTasks.map(\.id)))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cardSurface(padding: 16)
+                    }
                     repos
                     taskList
                 }
-                .padding(20)
+                .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Divider()
             assignBar
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
         .task(id: card.id) { load() }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                NotebookStyle.statusRing(card.status, progress: allTasks.isEmpty ? 0 : Double(done) / Double(allTasks.count), size: 20)
-                Text(card.title)
-                    .font(.title2.weight(.semibold))
-                if !card.status.isEmpty { NotebookStyle.pill(card.status) }
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top, spacing: 12) {
+                NotebookStyle.statusRing(card.status,
+                                         progress: allTasks.isEmpty ? 0 : Double(done) / Double(allTasks.count),
+                                         size: 26)
+                    .padding(.top, 3)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(card.title).font(Typo.display(22))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        if !card.status.isEmpty { NotebookStyle.pill(card.status) }
+                        if let roadmap = card.roadmap.flatMap({ id in
+                            cards.first { $0.id == id && $0.kind == .roadmap }
+                        }) {
+                            NotebookStyle.chip("for \(roadmap.title)")
+                        }
+                    }
+                }
                 Spacer(minLength: 12)
-                Button("Edit", systemImage: "pencil") { open(card.url) }
-                    .buttonStyle(.borderless)
-                Button("Run", systemImage: "play.fill") { run(card) }
-                    .buttonStyle(.borderless)
+                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
+                    .buttonStyle(.consoleGhost)
+                Button { run(card) } label: { Label("Run", systemImage: "play.fill") }
+                    .buttonStyle(.console)
                     .help("Run this project's services")
             }
             if !allTasks.isEmpty {
-                HStack(spacing: 8) {
-                    ProgressView(value: Double(done), total: Double(allTasks.count))
-                        .progressViewStyle(.linear)
-                        .tint(NotebookStyle.color(of: card.status))
-                        .frame(width: 160)
+                HStack(spacing: 10) {
+                    MeterBar(value: Double(done) / Double(allTasks.count),
+                             tint: NotebookStyle.color(of: card.status))
+                        .frame(width: 180)
                     Text("\(done) of \(allTasks.count) done")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                        .font(Typo.mono(11.5)).foregroundStyle(Theme.tx2)
                 }
             }
-            if let roadmap = card.roadmap.flatMap({ id in cards.first { $0.id == id && $0.kind == .roadmap } }) {
-                Text("for \(roadmap.title)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) { waits.font(.caption) }
-            if let blocks = NotebookStyle.edge("blocks ", NotebookStyle.dependents(of: card, in: cards), in: cards) {
-                blocks.font(.caption)
+            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) {
+                waits.font(Typo.mono(10.5))
             }
         }
-    }
-
-    // MARK: - Description
-
-    /// The project's own file, parsed rather than shown raw — intro prose, then
-    /// whatever's headed underneath it. A `## Tasks` list that is nothing but links to
-    /// this project's own tasks is dropped: the task list below already shows them.
-    private var description: some View {
-        NotebookContentView(sections: content, cards: cards, redundant: Set(allTasks.map(\.id)))
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
-    }
-
-    private func load() {
-        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
     }
 
     // MARK: - Repos
 
     /// What the work touches, and whether it can be started. A repo that is not on disk
-    /// yet — the usual state before anything is scaffolded — says so in orange rather than
+    /// yet — the usual state before anything is scaffolded — says so in amber rather than
     /// looking like a repo with nothing to run.
-    private var repos: some View {
+    @ViewBuilder private var repos: some View {
         let plan = Service.plan(for: card, in: directory)
-        return Group {
-            if !plan.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(plan, id: \.repo) { step in
-                        let missing = !FileManager.default.fileExists(atPath: step.directory.path)
-                        HStack(spacing: 5) {
-                            Image(systemName: missing ? "questionmark.folder" : "folder")
-                            Text(step.repo)
-                            Text(missing ? "not created yet" : summary(step.services))
-                                .foregroundStyle(missing || step.services.allSatisfy { $0.command == nil }
-                                                ? Color.orange : .secondary)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        if !plan.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel("Repos")
+                ForEach(plan, id: \.repo) { step in
+                    let missing = !FileManager.default.fileExists(atPath: step.directory.path)
+                    HStack(spacing: 7) {
+                        Image(systemName: missing ? "questionmark.folder" : "folder")
+                            .font(.system(size: 11)).foregroundStyle(Theme.tx3)
+                        Text(step.repo).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                        Text(missing ? "not created yet" : summary(step.services))
+                            .font(Typo.text(11))
+                            .foregroundStyle(missing || step.services.allSatisfy { $0.command == nil }
+                                             ? Theme.amber : Theme.tx3)
                     }
                 }
             }
@@ -148,51 +135,50 @@ struct ProjectDetail: View {
 
     // MARK: - Tasks
 
-    /// Active work first, then what's next, then what's stuck, then what's shipped —
-    /// Linear groups a project's issues by status the same way.
+    /// Active work first, then what's next, then what's stuck, then what's shipped.
     private var taskList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Tasks", count: tasks.count)
+            SectionLabel("Tasks", trailing: "\(tasks.count)")
             if tasks.isEmpty {
                 Text(allTasks.isEmpty ? "This project has no tasks yet."
-                                      : "All tasks are complete. Use Show Completed to view them.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                                      : "All tasks are complete. Use Completed to view them.")
+                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
             } else {
-                ForEach(["active", "blocked", "todo", "done"], id: \.self) { status in
-                    group(status)
-                }
+                ForEach(["active", "blocked", "todo", "done"], id: \.self) { group($0) }
             }
         }
     }
 
-    @ViewBuilder
-    private func group(_ status: String) -> some View {
+    @ViewBuilder private func group(_ status: String) -> some View {
         let rows = tasks.filter { $0.status == status || (status == "todo" && $0.status.isEmpty) }
         if !rows.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(status.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                VStack(spacing: 1) {
-                    ForEach(rows) { task in row(task) }
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    StateDot(color: NotebookStyle.color(of: status))
+                    Text(status.uppercased()).font(Typo.section).tracking(1.4)
+                        .foregroundStyle(Theme.tx3)
+                    Text("\(rows.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
                 }
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+                VStack(spacing: 1) {
+                    ForEach(rows) { row($0) }
+                }
+                .background(RoundedRectangle(cornerRadius: 11).fill(Theme.card))
+                .overlay(RoundedRectangle(cornerRadius: 11)
+                    .strokeBorder(Theme.line2, lineWidth: 1))
             }
         }
     }
 
     /// The ring toggles the pick for batch assignment; the rest of the row opens the
-    /// task's own page — the two things Linear splits between a row's checkbox and its
-    /// title, done here as two buttons sharing one row instead of one overloaded click.
+    /// task's own page — two buttons sharing one row instead of one overloaded click.
     private func row(_ task: NotebookCard) -> some View {
         let locked = assigned.contains(task.id) || task.status == "done"
-        return HStack(spacing: 8) {
+        return HStack(spacing: 10) {
             Button {
                 if picked.contains(task.id) { picked.remove(task.id) } else { picked.insert(task.id) }
             } label: {
-                // ponytail: a fixed fill for "active" — a task has no sub-progress of its
-                // own, just a state. Swap for a real fraction if tasks grow checklists.
+                // ponytail: a fixed fill for "active" — a task's real progress is its
+                // checklist, which the task page reads; this row only carries state.
                 NotebookStyle.statusRing(task.status, progress: task.status == "active" ? 0.4 : 0)
             }
             .buttonStyle(.plain)
@@ -200,66 +186,57 @@ struct ProjectDetail: View {
 
             Button { openTask(task) } label: {
                 HStack(spacing: 8) {
-                    Text(task.title)
-                        .font(.callout)
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
+                    Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
                     if assigned.contains(task.id) { NotebookStyle.pill("wip") }
                     Spacer(minLength: 8)
-                    if let waits = NotebookStyle.edge("waits on ", task.dependsOn, in: cards) { waits.font(.caption2) }
-                    Text(task.id)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    if let waits = NotebookStyle.edge("waits on ", task.dependsOn, in: cards) {
+                        waits.font(Typo.mono(10))
+                    }
+                    Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(picked.contains(task.id) ? Color.accentColor.opacity(0.12) : Color.clear)
+        .background(picked.contains(task.id) ? Theme.accent.opacity(0.10) : Color.clear)
         .opacity(locked ? 0.6 : 1)
-    }
-
-    private func heading(_ title: String, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text("\(count)")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
     }
 
     // MARK: - Assign bar
 
     private var assignBar: some View {
-        HStack(spacing: 10) {
+        ActionBar {
             if pickedTasks.isEmpty {
-                Text("Click task rows to pick them for an engineering lead.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text("Click a task's ring to pick it for an engineering lead.")
+                    .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - pickedTasks.count
-                Text("\(pickedTasks.count) picked" + (pulled > 0 ? " · \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in" : ""))
-                    .font(.callout)
+                Text("\(pickedTasks.count) picked").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                if pulled > 0 {
+                    Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in")
+                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                }
                 Text(batch.map(\.id).joined(separator: " → "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .font(Typo.mono(11)).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             Spacer(minLength: 12)
-            Button("Open File") { single.map { open($0.url) } }
-                .disabled(single == nil)
             Button("Clear") { picked.removeAll() }
+                .buttonStyle(.consoleGhost)
                 .disabled(picked.isEmpty)
-            Button("Assign to Engineering Lead") { assign(batch) }
-                .buttonStyle(.borderedProminent)
-                .disabled(batch.isEmpty)
+            Button { assign(batch) } label: {
+                Label("Assign to Engineering Lead",
+                      systemImage: "point.3.connected.trianglepath.dotted")
+            }
+            .buttonStyle(.consolePrimary)
+            .disabled(batch.isEmpty)
         }
-        .padding(12)
+    }
+
+    private func load() {
+        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
+        content = NotebookContent.sections(NotebookIndex.body(text))
     }
 }

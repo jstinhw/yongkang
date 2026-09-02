@@ -197,3 +197,17 @@ enum NotebookIndex {
         return .project
     }
 }
+
+extension NotebookIndex {
+    /// The "Done when" boxes on a page, wherever they sit in it. This is the only progress
+    /// a task actually records, so it is what the console draws — nothing is inferred.
+    static func checklist(at url: URL) -> [NotebookContent.ChecklistItem] {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return NotebookContent.sections(body(text)).flatMap { section in
+            section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
+                if case let .checklist(items) = block { return items }
+                return []
+            }
+        }
+    }
+}

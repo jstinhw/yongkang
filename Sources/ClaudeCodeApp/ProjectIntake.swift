@@ -14,35 +14,38 @@ struct ProjectIntake: View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer(minLength: 0)
             Text("What is \(project.name) for?")
-                .font(.title2.weight(.semibold))
+                .font(Typo.display(24))
             Text("""
                  Describe the project: the goal, what you are building and for whom, the \
                  features, the constraints, what is out of scope. The agent fills the gaps \
                  with a few multiple-choice questions, then writes the notebook without \
                  waiting for approval — read it on the board and tell it what to change.
                  """)
-                .foregroundStyle(.secondary)
+                .font(Typo.text(13))
+                .foregroundStyle(Theme.tx2)
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
 
             TextField("This project is…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(4...14)
-                .padding(10)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary))
+                .font(Typo.text(13))
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line2, lineWidth: 1))
                 .focused($focused)
                 .onSubmit(send)
 
             HStack {
                 Text("Return to start · Shift-Return for a new line")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Typo.mono(10.5))
+                    .foregroundStyle(Theme.tx3)
                 Spacer()
                 // ponytail: Return reaches send() either through the field's onSubmit or,
                 // if the field swallows it, through this default button. send() is
                 // guarded so both firing still starts one session.
-                Button("Start Session", action: send)
-                    .buttonStyle(.borderedProminent)
+                Button("Start session", action: send)
+                    .buttonStyle(.consolePrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(trimmed.isEmpty)
             }
@@ -51,7 +54,7 @@ struct ProjectIntake: View {
         .frame(maxWidth: 560)
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.bg)
         .task { focused = true }
     }
 

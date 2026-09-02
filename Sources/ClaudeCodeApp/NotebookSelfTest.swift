@@ -537,20 +537,12 @@ enum NotebookSelfTest {
         precondition(NotebookContent.tokens("open [[x")
                      == [.text("open "), .text("[[x")], "an unmatched [[ is kept as plain text")
 
-        // Clicking a project scopes the board to it, and takes the old scope's picks along.
-        let launch = cards.first { $0.id == "launch-beta" }!
-        let other = NotebookCard(id: "ship-ga", url: root, kind: .project, title: "GA",
-                                 status: "todo", project: nil, dependsOn: [])
-        let board = cards + [other]
-        let scoped = NotebookBoard.picking(launch, in: board, from: ["bare"])
-        precondition(scoped == ["bare", "launch-beta"], "a roadmap pick survives scoping")
-        let withTask = scoped.union(["tricky"])
-        precondition(NotebookBoard.picking(other, in: board, from: withTask) == ["bare", "ship-ga"],
-                     "swapping projects drops the picks that just left the task column")
-        precondition(NotebookBoard.picking(launch, in: board, from: withTask) == ["bare"],
-                     "clicking the scope again unscopes the board")
-        precondition(NotebookBoard.picking(tricky, in: board, from: withTask) == ["bare", "launch-beta"],
-                     "a task click toggles only itself")
+        // The board holds one kind of card now — every task is a candidate for the same
+        // batch — so picking is a plain toggle.
+        precondition(NotebookBoard.picking(tricky, from: ["bare"]) == ["bare", "tricky"],
+                     "a card click adds itself to the batch")
+        precondition(NotebookBoard.picking(tricky, from: ["bare", "tricky"]) == ["bare"],
+                     "clicking it again takes it out")
 
         // Picked tasks reach the lead as a shell argument, titles and all.
         let picked = cards.filter { $0.kind == .task }

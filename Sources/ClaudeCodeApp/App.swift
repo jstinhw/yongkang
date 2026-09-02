@@ -2,7 +2,8 @@ import SwiftUI
 import AppKit
 import Combine
 
-private enum EngineeringLeadPane: String, CaseIterable, Identifiable {
+/// The lead's own two views: the agents it has dispatched, and the terminal it is running in.
+enum EngineeringLeadPane: String, CaseIterable, Identifiable {
     case agents = "Agents"
     case session = "Session"
 
@@ -17,7 +18,10 @@ struct ClaudeCodeApp: App {
     @State private var projects: [Project] = []
     /// nil = the all-projects screen; otherwise the project you are inside.
     @State private var entered: UUID?
-    /// Notebook entries tag by file path, terminals by UUID, and lead boards by `lead:`.
+    /// Which of the rail's sections the window is showing. The list column is that
+    /// section's objects and the work area is whichever one is selected.
+    @State private var section: ConsoleSection = .overview
+    /// Notebook entries tag by file path, terminals by UUID, everything else by `Tag`.
     @State private var selection: String?
     /// Text queued to be typed into a running session, keyed by session id — how a task
     /// reaches a lead that already exists instead of starting a competing one.
@@ -26,8 +30,12 @@ struct ClaudeCodeApp: App {
     /// `CodeSession.subagents`, which only ever holds each one's status, because reading
     /// and parsing a whole transcript is only worth doing for the one actually on screen.
     @State private var subagentTranscript: [TranscriptLine] = []
-    /// Agent trees start open; this only remembers the roots the user collapsed.
-    @State private var collapsedAgents: Set<UUID> = []
+    /// What the agents changed on disk, read from git. Only refreshed while a screen that
+    /// shows it is open — a repo-wide diff every two seconds would be rude.
+    @State private var changes: [FileChange] = []
+    @State private var head: String?
+    @State private var branch: String?
+    @State private var ticks = 0
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
@@ -40,7 +48,7 @@ struct ClaudeCodeApp: App {
     /// started with; switching a process underneath a live PTY is not possible.
     @AppStorage("agentKind") private var agent = AgentKind.claude
 
-    // ponytail: poll instead of an FSEvents watcher. The agents in the sidebar write
+    // ponytail: poll instead of an FSEvents watcher. The agents in the console write
     // these files while you watch them; re-listing a few dozen paths every 2s is less
     // code than a recursive watcher and the tree is tiny. Revisit at thousands of files.
     private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
@@ -50,270 +58,390 @@ struct ClaudeCodeApp: App {
             NotebookSelfTest.run()
             exit(0)
         }
+        if let index = CommandLine.arguments.firstIndex(of: "--shots"),
+           let path = CommandLine.arguments[safe: index + 1] {
+            DesignShots.run(into: URL(fileURLWithPath: path))
+            exit(0)
+        }
     }
 
     var body: some Scene {
         WindowGroup {
-            NavigationSplitView {
-                sidebar
-            } detail: {
-                detail
+            ZStack(alignment: .topLeading) {
+                Theme.bg.ignoresSafeArea()
+                // ponytail: every terminal stays mounted for the life of the app. Leaving a
+                // project, switching sections, or browsing the fleet must not tear down a
+                // running agent's PTY, so these are inset into the work area and hidden
+                // rather than removed.
+                terminals
+                chrome
             }
-            .frame(minWidth: 760, minHeight: 460)
+            .preferredColorScheme(.dark)
+            .frame(minWidth: 1120, minHeight: 680)
             .task { restore() }
             .onReceive(tick) { _ in reload() }
+            .onChange(of: section) { _ in openSectionDefault() }
         }
         .windowToolbarStyle(.unified)
     }
 
     private var enteredProject: Project? { projects.first { $0.id == entered } }
 
-    // MARK: - Sidebar
+    // MARK: - Chrome
 
-    @ViewBuilder private var sidebar: some View {
-        if let project = enteredProject {
-            List(selection: $selection) {
-                // A row rather than a toolbar icon: the way back has to be visible without
-                // hunting, and a lone chevron next to the New menu is not.
-                Button(action: leave) {
-                    Label("All Projects", systemImage: "chevron.left")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("[")
-
-                rows(for: project)
+    private var terminals: some View {
+        ForEach(projects) { project in
+            ForEach(project.sessions) { session in
+                AgentTerminal(line: session.line, label: session.title,
+                              pending: pendingBinding(session),
+                              onExit: { markExited(session, in: project) })
+                    .padding(.leading, Theme.railWidth + Theme.listWidth)
+                    .padding(.top, Theme.topBarHeight)
+                    .opacity(isVisible(session) ? 1 : 0)
+                    .allowsHitTesting(isVisible(session))
+                    .accessibilityHidden(!isVisible(session))
             }
-            .navigationTitle(project.name)
-            .toolbar {
-                Picker("Agent", selection: $agent) {
-                    ForEach(AgentKind.allCases) { kind in
-                        Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+        }
+    }
+
+    @ViewBuilder private var chrome: some View {
+        if entered == nil {
+            ProjectsHome(projects: projects, agent: $agent, enter: enter,
+                         add: openProject, close: close)
+        } else if let project = enteredProject {
+            HStack(spacing: 0) {
+                Rail(section: $section, badges: badges(for: project), leave: leave)
+                ProjectList(section: section, project: project, selection: $selection,
+                            showDone: showDone, changes: changes,
+                            assign: { assign($0, in: project) },
+                            closeSession: { close($0, in: project) })
+                VStack(spacing: 0) {
+                    topBar(for: project)
+                    screen(for: project)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    /// A dot on the rail for the two things that are about the user rather than the work:
+    /// something waiting on them, and something an agent has left to be read.
+    private func badges(for project: Project) -> [ConsoleSection: Color] {
+        var badges: [ConsoleSection: Color] = [:]
+        if project.blocks.contains(where: \.waiting) { badges[.blocks] = Theme.amber }
+        if project.sessions.contains(where: { !$0.activeSubagents.isEmpty }) {
+            badges[.agents] = Theme.accent
+        }
+        if !changes.isEmpty { badges[.review] = Theme.green }
+        return badges
+    }
+
+    // MARK: - Top bar
+
+    @ViewBuilder private func topBar(for project: Project) -> some View {
+        switch section {
+        case .overview:
+            TopBar(crumbs: [project.name], title: "Overview") {
+                providerPicker
+                completedToggle
+                addMenu(for: project)
+                Button { section = .board; selection = Tag.board(project) } label: {
+                    Label("Assign work", systemImage: "bolt")
+                }
+                .buttonStyle(.consolePrimary)
+            }
+        case .board:
+            let scoped = Tag.card(selection, in: project.cards)
+            TopBar(crumbs: [project.name], title: scoped?.title ?? "Board") {
+                if let scoped, scoped.kind == .project { boardProgress(scoped, in: project) }
+                completedToggle
+                addMenu(for: project)
+                Button { startProductReview(in: project) } label: {
+                    Label("Product review", systemImage: "sparkles")
+                }
+                .buttonStyle(.console)
+            }
+        case .agents:
+            let lead = selectedLead(in: project) ?? selectedSubagent(in: project)?.session
+            TopBar(crumbs: [project.name],
+                   title: selectedSubagent(in: project)?.subagent.description
+                        ?? lead?.title ?? "Agents") {
+                if let lead, lead.isEngineeringLead, selectedSubagent(in: project) == nil {
+                    Picker("", selection: leadPane(lead)) {
+                        ForEach(EngineeringLeadPane.allCases) { Text($0.rawValue).tag($0) }
                     }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 170)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 210)
-                Button(showDone ? "Hide Completed" : "Show Completed",
-                       systemImage: showDone ? "eye.slash" : "eye") {
-                    showDone.toggle()
+                if let found = selectedSubagent(in: project) {
+                    Button { openLiveTerminal(found.subagent, in: found.session) } label: {
+                        Label("Terminal", systemImage: "terminal")
+                    }
+                    .buttonStyle(.console)
                 }
-                Button("Describe New Feature…", systemImage: "text.bubble") {
-                    startProduct("describe", in: project)
+            }
+        case .review:
+            TopBar(crumbs: [branch ?? project.name], title: "Review changes") {
+                if let head {
+                    Text(head).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
-                .disabled(!project.hasNotebook)
+                Button { refreshChanges(force: true) } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.console)
+            }
+        case .blocks:
+            TopBar(crumbs: [project.name], title: "Blocks") { completedToggle }
+        case .terminals:
+            TopBar(crumbs: [project.name],
+                   title: selectedSession(in: project)?.title ?? "Terminals") {
                 addMenu(for: project)
             }
+        }
+    }
+
+    private func boardProgress(_ card: NotebookCard, in project: Project) -> some View {
+        let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
+        let done = tasks.filter { $0.status == "done" }.count
+        return HStack(spacing: 9) {
+            MeterBar(value: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count))
+                .frame(width: 96)
+            Text("\(done)/\(tasks.count)").font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+        }
+    }
+
+    private var providerPicker: some View {
+        Picker("", selection: $agent) {
+            ForEach(AgentKind.allCases) { Text($0.displayName).tag($0) }
+        }
+        .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+    }
+
+    private var completedToggle: some View {
+        Button { showDone.toggle() } label: {
+            Label(showDone ? "Hide completed" : "Completed",
+                  systemImage: showDone ? "eye.slash" : "eye")
+        }
+        .buttonStyle(.consoleGhost)
+    }
+
+    // MARK: - Work area
+
+    @ViewBuilder private func screen(for project: Project) -> some View {
+        if let empty = needsIntake {
+            // An empty project has nothing to click, so it asks what it is instead.
+            ProjectIntake(project: empty) { description in
+                addSession(agent, to: empty,
+                           prompt: NotebookFormat.onboardingPrompt(description: description),
+                           title: "Notebook Setup")
+            }
+        } else if selection == Tag.overview(project) {
+            Overview(project: project, changes: changes, head: head,
+                     go: { section = $0; if let tag = $1 { selection = tag } },
+                     assign: { section = .board; selection = Tag.board(project) })
+        } else if selection == Tag.board(project) {
+            boardView(for: project)
+        } else if let card = scopedCard(in: project, kind: .project) {
+            ProjectDetail(
+                card: card, cards: project.cards, directory: project.directory,
+                assigned: project.assignedTaskIDs, showDone: showDone,
+                open: { url in selection = NotebookEntry.id(for: url) },
+                assign: { tasks in assign(tasks, in: project) },
+                run: { card in runServices(card, in: project) },
+                openTask: { task in selection = Tag.task(task.id) }
+            )
+            .id(card.id)
+        } else if let card = scopedCard(in: project, kind: .task) {
+            TaskDetail(
+                card: card, cards: project.cards, assigned: project.assignedTaskIDs,
+                working: workers(on: card.id, in: project),
+                open: { url in selection = NotebookEntry.id(for: url) },
+                assign: { tasks in assign(tasks, in: project) },
+                check: { session, subagent in
+                    section = .agents
+                    selection = Tag.subagent(session, subagent)
+                    reload()
+                }
+            )
+            .id(card.id)
+        } else if let card = scopedPageCard(in: project) {
+            NotebookEntryDetail(card: card, cards: project.cards,
+                                open: { url in selection = NotebookEntry.id(for: url) })
+                .id(card.id)
+        } else if let lead = selectedLead(in: project) {
+            EngineeringLeadBoard(
+                session: lead, cards: project.cards, blocks: project.blocks,
+                openTask: { section = .board; selection = Tag.task($0) },
+                openSubagent: { subagent in
+                    selection = Tag.subagent(lead, subagent)
+                    reload()
+                },
+                openBlock: { section = .blocks; selection = Tag.block($0) }
+            )
+        } else if let found = selectedSubagent(in: project) {
+            SubagentViewer(session: found.session, subagent: found.subagent,
+                           lines: subagentTranscript,
+                           task: found.subagent.taskID.flatMap { id in
+                               project.cards.first { $0.id == id }
+                           },
+                           openTask: { section = .board; selection = Tag.task($0) })
+                .id(selection)
+        } else if let block = selectedBlock(in: project) {
+            BlockDetail(
+                block: block, cards: project.cards,
+                waiting: waitingSession(for: block, in: project),
+                start: { startUnblock(block, in: project) },
+                resolve: { Blocks.resolve(block); reload() }
+            )
+            .id(block.id)
+        } else if reviewPath(project) != nil {
+            ChangeReview(project: project, changes: changes, head: head, branch: branch,
+                         path: reviewPath(project) ?? "",
+                         select: { selection = Tag.review(project) + ":" + $0 })
+        } else if let step = previewStep(in: project) {
+            ProjectPreview(repo: step.repo, services: step.services,
+                           run: { runServices([step], in: project) })
+                .id(selection)
+        } else if let entry = selectedEntry {
+            NotebookEditor(entry: entry).id(entry.id)
+        } else if selectedSession(in: project) != nil {
+            // The terminal itself is mounted underneath; this pane stays out of its way.
+            Color.clear
         } else {
-            List {
-                Section("Projects") {
-                    ForEach(projects) { project in
-                        Button { enter(project) } label: {
-                            Label(project.name, systemImage: "folder")
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu { Button("Close Project") { close(project) } }
-                    }
-                }
+            VStack(spacing: 8) {
+                Image(systemName: section.systemImage).font(.system(size: 22))
+                    .foregroundStyle(Theme.tx4)
+                Text("Nothing selected in \(section.title).")
+                    .font(Typo.text(13)).foregroundStyle(Theme.tx3)
             }
-            .navigationTitle("Projects")
-            .toolbar {
-                Button("Open Project Folder…", systemImage: "plus", action: openProject)
-                    .keyboardShortcut("n")
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg)
         }
     }
 
-    @ViewBuilder private func rows(for project: Project) -> some View {
-        Section("Notebook") {
-            if project.hasNotebook {
-                Label("Board", systemImage: "rectangle.split.3x1")
-                    .tag(boardID(project))
-                OutlineGroup(NotebookLoader.display(project.entries, cards: project.cards,
-                                                    showDone: showDone), children: \.children) { entry in
-                    // Every known entry opens a human page first; Edit opens the raw file.
-                    let card = project.cards.first { $0.url.path == entry.url.path }
-                    Label(entry.title, systemImage: entry.icon)
-                        .tag(entryTag(card, fallback: entry.id))
-                        .contextMenu { entryMenu(entry, in: project) }
-                }
-            } else {
-                // The shape of what the agent is about to write. Untagged, so these are
-                // dimmed and unselectable until the folders exist and the tree replaces them.
-                ForEach(NotebookFormat.visibleFolders, id: \.self) { folder in
-                    Label(folder, systemImage: NotebookLoader.icon(forFolder: folder))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-        }
-        let preview = previewRows(for: project)
-        if !preview.isEmpty {
-            Section("Preview") {
-                ForEach(preview, id: \.id) { row in
-                    Label(row.repo, systemImage: "play.rectangle")
-                        .tag(row.id)
-                }
-            }
-        }
-        Section("Agents") {
-            ForEach(project.sessions) { session in
-                sessionRow(session, in: project)
-                    .tag(sessionTag(session))
-                    .contextMenu {
-                        Button("Close Session") { close(session, in: project) }
-                    }
-            }
-            if project.sessions.isEmpty {
-                Label("No agents running", systemImage: agent.systemImage)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        Section("Blocks") {
-            let blocks = project.blocks.filter { showDone || $0.waiting }
-            ForEach(blocks) { block in
-                blockRow(block).tag(blockTag(block))
-            }
-            if blocks.isEmpty {
-                Label("Nothing waiting on you", systemImage: "checkmark.seal")
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
-    /// A block names what it holds up underneath it — an approval with no context is a
-    /// question you cannot answer without going to find the session that asked it.
-    @ViewBuilder private func blockRow(_ block: UserBlock) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(block.title, systemImage: block.waiting
-                  ? (block.isProposal ? "lightbulb" : "hand.raised") : "checkmark.circle")
-                .foregroundStyle(block.waiting ? Color.primary : .secondary)
-            if let task = block.task {
-                Text(task)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-        }
-    }
-
-    /// Right-clicking a task in the tree assigns it, without going by way of the board.
-    @ViewBuilder private func entryMenu(_ entry: NotebookEntry, in project: Project) -> some View {
-        if let card = project.cards.first(where: { $0.url.path == entry.url.path }), card.kind == .task {
-            Button("Assign to Engineering Lead", systemImage: "person.2") {
-                assign([card], in: project)
-            }
-            .disabled(card.status == "done" || project.assignedTaskIDs.contains(card.id))
-        }
-        Button("Reveal in Finder", systemImage: "folder") {
-            NSWorkspace.shared.activateFileViewerSelecting([entry.url])
-        }
-    }
-
-    /// Agent sessions form the roots; spawned agents sit directly beneath their parent.
-    /// Selecting a lead opens its orchestration board, not its underlying PTY.
-    @ViewBuilder private func sessionRow(_ session: CodeSession, in project: Project) -> some View {
-        let wipTaskIDs = wipTaskIDs(session, in: project)
-        if session.activeSubagents.isEmpty {
-            sessionHeader(session, wipTaskIDs: wipTaskIDs)
-        } else {
-            DisclosureGroup(isExpanded: agentExpansion(session)) {
-                ForEach(session.activeSubagents) { subagentRow($0, in: session) }
-            } label: {
-                Button { selection = sessionTag(session) } label: {
-                    sessionHeader(session, wipTaskIDs: wipTaskIDs)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func sessionHeader(_ session: CodeSession, wipTaskIDs: [String]) -> some View {
-        HStack {
-            Label(session.title, systemImage: session.icon)
-            Spacer(minLength: 4)
-            if isEngineeringLead(session) {
-                Text("\(wipTaskIDs.count) task\(wipTaskIDs.count == 1 ? "" : "s") · "
-                     + "\(session.activeSubagents.count) running")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func agentExpansion(_ session: CodeSession) -> Binding<Bool> {
-        Binding(
-            get: { !collapsedAgents.contains(session.id) },
-            set: { expanded in
-                if expanded { collapsedAgents.remove(session.id) }
-                else { collapsedAgents.insert(session.id) }
-            }
+    private func boardView(for project: Project) -> some View {
+        NotebookBoard(
+            cards: project.cards,
+            assigned: project.assignedTaskIDs,
+            showDone: showDone,
+            assign: { tasks in assign(tasks, in: project) },
+            review: { startProductReview(in: project) },
+            openCard: { card in selection = Tag.task(card.id) }
         )
     }
 
-    private func wipTaskIDs(_ session: CodeSession, in project: Project) -> [String] {
-        let done = Set(project.cards.filter { $0.kind == .task && $0.status == "done" }.map(\.id))
-        let running = Subagents.runningTaskIDs(session.subagents)
-        return session.taskIDs.filter { !done.contains($0) || running.contains($0) }
-    }
+    // MARK: - Selection
 
-    /// One line per subagent a lead has spawned — a dot while it is still running, a check
-    /// once the lead's own transcript has a result for it. Clicking one always lands on
-    /// that exact subagent's own parsed transcript — nothing in Claude Code's CLI can be
-    /// scripted to jump straight to one specific subagent by id (`/tasks` only auto-opens
-    /// a detail view when it is the *only* task running; with more than one, which is the
-    /// normal case for a lead mid-batch, it shows a picker no matter what is sent to it).
-    /// The terminal button is the live-TUI attempt: exact when there is just the one
-    /// subagent, a list to pick from otherwise.
-    private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
-        Button {
-            selection = subagentTag(session, subagent)
-            reload()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.turn.down.right")
-                    .foregroundStyle(.tertiary)
-                Image(systemName: subagent.running ? "circle.dotted" : "checkmark.circle")
-                    .foregroundStyle(subagent.running ? Color.accentColor : Color.secondary)
-                Text(subagent.description)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 4)
-                liveTerminalButton(subagent, in: session)
+    private func openSectionDefault() {
+        guard let project = enteredProject else { return }
+        switch section {
+        case .overview:
+            selection = Tag.overview(project)
+        case .board:
+            if Tag.card(selection, in: project.cards) == nil {
+                selection = Tag.board(project)
             }
-            .font(.caption2)
-            .padding(.leading, 14)
-        }
-        .buttonStyle(.plain)
-        .help(subagent.agentType)
-        .contextMenu {
-            Button("Reveal Transcript in Finder") {
-                NSWorkspace.shared.activateFileViewerSelecting([subagent.transcriptURL])
+        case .agents:
+            if selectedLead(in: project) == nil && selectedSubagent(in: project) == nil {
+                selection = project.sessions.first { $0.isEngineeringLead }.map { Tag.lead($0.id) }
+                    ?? project.sessions.first { $0.agent != nil }.map { Tag.session($0) }
+            }
+        case .review:
+            refreshChanges(force: true)
+            selection = Tag.review(project) + ":" + (changes.first?.path ?? "")
+        case .blocks:
+            selection = (project.blocks.first(where: \.waiting) ?? project.blocks.first)
+                .map { Tag.block($0) }
+        case .terminals:
+            if selectedSession(in: project) == nil {
+                selection = project.sessions.first.map { Tag.session($0) }
             }
         }
     }
 
-    /// Borderless inside the row's own Button so it takes the click rather than selecting
-    /// the row underneath it — the same trick the board's run button uses. Brings the
-    /// lead's terminal forward and sends that CLI's own subagent picker: `/tasks` in Claude
-    /// Code, `/agent` in Codex. Both are best-effort — exact with one subagent running, a
-    /// list to pick from with several, since neither can be told which one to open.
-    private func liveTerminalButton(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
-        Button {
-            selection = session.id.uuidString
-            pendingInput[session.id] = session.agent == .codex ? "/agent" : "/tasks"
-        } label: {
-            Image(systemName: "terminal")
-        }
-        .buttonStyle(.borderless)
-        .help("Try opening in the live terminal (\(subagent.description))")
+    private func isVisible(_ session: CodeSession) -> Bool {
+        entered != nil && selection == session.id.uuidString
     }
+
+    private func selectedSession(in project: Project) -> CodeSession? {
+        project.sessions.first { Tag.session($0) == selection }
+    }
+
+    private func selectedLead(in project: Project) -> CodeSession? {
+        project.sessions.first { $0.isEngineeringLead && Tag.lead($0.id) == selection }
+    }
+
+    private func leadPane(_ session: CodeSession) -> Binding<EngineeringLeadPane> {
+        Binding(
+            get: { selection == session.id.uuidString ? .session : .agents },
+            set: { selection = $0 == .session ? session.id.uuidString : Tag.lead(session.id) }
+        )
+    }
+
+    /// A project with no notebook and no agent yet — the one case that starts a chat.
+    private var needsIntake: Project? {
+        enteredProject.flatMap { $0.hasNotebook || !$0.sessions.isEmpty ? nil : $0 }
+    }
+
+    private var selectedEntry: NotebookEntry? {
+        guard let selection, let project = enteredProject else { return nil }
+        return NotebookLoader.find(selection, in: project.entries)
+    }
+
+    private func scopedCard(in project: Project, kind: EntryKind) -> NotebookCard? {
+        guard let id = Tag.scope(selection, kind == .project ? "project" : "task") else { return nil }
+        return project.cards.first { $0.id == id && $0.kind == kind }
+    }
+
+    private func scopedPageCard(in project: Project) -> NotebookCard? {
+        guard let id = Tag.scope(selection, "page") else { return nil }
+        return project.cards.first { $0.id == id }
+    }
+
+    /// Every subagent in this project that was dispatched for one task, whichever lead
+    /// spawned it. The link is the subagent's own name, matched when it is read off disk.
+    private func workers(on taskID: String, in project: Project) -> [(CodeSession, SubagentStatus)] {
+        project.sessions.flatMap { session in
+            session.subagents.filter { $0.taskID == taskID }.map { (session, $0) }
+        }
+    }
+
+    private func selectedSubagent(in project: Project) -> (session: CodeSession, subagent: SubagentStatus)? {
+        guard let selection else { return nil }
+        for session in project.sessions {
+            if let subagent = session.subagents.first(where: { Tag.subagent(session, $0) == selection }) {
+                return (session, subagent)
+            }
+        }
+        return nil
+    }
+
+    private func selectedBlock(in project: Project) -> UserBlock? {
+        project.blocks.first { Tag.block($0) == selection }
+    }
+
+    /// The file a review selection points at, or "" for the review screen with nothing
+    /// picked yet. Nil when the selection is not a review at all.
+    private func reviewPath(_ project: Project) -> String? {
+        let root = Tag.review(project)
+        guard let selection, selection.hasPrefix(root) else { return nil }
+        let rest = selection.dropFirst(root.count)
+        return rest.hasPrefix(":") ? String(rest.dropFirst()) : ""
+    }
+
+    /// Brings the lead's terminal forward and sends that CLI's own subagent picker:
+    /// `/tasks` in Claude Code, `/agent` in Codex. Both are best-effort — exact with one
+    /// subagent running, a list to pick from with several, since neither can be told which
+    /// one to open.
+    private func openLiveTerminal(_ subagent: SubagentStatus, in session: CodeSession) {
+        section = .terminals
+        selection = session.id.uuidString
+        pendingInput[session.id] = session.agent == .codex ? "/agent" : "/tasks"
+    }
+
+    // MARK: - Assigning
 
     /// Blockers come along whichever way the tasks were picked — expanding here means the
-    /// sidebar and the board cannot disagree about what a batch is. Also the one place that
+    /// list and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work a still-open lead session already has, so a task never goes to two
     /// leads at once.
     ///
@@ -331,12 +459,13 @@ struct ClaudeCodeApp: App {
             alert.runModal()
             return
         }
-        if let lead = project.sessions.first(where: { $0.title.hasPrefix("Engineering Lead") && !$0.exited }) {
+        section = .agents
+        if let lead = project.sessions.first(where: { $0.isEngineeringLead && !$0.exited }) {
             let leadAgent = lead.agent ?? .claude
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
             pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
                                                                          agent: leadAgent)
-            selection = leadTag(lead.id)
+            selection = Tag.lead(lead.id)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
@@ -345,14 +474,15 @@ struct ClaudeCodeApp: App {
         addSession(agent, id: id, to: project,
                    prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
-        selection = leadTag(id)
+        selection = Tag.lead(id)
     }
 
     private func addMenu(for project: Project) -> some View {
-        Menu("New", systemImage: "plus") {
+        Menu {
             Section("Session") {
                 Button(agent.displayName, systemImage: agent.systemImage) {
                     addSession(agent, to: project)
+                    section = .terminals
                 }
             }
             Section("Notebook") {
@@ -363,219 +493,22 @@ struct ClaudeCodeApp: App {
                     .disabled(notebookProject(in: project) == nil)
             }
             Divider()
+            Button("Describe New Feature…", systemImage: "text.bubble") {
+                startProduct("describe", in: project)
+            }
+            .disabled(!project.hasNotebook)
             Button("Reveal in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([project.directory])
             }
             Button("Close Project", systemImage: "xmark") { close(project) }
+        } label: {
+            Label("New", systemImage: "plus")
         }
-    }
-
-    // MARK: - Detail
-
-    private var detail: some View {
-        ZStack {
-            // ponytail: every terminal stays mounted for the life of the app. Leaving a
-            // project, switching rows, or browsing the home screen must not tear down a
-            // running agent's PTY, so these are hidden rather than removed.
-            ForEach(projects) { project in
-                ForEach(project.sessions) { session in
-                    sessionTerminal(session, in: project)
-                        .opacity(isVisible(session) ? 1 : 0)
-                        .allowsHitTesting(isVisible(session))
-                        .accessibilityHidden(!isVisible(session))
-                }
-            }
-            if entered == nil {
-                ProjectsHome(projects: projects, enter: enter, add: openProject, close: close)
-            } else if let project = needsIntake {
-                // An empty project has nothing to click, so it asks what it is instead.
-                ProjectIntake(project: project) { description in
-                    addSession(agent, to: project,
-                               prompt: NotebookFormat.onboardingPrompt(description: description),
-                               title: "Notebook Setup")
-                }
-            } else if let project = enteredProject, selection == boardID(project) {
-                boardView(for: project)
-            } else if let project = enteredProject, let lead = selectedLead(in: project) {
-                VStack(spacing: 0) {
-                    engineeringLeadToolbar(lead, in: project)
-                    Divider()
-                    EngineeringLeadBoard(
-                        session: lead,
-                        cards: project.cards,
-                        openTask: { selection = taskTag($0) },
-                        openSubagent: { subagent in
-                            selection = subagentTag(lead, subagent)
-                            reload()
-                        }
-                    )
-                }
-                .background(Color(nsColor: .windowBackgroundColor))
-            } else if let project = enteredProject, let card = scopedCard(in: project, kind: .project) {
-                ProjectDetail(
-                    card: card,
-                    cards: project.cards,
-                    directory: project.directory,
-                    assigned: project.assignedTaskIDs,
-                    showDone: showDone,
-                    open: { url in selection = NotebookEntry.id(for: url) },
-                    assign: { tasks in assign(tasks, in: project) },
-                    run: { card in runServices(card, in: project) },
-                    openTask: { task in selection = taskTag(task.id) }
-                )
-                .id(card.id)
-            } else if let project = enteredProject, let card = scopedCard(in: project, kind: .task) {
-                TaskDetail(
-                    card: card,
-                    cards: project.cards,
-                    assigned: project.assignedTaskIDs,
-                    working: workers(on: card.id, in: project),
-                    open: { url in selection = NotebookEntry.id(for: url) },
-                    assign: { tasks in assign(tasks, in: project) },
-                    check: { session, subagent in
-                        selection = subagentTag(session, subagent)
-                        reload()
-                    }
-                )
-                .id(card.id)
-            } else if let project = enteredProject, let card = scopedPageCard(in: project) {
-                NotebookEntryDetail(
-                    card: card,
-                    cards: project.cards,
-                    open: { url in selection = NotebookEntry.id(for: url) }
-                )
-                .id(card.id)
-            } else if let project = enteredProject, let step = previewStep(in: project) {
-                ProjectPreview(repo: step.repo, services: step.services,
-                               run: { runServices([step], in: project) })
-                    .id(selection)
-            } else if let project = enteredProject, let block = selectedBlock(in: project) {
-                BlockDetail(
-                    block: block,
-                    cards: project.cards,
-                    waiting: waitingSession(for: block, in: project),
-                    start: { startUnblock(block, in: project) },
-                    resolve: { Blocks.resolve(block); reload() }
-                )
-                .id(block.id)
-            } else if let project = enteredProject, let found = selectedSubagent(in: project) {
-                SubagentViewer(session: found.session, subagent: found.subagent, lines: subagentTranscript)
-                    .id(selection)
-            } else if let entry = selectedEntry {
-                NotebookEditor(entry: entry).id(entry.id)
-            } else if selection == nil {
-                Text("Pick a notebook entry, or start a session with +")
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder private func sessionTerminal(_ session: CodeSession, in project: Project) -> some View {
-        if isEngineeringLead(session) {
-            VStack(spacing: 0) {
-                engineeringLeadToolbar(session, in: project)
-                Divider()
-                terminal(session, in: project)
-            }
-        } else {
-            terminal(session, in: project)
-        }
-    }
-
-    private func terminal(_ session: CodeSession, in project: Project) -> some View {
-        AgentTerminal(line: session.line, label: session.title,
-                      pending: pendingBinding(session),
-                      onExit: { markExited(session, in: project) })
-    }
-
-    private func engineeringLeadToolbar(_ session: CodeSession, in project: Project) -> some View {
-        let running = Subagents.runningTaskIDs(session.subagents)
-        let done = session.taskIDs.filter { taskID in
-            !running.contains(taskID)
-                && project.cards.contains { $0.kind == .task && $0.id == taskID && $0.status == "done" }
-        }.count
-        return HStack(spacing: 10) {
-            Label(session.title, systemImage: session.icon)
-                .font(.headline)
-            NotebookStyle.pill("\(wipTaskIDs(session, in: project).count) wip")
-            if done > 0 { NotebookStyle.pill("\(done) done") }
-            Spacer(minLength: 12)
-            Picker("Engineering Lead view", selection: engineeringLeadPane(session)) {
-                ForEach(EngineeringLeadPane.allCases) { pane in Text(pane.rawValue).tag(pane) }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(width: 180)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    private func engineeringLeadPane(_ session: CodeSession) -> Binding<EngineeringLeadPane> {
-        Binding(
-            get: { selection == session.id.uuidString ? .session : .agents },
-            set: { selection = $0 == .session ? session.id.uuidString : leadTag(session.id) }
-        )
-    }
-
-    private func isVisible(_ session: CodeSession) -> Bool {
-        entered != nil && selection == session.id.uuidString
-    }
-
-    private func isEngineeringLead(_ session: CodeSession) -> Bool {
-        session.title.hasPrefix("Engineering Lead")
-    }
-
-    private func leadTag(_ id: UUID) -> String { "lead:\(id.uuidString)" }
-    private func sessionTag(_ session: CodeSession) -> String {
-        isEngineeringLead(session) ? leadTag(session.id) : session.id.uuidString
-    }
-
-    private func selectedLead(in project: Project) -> CodeSession? {
-        project.sessions.first { isEngineeringLead($0) && leadTag($0.id) == selection }
-    }
-
-    /// A project with no notebook and no agent yet — the one case that starts a chat.
-    private var needsIntake: Project? {
-        enteredProject.flatMap { $0.hasNotebook || !$0.sessions.isEmpty ? nil : $0 }
-    }
-
-    private var selectedEntry: NotebookEntry? {
-        guard let selection, let project = enteredProject else { return nil }
-        return NotebookLoader.find(selection, in: project.entries)
-    }
-
-    /// Every subagent in this project that was dispatched for one task, whichever lead
-    /// spawned it. The link is the subagent's own name, matched when it is read off disk.
-    private func workers(on taskID: String, in project: Project) -> [(CodeSession, SubagentStatus)] {
-        project.sessions.flatMap { session in
-            session.subagents.filter { $0.taskID == taskID }.map { (session, $0) }
-        }
-    }
-
-    private func subagentTag(_ session: CodeSession, _ subagent: SubagentStatus) -> String {
-        "subagent:\(session.id.uuidString):\(subagent.id)"
-    }
-
-    /// The subagent `selection` currently points at, if any — matched by the tag
-    /// `subagentTag` puts on each row, the same way `previewStep`/`selectedEntry` decode theirs.
-    private func selectedSubagent(in project: Project) -> (session: CodeSession, subagent: SubagentStatus)? {
-        guard let selection else { return nil }
-        for session in project.sessions {
-            if let subagent = session.subagents.first(where: { subagentTag(session, $0) == selection }) {
-                return (session, subagent)
-            }
-        }
-        return nil
+        .menuStyle(.borderlessButton)
+        .frame(width: 62)
     }
 
     // MARK: - Blocks
-
-    private func blockTag(_ block: UserBlock) -> String { "block:\(block.id)" }
-
-    private func selectedBlock(in project: Project) -> UserBlock? {
-        project.blocks.first { blockTag($0) == selection }
-    }
 
     /// The session this block is holding up. A block names its own session, so the answer
     /// reaches the lead that asked even with several running; one written without a
@@ -586,7 +519,7 @@ struct ClaudeCodeApp: App {
         if let id = block.session {
             return project.sessions.first { $0.id == id && !$0.exited }
         }
-        return project.sessions.last { $0.title.hasPrefix("Engineering Lead") && !$0.exited }
+        return project.sessions.last { $0.isEngineeringLead && !$0.exited }
     }
 
     /// The button on a block starts a session whose only job is this one gate. It is a full
@@ -603,6 +536,7 @@ struct ClaudeCodeApp: App {
         }
         addSession(agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
                    title: "Unblock \(block.title)")
+        section = .terminals
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —
@@ -613,6 +547,7 @@ struct ClaudeCodeApp: App {
             guard let session = waitingSession(for: block, in: project) else { continue }
             deliveredBlocks.insert(block.id)
             pendingInput[session.id] = NotebookFormat.unblockedMessage(block: block)
+            section = .terminals
             selection = session.id.uuidString
         }
     }
@@ -646,6 +581,7 @@ struct ClaudeCodeApp: App {
                                entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
             }
         persist()
+        reload()
     }
 
     private func persist() {
@@ -654,77 +590,22 @@ struct ClaudeCodeApp: App {
 
     private func enter(_ project: Project) {
         entered = project.id
-        // A notebook project opens on its board, not a blank pane — nothing to click
-        // otherwise until you find "Board" in the tree yourself.
-        selection = project.hasNotebook ? boardID(project) : nil
+        section = .overview
+        selection = Tag.overview(project)
         reload()
+        refreshChanges(force: true)
     }
 
     private func leave() {
         entered = nil
         selection = nil
+        reload()
     }
 
     private func close(_ project: Project) {
         projects.removeAll { $0.id == project.id }
         persist()
         if entered == project.id { leave() }
-    }
-
-    private func boardID(_ project: Project) -> String { "board:\(project.id.uuidString)" }
-
-    private func projectTag(_ cardID: String) -> String { "project:\(cardID)" }
-    private func taskTag(_ cardID: String) -> String { "task:\(cardID)" }
-    private func pageTag(_ cardID: String) -> String { "page:\(cardID)" }
-
-    /// The tag a sidebar row selects with — known entries open a human page first.
-    private func entryTag(_ card: NotebookCard?, fallback: String) -> String {
-        switch card?.kind {
-        case .project: return projectTag(card!.id)
-        case .task: return taskTag(card!.id)
-        case .roadmap, .memory, .run: return pageTag(card!.id)
-        default: return fallback
-        }
-    }
-
-    /// The card id out of a `projectTag`/`taskTag`, if `selection` is one of them.
-    private func projectScope(_ selection: String?) -> String? {
-        guard let selection, selection.hasPrefix("project:") else { return nil }
-        return String(selection.dropFirst("project:".count))
-    }
-    private func taskScope(_ selection: String?) -> String? {
-        guard let selection, selection.hasPrefix("task:") else { return nil }
-        return String(selection.dropFirst("task:".count))
-    }
-
-    private func pageScope(_ selection: String?) -> String? {
-        guard let selection, selection.hasPrefix("page:") else { return nil }
-        return String(selection.dropFirst("page:".count))
-    }
-
-    private func scopedPageCard(in project: Project) -> NotebookCard? {
-        guard let id = pageScope(selection) else { return nil }
-        return project.cards.first { $0.id == id }
-    }
-
-    /// The card `selection` points at, if it is a tag of `kind`.
-    private func scopedCard(in project: Project, kind: EntryKind) -> NotebookCard? {
-        let scope = kind == .project ? projectScope(selection) : taskScope(selection)
-        guard let scope else { return nil }
-        return project.cards.first { $0.id == scope && $0.kind == kind }
-    }
-
-    private func boardView(for project: Project) -> some View {
-        NotebookBoard(
-            cards: project.cards,
-            directory: project.directory,
-            assigned: project.assignedTaskIDs,
-            showDone: showDone,
-            open: { url in selection = NotebookEntry.id(for: url) },
-            assign: { tasks in assign(tasks, in: project) },
-            review: { startProductReview(in: project) },
-            run: { card in runServices(card, in: project) }
-        )
     }
 
     /// Product looks at the board and says what should come next. It writes proposals into
@@ -738,6 +619,7 @@ struct ClaudeCodeApp: App {
     /// first one is already rewriting, so a running one is talked to instead — the same
     /// rule the Engineering Lead follows for a second batch.
     private func startProduct(_ arguments: String, in project: Project) {
+        section = .terminals
         if let running = project.sessions.first(where: { $0.title == "Product" && !$0.exited }) {
             pendingInput[running.id] = (running.agent ?? .claude).skill("product", arguments: arguments)
             selection = running.id.uuidString
@@ -746,17 +628,13 @@ struct ClaudeCodeApp: App {
         addSession(agent, to: project, prompt: agent.skill("product", arguments: arguments), title: "Product")
     }
 
-    private func previewID(_ project: Project, _ directory: URL) -> String {
-        "preview:\(project.id.uuidString):\(directory.path)"
-    }
-
-    /// One sidebar row per repo actually on disk, deduped across every notebook project.
+    /// One row per repo actually on disk, deduped across every notebook project.
     private func previewRows(for project: Project)
         -> [(id: String, repo: String, directory: URL, services: [Service.Runnable])] {
         let steps = project.cards.filter { $0.kind == .project }
             .flatMap { Service.plan(for: $0, in: project.directory) }
         return Service.dedupedByDirectory(steps).map { step in
-            (id: previewID(project, step.directory), repo: step.repo,
+            (id: Tag.preview(project, step.directory), repo: step.repo,
              directory: step.directory, services: step.services)
         }
     }
@@ -769,17 +647,21 @@ struct ClaudeCodeApp: App {
         return (row.repo, row.directory, row.services)
     }
 
+    // MARK: - Reloading
+
     private func reload() {
+        ticks += 1
         for index in projects.indices {
             let entries = NotebookLoader.load(root: projects[index].notebookRoot)
             if entries != projects[index].entries { projects[index].entries = entries }
-            // Only the project you are inside pays for reading frontmatter, or for
-            // checking sessions' transcripts for subagents.
-            guard projects[index].id == entered else { continue }
+            // The project you are inside pays for reading frontmatter and transcripts; on
+            // the fleet screen every project does, because that screen is what it costs.
+            guard projects[index].id == entered || entered == nil else { continue }
             let cards = NotebookIndex.load(root: projects[index].notebookRoot)
             if cards != projects[index].cards { projects[index].cards = cards }
             let blocks = Blocks.load(root: projects[index].notebookRoot)
             if blocks != projects[index].blocks { projects[index].blocks = blocks }
+            guard projects[index].id == entered else { continue }
             deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices
                 where !projects[index].sessions[sIndex].exited
@@ -790,6 +672,18 @@ struct ClaudeCodeApp: App {
             }
         }
         reloadSubagentTranscript()
+        refreshChanges()
+    }
+
+    /// git is only asked while a screen that shows its answer is open, and then only every
+    /// third tick — a repo-wide diff twice a second is a cost with no reader.
+    private func refreshChanges(force: Bool = false) {
+        guard let project = enteredProject, section == .review || section == .overview else { return }
+        guard force || ticks % 3 == 0 else { return }
+        let fresh = GitChanges.changes(in: project.directory)
+        if fresh != changes { changes = fresh }
+        head = GitChanges.head(in: project.directory)
+        branch = GitChanges.branch(in: project.directory)
     }
 
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent
@@ -833,8 +727,8 @@ struct ClaudeCodeApp: App {
     private func addSession(id: UUID = UUID(), to project: Project, title: String, icon: String, line: String,
                             agent: AgentKind? = nil, taskIDs: [String] = []) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
-        // Second "Engineering Lead" becomes "Engineering Lead 2" — identical sidebar rows
-        // are unusable, and several leads at once is a normal thing to want.
+        // Second "Engineering Lead" becomes "Engineering Lead 2" — identical rows are
+        // unusable, and several leads at once is a normal thing to want.
         let taken = projects[index].sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
@@ -865,6 +759,7 @@ struct ClaudeCodeApp: App {
                  directory: service.directory, command: service.command)
             }
         }
+        section = .terminals
         for service in named where service.command != nil {
             let title = "Run \(service.label)"
             if let running = project.sessions.first(where: { $0.title == title }) {
@@ -892,7 +787,7 @@ struct ClaudeCodeApp: App {
     private func close(_ session: CodeSession, in project: Project) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].sessions.removeAll { $0.id == session.id }
-        if selection == session.id.uuidString || selection == leadTag(session.id)
+        if selection == session.id.uuidString || selection == Tag.lead(session.id)
             || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true {
             selection = nil
         }
@@ -920,7 +815,9 @@ struct ClaudeCodeApp: App {
 
     /// The `.notebook/projects/<id>` the selection sits in — memory has to land in one.
     private func notebookProject(in project: Project) -> String? {
-        if let scope = projectScope(selection) { return scope }
+        if let scope = Tag.scope(selection, "project") { return scope }
+        if let id = Tag.scope(selection, "task"),
+           let owner = project.cards.first(where: { $0.id == id })?.project { return owner }
         guard let selection,
               selection.hasPrefix(NotebookEntry.id(for: project.directory)),
               let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
@@ -938,10 +835,11 @@ struct ClaudeCodeApp: App {
             reload()
             let id = kind == .project ? file.deletingLastPathComponent().lastPathComponent
                                       : file.deletingPathExtension().lastPathComponent
+            section = .board
             switch kind {
-            case .project: selection = projectTag(id)
-            case .task: selection = taskTag(id)
-            case .roadmap, .memory, .run: selection = pageTag(id)
+            case .project: selection = Tag.project(id)
+            case .task: selection = Tag.task(id)
+            case .roadmap, .memory, .run: selection = Tag.page(id)
             }
         } catch {
             NSAlert(error: error).runModal()
@@ -949,7 +847,8 @@ struct ClaudeCodeApp: App {
     }
 
     private func notebookRoadmap(in project: Project) -> String? {
-        if let id = pageScope(selection), project.cards.contains(where: { $0.id == id && $0.kind == .roadmap }) {
+        if let id = Tag.scope(selection, "page"),
+           project.cards.contains(where: { $0.id == id && $0.kind == .roadmap }) {
             return id
         }
         let roadmaps = project.cards.filter { $0.kind == .roadmap }
@@ -957,7 +856,8 @@ struct ClaudeCodeApp: App {
     }
 
     private func notebookSubject(in project: Project) -> String? {
-        if let id = taskScope(selection) ?? projectScope(selection) ?? pageScope(selection) { return id }
+        if let id = Tag.scope(selection, "task") ?? Tag.scope(selection, "project")
+            ?? Tag.scope(selection, "page") { return id }
         return notebookProject(in: project)
     }
 }
@@ -983,4 +883,11 @@ private func askTitle(_ kind: EntryKind) -> String? {
     guard alert.runModal() == .alertFirstButtonReturn else { return nil }
     let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     return title.isEmpty ? nil : title
+}
+
+
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
 }
