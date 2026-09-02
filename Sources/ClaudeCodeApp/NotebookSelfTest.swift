@@ -396,6 +396,9 @@ enum NotebookSelfTest {
                         CodeSession(title: "Engineering Lead 2", icon: "person.2", line: "", taskIDs: ["c"])]
         precondition(wip.assignedTaskIDs == ["a", "b", "c"],
                      "a project's WIP set is the union of its open sessions' tasks")
+        wip.sessions[0].exited = true
+        precondition(wip.assignedTaskIDs == ["c"],
+                     "an exited lead no longer blocks dependency dispatch")
 
         // Lanes are levels: everything in one can start once the lanes left of it are done.
         precondition(NotebookIndex.waves(graph).map { $0.map(\.id) }
@@ -597,7 +600,7 @@ enum NotebookSelfTest {
         precondition(TranscriptSteps.aside("[Request interrupted by user]") != nil,
                      "anything unrecognised is shown rather than swallowed")
 
-        // Picked tasks reach the lead as a shell argument, titles and all.
+        // Picked tasks reach the lead as links, without duplicating their page descriptions.
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)
         let leadID = UUID()
@@ -606,19 +609,19 @@ enum NotebookSelfTest {
                      "a lead has to know its own session id to route a block's answer back")
         precondition(brief.contains("engineering-lead"), "task batches invoke the dispatcher skill")
         for task in picked {
-            precondition(brief.contains(task.id) && brief.contains(task.title))
+            precondition(brief.contains(task.id) && !brief.contains(task.title))
             precondition(brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
                          "the lead needs a path it can open from the project root")
         }
-        precondition(brief.contains("waits on: wire-auth"), "dependencies have to survive")
+        precondition(brief.contains("Session id: \(leadID.uuidString.lowercased())"),
+                     "the lead needs its session id for blocks")
         precondition(echo(AgentCommand.quoted(brief)) == brief, "task brief mangled by the shell")
 
         // A follow-up batch reinvokes the same dispatcher with the same task detail.
         let follow = NotebookFormat.additionalTasksPrompt(tasks: picked, sessionID: leadID, agent: .claude)
         for task in picked {
-            precondition(follow.contains(task.id) && follow.contains(task.title))
+            precondition(follow.contains(task.id) && !follow.contains(task.title))
         }
-        precondition(follow.contains("waits on: wire-auth"), "dependencies have to survive a follow-up too")
         precondition(follow.contains("engineering-lead"), "follow-ups use the dispatcher skill too")
 
         // A block, exactly as the engineering-lead skill writes one, and the loop it opens:

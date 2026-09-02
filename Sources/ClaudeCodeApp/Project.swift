@@ -19,7 +19,9 @@ struct Project: Identifiable, Equatable {
     var pageCount: Int { NotebookLoader.pageCount(entries) }
     /// Tasks an open session already has. The WIP set: assigning again while a lead is
     /// still on a task would just hand it to a second one.
-    var assignedTaskIDs: Set<String> { Set(sessions.flatMap(\.taskIDs)) }
+    var assignedTaskIDs: Set<String> {
+        Set(sessions.filter { !$0.exited }.flatMap(\.taskIDs))
+    }
 }
 
 /// The open project list, as it survives a relaunch. Paths, not bookmarks: the app is

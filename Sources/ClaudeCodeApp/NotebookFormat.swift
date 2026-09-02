@@ -239,10 +239,9 @@ enum NotebookFormat {
 
     private static func taskList(_ tasks: [NotebookCard]) -> String {
         tasks.map { task in
-            var line = "- \(task.id) — \(task.title)\n  file: \(relativePath(task.url))"
-            if let project = task.project { line += "\n  project: \(project)" }
-            if !task.dependsOn.isEmpty { line += "\n  waits on: \(task.dependsOn.joined(separator: ", "))" }
-            return line
+            var lines = ["Task id: \(task.id)", "Task file: \(relativePath(task.url))"]
+            if let project = task.project { lines.append("Project: \(project)") }
+            return lines.joined(separator: "\n")
         }.joined(separator: "\n")
     }
 
@@ -251,7 +250,7 @@ enum NotebookFormat {
     /// with two leads running, the answer has to come back to the right one.
     static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
         agent.skill("engineering-lead",
-                    arguments: "session: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))")
+                    arguments: "Session id: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))")
     }
 
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.

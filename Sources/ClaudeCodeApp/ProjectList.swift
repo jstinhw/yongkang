@@ -16,6 +16,8 @@ struct ProjectList: View {
 
     /// Agent trees start open; this only remembers the roots the user collapsed.
     @State private var collapsed: Set<UUID> = []
+    @State private var previousSection: ConsoleSection?
+    @State private var hiddenCompletedTasks: Set<String> = []
 
     var body: some View {
         ListPane {
@@ -34,6 +36,13 @@ struct ProjectList: View {
                 .padding(.bottom, 14)
             }
             footer
+        }
+        .onChange(of: section) { next in
+            if previousSection == .agents && next != .agents {
+                hiddenCompletedTasks.formUnion(project.cards.filter { $0.kind == .task && $0.status == "done" }
+                    .map(\.id))
+            }
+            previousSection = next
         }
     }
 
@@ -239,8 +248,16 @@ struct ProjectList: View {
             sessionRow(session)
                 .contextMenu { Button("Close Session") { closeSession(session) } }
             if !collapsed.contains(session.id) {
-                ForEach(session.activeSubagents) { subagentRow($0, in: session) }
+                ForEach(displayedSubagents(in: session)) { subagentRow($0, in: session) }
             }
+        }
+    }
+
+    private func displayedSubagents(in session: CodeSession) -> [SubagentStatus] {
+        session.subagents.filter { subagent in
+            guard !subagent.running else { return true }
+            guard let taskID = subagent.taskID else { return false }
+            return !hiddenCompletedTasks.contains(taskID)
         }
     }
 
