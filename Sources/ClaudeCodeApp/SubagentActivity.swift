@@ -28,6 +28,9 @@ struct TranscriptLine: Identifiable {
     let id = UUID()
     let label: String
     let text: String
+    /// Set on a tool result the provider marked as failed — the one thing a collapsed run
+    /// of work still has to be able to say out loud.
+    var isError = false
 }
 
 /// What both providers share: neither CLI records which notebook task a subagent is for,
@@ -175,7 +178,8 @@ enum ClaudeTranscripts {
             let input = truncate(describe(block["input"]))
             return TranscriptLine(label: "Tool", text: input.isEmpty ? name : "\(name)(\(input))")
         case "tool_result":
-            return TranscriptLine(label: "Result", text: truncate(resultText(block["content"])))
+            return TranscriptLine(label: "Result", text: truncate(resultText(block["content"])),
+                                  isError: block["is_error"] as? Bool ?? false)
         default:
             return nil
         }

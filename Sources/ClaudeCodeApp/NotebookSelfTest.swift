@@ -544,6 +544,28 @@ enum NotebookSelfTest {
         precondition(NotebookBoard.picking(tricky, from: ["bare", "tricky"]) == ["bare"],
                      "clicking it again takes it out")
 
+        // A transcript is mostly tool calls; the viewer keeps the brief and the replies and
+        // collapses everything between them into one line, the way Claude Code prints it.
+        let raw = [
+            TranscriptLine(label: "Task", text: "Verify the four states"),
+            TranscriptLine(label: "Tool", text: "Skill(command: qa-dev, args: )"),
+            TranscriptLine(label: "Tool", text: "Grep(pattern: todo)"),
+            TranscriptLine(label: "Result", text: "3 matches"),
+            TranscriptLine(label: "Tool", text: "Read(file_path: page.tsx)"),
+            TranscriptLine(label: "Result", text: "120 lines"),
+            TranscriptLine(label: "Tool", text: "Bash(command: pg_ctl start)"),
+            TranscriptLine(label: "Result", text: "could not start server", isError: true),
+            TranscriptLine(label: "Reply", text: "Local Postgres is up on 55432.")
+        ]
+        let steps = TranscriptSteps.steps(raw)
+        precondition(steps.map(\.kind) == [.task, .skill, .work, .say],
+                     "a run of tool work collapses into one step between the readable ones")
+        precondition(steps[1].text == "Skill(qa-dev)", "a skill keeps its own line, named")
+        precondition(steps[2].text == "Searched for 1 pattern, read 1 file, ran 1 shell command")
+        precondition(steps[2].errors == 1, "a failed call is counted, not hidden")
+        precondition(steps[2].detail.count == 6, "the calls stay behind the summary")
+        precondition(TranscriptSteps.steps([]).isEmpty)
+
         // Picked tasks reach the lead as a shell argument, titles and all.
         let picked = cards.filter { $0.kind == .task }
         precondition(picked.count >= 2)

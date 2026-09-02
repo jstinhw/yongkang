@@ -216,13 +216,28 @@ enum DesignShots {
     }
 
     private static func transcript() -> [TranscriptLine] {
-        [TranscriptLine(label: "Task", text: "Agents disappear from the lead once they finish, so a "
-            + "batch mid-flight reads as empty. Keep every affiliated agent reachable."),
-         TranscriptLine(label: "Tool", text: "Read(file_path: Sources/ClaudeCodeApp/App.swift)"),
-         TranscriptLine(label: "Result", text: "212 lines · sessionRow, subagentRow, agentExpansion"),
-         TranscriptLine(label: "Reply", text: "The sidebar and the lead board both list subagents, so "
-            + "the filter belongs on the session itself."),
-         TranscriptLine(label: "Tool", text: "Bash(command: swift build && swift run ClaudeCodeApp --selftest)"),
-         TranscriptLine(label: "Result", text: "Build complete! (4.67s)\nnotebook selftest ok")]
+        var lines: [TranscriptLine] = [
+            TranscriptLine(label: "Task", text: "Agents disappear from the lead once they finish, "
+                + "so a batch mid-flight reads as empty. Keep every affiliated agent reachable."),
+            TranscriptLine(label: "Tool", text: "Skill(command: qa-dev)")
+        ]
+        for file in ["App.swift", "ProjectList.swift", "Rail.swift", "Theme.swift"] {
+            lines.append(TranscriptLine(label: "Tool", text: "Read(file_path: Sources/\(file))"))
+            lines.append(TranscriptLine(label: "Result", text: "read \(file)"))
+        }
+        lines += [
+            TranscriptLine(label: "Grep", text: ""),
+            TranscriptLine(label: "Reply", text: "The list column and the lead board both show "
+                + "subagents, so the filter belongs on the session itself rather than in each view."),
+            TranscriptLine(label: "Tool", text: "Edit(file_path: Sources/Project.swift)"),
+            TranscriptLine(label: "Result", text: "+4 −0"),
+            TranscriptLine(label: "Tool", text: "Bash(command: swift build && swift run ClaudeCodeApp --selftest)"),
+            TranscriptLine(label: "Result", text: "Build complete! (4.67s)\nnotebook selftest ok"),
+            TranscriptLine(label: "Tool", text: "Bash(command: swift test)"),
+            TranscriptLine(label: "Result", text: "error: no such module 'XCTest'", isError: true),
+            TranscriptLine(label: "Reply", text: "Four files changed and the self-test passes. "
+                + "Handing the task file and the diff to qa-dev — I do not review my own work.")
+        ]
+        return lines.filter { $0.label != "Grep" }
     }
 }
