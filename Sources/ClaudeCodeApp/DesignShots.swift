@@ -219,7 +219,10 @@ enum DesignShots {
         var lines: [TranscriptLine] = [
             TranscriptLine(label: "Task", text: "Agents disappear from the lead once they finish, "
                 + "so a batch mid-flight reads as empty. Keep every affiliated agent reachable."),
-            TranscriptLine(label: "Tool", text: "Skill(command: qa-dev)")
+            TranscriptLine(label: "Tool", text: "Skill(skill: qa-dev)"),
+            TranscriptLine(label: "Task", text: "Base directory for this skill: "
+                + "/Users/you/.claude/skills/qa-dev\n\nYou are QA on work that is claiming to "
+                + "be finished. Verify it against the task's own \"Done when\" list…")
         ]
         for file in ["App.swift", "ProjectList.swift", "Rail.swift", "Theme.swift"] {
             lines.append(TranscriptLine(label: "Tool", text: "Read(file_path: Sources/\(file))"))

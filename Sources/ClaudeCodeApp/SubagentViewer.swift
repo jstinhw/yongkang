@@ -103,11 +103,19 @@ struct SubagentViewer: View {
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 7)
+            case .note:
+                Text(item.text)
+                    .font(Typo.text(11.5))
+                    .foregroundStyle(Theme.tx2)
+                    .lineSpacing(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 7)
+                    .textSelection(.enabled)
             case .work:
                 work(item)
             }
         }
-        .padding(.bottom, item.kind == .work || item.kind == .skill ? 6 : 12)
+        .padding(.bottom, item.kind == .task || item.kind == .say ? 12 : 6)
     }
 
     /// The collapsed run: one line of what happened, and the calls themselves only if you
@@ -199,6 +207,7 @@ struct SubagentViewer: View {
         case .task: return Theme.violet
         case .say: return Theme.green
         case .skill: return Theme.accent
+        case .note: return Theme.amber
         case .work: return Theme.tx4
         }
     }

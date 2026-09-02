@@ -8,7 +8,7 @@ import Foundation
 /// pattern, read 14 files, ran 8 shell commands" — and this does the same, keeping the raw
 /// lines behind it so a run can still be opened when something looks wrong.
 struct TranscriptStep: Identifiable {
-    enum Kind { case task, say, skill, work }
+    enum Kind { case task, say, skill, note, work }
 
     /// Position in the list, so an opened run stays open across the 2-second reload —
     /// a fresh UUID per parse would close it again on every poll.
@@ -26,10 +26,17 @@ enum TranscriptSteps {
     static func steps(_ lines: [TranscriptLine]) -> [TranscriptStep] {
         var steps: [TranscriptStep] = []
         var run: [TranscriptLine] = []
+        /// A subagent is briefed once. Every later user message is either the harness
+        /// talking to the model or the lead talking to the agent, and only one of those
+        /// was written for a person to read.
+        var briefed = false
 
         func flushRun() {
-            guard !run.isEmpty else { return }
             let calls = run.filter { $0.label == "Tool" }
+            // Results with no call in front of them are the tail of a run that has already
+            // been summarised — a skill's "Launching skill: qa-dev", most often. There is
+            // nothing to say about them, so they do not get a line of their own.
+            guard !calls.isEmpty else { return run = [] }
             steps.append(TranscriptStep(id: steps.count, kind: .work,
                                         text: summary(of: calls.map(\.text)),
                                         detail: run,
@@ -39,11 +46,20 @@ enum TranscriptSteps {
 
         for line in lines {
             switch line.label {
-            case "Task", "Reply":
+            case "Reply":
                 flushRun()
-                steps.append(TranscriptStep(id: steps.count,
-                                            kind: line.label == "Task" ? .task : .say,
-                                            text: line.text))
+                steps.append(TranscriptStep(id: steps.count, kind: .say, text: line.text))
+            case "Task":
+                // A dropped injection must not break the run around it in two, or the skill
+                // text leaves a seam behind: "read 1 file" and then "read 13 files".
+                if !briefed {
+                    flushRun()
+                    briefed = true
+                    steps.append(TranscriptStep(id: steps.count, kind: .task, text: line.text))
+                } else if let note = aside(line.text) {
+                    flushRun()
+                    steps.append(TranscriptStep(id: steps.count, kind: .note, text: note))
+                }
             case "Tool" where toolName(line.text) == "Skill":
                 // A skill is the agent picking up a role — the one tool call that says
                 // something about the work rather than being the work.
@@ -56,6 +72,25 @@ enum TranscriptSteps {
         }
         flushRun()
         return steps
+    }
+
+    /// What a user message after the brief is worth showing, or nil when it is the harness
+    /// rather than a person. Invoking a skill pastes the whole skill document in as a user
+    /// message; so do system notifications and an MCP server's instructions. None of that
+    /// is news — the `Skill(qa-dev)` line above it already says what happened, and the
+    /// document behind it is context the agent was given, not something it did.
+    ///
+    /// Anything else is kept: a message the lead sent mid-flight is the second most
+    /// interesting thing in the file, so the default is to show, not to hide.
+    static func aside(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil }
+        if trimmed.hasPrefix("Base directory for this skill:") { return nil }
+        if trimmed.hasPrefix("[SYSTEM NOTIFICATION") { return nil }
+        if trimmed.contains("<system-reminder>") { return nil }
+        // A long document opening on a heading is a pasted instruction set, never a note.
+        if trimmed.hasPrefix("# ") && trimmed.count > 400 { return nil }
+        return trimmed
     }
 
     /// "Searched for 1 pattern, read 14 files, ran 8 shell commands" — the same shape Claude
@@ -113,16 +148,22 @@ enum TranscriptSteps {
         String(call.prefix(while: { $0 != "(" })).trimmingCharacters(in: .whitespaces)
     }
 
-    /// `Skill(command: qa-dev, …)` → `Skill(qa-dev)`, which is how Claude Code names it.
+    /// `Skill(args: …, skill: qa-dev)` → `Skill(qa-dev)`, which is how Claude Code names it.
+    /// The field is looked up by name rather than taken as the first one: a call's arguments
+    /// arrive alphabetised, so `args` usually sits in front of the name and reading position
+    /// one names the agent after its task.
     static func skillName(_ call: String) -> String {
         guard let open = call.firstIndex(of: "("), let close = call.lastIndex(of: ")"),
               open < close else { return call }
-        let arguments = call[call.index(after: open)..<close]
-        let value = arguments.split(separator: ",").first.map { part -> String in
-            let field = part.split(separator: ":", maxSplits: 1)
-            return String(field.count == 2 ? field[1] : field[0])
-        }
-        let name = (value ?? "").trimmingCharacters(in: .whitespaces)
+        let fields = call[call.index(after: open)..<close].components(separatedBy: ", ")
+            .map { field -> (key: String, value: String) in
+                let parts = field.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2 else { return ("", field.trimmingCharacters(in: .whitespaces)) }
+                return (parts[0].trimmingCharacters(in: .whitespaces),
+                        parts[1].trimmingCharacters(in: .whitespaces))
+            }
+        let named = fields.first { ["skill", "command", "name"].contains($0.key) }
+        let name = (named ?? fields.first)?.value ?? ""
         return name.isEmpty ? "Skill" : "Skill(\(name))"
     }
 }
