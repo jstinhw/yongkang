@@ -55,6 +55,10 @@ struct CodeSession: Identifiable, Equatable {
     /// matching `--session-id`, so there is nothing on disk to find.
     var subagents: [SubagentStatus] = []
 
+    /// The ones still working. A finished agent has nothing left to watch, so the lead's
+    /// lists drop it; its transcript stays reachable from the task it was dispatched for.
+    var activeSubagents: [SubagentStatus] { subagents.filter(\.running) }
+
     /// Explicit, rather than the synthesized memberwise init, because `id` needs to be
     /// settable: the caller has to hand in the same UUID it passed Claude Code as
     /// `--session-id`, so this row's id is the key that finds that session's transcript.

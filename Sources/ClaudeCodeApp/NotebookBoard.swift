@@ -26,9 +26,9 @@ struct NotebookBoard: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
                 VStack(spacing: 0) {
-                    column("Roadmap", items(of: .roadmap))
+                    column("Roadmap", NotebookIndex.ordered(cards.filter { $0.kind == .roadmap }))
                     Divider()
-                    column("Projects", items(of: .project))
+                    column("Projects", projects)
                 }
                 .frame(width: 240)
                 Divider()
@@ -59,8 +59,15 @@ struct NotebookBoard: View {
     /// The one project the board is scoped to. Tasks outside it are not on screen, so they
     /// cannot be picked — a batch is one project's work plus whatever it waits on.
     private var scope: String? {
-        NotebookIndex.visible(cards.filter { $0.kind == .project }, showDone: showDone)
-            .first { selected.contains($0.id) }?.id
+        projects.first { selected.contains($0.id) }?.id
+    }
+
+    /// The rail's projects, and so the only thing `scope` can be: a finished project drops
+    /// off the board the same way a done task does, until Show Completed asks for it.
+    private var projects: [NotebookCard] {
+        let all = cards.filter { $0.kind == .project }
+        return NotebookIndex.ordered(
+            showDone ? all : all.filter { !NotebookIndex.isFinished($0, in: cards) })
     }
 
     /// The scoped project's own card, so the lanes can open with its title and
@@ -206,12 +213,6 @@ struct NotebookBoard: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func items(of kind: EntryKind) -> [NotebookCard] {
-        let items = cards.filter { $0.kind == kind }
-        return NotebookIndex.ordered(kind == .project
-            ? NotebookIndex.visible(items, showDone: showDone) : items)
     }
 
     private func heading(_ title: String, count: Int) -> some View {

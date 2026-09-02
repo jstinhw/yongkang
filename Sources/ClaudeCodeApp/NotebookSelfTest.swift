@@ -258,6 +258,10 @@ enum NotebookSelfTest {
                      "a lead's subagents are grouped under every assigned task")
         precondition(Subagents.runningTaskIDs(grouped.flatMap(\.subagents)) == ["build-ui-foundation"],
                      "a running child keeps its task in WIP")
+        precondition(CodeSession(title: "Engineering Lead", icon: "person.2", line: "claude",
+                                 subagents: grouped.flatMap(\.subagents))
+                     .activeSubagents.map(\.id) == ["qa"],
+                     "a finished agent drops off the lead's lists")
         precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
                                                   taskIDs: ["research-x"], claudeHome: claudeHome)
                      .first { $0.id == "done1" }?.taskID == "research-x",
@@ -359,6 +363,24 @@ enum NotebookSelfTest {
         precondition(NotebookIndex.withBlockers([], in: graph).isEmpty)
         precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: false).map(\.id) == ["a"])
         precondition(NotebookIndex.visible([graph[0], graph[4]], showDone: true).map(\.id) == ["a", "done-one"])
+
+        // A project is off the board once its last task passes, without anything having
+        // written `status: done` on the project file itself.
+        let shipped = NotebookCard(id: "shipped", url: tmp, kind: .project, title: "Shipped",
+                                   status: "active", project: nil, dependsOn: [])
+        let openProject = NotebookCard(id: "wip", url: tmp, kind: .project, title: "WIP",
+                                       status: "active", project: nil, dependsOn: [])
+        let projectTasks = [
+            NotebookCard(id: "t1", url: tmp, kind: .task, title: "One", status: "done",
+                         project: "shipped", dependsOn: []),
+            NotebookCard(id: "t2", url: tmp, kind: .task, title: "Two", status: "todo",
+                         project: "wip", dependsOn: [])
+        ]
+        let rail = [shipped, openProject] + projectTasks
+        precondition(NotebookIndex.isFinished(shipped, in: rail), "every task done finishes the project")
+        precondition(!NotebookIndex.isFinished(openProject, in: rail), "one task left keeps it on the board")
+        precondition(!NotebookIndex.isFinished(shipped, in: [shipped]),
+                     "a project with no tasks yet is not finished")
 
         // A task already claimed by another lead is not handed to a second one, whether it
         // was picked directly or would otherwise be pulled in as a blocker.

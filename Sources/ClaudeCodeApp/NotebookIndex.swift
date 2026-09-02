@@ -24,6 +24,15 @@ enum NotebookIndex {
         showDone ? cards : cards.filter { $0.status != "done" }
     }
 
+    /// A project is finished when its own status says so, or when every task filed under
+    /// it is done — the engineering lead sets each task's status as QA passes it and
+    /// nothing ever goes back to write the project's, so the last task is the signal.
+    static func isFinished(_ project: NotebookCard, in cards: [NotebookCard]) -> Bool {
+        if project.status == "done" { return true }
+        let tasks = cards.filter { $0.kind == .task && $0.project == project.id }
+        return !tasks.isEmpty && tasks.allSatisfy { $0.status == "done" }
+    }
+
     static func load(root: URL) -> [NotebookCard] {
         NotebookLoader.pages(NotebookLoader.loadAll(root: root)).compactMap(card(at:))
     }

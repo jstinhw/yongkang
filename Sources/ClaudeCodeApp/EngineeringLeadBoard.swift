@@ -13,11 +13,11 @@ struct EngineeringLeadBoard: View {
     }
 
     private var groups: [SubagentTaskGroup] {
-        Subagents.grouped(session.subagents, by: taskIDs)
+        Subagents.grouped(session.activeSubagents, by: taskIDs)
     }
 
     private var unlinked: [SubagentStatus] {
-        session.subagents.filter { $0.taskID == nil }
+        session.activeSubagents.filter { $0.taskID == nil }
     }
 
     var body: some View {
@@ -59,7 +59,7 @@ struct EngineeringLeadBoard: View {
                 if let state, !state.isEmpty { NotebookStyle.pill(state) }
                 if card == nil { NotebookStyle.pill("missing") }
                 Spacer(minLength: 12)
-                Text("\(group.subagents.count) agent\(group.subagents.count == 1 ? "" : "s")")
+                Text("\(group.subagents.count) running")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

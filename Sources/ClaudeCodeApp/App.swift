@@ -216,11 +216,11 @@ struct ClaudeCodeApp: App {
     /// Selecting a lead opens its orchestration board, not its underlying PTY.
     @ViewBuilder private func sessionRow(_ session: CodeSession, in project: Project) -> some View {
         let wipTaskIDs = wipTaskIDs(session, in: project)
-        if session.subagents.isEmpty {
+        if session.activeSubagents.isEmpty {
             sessionHeader(session, wipTaskIDs: wipTaskIDs)
         } else {
             DisclosureGroup(isExpanded: agentExpansion(session)) {
-                ForEach(session.subagents) { subagentRow($0, in: session) }
+                ForEach(session.activeSubagents) { subagentRow($0, in: session) }
             } label: {
                 Button { selection = sessionTag(session) } label: {
                     sessionHeader(session, wipTaskIDs: wipTaskIDs)
@@ -236,7 +236,7 @@ struct ClaudeCodeApp: App {
             Spacer(minLength: 4)
             if isEngineeringLead(session) {
                 Text("\(wipTaskIDs.count) task\(wipTaskIDs.count == 1 ? "" : "s") · "
-                     + "\(session.subagents.filter(\.running).count) running")
+                     + "\(session.activeSubagents.count) running")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
