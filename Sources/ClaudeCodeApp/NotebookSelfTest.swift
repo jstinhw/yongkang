@@ -782,7 +782,96 @@ enum NotebookSelfTest {
         precondition(OpenProjects.decode("").isEmpty)
         precondition(OpenProjects.decode("{\"not\": \"a list\"}").isEmpty)
 
+        usage(in: tmp)
+
         print("notebook selftest ok")
+    }
+
+    /// The usage screen reads token counts out of the same transcripts the console
+    /// watches. Both providers write them differently — Claude a delta per message, Codex
+    /// a running total — and the Claude side is read incrementally, so a second pass over
+    /// a file that grew must add the new lines and not re-count the old ones.
+    private static func usage(in tmp: URL) {
+        let fm = FileManager.default
+        let dir = tmp.appendingPathComponent("usage")
+        try! fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let claude = dir.appendingPathComponent("session.jsonl")
+        func message(_ model: String, out: Int) -> String {
+            """
+            {"type":"assistant","message":{"model":"\(model)","usage":{"input_tokens":10,\
+            "output_tokens":\(out),"cache_read_input_tokens":100,"cache_creation_input_tokens":20}}}
+            """
+        }
+        try! (message("claude-opus-5", out: 5) + "\n").write(to: claude, atomically: true, encoding: .utf8)
+        let tally = AgentUsage.claudeModels(at: claude)["claude-opus-5"]!
+        precondition(tally.output == 5 && tally.cacheRead == 100 && tally.total == 135)
+
+        // Appended while the screen is open: the second read must pick up only the new line.
+        append(message("claude-opus-5", out: 5) + "\n"
+               + message("claude-haiku-4-5-20251001", out: 3) + "\n", to: claude)
+        let grown = AgentUsage.claudeModels(at: claude)
+        precondition(grown["claude-opus-5"]!.output == 10, "an appended transcript is not re-counted")
+        precondition(grown["claude-haiku-4-5-20251001"]!.output == 3, "and a second model is its own row")
+
+        // A half-written last line is left for the next pass rather than parsed as garbage.
+        append(String(message("claude-opus-5", out: 5).prefix(40)), to: claude)
+        precondition(AgentUsage.claudeModels(at: claude)["claude-opus-5"]!.output == 10,
+                     "a partial line is not counted until its newline lands")
+
+        let codex = dir.appendingPathComponent("rollout.jsonl")
+        func count(_ input: Int, cached: Int, out: Int) -> String {
+            """
+            {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":\
+            {"input_tokens":\(input),"cached_input_tokens":\(cached),"cache_write_input_tokens":10,\
+            "output_tokens":\(out)}}}}
+            """
+        }
+        try! ("""
+        {"type":"turn_context","payload":{"model":"gpt-5.6-luna","effort":"medium"}}
+        \(count(100, cached: 80, out: 5))
+        \(count(300, cached: 250, out: 40))
+        """ + "\n").write(to: codex, atomically: true, encoding: .utf8)
+        let rollout = AgentUsage.codexModels(at: codex)["gpt-5.6-luna"]!
+        precondition(rollout.output == 40, "Codex reports a running total, so the last event wins")
+        precondition(rollout.input == 50 && rollout.cacheRead == 250,
+                     "and its input_tokens already includes the cached half")
+
+        // Plan limits come out of Claude Code's own config cache, which is not an API —
+        // a shape it does not recognise has to read as "nothing to show", never as a crash.
+        let config = dir.appendingPathComponent("claude.json")
+        try! """
+        {"oauthAccount":{"organizationType":"claude_pro"},"cachedUsageUtilization":{\
+        "fetchedAtMs":1788260110832,"utilization":{\
+        "five_hour":{"utilization":42,"resets_at":"2026-09-01T15:50:00.296167+00:00"},\
+        "seven_day":{"utilization":3,"resets_at":"2026-09-07T14:00:00+00:00"},\
+        "seven_day_opus":null,\
+        "spend":{"used":{"amount_minor":250,"exponent":2},"limit":{"amount_minor":10000,"exponent":2}}}}}
+        """.write(to: config, atomically: true, encoding: .utf8)
+        let quota = AgentUsage.claudeQuota(configURL: config)!
+        precondition(quota.plan == "claude_pro")
+        precondition(quota.windows.map(\.percent) == [42, 3], "a null window is skipped, not zeroed")
+        precondition(quota.windows[0].resetsAt != nil && quota.windows[1].resetsAt != nil,
+                     "both ISO shapes parse, with and without fractional seconds")
+        precondition(quota.credits?.value == "$2.50 of $100.00")
+        precondition(AgentUsage.claudeQuota(configURL: dir.appendingPathComponent("nope.json")) == nil)
+
+        precondition(AgentUsage.short(999) == "999" && AgentUsage.short(1_500) == "1.5K"
+                     && AgentUsage.short(45_000) == "45K" && AgentUsage.short(2_400_000) == "2.4M")
+        precondition(AgentUsage.modelName("claude-haiku-4-5-20251001") == "haiku-4-5")
+        precondition(AgentUsage.modelName("gpt-5.6-luna") == "gpt-5.6-luna")
+        let now = Date()
+        precondition(AgentUsage.until(now.addingTimeInterval(8_100), now: now) == "2h 15m")
+        precondition(AgentUsage.until(now.addingTimeInterval(-60), now: now) == nil,
+                     "a window that already rolled over says nothing rather than a negative")
+    }
+
+    /// Writes to the end of a file the way an agent's transcript grows: open, seek, write.
+    private static func append(_ text: String, to url: URL) {
+        let handle = try! FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try! handle.seekToEnd()
+        try! handle.write(contentsOf: Data(text.utf8))
     }
 
     /// What zsh actually passes to the agent for a given quoted argument.

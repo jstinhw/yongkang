@@ -163,7 +163,8 @@ struct ClaudeCodeApp: App {
         case .agents:
             let watched = selectedAgent(in: project) ?? selectedSubagent(in: project)?.session
             TopBar(crumbs: [project.name],
-                   title: selectedSubagent(in: project)?.subagent.description
+                   title: selection == Tag.usage(project) ? "Usage"
+                        : selectedSubagent(in: project)?.subagent.description
                         ?? watched?.title ?? selectedSession(in: project)?.title ?? "Agents") {
                 addMenu(for: project)
                 if let watched, selectedSubagent(in: project) == nil {
@@ -237,6 +238,8 @@ struct ClaudeCodeApp: App {
                      assign: { section = .board; selection = Tag.board(project) })
         } else if selection == Tag.board(project) {
             boardView(for: project)
+        } else if selection == Tag.usage(project) {
+            UsageBoard(project: project, open: { selection = $0; reload() })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
                 card: card, cards: project.cards, directory: project.directory,
@@ -283,7 +286,7 @@ struct ClaudeCodeApp: App {
                 SessionTranscript(
                     session: watched, cards: project.cards, blocks: project.blocks,
                     lines: agentTranscript,
-                    source: sessionTranscript(of: watched, in: project.directory),
+                    source: Transcripts.url(of: watched, in: project.directory),
                     openTask: { section = .board; selection = Tag.task($0) },
                     openBlock: { section = .blocks; selection = Tag.block($0) },
                     openSubagent: { subagent in
@@ -360,7 +363,7 @@ struct ClaudeCodeApp: App {
             }
         case .agents:
             if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
-                && selectedSession(in: project) == nil {
+                && selectedSession(in: project) == nil && selection != Tag.usage(project) {
                 // A lead first, then any agent — and a service runner only if that is all
                 // there is, on its own tag, because it has no transcript to open.
                 selection = (project.sessions.first { $0.isEngineeringLead }
@@ -771,21 +774,8 @@ struct ClaudeCodeApp: App {
         }
         guard let watched = selectedAgent(in: project),
               AgentPane.of(selection, session: watched.id) == .transcript,
-              let url = sessionTranscript(of: watched, in: project.directory) else { return nil }
+              let url = Transcripts.url(of: watched, in: project.directory) else { return nil }
         return (watched.agent ?? .claude, url)
-    }
-
-    /// A session's own transcript — the parent half of what `subagents(of:in:)` reads for
-    /// the agents it spawned, and found the same per-provider way. Nil for a Codex session
-    /// whose opening prompt does not quote its id: there is nothing on disk to join on,
-    /// which is why its subagents never resolve either.
-    private func sessionTranscript(of session: CodeSession, in directory: URL) -> URL? {
-        switch session.agent {
-        case .codex:
-            return CodexTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
-        default:
-            return ClaudeTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
-        }
     }
 
     // MARK: - Sessions

@@ -81,7 +81,39 @@ enum DesignShots {
                          path: changes.first?.path ?? "", select: { _ in })
         }, "review", into: directory)
 
+        // Real numbers, off this machine's own transcripts for the repo the binary was
+        // built from: the usage screen is nothing but its readers, so a shot drawn from a
+        // fixture would prove the layout and nothing else.
+        let real = realSessions(in: repo)
+        write(console(real, section: .agents) {
+            UsageBoard(project: real, open: { _ in })
+        }, "usage", into: directory)
+
         print("shots written to \(directory.path)")
+    }
+
+    /// This repo's own agent sessions, as the console would hold them — every Claude Code
+    /// transcript on disk for the folder the binary was built from, newest first, with the
+    /// subagents each one spawned read the same way the running app reads them.
+    private static func realSessions(in repo: URL) -> Project {
+        var project = Project(directory: repo, entries: [])
+        let folder = ClaudeTranscripts.projectFolder(projectDirectory: repo)
+        let key: URLResourceKey = .contentModificationDateKey
+        func modified(_ url: URL) -> Date {
+            (try? url.resourceValues(forKeys: [key]))?.contentModificationDate ?? .distantPast
+        }
+        let files = ((try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: [key])) ?? [])
+            .filter { $0.pathExtension == "jsonl" }
+            .sorted { modified($0) > modified($1) }
+            .prefix(4)
+        project.sessions = files.enumerated().compactMap { index, url in
+            guard let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
+            return CodeSession(id: id, title: index == 0 ? "Engineering Lead" : "Claude Code \(index + 1)",
+                               icon: "sparkles", line: "claude", agent: .claude,
+                               subagents: ClaudeTranscripts.subagents(sessionID: id, projectDirectory: repo))
+        }
+        return project
     }
 
     /// The same four columns every screen is drawn inside, so a shot shows the real thing

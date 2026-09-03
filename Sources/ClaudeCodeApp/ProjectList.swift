@@ -253,6 +253,8 @@ struct ProjectList: View {
     // MARK: - Agents
 
     @ViewBuilder private var agentRows: some View {
+        group("Fleet")
+        usageRow
         group("Sessions", "\(project.sessions.count)")
         if project.sessions.isEmpty { empty("Nothing running") }
         ForEach(project.sessions) { session in
@@ -260,6 +262,23 @@ struct ProjectList: View {
                 .contextMenu { Button("Close Session") { closeSession(session) } }
             if !collapsed.contains(session.id) {
                 ForEach(displayedSubagents(in: session)) { subagentRow($0, in: session) }
+            }
+        }
+    }
+
+    /// The one row here that is not an agent: what the whole fleet has spent, and how
+    /// close each coding tool is to the limit that would stop it.
+    private var usageRow: some View {
+        row(Tag.usage(project)) {
+            HStack(spacing: 9) {
+                Image(systemName: "gauge.with.dots.needle.33percent")
+                    .font(.system(size: 12)).foregroundStyle(Theme.tx2)
+                    .frame(width: 24, height: 24)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Usage").font(Typo.text(12, .medium)).foregroundStyle(Theme.tx)
+                    Text("Limits, models, roles").font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                }
+                Spacer(minLength: 6)
             }
         }
     }

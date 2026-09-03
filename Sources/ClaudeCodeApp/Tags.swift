@@ -8,6 +8,8 @@ enum Tag {
     static func overview(_ project: Project) -> String { "overview:\(project.id.uuidString)" }
     static func board(_ project: Project) -> String { "board:\(project.id.uuidString)" }
     static func review(_ project: Project) -> String { "review:\(project.id.uuidString)" }
+    /// The project-wide usage screen, which belongs to no single agent.
+    static func usage(_ project: Project) -> String { "usage:\(project.id.uuidString)" }
 
     static func project(_ cardID: String) -> String { "project:\(cardID)" }
     static func task(_ cardID: String) -> String { "task:\(cardID)" }
