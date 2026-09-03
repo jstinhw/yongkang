@@ -19,6 +19,14 @@ struct TokenTally: Equatable {
         TokenTally(input: lhs.input + rhs.input, output: lhs.output + rhs.output,
                    cacheRead: lhs.cacheRead + rhs.cacheRead, cacheWrite: lhs.cacheWrite + rhs.cacheWrite)
     }
+
+    /// Clamped at zero per bucket: a provider that resets its running total must read as
+    /// no spend, never as negative spend that would cancel out real work beside it.
+    static func - (lhs: TokenTally, rhs: TokenTally) -> TokenTally {
+        TokenTally(input: max(0, lhs.input - rhs.input), output: max(0, lhs.output - rhs.output),
+                   cacheRead: max(0, lhs.cacheRead - rhs.cacheRead),
+                   cacheWrite: max(0, lhs.cacheWrite - rhs.cacheWrite))
+    }
 }
 
 /// One agent — a session, or a subagent it spawned — and what it has spent, per model.
@@ -33,11 +41,88 @@ struct AgentSpend: Identifiable {
     let role: String
     let provider: AgentKind
     let running: Bool
-    let models: [String: TokenTally]
+    /// Every turn this agent took, kept as its own timestamped slice rather than summed on
+    /// the way in — a total cannot be narrowed to the last hour afterwards, and the screen
+    /// asks for exactly that.
+    let samples: [UsageSample]
 
-    var tally: TokenTally { models.values.reduce(TokenTally(), +) }
-    /// The one model to show on a one-line row: whichever spent the most.
-    var topModel: String? { models.max { $0.value.total < $1.value.total }?.key }
+    /// `since` nil is all time; otherwise only what was spent after it.
+    func samples(since: Date?) -> [UsageSample] {
+        guard let since else { return samples }
+        return samples.filter { $0.at >= since }
+    }
+
+    func models(since: Date?) -> [String: TokenTally] {
+        samples(since: since).reduce(into: [:]) { $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally }
+    }
+
+    func tally(since: Date?) -> TokenTally {
+        samples(since: since).map(\.tally).reduce(TokenTally(), +)
+    }
+
+    /// The one model to show on a one-line row: whichever spent the most in the window.
+    func topModel(since: Date?) -> String? {
+        models(since: since).max { $0.value.total < $1.value.total }?.key
+    }
+
+    var lastActive: Date? { samples.last?.at }
+}
+
+/// One turn's spend and when it happened. Both CLIs stamp every record they write, which
+/// is what makes a window and a histogram possible at all.
+struct UsageSample {
+    let at: Date
+    let model: String
+    let tally: TokenTally
+}
+
+/// The window the usage screen is showing. Wider windows get wider buckets, so the
+/// histogram is always about the same number of bars however far back it reaches.
+enum UsageRange: String, CaseIterable, Identifiable {
+    case hour = "1h"
+    case day = "24h"
+    case week = "7d"
+    case all = "All"
+
+    var id: Self { self }
+
+    /// Nil for all time — there is no start to filter against.
+    func since(now: Date = Date()) -> Date? {
+        switch self {
+        case .hour: return now.addingTimeInterval(-3_600)
+        case .day: return now.addingTimeInterval(-86_400)
+        case .week: return now.addingTimeInterval(-7 * 86_400)
+        case .all: return nil
+        }
+    }
+
+    var caption: String {
+        switch self {
+        case .hour: return "last hour"
+        case .day: return "last 24 hours"
+        case .week: return "last 7 days"
+        case .all: return "all time"
+        }
+    }
+
+    var buckets: Int {
+        switch self {
+        case .hour: return 12
+        case .day: return 24
+        case .week: return 14
+        case .all: return 32
+        }
+    }
+}
+
+/// One column of the histogram: what was spent in that slice of time, split by model so a
+/// bar says which model the work went to and not only how much of it there was.
+struct UsageBucket: Identifiable {
+    let id: Int
+    let start: Date
+    let byModel: [String: Int]
+
+    var total: Int { byModel.values.reduce(0, +) }
 }
 
 /// One rate-limit window a provider reports — the 5-hour session and the weekly bar both
@@ -86,122 +171,160 @@ enum AgentUsage {
             let own = Transcripts.url(of: session, in: project.directory).map { url in
                 AgentSpend(id: session.id.uuidString, tag: Tag.transcript(session.id),
                            name: session.title, role: role(of: session),
-                           provider: provider, running: !session.exited, models: models(at: url, provider))
+                           provider: provider, running: !session.exited,
+                           samples: samples(at: url, provider))
             }
             let spawned = session.subagents.map { subagent in
-                AgentSpend(id: subagent.id, tag: Tag.subagent(session, subagent),
+                // Scoped to its session: a provider's agent id is unique within the session
+                // that spawned it and not beyond, so two sessions can hold the same one —
+                // which would collide as a list key here and as a ledger row on disk.
+                AgentSpend(id: "\(session.id.uuidString):\(subagent.id)",
+                           tag: Tag.subagent(session, subagent),
                            name: subagent.description, role: subagent.agentType,
                            provider: provider, running: subagent.running,
-                           models: models(at: subagent.transcriptURL, provider))
+                           samples: samples(at: subagent.transcriptURL, provider))
             }
-            return ([own].compactMap { $0 } + spawned).filter { $0.tally.total > 0 }
+            return ([own].compactMap { $0 } + spawned).filter { !$0.samples.isEmpty }
         }
-        .sorted { $0.tally.total > $1.tally.total }
     }
 
-    /// Sums a keyed slice of the spends — by model, by role, by provider — as one call,
-    /// because all three panels on the usage screen are the same fold over a different key.
-    static func group<Key: Hashable>(_ spends: [AgentSpend],
+    /// Sums a keyed slice of the spends — by role, by provider — as one call, because
+    /// those panels are the same fold over a different key.
+    static func group<Key: Hashable>(_ spends: [AgentSpend], since: Date?,
                                      by key: (AgentSpend) -> Key) -> [(key: Key, tally: TokenTally)] {
         Dictionary(grouping: spends, by: key)
-            .map { (key: $0.key, tally: $0.value.map(\.tally).reduce(TokenTally(), +)) }
+            .map { (key: $0.key, tally: $0.value.map { $0.tally(since: since) }.reduce(TokenTally(), +)) }
+            .filter { $0.tally.total > 0 }
             .sorted { $0.tally.total > $1.tally.total }
     }
 
-    static func byModel(_ spends: [AgentSpend]) -> [(key: String, tally: TokenTally)] {
-        spends.flatMap { spend in spend.models.map { (model: $0.key, tally: $0.value) } }
+    static func byModel(_ spends: [AgentSpend], since: Date?) -> [(key: String, tally: TokenTally)] {
+        spends.flatMap { $0.samples(since: since) }
             .reduce(into: [String: TokenTally]()) { $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally }
             .map { (key: $0.key, tally: $0.value) }
+            .filter { $0.tally.total > 0 }
             .sorted { $0.tally.total > $1.tally.total }
+    }
+
+    /// The histogram: the range sliced into equal buckets, each holding what every model
+    /// spent inside it. Samples outside the range fall outside the bucket index and are
+    /// dropped here rather than filtered first.
+    static func histogram(_ samples: [UsageSample], range: UsageRange,
+                          now: Date = Date()) -> [UsageBucket] {
+        let start: Date
+        switch range {
+        case .all:
+            // An all-time view of a single afternoon should not draw a month of empty
+            // bars, so it starts at the first sample — with an hour's floor, because a
+            // range narrower than that divides into slivers.
+            guard let first = samples.map(\.at).min() else { return [] }
+            start = min(first, now.addingTimeInterval(-3_600))
+        default:
+            start = range.since(now: now) ?? now
+        }
+        let width = now.timeIntervalSince(start) / Double(range.buckets)
+        guard width > 0 else { return [] }
+        var columns = Array(repeating: [String: Int](), count: range.buckets)
+        for sample in samples {
+            // Clamped at the top rather than dropped: a turn written in the same instant
+            // the screen loaded, or by a clock a little ahead, belongs in the last bucket
+            // and not nowhere.
+            let index = min(range.buckets - 1, Int(sample.at.timeIntervalSince(start) / width))
+            guard index >= 0 else { continue }
+            columns[index][sample.model, default: 0] += sample.tally.total
+        }
+        return columns.enumerated().map {
+            UsageBucket(id: $0.offset, start: start.addingTimeInterval(width * Double($0.offset)),
+                        byModel: $0.element)
+        }
     }
 
     // MARK: - Reading a transcript
 
-    /// Bytes already folded into `tallies`, per file. A transcript only ever grows at the
+    /// What has already been read out of one file. A transcript only ever grows at the
     /// end, so a re-read parses the new lines and nothing else — which is what makes it
     /// safe to refresh this screen while a dozen agents are writing.
-    private static var cursors: [String: UInt64] = [:]
-    private static var tallies: [String: [String: TokenTally]] = [:]
-
-    static func models(at url: URL, _ provider: AgentKind) -> [String: TokenTally] {
-        provider == .codex ? codexModels(at: url) : claudeModels(at: url)
+    private struct Cursor {
+        var offset: UInt64 = 0
+        var samples: [UsageSample] = []
+        /// Codex only. It reports a running total per turn rather than a delta, so the
+        /// previous total is kept to subtract — and the model comes off whichever
+        /// `turn_context` came last, which may be in an earlier pass than the turn is.
+        var running = TokenTally()
+        var model = "unknown"
     }
 
-    /// Claude Code writes one `usage` block per assistant message, so the file is the
-    /// ledger: every block is a delta and they add up.
-    static func claudeModels(at url: URL) -> [String: TokenTally] {
-        var totals = tallies[url.path] ?? [:]
-        for line in newLines(in: url) {
-            guard line.contains("\"usage\""), let data = line.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let message = object["message"] as? [String: Any],
-                  let usage = message["usage"] as? [String: Any] else { continue }
-            let model = message["model"] as? String ?? "unknown"
-            func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
-            totals[model, default: TokenTally()] = totals[model, default: TokenTally()] + TokenTally(
-                input: count("input_tokens"), output: count("output_tokens"),
-                cacheRead: count("cache_read_input_tokens"), cacheWrite: count("cache_creation_input_tokens"))
+    private static var files: [String: Cursor] = [:]
+
+    static func samples(at url: URL, _ provider: AgentKind) -> [UsageSample] {
+        var cursor = files[url.path] ?? Cursor()
+        let lines = newLines(in: url, cursor: &cursor)
+        for line in lines {
+            if let sample = provider == .codex ? codexSample(line, cursor: &cursor)
+                                               : claudeSample(line) {
+                cursor.samples.append(sample)
+            }
         }
-        tallies[url.path] = totals
-        return totals
+        files[url.path] = cursor
+        return cursor.samples
     }
 
-    /// Codex reports a running total instead of deltas, so the last `token_count` event is
-    /// the whole answer and the file is read from the tail rather than accumulated. The
-    /// model comes off `turn_context`, which is written once near the head.
-    static func codexModels(at url: URL) -> [String: TokenTally] {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return [:] }
-        defer { try? handle.close() }
-        let size = (try? handle.seekToEnd()) ?? 0
-        let window: UInt64 = 65_536
-        try? handle.seek(toOffset: size > window ? size - window : 0)
-        let tail = String(decoding: (try? handle.readToEnd()) ?? Data(), as: UTF8.self)
-        guard let usage = tail.split(separator: "\n").reversed()
-            .compactMap({ line -> [String: Any]? in
-                guard line.contains("\"token_count\""), let object = json(String(line)),
-                      let info = (object["payload"] as? [String: Any])?["info"] as? [String: Any]
-                else { return nil }
-                return info["total_token_usage"] as? [String: Any]
-            }).first else { return [:] }
+    /// Claude Code stamps every assistant message with its model and what that message
+    /// cost, so the file is already a ledger of deltas — one line, one sample.
+    private static func claudeSample(_ line: String) -> UsageSample? {
+        guard line.contains("\"usage\""), let object = json(line),
+              let at = date(object["timestamp"] as? String),
+              let message = object["message"] as? [String: Any],
+              let usage = message["usage"] as? [String: Any] else { return nil }
+        func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
+        let tally = TokenTally(input: count("input_tokens"), output: count("output_tokens"),
+                               cacheRead: count("cache_read_input_tokens"),
+                               cacheWrite: count("cache_creation_input_tokens"))
+        return tally.total == 0 ? nil
+            : UsageSample(at: at, model: message["model"] as? String ?? "unknown", tally: tally)
+    }
+
+    /// Codex reports the session's running total on every turn instead of that turn's
+    /// cost, so each sample is the difference from the last one. Differencing telescopes:
+    /// the samples always add back up to the total the file last reported, which summing
+    /// its `last_token_usage` fields does not — those repeat within a turn.
+    private static func codexSample(_ line: String, cursor: inout Cursor) -> UsageSample? {
+        guard let object = json(line), let payload = object["payload"] as? [String: Any] else { return nil }
+        // A turn names its model before it reports what the turn cost, and a session can
+        // change model partway, so the latest one seen is the one a sample is filed under.
+        if object["type"] as? String == "turn_context" {
+            cursor.model = payload["model"] as? String ?? cursor.model
+            return nil
+        }
+        guard payload["type"] as? String == "token_count",
+              let at = date(object["timestamp"] as? String),
+              let info = payload["info"] as? [String: Any],
+              let usage = info["total_token_usage"] as? [String: Any] else { return nil }
         func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
         // `input_tokens` is the whole prompt, cached part included, so the cached half is
         // subtracted out rather than counted twice.
         let cached = count("cached_input_tokens")
-        return [codexModel(at: url): TokenTally(input: max(0, count("input_tokens") - cached),
-                                                output: count("output_tokens"),
-                                                cacheRead: cached,
-                                                cacheWrite: count("cache_write_input_tokens"))]
-    }
-
-    private static var codexModelCache: [String: String] = [:]
-
-    private static func codexModel(at url: URL) -> String {
-        if let known = codexModelCache[url.path] { return known }
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return "unknown" }
-        defer { try? handle.close() }
-        let head = String(decoding: (try? handle.read(upToCount: 512_000)) ?? Data(), as: UTF8.self)
-        let model = head.split(separator: "\n").lazy
-            .filter { $0.contains("\"turn_context\"") }
-            .compactMap { (json(String($0))?["payload"] as? [String: Any])?["model"] as? String }
-            .first ?? "unknown"
-        codexModelCache[url.path] = model
-        return model
+        let total = TokenTally(input: max(0, count("input_tokens") - cached),
+                               output: count("output_tokens"), cacheRead: cached,
+                               cacheWrite: count("cache_write_input_tokens"))
+        let delta = total - cursor.running
+        cursor.running = total
+        return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
     }
 
     /// Whole lines written since this file was last read, advancing the cursor only past
     /// the newline — a half-written last line is left for the next pass rather than parsed.
-    private static func newLines(in url: URL) -> [String] {
+    private static func newLines(in url: URL, cursor: inout Cursor) -> [String] {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()) ?? 0
-        let start = cursors[url.path] ?? 0
+        guard size != cursor.offset else { return [] }
         // A file that shrank was replaced, not appended to; start it over.
-        guard size != start else { return [] }
-        try? handle.seek(toOffset: size > start ? start : 0)
-        if size < start { tallies[url.path] = nil }
+        if size < cursor.offset { cursor = Cursor() }
+        try? handle.seek(toOffset: cursor.offset)
         let data = (try? handle.readToEnd()) ?? Data()
         guard let end = data.lastIndex(of: UInt8(ascii: "\n")) else { return [] }
-        cursors[url.path] = (size > start ? start : 0) + UInt64(end) + 1
+        cursor.offset += UInt64(end) + 1
         return String(decoding: data[..<end], as: UTF8.self).split(separator: "\n").map(String.init)
     }
 
@@ -254,7 +377,7 @@ enum AgentUsage {
         return minor / pow(10, (value["exponent"] as? NSNumber)?.doubleValue ?? 2)
     }
 
-    private static func date(_ text: String?) -> Date? {
+    static func date(_ text: String?) -> Date? {
         guard let text else { return nil }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -359,12 +482,32 @@ enum AgentUsage {
     /// One colour per model family, held steady across every panel so a slice in the model
     /// bar and a label on an agent row are recognisably the same thing.
     static func modelTint(_ model: String) -> Color {
+        switch family(model) {
+        case "opus": return Theme.violet
+        case "sonnet": return Theme.accent
+        case "haiku": return Theme.green
+        case "fable": return Theme.amber
+        default: return Theme.tx3
+        }
+    }
+
+    private static func family(_ model: String) -> String {
         let name = model.lowercased()
-        if name.contains("opus") { return Theme.violet }
-        if name.contains("sonnet") { return Theme.accent }
-        if name.contains("haiku") { return Theme.green }
-        if name.contains("fable") { return Theme.amber }
-        return Theme.tx3
+        return ["opus", "sonnet", "haiku", "fable", "gpt", "codex"].first { name.contains($0) } ?? "other"
+    }
+
+    /// A colour per model for one render, rather than per family. Two versions of the same
+    /// model are the same hue at different weights: a bar stacked out of one flat violet
+    /// says how much went to Opus but not which Opus, which is half the question. Pass the
+    /// models biggest-spender first, so the one that did most of the work is full strength.
+    static func palette(for models: [String]) -> [String: Color] {
+        var depth: [String: Int] = [:]
+        return models.reduce(into: [:]) { palette, model in
+            let step = depth[family(model), default: 0]
+            depth[family(model)] = step + 1
+            palette[model] = step == 0 ? modelTint(model)
+                : modelTint(model).opacity(1 - 0.32 * Double(min(step, 2)))
+        }
     }
 
     /// `claude-haiku-4-5-20251001` → `haiku-4-5`: the date stamp is noise in a legend.

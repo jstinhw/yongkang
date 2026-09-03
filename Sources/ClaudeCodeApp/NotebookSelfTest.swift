@@ -795,47 +795,138 @@ enum NotebookSelfTest {
         let fm = FileManager.default
         let dir = tmp.appendingPathComponent("usage")
         try! fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        func at(_ clock: String) -> Date { AgentUsage.date("2026-09-03T\(clock):00.000Z")! }
+        let noon = at("12:00")
 
         let claude = dir.appendingPathComponent("session.jsonl")
-        func message(_ model: String, out: Int) -> String {
+        func message(_ model: String, _ clock: String, out: Int) -> String {
             """
-            {"type":"assistant","message":{"model":"\(model)","usage":{"input_tokens":10,\
-            "output_tokens":\(out),"cache_read_input_tokens":100,"cache_creation_input_tokens":20}}}
+            {"type":"assistant","timestamp":"2026-09-03T\(clock):00.000Z","message":{"model":"\(model)",\
+            "usage":{"input_tokens":10,"output_tokens":\(out),"cache_read_input_tokens":100,\
+            "cache_creation_input_tokens":20}}}
             """
         }
-        try! (message("claude-opus-5", out: 5) + "\n").write(to: claude, atomically: true, encoding: .utf8)
-        let tally = AgentUsage.claudeModels(at: claude)["claude-opus-5"]!
-        precondition(tally.output == 5 && tally.cacheRead == 100 && tally.total == 135)
+        try! (message("claude-opus-5", "12:00", out: 5) + "\n")
+            .write(to: claude, atomically: true, encoding: .utf8)
+        let first = AgentUsage.samples(at: claude, .claude)
+        precondition(first.count == 1 && first[0].at == noon)
+        precondition(first[0].tally.output == 5 && first[0].tally.cacheRead == 100
+                     && first[0].tally.total == 135)
 
-        // Appended while the screen is open: the second read must pick up only the new line.
-        append(message("claude-opus-5", out: 5) + "\n"
-               + message("claude-haiku-4-5-20251001", out: 3) + "\n", to: claude)
-        let grown = AgentUsage.claudeModels(at: claude)
-        precondition(grown["claude-opus-5"]!.output == 10, "an appended transcript is not re-counted")
-        precondition(grown["claude-haiku-4-5-20251001"]!.output == 3, "and a second model is its own row")
+        // Appended while the screen is open: the second read must pick up only the new lines.
+        append(message("claude-opus-5", "12:30", out: 5) + "\n"
+               + message("claude-haiku-4-5-20251001", "12:45", out: 3) + "\n", to: claude)
+        let grown = AgentUsage.samples(at: claude, .claude)
+        precondition(grown.count == 3, "an appended transcript is not re-counted")
+        precondition(grown.filter { $0.model == "claude-opus-5" }.map(\.tally.output).reduce(0, +) == 10)
 
         // A half-written last line is left for the next pass rather than parsed as garbage.
-        append(String(message("claude-opus-5", out: 5).prefix(40)), to: claude)
-        precondition(AgentUsage.claudeModels(at: claude)["claude-opus-5"]!.output == 10,
+        append(String(message("claude-opus-5", "12:50", out: 5).prefix(40)), to: claude)
+        precondition(AgentUsage.samples(at: claude, .claude).count == 3,
                      "a partial line is not counted until its newline lands")
 
+        // Windowing is what the range picker does: the same samples, narrowed by time.
+        let spend = AgentSpend(id: "s", tag: "t", name: "Lead", role: "lead", provider: .claude,
+                               running: true, samples: grown)
+        precondition(spend.tally(since: nil).total == 403, "all time is every sample")
+        precondition(spend.samples(since: at("12:40")).count == 1, "and a window is only what fits")
+        precondition(spend.models(since: at("12:40")).keys.first == "claude-haiku-4-5-20251001")
+        precondition(spend.topModel(since: nil) == "claude-opus-5",
+                     "the model on a row is the one that spent most in the window")
+
         let codex = dir.appendingPathComponent("rollout.jsonl")
-        func count(_ input: Int, cached: Int, out: Int) -> String {
+        func count(_ clock: String, _ input: Int, cached: Int, out: Int) -> String {
             """
-            {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":\
-            {"input_tokens":\(input),"cached_input_tokens":\(cached),"cache_write_input_tokens":10,\
-            "output_tokens":\(out)}}}}
+            {"type":"event_msg","timestamp":"2026-09-03T\(clock):00.000Z","payload":{"type":"token_count",\
+            "info":{"total_token_usage":{"input_tokens":\(input),"cached_input_tokens":\(cached),\
+            "cache_write_input_tokens":10,"output_tokens":\(out)}}}}
             """
         }
         try! ("""
-        {"type":"turn_context","payload":{"model":"gpt-5.6-luna","effort":"medium"}}
-        \(count(100, cached: 80, out: 5))
-        \(count(300, cached: 250, out: 40))
+        {"type":"turn_context","timestamp":"2026-09-03T12:00:00.000Z","payload":{"model":"gpt-5.6-luna"}}
+        \(count("12:10", 100, cached: 80, out: 5))
+        \(count("12:10", 100, cached: 80, out: 5))
+        \(count("12:20", 300, cached: 250, out: 40))
         """ + "\n").write(to: codex, atomically: true, encoding: .utf8)
-        let rollout = AgentUsage.codexModels(at: codex)["gpt-5.6-luna"]!
-        precondition(rollout.output == 40, "Codex reports a running total, so the last event wins")
-        precondition(rollout.input == 50 && rollout.cacheRead == 250,
-                     "and its input_tokens already includes the cached half")
+        let rollout = AgentUsage.samples(at: codex, .codex)
+        precondition(rollout.count == 2, "a repeated running total is not a second turn")
+        precondition(rollout.allSatisfy { $0.model == "gpt-5.6-luna" }, "the model comes off turn_context")
+        // Differencing telescopes: the samples add back to the last total the file reported.
+        let summed = rollout.map(\.tally).reduce(TokenTally(), +)
+        precondition(summed.output == 40 && summed.cacheRead == 250 && summed.input == 50,
+                     "Codex reports a running total, and its input already includes the cached half")
+        precondition(rollout[1].tally.output == 35, "so a sample is the step, not the total")
+
+        // The histogram slices the range into equal buckets and drops nothing inside it.
+        let noonish = grown + rollout
+        let hour = AgentUsage.histogram(noonish, range: .hour, now: at("13:00"))
+        precondition(hour.count == UsageRange.hour.buckets)
+        precondition(hour.map(\.total).reduce(0, +) == noonish.map(\.tally.total).reduce(0, +),
+                     "every sample inside the range lands in exactly one bucket")
+        precondition(hour[0].byModel["claude-opus-5"] == 135, "and lands in the right one")
+        precondition(hour[6].byModel["claude-opus-5"] == 135 && hour[9].byModel["claude-haiku-4-5-20251001"] == 133)
+        let stale = AgentUsage.histogram(noonish, range: .hour, now: at("18:00"))
+        precondition(stale.map(\.total).reduce(0, +) == 0, "and nothing older than the range shows at all")
+        // A sample landing on the window's own edge belongs in the last bucket, not nowhere.
+        let edge = AgentUsage.histogram([UsageSample(at: at("13:00"), model: "m", tally: grown[0].tally)],
+                                        range: .hour, now: at("13:00"))
+        precondition(edge.last?.total == 135)
+        precondition(AgentUsage.histogram([], range: .all, now: noon).isEmpty,
+                     "an all-time view of nothing draws no bars rather than dividing by zero")
+
+        // The ledger is what makes the numbers outlive the app: sessions are not restored
+        // on relaunch, so without it a reopened project shows nothing however much its
+        // agents spent.
+        let notebook = dir.appendingPathComponent(".notebook")
+        precondition(!UsageLedger.record([spend], root: notebook),
+                     "a project with no notebook is not given one just to file usage in")
+        try! fm.createDirectory(at: notebook, withIntermediateDirectories: true)
+        precondition(UsageLedger.record([spend], root: notebook))
+        precondition(!UsageLedger.record([spend], root: notebook),
+                     "and an unchanged ledger is not rewritten, because the poll calls this")
+
+        let remembered = UsageLedger.load(root: notebook)
+        precondition(remembered.count == 1 && remembered[0].id == spend.id)
+        precondition(remembered[0].name == "Lead" && remembered[0].role == "lead")
+        precondition(remembered[0].tally(since: nil).total == spend.tally(since: nil).total,
+                     "what an agent spent survives the run that read it")
+        precondition(remembered[0].tag.isEmpty, "but its session is gone, so nothing opens")
+        // 12:00 and 12:30 are one opus hour; 12:45 is a haiku hour of its own.
+        precondition(remembered[0].samples.count == 2, "kept by the hour, not by the turn")
+        precondition(remembered[0].samples.allSatisfy {
+            $0.at.timeIntervalSince1970.truncatingRemainder(dividingBy: 3_600) == 0
+        }, "and filed on the hour mark")
+
+        // Usage only accumulates, so a re-read that comes back short — a truncated or
+        // rotated transcript — must not erase the hour it had already recorded.
+        let truncated = AgentSpend(id: spend.id, tag: "t", name: "Lead", role: "lead",
+                                   provider: .claude, running: false, samples: [grown[0]])
+        UsageLedger.record([truncated], root: notebook)
+        precondition(UsageLedger.load(root: notebook)[0].tally(since: nil).total
+                     == spend.tally(since: nil).total, "a short re-read keeps the fuller record")
+
+        // A provider's agent id is only unique inside the session that spawned it, so the
+        // spend that carries it has to be scoped — it is both a list key and a ledger row,
+        // and two sessions really do hand out the same one.
+        let shared = SubagentStatus(id: "a3a603000d158ff03", description: "qa", agentType: "qa-dev",
+                                    running: false, transcriptURL: claude)
+        var twin = Project(directory: tmp, entries: [])
+        twin.sessions = [
+            CodeSession(id: UUID(), title: "Engineering Lead", icon: "s", line: "claude",
+                        agent: .claude, subagents: [shared]),
+            CodeSession(id: UUID(), title: "Engineering Lead 2", icon: "s", line: "claude",
+                        agent: .claude, subagents: [shared]),
+        ]
+        let ids = AgentUsage.spends(in: twin).map(\.id)
+        precondition(Set(ids).count == ids.count, "the same agent id under two leads is two rows")
+
+        // A second agent joins the ledger rather than replacing the first.
+        let other = AgentSpend(id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
+                               provider: .codex, running: false, samples: rollout)
+        UsageLedger.record([other], root: notebook)
+        let both = UsageLedger.load(root: notebook)
+        precondition(both.count == 2 && both.contains { $0.provider == .codex },
+                     "and each agent keeps its own provider")
 
         // Plan limits come out of Claude Code's own config cache, which is not an API —
         // a shape it does not recognise has to read as "nothing to show", never as a crash.
@@ -860,9 +951,14 @@ enum NotebookSelfTest {
                      && AgentUsage.short(45_000) == "45K" && AgentUsage.short(2_400_000) == "2.4M")
         precondition(AgentUsage.modelName("claude-haiku-4-5-20251001") == "haiku-4-5")
         precondition(AgentUsage.modelName("gpt-5.6-luna") == "gpt-5.6-luna")
-        let now = Date()
-        precondition(AgentUsage.until(now.addingTimeInterval(8_100), now: now) == "2h 15m")
-        precondition(AgentUsage.until(now.addingTimeInterval(-60), now: now) == nil,
+        // Two versions of one model must not draw as the same colour, or a stacked bar
+        // says how much went to Opus without saying which Opus.
+        let shades = AgentUsage.palette(for: ["claude-opus-5", "claude-opus-4-7", "claude-sonnet-5"])
+        precondition(shades["claude-opus-5"] != shades["claude-opus-4-7"])
+        precondition(shades["claude-opus-5"] == AgentUsage.modelTint("claude-opus-5"),
+                     "and the biggest spender in a family keeps the family's own colour")
+        precondition(AgentUsage.until(noon.addingTimeInterval(8_100), now: noon) == "2h 15m")
+        precondition(AgentUsage.until(noon.addingTimeInterval(-60), now: noon) == nil,
                      "a window that already rolled over says nothing rather than a negative")
     }
 

@@ -86,7 +86,9 @@ enum DesignShots {
         // fixture would prove the layout and nothing else.
         let real = realSessions(in: repo)
         write(console(real, section: .agents) {
-            UsageBoard(project: real, open: { _ in })
+            // The hour, not the default day: a machine whose agents ran this morning would
+            // photograph an empty chart, which says nothing about whether it draws.
+            UsageBoard(project: real, open: { _ in }, range: .hour)
         }, "usage", into: directory)
 
         print("shots written to \(directory.path)")

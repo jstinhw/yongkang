@@ -725,6 +725,11 @@ struct ClaudeCodeApp: App {
                 let subagents = subagents(of: session, in: projects[index].directory)
                 if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
             }
+            // Written from the poll rather than from the usage screen: what an agent spent
+            // has to survive a run in which nobody opened that screen, and the transcripts
+            // it is read from are no longer findable once the sessions are gone.
+            UsageLedger.record(AgentUsage.spends(in: projects[index]),
+                               root: projects[index].notebookRoot)
         }
         reloadAgentTranscript()
         refreshChanges()
