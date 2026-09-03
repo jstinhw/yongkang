@@ -70,18 +70,39 @@ enum ClaudeTranscripts {
     }
 
     /// Claude Code slugs a project's absolute path into its transcript folder name by
-    /// swapping every "/" for "-", then keys each session's own folder by its id.
-    /// `claudeHome` is overridable so tests can point this at a throwaway root instead of
-    /// the user's real `~/.claude`.
+    /// swapping every "/" for "-". `claudeHome` is overridable so tests can point this at a
+    /// throwaway root instead of the user's real `~/.claude`.
+    static func projectFolder(
+        projectDirectory: URL,
+        claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
+    ) -> URL {
+        claudeHome
+            .appendingPathComponent("projects", isDirectory: true)
+            .appendingPathComponent(projectDirectory.path.replacingOccurrences(of: "/", with: "-"),
+                                    isDirectory: true)
+    }
+
+    /// A session's own folder inside it, keyed by its id — where its subagents are kept.
     static func sessionFolder(
         sessionID: UUID, projectDirectory: URL,
         claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     ) -> URL {
-        let slug = projectDirectory.path.replacingOccurrences(of: "/", with: "-")
-        return claudeHome
-            .appendingPathComponent("projects")
-            .appendingPathComponent(slug)
-            .appendingPathComponent(sessionID.uuidString.lowercased())
+        projectFolder(projectDirectory: projectDirectory, claudeHome: claudeHome)
+            .appendingPathComponent(sessionID.uuidString.lowercased(), isDirectory: true)
+    }
+
+    /// The session's own transcript, beside that folder — what the reader watches a lead
+    /// through, and what `subagents(...)` reads to tell a finished agent from a running one.
+    ///
+    /// Spelt out rather than derived by decorating `sessionFolder`: `appendingPathExtension`
+    /// on a URL that points at a folder which exists keeps the folder's trailing slash, and
+    /// the result is a directory URL that no longer equals the file it names.
+    static func transcriptURL(
+        sessionID: UUID, projectDirectory: URL,
+        claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
+    ) -> URL {
+        projectFolder(projectDirectory: projectDirectory, claudeHome: claudeHome)
+            .appendingPathComponent(sessionID.uuidString.lowercased() + ".jsonl", isDirectory: false)
     }
 
     /// Foreground agents return their work in the first tool result. Background agents
@@ -135,7 +156,9 @@ enum ClaudeTranscripts {
         guard !metaFiles.isEmpty else { return [] }
         // The parent's own transcript, read once and reused for every subagent below —
         // it says which of them already have a result.
-        let transcript = (try? String(contentsOf: folder.appendingPathExtension("jsonl"), encoding: .utf8)) ?? ""
+        let parent = transcriptURL(sessionID: sessionID, projectDirectory: projectDirectory,
+                                   claudeHome: claudeHome)
+        let transcript = (try? String(contentsOf: parent, encoding: .utf8)) ?? ""
 
         return metaFiles.compactMap { url -> SubagentStatus? in
             guard let data = try? Data(contentsOf: url),

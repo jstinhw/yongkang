@@ -13,7 +13,10 @@ enum Tag {
     static func task(_ cardID: String) -> String { "task:\(cardID)" }
     static func page(_ cardID: String) -> String { "page:\(cardID)" }
 
-    static func lead(_ id: UUID) -> String { "lead:\(id.uuidString)" }
+    /// Every agent session has these two: its own transcript, and — for an Engineering
+    /// Lead — the lanes of specialists it dispatched.
+    static func transcript(_ id: UUID) -> String { "transcript:\(id.uuidString)" }
+    static func lanes(_ id: UUID) -> String { "lanes:\(id.uuidString)" }
     static func session(_ session: CodeSession) -> String { session.id.uuidString }
     static func subagent(_ session: CodeSession, _ subagent: SubagentStatus) -> String {
         "subagent:\(session.id.uuidString):\(subagent.id)"
@@ -35,5 +38,41 @@ enum Tag {
             if let id = scope(selection, prefix) { return cards.first { $0.id == id } }
         }
         return nil
+    }
+}
+
+/// The ways to watch one agent session, and the selection tag each one is.
+///
+/// `transcript` is first because it is the default, for every session and not just the
+/// lead: an agent's own transcript is what it has said and done, read as steps rather
+/// than as a wall of terminal output that scrolls away. The lanes belong to a lead, which
+/// is the only session with specialists under it; the terminal is for typing at any of
+/// them, a click away rather than the thing you land on.
+enum AgentPane: String, CaseIterable, Identifiable {
+    case transcript = "Transcript"
+    case lanes = "Agents"
+    case session = "Session"
+
+    var id: Self { self }
+
+    func tag(_ session: UUID) -> String {
+        switch self {
+        case .transcript: return Tag.transcript(session)
+        case .lanes: return Tag.lanes(session)
+        // The terminal is mounted under the plain session tag, so switching to it is the
+        // same selection a terminal row makes.
+        case .session: return session.uuidString
+        }
+    }
+
+    /// The panes a session actually has. Only a lead dispatches specialists, so only a
+    /// lead has lanes to show them in.
+    static func cases(lead: Bool) -> [AgentPane] {
+        lead ? allCases : allCases.filter { $0 != .lanes }
+    }
+
+    /// Which pane a selection is showing for this session, or nil when it points elsewhere.
+    static func of(_ selection: String?, session: UUID) -> AgentPane? {
+        allCases.first { $0.tag(session) == selection }
     }
 }

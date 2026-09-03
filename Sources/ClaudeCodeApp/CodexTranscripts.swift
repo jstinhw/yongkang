@@ -53,6 +53,17 @@ enum CodexTranscripts {
         }.sorted { $0.description < $1.description }
     }
 
+    /// This session's own rollout — the thread the app is driving, rather than one it
+    /// spawned. Nil until Codex has written the opening prompt that names the session id.
+    static func transcriptURL(
+        sessionID: UUID, projectDirectory: URL,
+        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+    ) -> URL? {
+        let files = rollouts(in: codexHome)
+        guard let thread = thread(for: sessionID, in: projectDirectory, rollouts: files) else { return nil }
+        return files.first { meta(at: $0)?.threadID == thread }
+    }
+
     private static func isDescendant(_ meta: Meta, of root: String, in threads: [String: Meta]) -> Bool {
         var parent = meta.parentThreadID
         var visited: Set<String> = []

@@ -2,14 +2,6 @@ import SwiftUI
 import AppKit
 import Combine
 
-/// The lead's own two views: the agents it has dispatched, and the terminal it is running in.
-enum EngineeringLeadPane: String, CaseIterable, Identifiable {
-    case agents = "Agents"
-    case session = "Session"
-
-    var id: Self { self }
-}
-
 @main
 struct ClaudeCodeApp: App {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
@@ -26,10 +18,14 @@ struct ClaudeCodeApp: App {
     /// Text queued to be typed into a running session, keyed by session id — how a task
     /// reaches a lead that already exists instead of starting a competing one.
     @State private var pendingInput: [UUID: String] = [:]
-    /// The lines of whichever subagent `selection` currently points at. Kept apart from
-    /// `CodeSession.subagents`, which only ever holds each one's status, because reading
-    /// and parsing a whole transcript is only worth doing for the one actually on screen.
-    @State private var subagentTranscript: [TranscriptLine] = []
+    /// The lines of whichever agent `selection` currently points at — a subagent, or the
+    /// lead itself. Kept apart from `CodeSession.subagents`, which only ever holds each
+    /// one's status, because reading and parsing a whole transcript is only worth doing
+    /// for the one actually on screen.
+    @State private var agentTranscript: [TranscriptLine] = []
+    /// The file those lines came from, so switching agents replaces them rather than
+    /// leaving one agent's work under another's name when the two are the same length.
+    @State private var transcriptSource: URL?
     /// What the agents changed on disk, read from git. Only refreshed while a screen that
     /// shows it is open — a repo-wide diff every two seconds would be rude.
     @State private var changes: [FileChange] = []
@@ -162,15 +158,17 @@ struct ClaudeCodeApp: App {
                 .buttonStyle(.console)
             }
         case .agents:
-            let lead = selectedLead(in: project) ?? selectedSubagent(in: project)?.session
+            let watched = selectedAgent(in: project) ?? selectedSubagent(in: project)?.session
             TopBar(crumbs: [project.name],
                    title: selectedSubagent(in: project)?.subagent.description
-                        ?? lead?.title ?? "Agents") {
-                if let lead, lead.isEngineeringLead, selectedSubagent(in: project) == nil {
-                    Picker("", selection: leadPane(lead)) {
-                        ForEach(EngineeringLeadPane.allCases) { Text($0.rawValue).tag($0) }
+                        ?? watched?.title ?? "Agents") {
+                if let watched, selectedSubagent(in: project) == nil {
+                    let panes = AgentPane.cases(lead: watched.isEngineeringLead)
+                    Picker("", selection: agentPane(watched)) {
+                        ForEach(panes) { Text($0.rawValue).tag($0) }
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 170)
+                    .pickerStyle(.segmented).labelsHidden()
+                    .frame(width: panes.count == 3 ? 250 : 175)
                 }
                 if let found = selectedSubagent(in: project) {
                     Button { openLiveTerminal(found.subagent, in: found.session) } label: {
@@ -267,19 +265,37 @@ struct ClaudeCodeApp: App {
             NotebookEntryDetail(card: card, cards: project.cards,
                                 open: { url in selection = NotebookEntry.id(for: url) })
                 .id(card.id)
-        } else if let lead = selectedLead(in: project) {
-            EngineeringLeadBoard(
-                session: lead, cards: project.cards, blocks: project.blocks,
-                openTask: { section = .board; selection = Tag.task($0) },
-                openSubagent: { subagent in
-                    selection = Tag.subagent(lead, subagent)
-                    reload()
-                },
-                openBlock: { section = .blocks; selection = Tag.block($0) }
-            )
+        } else if let watched = selectedAgent(in: project) {
+            switch AgentPane.of(selection, session: watched.id) {
+            case .lanes:
+                EngineeringLeadBoard(
+                    session: watched, cards: project.cards, blocks: project.blocks,
+                    openTask: { section = .board; selection = Tag.task($0) },
+                    openSubagent: { subagent in
+                        selection = Tag.subagent(watched, subagent)
+                        reload()
+                    },
+                    openBlock: { section = .blocks; selection = Tag.block($0) }
+                )
+            case .session:
+                // The session's terminal is mounted underneath; this pane stays out of its way.
+                Color.clear
+            default:
+                SessionTranscript(
+                    session: watched, cards: project.cards, blocks: project.blocks,
+                    lines: agentTranscript,
+                    source: sessionTranscript(of: watched, in: project.directory),
+                    openTask: { section = .board; selection = Tag.task($0) },
+                    openBlock: { section = .blocks; selection = Tag.block($0) },
+                    openSubagent: { subagent in
+                        selection = Tag.subagent(watched, subagent)
+                        reload()
+                    }
+                )
+            }
         } else if let found = selectedSubagent(in: project) {
             SubagentViewer(session: found.session, subagent: found.subagent,
-                           lines: subagentTranscript,
+                           lines: agentTranscript,
                            task: found.subagent.taskID.flatMap { id in
                                project.cards.first { $0.id == id }
                            },
@@ -341,9 +357,10 @@ struct ClaudeCodeApp: App {
                 selection = Tag.board(project)
             }
         case .agents:
-            if selectedLead(in: project) == nil && selectedSubagent(in: project) == nil {
-                selection = project.sessions.first { $0.isEngineeringLead }.map { Tag.lead($0.id) }
-                    ?? project.sessions.first { $0.agent != nil }.map { Tag.session($0) }
+            if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil {
+                selection = (project.sessions.first { $0.isEngineeringLead }
+                             ?? project.sessions.first { $0.agent != nil })
+                    .map { Tag.transcript($0.id) }
             }
         case .review:
             refreshChanges(force: true)
@@ -366,14 +383,22 @@ struct ClaudeCodeApp: App {
         project.sessions.first { Tag.session($0) == selection }
     }
 
-    private func selectedLead(in project: Project) -> CodeSession? {
-        project.sessions.first { $0.isEngineeringLead && Tag.lead($0.id) == selection }
+    /// The agent session the selection is on, whichever of its panes is showing — its
+    /// terminal included, so switching to the session does not take the pane switch away
+    /// with it. A service terminal is not an agent and has no transcript to watch.
+    private func selectedAgent(in project: Project) -> CodeSession? {
+        project.sessions.first {
+            $0.agent != nil && AgentPane.of(selection, session: $0.id) != nil
+        }
     }
 
-    private func leadPane(_ session: CodeSession) -> Binding<EngineeringLeadPane> {
+    private func agentPane(_ session: CodeSession) -> Binding<AgentPane> {
         Binding(
-            get: { selection == session.id.uuidString ? .session : .agents },
-            set: { selection = $0 == .session ? session.id.uuidString : Tag.lead(session.id) }
+            get: { AgentPane.of(selection, session: session.id) ?? .transcript },
+            set: {
+                selection = $0.tag(session.id)
+                reloadAgentTranscript()
+            }
         )
     }
 
@@ -465,7 +490,7 @@ struct ClaudeCodeApp: App {
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
             pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
                                                                          agent: leadAgent)
-            selection = Tag.lead(lead.id)
+            selection = Tag.transcript(lead.id)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
@@ -474,7 +499,7 @@ struct ClaudeCodeApp: App {
         addSession(agent, id: id, to: project,
                    prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
-        selection = Tag.lead(id)
+        selection = Tag.transcript(id)
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -671,7 +696,7 @@ struct ClaudeCodeApp: App {
                 if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
             }
         }
-        reloadSubagentTranscript()
+        reloadAgentTranscript()
         refreshChanges()
     }
 
@@ -700,14 +725,40 @@ struct ClaudeCodeApp: App {
         }
     }
 
-    /// Only the subagent actually on screen pays for having its transcript read and
-    /// parsed — everything else is covered by the status list above.
-    private func reloadSubagentTranscript() {
-        guard let project = enteredProject, let found = selectedSubagent(in: project) else { return }
-        let fresh = found.session.agent == .codex
-            ? CodexTranscripts.transcript(at: found.subagent.transcriptURL)
-            : ClaudeTranscripts.transcript(at: found.subagent.transcriptURL)
-        if fresh.count != subagentTranscript.count { subagentTranscript = fresh }
+    /// Only the agent actually on screen pays for having its transcript read and parsed —
+    /// everything else is covered by the status list above.
+    private func reloadAgentTranscript() {
+        guard let project = enteredProject, let source = onScreenTranscript(in: project) else { return }
+        let fresh = source.agent == .codex ? CodexTranscripts.transcript(at: source.url)
+                                           : ClaudeTranscripts.transcript(at: source.url)
+        guard source.url != transcriptSource || fresh.count != agentTranscript.count else { return }
+        transcriptSource = source.url
+        agentTranscript = fresh
+    }
+
+    /// The transcript the work area is showing, if it is showing one: a subagent's, or the
+    /// lead's own when its transcript pane is up.
+    private func onScreenTranscript(in project: Project) -> (agent: AgentKind, url: URL)? {
+        if let found = selectedSubagent(in: project) {
+            return (found.session.agent ?? .claude, found.subagent.transcriptURL)
+        }
+        guard let watched = selectedAgent(in: project),
+              AgentPane.of(selection, session: watched.id) == .transcript,
+              let url = sessionTranscript(of: watched, in: project.directory) else { return nil }
+        return (watched.agent ?? .claude, url)
+    }
+
+    /// A session's own transcript — the parent half of what `subagents(of:in:)` reads for
+    /// the agents it spawned, and found the same per-provider way. Nil for a Codex session
+    /// whose opening prompt does not quote its id: there is nothing on disk to join on,
+    /// which is why its subagents never resolve either.
+    private func sessionTranscript(of session: CodeSession, in directory: URL) -> URL? {
+        switch session.agent {
+        case .codex:
+            return CodexTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
+        default:
+            return ClaudeTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
+        }
     }
 
     // MARK: - Sessions
@@ -787,7 +838,7 @@ struct ClaudeCodeApp: App {
     private func close(_ session: CodeSession, in project: Project) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].sessions.removeAll { $0.id == session.id }
-        if selection == session.id.uuidString || selection == Tag.lead(session.id)
+        if AgentPane.of(selection, session: session.id) != nil
             || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true {
             selection = nil
         }

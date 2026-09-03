@@ -206,8 +206,10 @@ enum NotebookSelfTest {
             .write(to: subagentsDir.appendingPathComponent("agent-done1.meta.json"), atomically: true, encoding: .utf8)
         try! #"{"agentType":"Explore","description":"Find Y","toolUseId":"toolu_running"}"#
             .write(to: subagentsDir.appendingPathComponent("agent-running1.meta.json"), atomically: true, encoding: .utf8)
+        let leadLog = ClaudeTranscripts.transcriptURL(sessionID: sessionID, projectDirectory: tmp,
+                                                      claudeHome: claudeHome)
         try! #"{"type":"tool_result","tool_use_id":"toolu_done"}"#
-            .write(to: sessionFolder.appendingPathExtension("jsonl"), atomically: true, encoding: .utf8)
+            .write(to: leadLog, atomically: true, encoding: .utf8)
 
         let subagents = ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp, claudeHome: claudeHome)
         precondition(subagents.map(\.description) == ["Find Y", "Research X"], "sorted by description")
@@ -219,6 +221,8 @@ enum NotebookSelfTest {
                      == subagentsDir.appendingPathComponent("agent-done1.jsonl"))
         precondition(ClaudeTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp, claudeHome: claudeHome).isEmpty,
                      "a session with no subagents folder reads as empty, not a crash")
+        precondition(leadLog.path == sessionFolder.path + ".jsonl" && !leadLog.hasDirectoryPath,
+                     "a lead is watched through the file beside its subagents' folder, not a folder")
 
         // The viewer's own read: a task, a tool call (thinking dropped along the way), its
         // result, and a reply, out of the same shape a subagent's own transcript is in.
@@ -262,6 +266,20 @@ enum NotebookSelfTest {
                                  subagents: grouped.flatMap(\.subagents))
                      .activeSubagents.map(\.id) == ["qa"],
                      "a finished agent drops off the lead's lists")
+
+        // A session is several selections, not one: its own transcript by default, a lead's
+        // lanes, and the live terminal under the tag its PTY is already mounted on.
+        let paneSession = UUID()
+        precondition(AgentPane.of(Tag.transcript(paneSession), session: paneSession) == .transcript,
+                     "an agent row lands on its transcript, the way a subagent row does")
+        precondition(AgentPane.of(Tag.lanes(paneSession), session: paneSession) == .lanes)
+        precondition(AgentPane.of(paneSession.uuidString, session: paneSession) == .session,
+                     "the session stays reachable for anyone who wants to type at it")
+        precondition(AgentPane.of(Tag.transcript(UUID()), session: paneSession) == nil,
+                     "another session's tag is not this one's pane")
+        precondition(AgentPane.cases(lead: true) == [.transcript, .lanes, .session]
+                     && AgentPane.cases(lead: false) == [.transcript, .session],
+                     "only a lead has specialists to show lanes of")
         precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
                                                   taskIDs: ["research-x"], claudeHome: claudeHome)
                      .first { $0.id == "done1" }?.taskID == "research-x",
@@ -314,6 +332,13 @@ enum NotebookSelfTest {
         precondition(CodexTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp,
                                                 codexHome: codexHome).isEmpty,
                      "a session whose thread is not on disk reads as empty, not a crash")
+        precondition(CodexTranscripts.transcriptURL(sessionID: codexSession, projectDirectory: tmp,
+                                                    codexHome: codexHome)?.lastPathComponent
+                     == "rollout-lead.jsonl",
+                     "a Codex lead is watched through its own rollout, not one it spawned")
+        precondition(CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp,
+                                                    codexHome: codexHome) == nil,
+                     "a thread not on disk yet has no transcript to read, rather than the wrong one")
         try! (((try! String(contentsOf: child, encoding: .utf8))
                + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#))
             .write(to: child, atomically: true, encoding: .utf8)

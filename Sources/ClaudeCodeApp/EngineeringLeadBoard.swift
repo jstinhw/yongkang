@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The lead as an orchestrator: one lane per assigned task, the specialists it dispatched
 /// inside that lane, and where the task has got to in the loop the lead actually runs —
-/// dispatch, build, QA, done. Its live terminal is the other half of the pane switch in
-/// the top bar.
+/// dispatch, build, QA, done. Its own transcript and its live terminal are the other two
+/// panes of the switch in the top bar.
 struct EngineeringLeadBoard: View {
     let session: CodeSession
     let cards: [NotebookCard]
@@ -199,9 +199,23 @@ struct EngineeringLeadBoard: View {
         .cardSurface()
     }
 
-    // MARK: - Inspector
-
     private var inspector: some View {
+        LeadInspector(session: session, cards: cards, blocks: blocks,
+                      openTask: openTask, openBlock: openBlock)
+    }
+}
+
+/// The lead's right-hand column: how far the batch has got, what is holding it up, and the
+/// order it was handed. Shared by the lead's two views — the same facts belong beside its
+/// transcript and beside its lanes.
+struct LeadInspector: View {
+    let session: CodeSession
+    let cards: [NotebookCard]
+    let blocks: [UserBlock]
+    let openTask: (String) -> Void
+    let openBlock: (UserBlock) -> Void
+
+    var body: some View {
         let done = session.taskIDs.filter { id in
             cards.contains { $0.id == id && $0.status == "done" }
         }.count

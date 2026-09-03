@@ -30,6 +30,19 @@ enum DesignShots {
         }, "board", into: directory)
 
         write(console(project, section: .agents) {
+            SessionTranscript(session: lead, cards: project.cards, blocks: project.blocks,
+                              lines: transcript(), source: URL(fileURLWithPath: "/tmp/lead.jsonl"),
+                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in })
+        }, "lead", into: directory)
+
+        write(console(project, section: .agents) {
+            SessionTranscript(session: project.sessions[1], cards: project.cards,
+                              blocks: project.blocks, lines: transcript(),
+                              source: URL(fileURLWithPath: "/tmp/product.jsonl"),
+                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in })
+        }, "session", into: directory)
+
+        write(console(project, section: .agents) {
             EngineeringLeadBoard(session: lead, cards: project.cards, blocks: project.blocks,
                                  openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
         }, "agents", into: directory)

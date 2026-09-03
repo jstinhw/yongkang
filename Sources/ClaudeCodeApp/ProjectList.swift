@@ -262,7 +262,9 @@ struct ProjectList: View {
     }
 
     private func sessionRow(_ session: CodeSession) -> some View {
-        let tag = session.isEngineeringLead ? Tag.lead(session.id) : Tag.session(session)
+        // Every agent row opens that agent's transcript; only a service terminal, which has
+        // none, is its terminal. Picking a PTY is what the Terminals section is for.
+        let tag = session.agent == nil ? Tag.session(session) : Tag.transcript(session.id)
         let running = session.activeSubagents.count
         return row(tag) {
             HStack(spacing: 9) {
