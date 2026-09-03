@@ -150,13 +150,22 @@ enum NotebookSelfTest {
                                        brief: true)
                      == "cd '/a' && exec claude --brief --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
                      "engineering leads can notify the user without changing ordinary sessions")
-        precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
-                     == "cd '/a' && exec codex 'hi'",
-                     "codex never understands --session-id, so passing one changes nothing")
+        let codexLine = AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
+        precondition(codexLine.hasPrefix("cd '/a' && exec codex 'hi"),
+                     "codex never understands --session-id, so the flag is never passed")
+        precondition(codexLine.contains(AgentCommand.marker(sid)),
+                     "the prompt carries the id instead — the only join from a row to its rollout")
+        precondition(!AgentCommand.line(directory: "/a", agent: .claude, prompt: "hi", sessionID: sid)
+                        .contains(AgentCommand.marker(sid)),
+                     "claude has the flag and needs no marker in what the user reads")
         precondition(AgentKind.claude.skillInvocation("product", arguments: "review") == "/product review")
         precondition(AgentKind.codex.skillInvocation("product", arguments: "review") == "$product review")
         precondition(AgentKind.claude.skillInvocation("product", arguments: "describe") == "/product describe")
         precondition(AgentKind.codex.skillInvocation("product", arguments: "describe") == "$product describe")
+        let productPrompt = NotebookFormat.productPrompt(arguments: "review", sessionID: sid, agent: .claude)
+        precondition(productPrompt.contains("/product review")
+                     && productPrompt.contains("Session id: \(sid.uuidString.lowercased())"),
+                     "Product needs its session id so Blocks can return to its transcript")
         let bundled = AgentKind.codex.skill("product", arguments: "describe",
                                              instructions: "Only write notebook files.")
         precondition(bundled.contains("Only write notebook files.")
@@ -298,7 +307,9 @@ enum NotebookSelfTest {
         }
         _ = rollout("rollout-lead.jsonl", [
             #"{"type":"session_meta","payload":{"id":"thread-lead","cwd":"\#(tmp.path)","source":"cli"}}"#,
-            #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"session: \#(codexSession.uuidString.lowercased())"}]}}"#,
+            // The opening prompt as `AgentCommand.line` actually writes it: the marker is
+            // the whole join, so the fixture quotes the real one rather than a stand-in.
+            #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"do the thing\n\n\#(AgentCommand.marker(codexSession))"}]}}"#,
         ])
         _ = rollout("rollout-other.jsonl", [
             #"{"type":"session_meta","payload":{"id":"thread-other","cwd":"\#(tmp.path)","source":"cli"}}"#,
@@ -348,6 +359,13 @@ enum NotebookSelfTest {
         precondition(codexLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
                      "reasoning and the duplicate event_msg lines are dropped")
         precondition(codexLines.map(\.text) == ["Message Type: NEW_TASK", "exec(ls)", "one file", "Done"])
+
+        // What the header tells the reader: an agent that has replied is theirs to answer,
+        // one mid-tool-call is not, and a dead process is neither.
+        precondition(AgentState.of(lines: codexLines, exited: false) == .waiting)
+        precondition(AgentState.of(lines: codexLines.dropLast(), exited: false) == .working)
+        precondition(AgentState.of(lines: [], exited: false) == .starting)
+        precondition(AgentState.of(lines: codexLines, exited: true) == .exited)
 
         // A blocker is pulled into the batch rather than raised as a question.
         func node(_ id: String, _ status: String, _ waits: [String], project: String? = nil) -> NotebookCard {
@@ -697,9 +715,10 @@ enum NotebookSelfTest {
         kind: proposal
         title: "Add a shared checkout flow"
         status: open
-        session: ""
+        stage: discussion
+        session: \(leadID.uuidString.lowercased())
         task: launch-beta
-        action: "Add the checkout project and decompose it into tasks."
+        action: "Return to Product to review and refine the next move."
         ---
 
         The roadmap promises checkout and no project covers it.
@@ -710,10 +729,16 @@ enum NotebookSelfTest {
         """.write(to: Blocks.root(in: root).appendingPathComponent("add-checkout.md"),
                   atomically: true, encoding: .utf8)
         let proposal = Blocks.load(root: root).first { $0.isProposal }!
-        precondition(proposal.waiting && proposal.session == nil, "nothing waits behind a proposal")
+        precondition(proposal.waiting && proposal.session == leadID && !proposal.proposalReady,
+                     "a discussion notification links back to its Product transcript")
         let approval = NotebookFormat.unblockPrompt(block: proposal, agent: .claude)
         precondition(approval.contains("product") && approval.contains(".notebook/blocks/add-checkout.md"),
-                     "approving a proposal goes back to product, not to an engineer")
+                     "a proposal can be resumed by product, not an engineer")
+        let readyText = try! String(contentsOf: proposal.url, encoding: .utf8)
+            .replacingOccurrences(of: "stage: discussion", with: "stage: ready")
+        try! readyText.write(to: proposal.url, atomically: true, encoding: .utf8)
+        precondition(Blocks.load(root: root).first { $0.isProposal }!.proposalReady,
+                     "only a finalized proposal offers project creation")
         precondition(!block.isProposal
                      && NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("fde-dev"),
                      "a gate still reaches the forward-deployed engineer")
@@ -729,6 +754,27 @@ enum NotebookSelfTest {
         precondition(!NotebookEditor.hasConflict(loaded: "same", disk: "same"))
         precondition(NotebookEditor.hasConflict(loaded: "mine", disk: "agent"),
                      "an agent edit must not be overwritten by a stale editor")
+
+        // Removing a project takes its tasks with it, and nothing else.
+        let launch = cards.first { $0.id == "launch-beta" }!
+        // Paths through the temp dir come back with /private resolved; compare like for like.
+        func resolved(_ url: URL) -> String { url.resolvingSymlinksInPath().path }
+        let owned = Set(NotebookFormat.owned(by: launch, in: cards).map(resolved))
+        precondition(owned.contains(resolved(project.deletingLastPathComponent())),
+                     "a project is its folder, not just project.md")
+        precondition(owned.contains(resolved(first)) && owned.contains(resolved(tricky.url)),
+                     "a project's tasks go with it")
+        precondition(!owned.contains(resolved(run)), "run history is not the project's to delete")
+        precondition(NotebookFormat.owned(by: tricky, in: cards) == [tricky.url],
+                     "a task is one file")
+        try! NotebookFormat.remove(launch, in: cards)
+        let left = NotebookIndex.load(root: root)
+        // Run history is an append-only log of what agents did, and is not navigable, so
+        // it stays behind; every page a user can still open goes.
+        precondition(!left.contains { $0.id == "launch-beta"
+                        || ($0.kind != .run && $0.project == "launch-beta") },
+                     "a page is left filed under a removed project")
+        precondition(left.contains { $0.id == "bare" }, "and the rest of the notebook stays")
 
         // The open-project list lives in defaults, where anything could be sitting.
         let paths = ["/a/b", "/quote\"path", "/a b/c", tmp.path]

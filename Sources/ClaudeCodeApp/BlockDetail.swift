@@ -10,6 +10,7 @@ struct BlockDetail: View {
     /// The session that is waiting on this, if it is still running.
     let waiting: CodeSession?
     let start: () -> Void
+    let revise: () -> Void
     let resolve: () -> Void
 
     @State private var content: [NotebookContent.Section] = []
@@ -62,7 +63,9 @@ struct BlockDetail: View {
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         NotebookStyle.pill(block.waiting
-                                           ? (block.isProposal ? "needs your review" : "waiting on you")
+                                           ? (block.isProposal
+                                              ? (block.proposalReady ? "ready to create" : "needs your input")
+                                              : "waiting on you")
                                            : "done", tint)
                         Text(subtitle).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
                     }
@@ -77,7 +80,8 @@ struct BlockDetail: View {
 
     private var subtitle: String {
         if block.isProposal {
-            let lead = block.waiting ? "Product proposes this" : "Built out"
+            let lead = !block.waiting ? "Built out"
+                : block.proposalReady ? "Product plan is ready" : "Product is waiting in its transcript"
             return parent.map { "\(lead) — advances \($0.title)" } ?? lead
         }
         let who = waiting.map { "\($0.title) is waiting" } ?? "Nothing is waiting on it any more"
@@ -163,23 +167,35 @@ struct BlockDetail: View {
         ActionBar {
             Text(footer).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
-            Button(block.isProposal ? "Dismiss" : "Mark resolved", action: resolve)
-                .buttonStyle(.console)
+            if block.isProposal && block.proposalReady {
+                Button("Request changes", action: revise).buttonStyle(.console)
+                Button(action: start) {
+                    Label("Create project", systemImage: "checkmark")
+                }
+                .buttonStyle(.consolePrimary)
                 .disabled(!block.waiting)
-            Button(action: start) {
-                Label(block.isProposal ? "Approve" : "Do it now",
-                      systemImage: block.isProposal ? "checkmark" : "bolt.fill")
+            } else {
+                Button(block.isProposal ? "Dismiss" : "Mark resolved", action: resolve)
+                    .buttonStyle(.console)
+                    .disabled(!block.waiting)
+                Button(action: block.isProposal ? revise : start) {
+                    Label(block.isProposal ? "Open Product session" : "Do it now",
+                          systemImage: block.isProposal ? "bubble.left.and.bubble.right" : "bolt.fill")
+                }
+                .buttonStyle(.consolePrimary)
+                .disabled(!block.waiting)
             }
-            .buttonStyle(.consolePrimary)
-            .disabled(!block.waiting)
         }
     }
 
     private var footer: String {
         guard block.waiting else { return "Cleared." }
-        return block.isProposal
-            ? "Approving writes the project and its tasks onto the board. Nothing is assigned yet."
-            : "An engineer explains this first, then walks you through it one step at a time."
+        guard block.isProposal else {
+            return "An engineer explains this first, then walks you through it one step at a time."
+        }
+        return block.proposalReady
+            ? "Request changes in Product, or create the reviewed project and tasks."
+            : "Review and refine this with Product in the original transcript."
     }
 
     private func load() {

@@ -19,27 +19,29 @@ enum DesignShots {
                            enter: { _ in }, add: {}, close: { _ in }),
               "fleet", into: directory)
 
-        write(console(project, section: .overview) {
+        write(console(project, section: .overview, hovering: .blocks) {
             Overview(project: project, changes: [], head: "51b0740 Show all agents",
                      go: { _, _ in }, assign: {})
         }, "overview", into: directory)
 
         write(console(project, section: .board) {
             NotebookBoard(cards: project.cards, assigned: ["show-agent-tree"], showDone: false,
-                          assign: { _ in }, review: {}, openCard: { _ in })
+                          assign: { _ in }, review: {}, openCard: { _ in }, remove: { _ in })
         }, "board", into: directory)
 
         write(console(project, section: .agents) {
             SessionTranscript(session: lead, cards: project.cards, blocks: project.blocks,
                               lines: transcript(), source: URL(fileURLWithPath: "/tmp/lead.jsonl"),
-                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in })
+                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in },
+                              send: { _ in })
         }, "lead", into: directory)
 
         write(console(project, section: .agents) {
             SessionTranscript(session: project.sessions[1], cards: project.cards,
                               blocks: project.blocks, lines: transcript(),
                               source: URL(fileURLWithPath: "/tmp/product.jsonl"),
-                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in })
+                              openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in },
+                              send: { _ in })
         }, "session", into: directory)
 
         write(console(project, section: .agents) {
@@ -62,7 +64,7 @@ enum DesignShots {
 
         write(console(project, section: .blocks) {
             BlockDetail(block: project.blocks[0], cards: project.cards, waiting: lead,
-                        start: {}, resolve: {})
+                        start: {}, revise: {}, resolve: {})
         }, "block", into: directory)
 
         // The review screen is pointed at the repo this binary was built from, so the shot
@@ -86,11 +88,15 @@ enum DesignShots {
     /// rather than a pane floating on its own.
     private static func console<Content: View>(_ project: Project, section: ConsoleSection,
                                                changes: [FileChange] = [],
+                                               hovering: ConsoleSection? = nil,
                                                @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 0) {
-            Rail(section: .constant(section), badges: [.blocks: Theme.amber], leave: {})
+            Rail(section: .constant(section), badges: [.blocks: Theme.amber], leave: {},
+                 hovering: hovering)
+                .zIndex(1)
             ProjectList(section: section, project: project, selection: .constant(nil),
-                        showDone: false, changes: changes, assign: { _ in }, closeSession: { _ in })
+                        showDone: false, changes: changes, assign: { _ in }, closeSession: { _ in },
+                        remove: { _ in })
             VStack(spacing: 0) {
                 TopBar(crumbs: [project.name], title: section.title) {
                     Button("Completed") {}.buttonStyle(.consoleGhost)
@@ -215,14 +221,15 @@ enum DesignShots {
         project.blocks = [
             UserBlock(id: "/tmp/vercel-token.md", url: URL(fileURLWithPath: "/tmp/vercel-token.md"),
                       slug: "vercel-token", title: "Vercel project token", status: "open",
-                      kind: "block", session: leadID, action: "", link: URL(string: "https://vercel.com"),
+                      kind: "block", stage: "ready", session: leadID, action: "", link: URL(string: "https://vercel.com"),
                       task: "deploy-to-vercel", resolution: "",
                       body: "## Steps\n\n1. Open the Vercel dashboard and pick the project\n"
                           + "2. Settings, then Tokens, then Create token\n"
                           + "3. Paste it when the engineer asks — it is never written down\n"),
             UserBlock(id: "/tmp/offline.md", url: URL(fileURLWithPath: "/tmp/offline.md"),
                       slug: "offline", title: "Offline notebook sync", status: "open",
-                      kind: "proposal", session: nil, action: "", link: nil, task: nil,
+                      kind: "proposal", stage: "discussion", session: project.sessions.last?.id,
+                      action: "", link: nil, task: nil,
                       resolution: "", body: "")
         ]
         return project

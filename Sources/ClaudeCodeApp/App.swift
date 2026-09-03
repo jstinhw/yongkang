@@ -106,11 +106,14 @@ struct ClaudeCodeApp: App {
                          add: openProject, close: close)
         } else if let project = enteredProject {
             HStack(spacing: 0) {
+                // Above the list column: the rail's hover labels hang past its own width.
                 Rail(section: $section, badges: badges(for: project), leave: leave)
+                    .zIndex(1)
                 ProjectList(section: section, project: project, selection: $selection,
                             showDone: showDone, changes: changes,
                             assign: { assign($0, in: project) },
-                            closeSession: { close($0, in: project) })
+                            closeSession: { close($0, in: project) },
+                            remove: { remove($0, in: project) })
                 VStack(spacing: 0) {
                     topBar(for: project)
                     screen(for: project)
@@ -161,7 +164,8 @@ struct ClaudeCodeApp: App {
             let watched = selectedAgent(in: project) ?? selectedSubagent(in: project)?.session
             TopBar(crumbs: [project.name],
                    title: selectedSubagent(in: project)?.subagent.description
-                        ?? watched?.title ?? "Agents") {
+                        ?? watched?.title ?? selectedSession(in: project)?.title ?? "Agents") {
+                addMenu(for: project)
                 if let watched, selectedSubagent(in: project) == nil {
                     let panes = AgentPane.cases(lead: watched.isEngineeringLead)
                     Picker("", selection: agentPane(watched)) {
@@ -189,11 +193,6 @@ struct ClaudeCodeApp: App {
             }
         case .blocks:
             TopBar(crumbs: [project.name], title: "Blocks") { completedToggle }
-        case .terminals:
-            TopBar(crumbs: [project.name],
-                   title: selectedSession(in: project)?.title ?? "Terminals") {
-                addMenu(for: project)
-            }
         }
     }
 
@@ -290,7 +289,8 @@ struct ClaudeCodeApp: App {
                     openSubagent: { subagent in
                         selection = Tag.subagent(watched, subagent)
                         reload()
-                    }
+                    },
+                    send: { pendingInput[watched.id] = $0 }
                 )
             }
         } else if let found = selectedSubagent(in: project) {
@@ -306,6 +306,7 @@ struct ClaudeCodeApp: App {
                 block: block, cards: project.cards,
                 waiting: waitingSession(for: block, in: project),
                 start: { startUnblock(block, in: project) },
+                revise: { openProposal(block, approve: false, in: project) },
                 resolve: { Blocks.resolve(block); reload() }
             )
             .id(block.id)
@@ -341,7 +342,8 @@ struct ClaudeCodeApp: App {
             showDone: showDone,
             assign: { tasks in assign(tasks, in: project) },
             review: { startProductReview(in: project) },
-            openCard: { card in selection = Tag.task(card.id) }
+            openCard: { card in selection = Tag.task(card.id) },
+            remove: { card in remove(card, in: project) }
         )
     }
 
@@ -357,10 +359,14 @@ struct ClaudeCodeApp: App {
                 selection = Tag.board(project)
             }
         case .agents:
-            if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil {
+            if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
+                && selectedSession(in: project) == nil {
+                // A lead first, then any agent — and a service runner only if that is all
+                // there is, on its own tag, because it has no transcript to open.
                 selection = (project.sessions.first { $0.isEngineeringLead }
                              ?? project.sessions.first { $0.agent != nil })
                     .map { Tag.transcript($0.id) }
+                    ?? project.sessions.first.map { Tag.session($0) }
             }
         case .review:
             refreshChanges(force: true)
@@ -368,10 +374,6 @@ struct ClaudeCodeApp: App {
         case .blocks:
             selection = (project.blocks.first(where: \.waiting) ?? project.blocks.first)
                 .map { Tag.block($0) }
-        case .terminals:
-            if selectedSession(in: project) == nil {
-                selection = project.sessions.first.map { Tag.session($0) }
-            }
         }
     }
 
@@ -453,12 +455,12 @@ struct ClaudeCodeApp: App {
         return rest.hasPrefix(":") ? String(rest.dropFirst()) : ""
     }
 
-    /// Brings the lead's terminal forward and sends that CLI's own subagent picker:
+    /// Brings the session's terminal forward and sends that CLI's own subagent picker:
     /// `/tasks` in Claude Code, `/agent` in Codex. Both are best-effort — exact with one
     /// subagent running, a list to pick from with several, since neither can be told which
     /// one to open.
     private func openLiveTerminal(_ subagent: SubagentStatus, in session: CodeSession) {
-        section = .terminals
+        section = .agents
         selection = session.id.uuidString
         pendingInput[session.id] = session.agent == .codex ? "/agent" : "/tasks"
     }
@@ -499,7 +501,6 @@ struct ClaudeCodeApp: App {
         addSession(agent, id: id, to: project,
                    prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
                    title: "Engineering Lead", taskIDs: batch.map(\.id))
-        selection = Tag.transcript(id)
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -507,7 +508,7 @@ struct ClaudeCodeApp: App {
             Section("Session") {
                 Button(agent.displayName, systemImage: agent.systemImage) {
                     addSession(agent, to: project)
-                    section = .terminals
+                    section = .agents
                 }
             }
             Section("Notebook") {
@@ -539,7 +540,7 @@ struct ClaudeCodeApp: App {
     /// reaches the lead that asked even with several running; one written without a
     /// session id falls back to the newest live lead, which is the single-lead case.
     private func waitingSession(for block: UserBlock, in project: Project) -> CodeSession? {
-        // Nothing sits blocked on a proposal — product raised it and went home.
+        // A proposal links to Product, but does not block an engineering session.
         guard !block.isProposal else { return nil }
         if let id = block.session {
             return project.sessions.first { $0.id == id && !$0.exited }
@@ -547,21 +548,37 @@ struct ClaudeCodeApp: App {
         return project.sessions.last { $0.isEngineeringLead && !$0.exited }
     }
 
-    /// The button on a block starts a session whose only job is this one gate. It is a full
-    /// session rather than a message to the lead because the lead is busy waiting — and
-    /// because setup is a conversation (paste this, approve that) that should not be
-    /// interleaved with the work it is blocking.
+    /// A gate starts a session whose only job is unblocking it. A proposal instead returns
+    /// to its Product transcript, and only a ready proposal's create button sends approval.
     ///
     /// The page is deliberately not opened here. A browser tab that appears before the
     /// session has said anything lands the user on a token screen with no idea what it is
     /// for; the engineer explains first, and opens the page when the user is ready for it.
     private func startUnblock(_ block: UserBlock, in project: Project) {
         guard !block.isProposal else {
-            return startProduct(NotebookFormat.relativePath(block.url), in: project)
+            return openProposal(block, approve: block.proposalReady, in: project)
         }
         addSession(agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
                    title: "Unblock \(block.title)")
-        section = .terminals
+        section = .agents
+    }
+
+    /// A proposal belongs to the Product conversation that shaped it. Opening it is only
+    /// navigation; the ready proposal's explicit create action is the approval message.
+    private func openProposal(_ block: UserBlock, approve: Bool, in project: Project) {
+        let running = block.session.flatMap { id in
+            project.sessions.first { $0.id == id && !$0.exited }
+        } ?? project.sessions.last { isProduct($0) && !$0.exited }
+        if let running {
+            section = .agents
+            selection = Tag.transcript(running.id)
+            if approve {
+                pendingInput[running.id] = "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
+            }
+            return
+        }
+        let decision = approve ? "\nDecision: approve" : ""
+        startProduct(NotebookFormat.relativePath(block.url) + decision, in: project)
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —
@@ -572,7 +589,7 @@ struct ClaudeCodeApp: App {
             guard let session = waitingSession(for: block, in: project) else { continue }
             deliveredBlocks.insert(block.id)
             pendingInput[session.id] = NotebookFormat.unblockedMessage(block: block)
-            section = .terminals
+            section = .agents
             selection = session.id.uuidString
         }
     }
@@ -633,9 +650,9 @@ struct ClaudeCodeApp: App {
         if entered == project.id { leave() }
     }
 
-    /// Product looks at the board and says what should come next. It writes proposals into
-    /// `blocks/` rather than straight into the notebook, so nothing lands on the board
-    /// without the user agreeing to it — the same folder, and the same button, as a gate.
+    /// Product looks at the whole product and discusses what should come next. Blocks gets
+    /// one link back to that transcript, then the finalized plan; the board stays unchanged
+    /// until the user explicitly creates it.
     private func startProductReview(in project: Project) {
         startProduct("review", in: project)
     }
@@ -644,13 +661,23 @@ struct ClaudeCodeApp: App {
     /// first one is already rewriting, so a running one is talked to instead — the same
     /// rule the Engineering Lead follows for a second batch.
     private func startProduct(_ arguments: String, in project: Project) {
-        section = .terminals
-        if let running = project.sessions.first(where: { $0.title == "Product" && !$0.exited }) {
-            pendingInput[running.id] = (running.agent ?? .claude).skill("product", arguments: arguments)
-            selection = running.id.uuidString
+        section = .agents
+        if let running = project.sessions.first(where: { isProduct($0) && !$0.exited }) {
+            let productAgent = running.agent ?? .claude
+            pendingInput[running.id] = NotebookFormat.productPrompt(
+                arguments: arguments, sessionID: running.id, agent: productAgent
+            )
+            selection = Tag.transcript(running.id)
             return
         }
-        addSession(agent, to: project, prompt: agent.skill("product", arguments: arguments), title: "Product")
+        let id = UUID()
+        addSession(agent, id: id, to: project,
+                   prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
+                   title: "Product")
+    }
+
+    private func isProduct(_ session: CodeSession) -> Bool {
+        session.title == "Product" || session.title.hasPrefix("Product ")
     }
 
     /// One row per repo actually on disk, deduped across every notebook project.
@@ -784,7 +811,9 @@ struct ClaudeCodeApp: App {
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
                                                     agent: agent, taskIDs: taskIDs))
-        selection = projects[index].sessions.last?.id.uuidString
+        // Every agent is watched through its transcript, however it was started — the same
+        // pane its sidebar row opens. Only a service runner, which has none, lands on its PTY.
+        selection = agent == nil ? id.uuidString : Tag.transcript(id)
     }
 
     /// Every service in a project's repos, started at once — the board's "run the whole
@@ -810,7 +839,7 @@ struct ClaudeCodeApp: App {
                  directory: service.directory, command: service.command)
             }
         }
-        section = .terminals
+        section = .agents
         for service in named where service.command != nil {
             let title = "Run \(service.label)"
             if let running = project.sessions.first(where: { $0.title == title }) {
@@ -895,6 +924,34 @@ struct ClaudeCodeApp: App {
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    /// Removing a notebook entry. A project takes its tasks with it — a task filed under
+    /// an id that no longer exists shows up nowhere and would never be worked.
+    private func remove(_ card: NotebookCard, in project: Project) {
+        let tasks = NotebookFormat.owned(by: card, in: project.cards).count - 1
+        let alert = NSAlert()
+        alert.messageText = "Move \u{201C}\(card.title)\u{201D} to the Trash?"
+        alert.informativeText = card.kind == .project
+            ? "The project folder, its memory and its \(tasks) task\(tasks == 1 ? "" : "s") go with it. "
+                + "You can put them back from the Trash."
+            : "You can put it back from the Trash."
+        alert.addButton(withTitle: "Move to Trash")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try NotebookFormat.remove(card, in: project.cards)
+        } catch {
+            NSAlert(error: error).runModal()
+            return
+        }
+        // Anything on screen that was inside what just went to the Trash has no page left.
+        let gone = Set(NotebookFormat.owned(by: card, in: project.cards).map(\.path))
+        if let shown = Tag.card(selection, in: project.cards),
+           gone.contains(where: { shown.url.path == $0 || shown.url.path.hasPrefix($0 + "/") }) {
+            selection = Tag.board(project)
+        }
+        reload()
     }
 
     private func notebookRoadmap(in project: Project) -> String? {

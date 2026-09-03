@@ -18,14 +18,22 @@ struct SessionTranscript: View {
     let openTask: (String) -> Void
     let openBlock: (UserBlock) -> Void
     let openSubagent: (SubagentStatus) -> Void
+    /// Typed into the session's own process, the same pipe that hands a running lead more
+    /// work — so answering an agent does not mean leaving the transcript for its terminal.
+    let send: (String) -> Void
+
+    @State private var reply = ""
+
+    private var state: AgentState { AgentState.of(lines: lines, exited: session.exited) }
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 TranscriptHeader(role: session.isEngineeringLead ? "lead" : session.title,
                                  title: session.title, subtitle: subtitle,
-                                 lines: lines, running: !session.exited)
+                                 lines: lines, state: state)
                 TranscriptTimeline(lines: lines)
+                composer
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Theme.bg)
@@ -39,11 +47,47 @@ struct SessionTranscript: View {
         }
     }
 
+    /// One line to type back at the agent. Enter sends; a dead session has nothing to
+    /// send to, so it says that instead.
+    @ViewBuilder private var composer: some View {
+        HStack(spacing: 9) {
+            TextField(session.exited ? "Session has exited" : "Reply to \(session.title)…",
+                      text: $reply)
+                .textFieldStyle(.plain)
+                .font(Typo.text(12.5))
+                .foregroundStyle(Theme.tx)
+                .onSubmit(dispatch)
+                .disabled(session.exited)
+            Button(action: dispatch) {
+                Image(systemName: "arrow.up.circle.fill").font(.system(size: 17))
+                    .foregroundStyle(canSend ? Theme.accent : Theme.tx4)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color(hex: 0x12161E)))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+        .padding(.horizontal, 22)
+        .padding(.bottom, 16)
+    }
+
+    private var canSend: Bool {
+        !session.exited && !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func dispatch() {
+        guard canSend else { return }
+        send(reply.trimmingCharacters(in: .whitespacesAndNewlines))
+        reply = ""
+    }
+
     private var subtitle: String {
         let running = session.activeSubagents.count
         let agents = running == 0 ? "" : " · \(running) agent\(running == 1 ? "" : "s") running"
         guard session.isEngineeringLead else {
-            return (session.agent?.displayName ?? "session") + agents
+            return (session.agent?.displayName ?? "session") + " · " + state.label.lowercased() + agents
         }
         let tasks = session.taskIDs.count
         return "\(tasks) task\(tasks == 1 ? "" : "s")"
@@ -61,8 +105,8 @@ struct SessionInspector: View {
     let openBlock: (UserBlock) -> Void
     let openSubagent: (SubagentStatus) -> Void
 
-    /// Blocks this session raised and is still sitting on. A product proposal names no
-    /// session — product writes it and goes home — so nothing shows here for that.
+    /// Blocks this session raised and is still sitting on, including Product's link back
+    /// to an in-progress proposal discussion.
     private var waiting: [UserBlock] {
         blocks.filter { $0.waiting && $0.session == session.id }
     }

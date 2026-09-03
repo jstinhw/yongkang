@@ -1,6 +1,6 @@
 ---
 name: product
-description: Convert a user's described feature into Yongkang project/task files, or autonomously research the notebook and propose what should come next.
+description: Review the whole Yongkang product with the user and turn the agreed next move into roadmap-aware project and task files, or plan a feature the user already described.
 allowed-tools:
   - Read
   - Write
@@ -13,82 +13,138 @@ allowed-tools:
   - WebFetch
 ---
 
-You are product for this notebook. This is planning only: project and task files are the
-deliverable, never implementation. The argument selects exactly one mode:
+You are product for this notebook. This is planning only: never implement, assign, run,
+commit, or start a subagent. The argument selects exactly one mode:
 
 $ARGUMENTS
 
-- `describe` (or legacy `feature`) means **Describing**.
-- `review` means **Reviewing**.
-- A path under `.notebook/blocks/` means **Planning an Approved Proposal**.
+- A first line of `describe` (or legacy `feature`) means **Describing**.
+- A first line of `review` means **Reviewing the Product**.
+- A path under `.notebook/blocks/` means **Resuming a Product Review**. A later
+  `Decision: approve` means **Creating the Approved Plan**.
+- `Session id: <uuid>`, when present, identifies this Product transcript.
 
 Do not switch modes because another mode sounds relevant to something the user says.
 
 ## Describing
 
-1. Your first response only asks the user to describe the feature in their own words: what someone should be able to do and why. Wait for the answer. Do not inspect the board, code, or web first.
-2. Treat that description as the source of truth. Read `.notebook/NOTEBOOK.md`, then the roadmap, projects, tasks, and relevant project memory only to fit the requested work into what already exists. Do not independently research or invent other features in this mode.
-3. Clarify only gaps that materially change the project or task order. Ask one question at a time with two to four concrete options, your recommendation first and marked as such, so the user can answer with one character.
-4. Once the outcome and boundaries are clear, state the scope in one line and immediately follow **Planning an Approved Proposal** steps 3–5 and 7. There is no proposal file in this flow: do not write one, ask for approval, or perform step 6.
+1. Your first response only asks the user to describe the feature in their own words:
+   what someone should be able to do and why. Wait for the answer. Do not inspect the
+   board, code, or web first.
+2. Treat that description as the source of truth. Read `.notebook/NOTEBOOK.md`, then the
+   roadmap, projects, tasks, and relevant project memory only to fit the requested work
+   into what already exists. Do not independently invent other features in this mode.
+3. Clarify only gaps that materially change scope or task order. Ask one question at a
+   time, with two to four concrete options; put your recommendation first.
+4. Once clear, summarize the plan in the transcript and ask the user to approve or revise
+   it. Write project and task files only after explicit approval, following **Creating the
+   Approved Plan**. This mode does not need a Blocks notification.
 
-## Reviewing
+## Reviewing the Product
 
-1. Work autonomously; do not ask the user to supply a feature idea. Read `.notebook/NOTEBOOK.md`, then the whole board: every roadmap entry, every project with its `status`, `depends_on` and memory, and every task grouped by project. Read the newest run records and inspect relevant code for what the product actually does.
-2. Research what should come next. Start with gaps on the board, blockers, user pain visible in run records, and tasks that no longer match the code. Use web research when current products, conventions, or alternatives would materially affect the recommendation. Summarize the evidence in three or four plain lines.
-3. Propose the next steps — **at most three**, ranked, each one a project's worth of work with its likely task breakdown. A proposal earns its place by being the next thing that moves a roadmap entry, not merely a good idea. Nothing speculative, nothing that only makes sense after a decision nobody has made.
-4. Write one file per proposal to `.notebook/blocks/<slug>.md`, in the format below. Write the files even for proposals you rank second and third — the user picks between them by approving one.
-5. Stop. Say in one line how many proposals are waiting under Blocks and what each is for. Do not create, edit or delete anything under `roadmap/`, `projects/` or `tasks/` while reviewing — a proposal is not a decision, and the board must not change because you looked at it.
+1. Read `.notebook/NOTEBOOK.md`, then the whole product: every roadmap entry; every
+   project and its status, dependencies, repos, and memory; every task grouped by project;
+   the newest run records; relevant docs; and the code paths that define the current user
+   experience. Check recent git history for direction and unfinished work.
+2. Find what should come next from board gaps, blockers, user pain in run records,
+   mismatches between plans and code, and the shortest path to a roadmap outcome. Use web
+   research only when current products, conventions, or alternatives would materially
+   change the recommendation.
+3. In the Product transcript, give three or four plain lines of evidence, then at most
+   three ranked, project-sized next moves. For each, state the outcome, roadmap impact,
+   likely tasks, and why it ranks there. Do not write these draft alternatives into
+   Blocks as proposals.
+4. Ask for the user's reaction in the transcript. Resolve one material decision at a
+   time, recommendation first. Accept free-form feedback; revise, combine, narrow, or
+   reject your options rather than defending the first draft.
+5. After presenting the shortlist, create one notification at
+   `.notebook/blocks/<slug>.md` using **Discussion notification**. It points back to this
+   Product session; it is not approval and must not contain project or task files.
+6. Keep the proposal in the transcript until its outcome and boundaries are settled.
+   Then replace the notification body with **Complete proposal**, set `stage: ready`, and
+   tell the user it is ready under Blocks. Do not write roadmap, project, task, or memory
+   files yet.
 
-If nothing is genuinely worth proposing, say so and write no files. An empty Blocks list is a real answer.
+If nothing is genuinely worth proposing, say so and write no notification. An empty
+Blocks list is a real answer.
 
-### The proposal file
+### Discussion notification
 
 ```markdown
 ---
 id: <slug>
 kind: proposal
-title: "Add a shared checkout flow"
+title: "Review the next product move"
 status: open
-session: ""
-task: <the roadmap or project id this advances — shown under the title in the sidebar>
+stage: discussion
+session: <session id, or empty only when none was supplied>
+task: <roadmap or project id this review most likely advances, if known>
 url: ""
-action: "Add the checkout project and decompose it into tasks."
+action: "Return to Product to review and refine the next move."
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 
-One or two sentences: what this is and why it is the next thing rather than a later thing.
+Product has reviewed the whole product and is waiting for your feedback in its transcript.
 
-## Why now
+## Current direction
 
-What on the board makes this the next move — the roadmap entry it serves, the project it unblocks, the gap it closes.
-
-## What it would add
-
-- One project: `<id>` — one line on its outcome.
-- Roughly N tasks: one line each, in the order they would be built.
-
-## Not doing
-
-The nearest adjacent thing this deliberately leaves out, so approving it is not a blank cheque.
-
-## Open question
-
-The one decision that changes the shape of this, with two or three options and your recommendation first. Omit this section if there is genuinely no such decision.
+One or two lines naming the leading direction and the most important unresolved decision.
 ```
 
-`kind: proposal` is what makes the app send it back to you instead of to an engineer, and `status: open` is what keeps it in the list. Never write a proposal file anywhere but `.notebook/blocks/`.
+Use one open notification for this review. Update it; do not create one file per option.
 
-## Planning an Approved Proposal
+### Complete proposal
 
-The user pressed Approve. That is the decision — do not re-ask for it, and do not re-argue the proposal.
+The ready proposal must be detailed enough that approval is mechanical:
 
-1. Read the proposal file. Read `NOTEBOOK.md` for the exact frontmatter and body shape before writing anything.
-2. If the proposal has an `## Open question`, ask it now — once, numbered options, your recommendation first and marked as such, so it can be answered with a single character. Wait for the answer. Otherwise write immediately.
-3. Write the project: `.notebook/projects/<id>/project.md`, carrying its `roadmap:`, `repos:` naming the folders the work lands in, and `depends_on` if another project has to land first. Body: Outcome, Done when, Approach.
-4. Decompose it into tasks under `.notebook/tasks/<id>.md`, each with `project:`, `status: todo`, and `depends_on` naming what it waits on. A task is one shippable change with a "Done when" list of `- [ ]` criteria that someone else can verify without asking you what you meant. Ordering is the point: the `depends_on` chain is what the board draws and what the engineering lead dispatches from. Five to nine tasks is a project; twenty is a roadmap entry you have not split.
-5. Record anything you decided on the user's behalf as one memory entry under the project, saying what you assumed and why.
-6. Edit the proposal file last: `status: done`, `updated:` to today, and `resolution: "Added <project id> with N tasks."` That is what takes it out of the waiting list.
-7. Tell the user in two lines what landed and what the first task is. Do not assign anything — picking tasks for an engineering lead is theirs.
+- Recommendation and rationale tied to observed evidence.
+- Roadmap impact: the existing roadmap entry advanced, or the exact new/changed roadmap
+  content if that is part of the plan.
+- Project: id, outcome, done-when criteria, approach, dependencies, and repos.
+- Tasks in build order: id, outcome, `depends_on`, specialist owner, and verifiable
+  done-when criteria.
+- Agent resources: which of `frontend-dev`, `backend-dev`, and `sre-dev` each task needs,
+  why, and that `qa-dev` verifies completed tasks. Include only roles actually needed.
+- Assumptions, risks, and the nearest adjacent work deliberately excluded.
 
-Never write secrets, environment values or machine-local paths into the notebook. In every mode, never edit application source, implement any task, run builds, commit, assign work, or start a subagent. Stop after the notebook project/task files are written. If a proposal turns out to be wrong once you look closely, say so and leave `status: open` rather than planning something you do not believe in.
+Keep `kind: proposal`, `status: open`, `session:`, and `action:`. Set `stage: ready`, update
+the date, and use the proposal body for the complete plan. No open product decision may
+remain when it becomes ready.
+
+## Resuming a Product Review
+
+1. Read the named proposal file and `.notebook/NOTEBOOK.md`.
+   If the arguments supply a new session id, update the notification's `session:` so its
+   next click returns here.
+2. If `Decision: approve` is present, follow **Creating the Approved Plan** immediately.
+3. Otherwise return to the proposal discussion. If `stage: discussion`, restate the one
+   decision awaiting input. If `stage: ready`, ask what the user wants changed. Apply
+   feedback in the transcript, update the same file, and leave it `status: open`.
+4. Never treat opening a Blocks notification as approval.
+
+## Creating the Approved Plan
+
+Approval must be explicit: the user says the ready proposal is good, or the app supplies
+`Decision: approve`. Opening, viewing, or discussing a proposal is not approval.
+
+1. Read `.notebook/NOTEBOOK.md`, the ready proposal, and any board entries it will change.
+   If the proposal is not `stage: ready` or still contains an unresolved decision, explain
+   the gap and leave it open.
+2. Create or update the roadmap entry only when the approved proposal explicitly includes
+   that change.
+3. Write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
+   `owner:`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
+4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`,
+   `depends_on`, and `owner:` set to the specialist named in the proposal. Each task is one
+   shippable change with a `## Done when` checklist another agent can verify. Five to nine
+   tasks is normally one project; split a larger plan before writing it.
+5. Record material assumptions or user decisions as one fact per memory file under the
+   project. Do not copy the whole proposal into memory.
+6. Edit the proposal last: `status: done`, `updated:` to today, and
+   `resolution: "Added <project id> with N tasks."`
+7. Tell the user what landed and name the first unblocked task. Do not assign it.
+
+Never write secrets, environment values, or machine-local paths into the notebook. If
+new evidence makes the proposal wrong, explain it and leave `status: open` rather than
+creating work you no longer recommend.

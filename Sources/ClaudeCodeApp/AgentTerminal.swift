@@ -65,8 +65,20 @@ enum AgentCommand {
         let sessionFlag = agent == .claude
             ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
         let command = "\(agent.command) \(briefFlag)\(sessionFlag)".trimmingCharacters(in: .whitespaces)
-        let start = prompt.map { "exec \(command) \(quoted($0))" } ?? "exec \(command)"
+        let opening = agent == .codex
+            ? prompt.flatMap { text in sessionID.map { "\(text)\n\n\(marker($0))" } } ?? prompt
+            : prompt
+        let start = opening.map { "exec \(command) \(quoted($0))" } ?? "exec \(command)"
         return "cd \(quoted(directory)) && \(start)"
+    }
+
+    /// Codex picks its own thread id, so `--session-id` has nothing to set on it: the only
+    /// join from an app session row back to a rollout on disk is the opening prompt, which
+    /// the rollout records verbatim. Every prompted Codex session therefore ends with its
+    /// id, and `CodexTranscripts` finds the thread by looking for exactly this line —
+    /// without it the app has a live terminal it cannot read a transcript from.
+    static func marker(_ sessionID: UUID) -> String {
+        "(Yongkang session \(sessionID.uuidString.lowercased()) — bookkeeping, not part of the task.)"
     }
 
     /// A service is whatever the repo starts with, so no `exec` — the command may be a

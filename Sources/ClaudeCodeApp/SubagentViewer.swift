@@ -34,7 +34,7 @@ struct SubagentViewer: View {
     private var header: some View {
         TranscriptHeader(role: subagent.agentType, title: subagent.agentType,
                          subtitle: "spawned by \(session.title)" + (task.map { " · on \($0.title)" } ?? ""),
-                         lines: lines, running: subagent.running)
+                         lines: lines, state: subagent.running ? .working : .done)
     }
 
     // MARK: - Inspector
@@ -100,7 +100,7 @@ struct TranscriptHeader: View {
     let title: String
     let subtitle: String
     let lines: [TranscriptLine]
-    let running: Bool
+    let state: AgentState
 
     var body: some View {
         HStack(spacing: 12) {
@@ -111,12 +111,49 @@ struct TranscriptHeader: View {
             }
             Spacer(minLength: 12)
             NotebookStyle.chip("\(TranscriptSteps.steps(lines).count) steps", mono: true)
-            NotebookStyle.pill(running ? "Running" : "Done",
-                               running ? Theme.accent : Theme.green, live: running)
+            NotebookStyle.pill(state.label, state.color, live: state.live)
         }
         .padding(.horizontal, 22)
         .padding(.top, 16)
         .padding(.bottom, 6)
+    }
+}
+
+/// What an agent is doing right now. A subagent's own file answers this exactly — it was
+/// spawned to finish one thing and then stops. A session never stops: it works, then sits
+/// at its prompt with the answer on screen, which is a different thing from being done and
+/// the one the reader has to be told about, because it is their turn.
+enum AgentState {
+    case starting, working, waiting, done, exited
+
+    var label: String {
+        switch self {
+        case .starting: return "Starting"
+        case .working: return "Working"
+        case .waiting: return "Waiting for you"
+        case .done: return "Done"
+        case .exited: return "Exited"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .starting, .working: return Theme.accent
+        case .waiting: return Theme.amber
+        case .done: return Theme.green
+        case .exited: return Theme.tx3
+        }
+    }
+
+    var live: Bool { self == .starting || self == .working }
+
+    /// A session's state, off the transcript it is already showing: the last thing written
+    /// was the agent talking to the user, so it has nothing in flight and is waiting to be
+    /// answered. Anything else — a tool call, a result, the brief — is work in progress.
+    static func of(lines: [TranscriptLine], exited: Bool) -> AgentState {
+        guard !exited else { return .exited }
+        guard let last = lines.last else { return .starting }
+        return last.label == "Reply" ? .waiting : .working
     }
 }
 

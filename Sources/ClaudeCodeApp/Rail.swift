@@ -4,7 +4,7 @@ import SwiftUI
 /// section's objects and the work area holds whichever one is selected. Every screen is the
 /// same four columns, so moving between sections never rearranges the window.
 enum ConsoleSection: String, CaseIterable, Identifiable {
-    case overview, board, agents, review, blocks, terminals
+    case overview, board, agents, review, blocks
 
     var id: Self { self }
 
@@ -15,7 +15,6 @@ enum ConsoleSection: String, CaseIterable, Identifiable {
         case .agents: return "Agents"
         case .review: return "Review"
         case .blocks: return "Blocks"
-        case .terminals: return "Terminals"
         }
     }
 
@@ -26,7 +25,6 @@ enum ConsoleSection: String, CaseIterable, Identifiable {
         case .agents: return "point.3.connected.trianglepath.dotted"
         case .review: return "chevron.left.forwardslash.chevron.right"
         case .blocks: return "tray.full"
-        case .terminals: return "terminal"
         }
     }
 }
@@ -38,6 +36,19 @@ struct Rail: View {
     /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
     let badges: [ConsoleSection: Color]
     let leave: () -> Void
+
+    /// The tab under the pointer, which is the one wearing its name.
+    @State private var hovered: ConsoleSection?
+
+    /// `hovering` is only ever passed by the shot renderer, which has no pointer of its own
+    /// and would otherwise photograph a rail whose labels never appear.
+    init(section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
+         leave: @escaping () -> Void, hovering: ConsoleSection? = nil) {
+        _section = section
+        self.badges = badges
+        self.leave = leave
+        _hovered = State(initialValue: hovering)
+    }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -58,6 +69,10 @@ struct Rail: View {
                 Button { section = item } label: { icon(item) }
                     .buttonStyle(.plain)
                     .help(item.title)
+                    .onHover { inside in hovered = inside ? item : (hovered == item ? nil : hovered) }
+                    .overlay(alignment: .leading) {
+                        if hovered == item { flyout(item) }
+                    }
             }
             Spacer(minLength: 8)
         }
@@ -65,6 +80,27 @@ struct Rail: View {
         .padding(.vertical, 16)
         .background(Theme.rail)
         .overlay(alignment: .trailing) { Rectangle().fill(Theme.line).frame(width: 1) }
+    }
+
+    /// The tab's name, drawn beside it while the pointer is on it. The rail is icons only,
+    /// so without this the only way to learn what one is is to click it — and `.help` waits
+    /// out the system tooltip delay, which is longer than the guess it saves. It hangs past
+    /// the rail's own width, which is why the rail is drawn above the list column.
+    private func flyout(_ item: ConsoleSection) -> some View {
+        Text(item.title)
+            .font(Typo.text(11.5))
+            .foregroundStyle(Theme.tx)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Theme.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.45), radius: 10, y: 2)
+            // Its own width, then pushed clear of the rail from the tab's leading edge —
+            // pinning the far edge instead would slide a long name back over the icons.
+            .fixedSize()
+            .offset(x: Theme.railWidth + 2)
+            .allowsHitTesting(false)
     }
 
     private func icon(_ item: ConsoleSection) -> some View {

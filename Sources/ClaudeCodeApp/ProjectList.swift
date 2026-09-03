@@ -13,6 +13,8 @@ struct ProjectList: View {
     let changes: [FileChange]
     let assign: ([NotebookCard]) -> Void
     let closeSession: (CodeSession) -> Void
+    /// Sends a notebook entry to the Trash — the only way work leaves the board.
+    let remove: (NotebookCard) -> Void
 
     /// Agent trees start open; this only remembers the roots the user collapsed.
     @State private var collapsed: Set<UUID> = []
@@ -30,7 +32,6 @@ struct ProjectList: View {
                     case .agents: agentRows
                     case .review: reviewRows
                     case .blocks: blockRows
-                    case .terminals: terminalRows
                     }
                 }
                 .padding(.bottom, 14)
@@ -190,7 +191,9 @@ struct ProjectList: View {
         let projects = visible(project.cards.filter { $0.kind == .project })
         group("Projects", "\(projects.count)")
         if projects.isEmpty { empty("No projects yet") }
-        ForEach(projects) { cardRow($0, tag: Tag.project($0.id)) }
+        ForEach(projects) { card in
+            cardRow(card, tag: Tag.project(card.id)).contextMenu { menu(for: card) }
+        }
         if let scope = scopedProject {
             let tasks = visible(project.cards.filter { $0.kind == .task && $0.project == scope.id })
             group("Tasks in \(scope.title)", "\(tasks.count)")
@@ -199,9 +202,7 @@ struct ProjectList: View {
                     .contextMenu {
                         Button("Assign to Engineering Lead") { assign([card]) }
                             .disabled(card.status == "done" || project.assignedTaskIDs.contains(card.id))
-                        Button("Reveal in Finder") {
-                            NSWorkspace.shared.activateFileViewerSelecting([card.url])
-                        }
+                        menu(for: card)
                     }
             }
             let memory = project.cards.filter { $0.kind == .memory && $0.project == scope.id }
@@ -217,6 +218,17 @@ struct ProjectList: View {
                 }
             }
         }
+    }
+
+    private func menu(for card: NotebookCard) -> CardMenu {
+        CardMenu(card: card, busy: isBusy(card), remove: remove)
+    }
+
+    /// A project is busy while any of its tasks is out with a lead.
+    private func isBusy(_ card: NotebookCard) -> Bool {
+        guard card.kind == .project else { return project.assignedTaskIDs.contains(card.id) }
+        return project.cards.contains { $0.kind == .task && $0.project == card.id
+            && project.assignedTaskIDs.contains($0.id) }
     }
 
     /// The project the board is scoped to: whatever is selected, or the project a selected
@@ -241,10 +253,9 @@ struct ProjectList: View {
     // MARK: - Agents
 
     @ViewBuilder private var agentRows: some View {
-        let sessions = project.sessions.filter { $0.agent != nil }
-        group("Sessions", "\(sessions.count)")
-        if sessions.isEmpty { empty("No agents running") }
-        ForEach(sessions) { session in
+        group("Sessions", "\(project.sessions.count)")
+        if project.sessions.isEmpty { empty("Nothing running") }
+        ForEach(project.sessions) { session in
             sessionRow(session)
                 .contextMenu { Button("Close Session") { closeSession(session) } }
             if !collapsed.contains(session.id) {
@@ -262,13 +273,19 @@ struct ProjectList: View {
     }
 
     private func sessionRow(_ session: CodeSession) -> some View {
-        // Every agent row opens that agent's transcript; only a service terminal, which has
-        // none, is its terminal. Picking a PTY is what the Terminals section is for.
+        // Every agent row opens that agent's transcript; a service runner has none, so its
+        // row is its terminal — the only session that is nothing but a PTY.
         let tag = session.agent == nil ? Tag.session(session) : Tag.transcript(session.id)
         let running = session.activeSubagents.count
         return row(tag) {
             HStack(spacing: 9) {
-                RoleTile(role: session.isEngineeringLead ? "lead" : session.title, size: 24)
+                if session.agent == nil {
+                    Image(systemName: session.icon).font(.system(size: 12))
+                        .foregroundStyle(session.exited ? Theme.tx4 : Theme.tx2)
+                        .frame(width: 24, height: 24)
+                } else {
+                    RoleTile(role: session.isEngineeringLead ? "lead" : session.title, size: 24)
+                }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(session.title).font(Typo.text(12, .medium))
                         .foregroundStyle(session.exited ? Theme.tx3 : Theme.tx)
@@ -292,8 +309,9 @@ struct ProjectList: View {
     }
 
     private func subtitle(of session: CodeSession) -> String {
+        guard let agent = session.agent else { return session.exited ? "exited" : "service" }
         guard session.isEngineeringLead else {
-            return session.exited ? "exited" : (session.agent?.displayName ?? "session")
+            return session.exited ? "exited" : agent.displayName
         }
         let running = session.activeSubagents.count
         return "\(session.taskIDs.count) task\(session.taskIDs.count == 1 ? "" : "s") · \(running) running"
@@ -377,35 +395,15 @@ struct ProjectList: View {
                     Text(block.title).font(Typo.text(12.5))
                         .foregroundStyle(selection == Tag.block(block) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
-                    if let task = block.task {
+                    if block.isProposal {
+                        Text(block.proposalReady ? "ready to create" : "product needs feedback")
+                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    } else if let task = block.task {
                         Text("holds \(task)").font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
-                    } else if block.isProposal {
-                        Text("product proposal").font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
                     }
                 }
                 Spacer(minLength: 0)
             }
-        }
-    }
-
-    // MARK: - Terminals
-
-    @ViewBuilder private var terminalRows: some View {
-        group("Sessions", "\(project.sessions.count)")
-        if project.sessions.isEmpty { empty("Nothing running") }
-        ForEach(project.sessions) { session in
-            row(Tag.session(session)) {
-                HStack(spacing: 9) {
-                    Image(systemName: session.icon).font(.system(size: 12))
-                        .foregroundStyle(session.exited ? Theme.tx4 : Theme.tx2)
-                    Text(session.title).font(Typo.text(12))
-                        .foregroundStyle(session.exited ? Theme.tx3 : Theme.tx).lineLimit(1)
-                    Spacer(minLength: 6)
-                    Text(session.exited ? "exited" : "live")
-                        .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
-                }
-            }
-            .contextMenu { Button("Close Session") { closeSession(session) } }
         }
     }
 

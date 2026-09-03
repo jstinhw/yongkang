@@ -18,6 +18,9 @@ struct UserBlock: Identifiable, Equatable {
     /// Both are the same thing to this folder — something only the user can settle — and
     /// differ only in who is sent to settle it.
     let kind: String
+    /// Product proposals are discussed in their transcript before they are ready to
+    /// create. Old proposal files predate this field and are already approval-ready.
+    let stage: String
     /// The session waiting on this, when it named itself. Nil routes to the newest lead.
     let session: UUID?
     /// What the session started by the button is told to get done.
@@ -32,6 +35,7 @@ struct UserBlock: Identifiable, Equatable {
 
     var waiting: Bool { status != "done" }
     var isProposal: Bool { kind == "proposal" }
+    var proposalReady: Bool { isProposal && stage == "ready" }
 }
 
 enum Blocks {
@@ -63,6 +67,7 @@ enum Blocks {
             title: fields["title"].flatMap { $0.isEmpty ? nil : $0 } ?? slug,
             status: fields["status"].flatMap { $0.isEmpty ? nil : $0 } ?? "open",
             kind: fields["kind"].flatMap { $0.isEmpty ? nil : $0 } ?? "block",
+            stage: fields["stage"].flatMap { $0.isEmpty ? nil : $0 } ?? "ready",
             session: fields["session"].flatMap(UUID.init(uuidString:)),
             action: fields["action"] ?? "",
             link: link?.scheme?.hasPrefix("http") == true ? link : nil,

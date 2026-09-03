@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The build order. Every task that could be worked on, laid out left to right in
 /// dependency order — a task sits one lane right of everything it waits on — so the shape
@@ -16,6 +17,8 @@ struct NotebookBoard: View {
     let review: () -> Void
     /// Opens a card's own page — separate from picking it, which the rest of the card does.
     let openCard: (NotebookCard) -> Void
+    /// Sends a task to the Trash. Off for one a lead already has.
+    let remove: (NotebookCard) -> Void
 
     @State private var selected: Set<String> = []
 
@@ -107,16 +110,18 @@ struct NotebookBoard: View {
     // MARK: - Cards
 
     @ViewBuilder private func card(of card: NotebookCard) -> some View {
+        let menu = CardMenu(card: card, busy: assigned.contains(card.id), remove: remove)
         let locked = assigned.contains(card.id) || card.status == "done"
         if locked {
             // Already has a lead on it, or already shipped — not pickable into a batch that
             // would just hand it out again.
-            body(of: card).opacity(0.6)
+            body(of: card).opacity(0.6).contextMenu { menu }
         } else {
             Button { selected = NotebookBoard.picking(card, from: selected) } label: {
                 body(of: card)
             }
             .buttonStyle(.plain)
+            .contextMenu { menu }
         }
     }
 
@@ -237,5 +242,20 @@ struct DotGrid: View {
             }
         }
         .background(Theme.bg)
+    }
+}
+
+/// The right-click menu on a notebook card, wherever one is shown. Delete is off while an
+/// agent is on the work — pulling the file out from under a running lead only breaks it.
+struct CardMenu: View {
+    let card: NotebookCard
+    let busy: Bool
+    let remove: (NotebookCard) -> Void
+
+    var body: some View {
+        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }
+        Divider()
+        Button("Move to Trash", role: .destructive) { remove(card) }
+            .disabled(busy)
     }
 }

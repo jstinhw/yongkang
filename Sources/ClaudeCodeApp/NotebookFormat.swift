@@ -86,6 +86,25 @@ enum NotebookFormat {
         }
     }
 
+    /// Everything one entry owns on disk. A project is a folder — its page and its
+    /// memory — plus the tasks filed under it, which live in `tasks/` and would otherwise
+    /// be left pointing at an id that is gone.
+    static func owned(by card: NotebookCard, in cards: [NotebookCard]) -> [URL] {
+        guard card.kind == .project else { return [card.url] }
+        let folder = card.url.deletingLastPathComponent()
+        return [folder] + cards.filter { $0.kind == .task && $0.project == card.id }.map(\.url)
+    }
+
+    /// Trash, not erase: a notebook page is the user's own writing, so removing one stays
+    /// undoable from the Finder. A volume with no trash falls back to a plain delete.
+    static func remove(_ card: NotebookCard, in cards: [NotebookCard]) throws {
+        let fm = FileManager.default
+        for url in owned(by: card, in: cards) where fm.fileExists(atPath: url.path) {
+            do { try fm.trashItem(at: url, resultingItemURL: nil) }
+            catch { try fm.removeItem(at: url) }
+        }
+    }
+
     static func slug(_ text: String) -> String {
         let mapped = text.lowercased().map { ch in ch.isASCII && (ch.isLetter || ch.isNumber) ? ch : "-" }
         return String(mapped).split(separator: "-").joined(separator: "-")
@@ -258,13 +277,20 @@ enum NotebookFormat {
         engineeringPrompt(tasks: tasks, sessionID: sessionID, agent: agent)
     }
 
+    /// Product writes its session id into the Blocks notification, making that row a link
+    /// back to the transcript where the proposal is discussed.
+    static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
+        agent.skill("product", arguments: arguments
+                    + "\nSession id: \(sessionID.uuidString.lowercased())")
+    }
+
     /// Opens the session that walks the user through one block — a forward-deployed
     /// engineer, whose skill owns how to guide. The prompt only says which block, because
     /// the file already carries the rest: SRE's step-by-step procedure to deliver one step
     /// at a time, and the way back — setting `status: done` in it releases the session
     /// waiting behind it.
-    /// A proposal is settled by the same product agent that raised it, which is why the
-    /// file names its own kind: pressing the button has to reach whoever can act on it.
+    /// Proposals are routed directly to their Product transcript by the app. This helper
+    /// remains the gate prompt: only non-product blocks start a separate guiding session.
     static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
         agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
     }
