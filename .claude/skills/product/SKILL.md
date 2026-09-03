@@ -36,9 +36,9 @@ Do not switch modes because another mode sounds relevant to something the user s
    into what already exists. Do not independently invent other features in this mode.
 3. Clarify only gaps that materially change scope or task order. Ask one question at a
    time, with two to four concrete options; put your recommendation first.
-4. Once clear, summarize the plan in the transcript and ask the user to approve or revise
-   it. Write project and task files only after explicit approval, following **Creating the
-   Approved Plan**. This mode does not need a Blocks notification.
+4. Once clear, state the scope in one line and write the project and tasks directly,
+   following **Creating the Approved Plan** steps 2–5 and 7. The user's described feature
+   is already the decision in this mode; there is no proposal file or Blocks notification.
 
 ## Reviewing the Product
 
@@ -104,8 +104,9 @@ The ready proposal must be detailed enough that approval is mechanical:
 - Project: id, outcome, done-when criteria, approach, dependencies, and repos.
 - Tasks in build order: id, outcome, `depends_on`, specialist owner, and verifiable
   done-when criteria.
-- Agent resources: which of `frontend-dev`, `backend-dev`, and `sre-dev` each task needs,
-  why, and that `qa-dev` verifies completed tasks. Include only roles actually needed.
+- Agent resources: `engineering-lead` coordinates the work; which of `frontend-dev`,
+  `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev` verifies completed
+  tasks. Include only specialist roles actually needed.
 - Assumptions, risks, and the nearest adjacent work deliberately excluded.
 
 Keep `kind: proposal`, `status: open`, `session:`, and `action:`. Set `stage: ready`, update

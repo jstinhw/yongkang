@@ -289,8 +289,8 @@ enum NotebookFormat {
     /// the file already carries the rest: SRE's step-by-step procedure to deliver one step
     /// at a time, and the way back — setting `status: done` in it releases the session
     /// waiting behind it.
-    /// Proposals are routed directly to their Product transcript by the app. This helper
-    /// remains the gate prompt: only non-product blocks start a separate guiding session.
+    /// The resumable prompt for a block. Live proposals route directly to their Product
+    /// transcript; this is also the fallback when that Product session has exited.
     static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
         agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
     }

@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// What is being asked of the user, and the button that starts doing it. The body of a
-/// block is written as steps by whoever hit the gate, so it renders like any other page —
-/// what makes this screen different is the bar: it starts a session whose whole job is
-/// walking you through this one thing and then releasing the agent that is waiting.
+/// block is written as steps by whoever hit the gate, so it renders like any other page.
+/// The action bar either opens the guiding session or returns a proposal to Product.
 struct BlockDetail: View {
     let block: UserBlock
     let cards: [NotebookCard]
@@ -39,7 +38,7 @@ struct BlockDetail: View {
             actionBar
         }
         .background(Theme.bg)
-        .task(id: block.id) { load() }
+        .task(id: block.body) { load() }
     }
 
     private var tint: Color {
@@ -94,7 +93,7 @@ struct BlockDetail: View {
         Inspector {
             if let parent {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Holds up")
+                    SectionLabel(block.isProposal ? "Advances" : "Holds up")
                     HStack(spacing: 10) {
                         NotebookStyle.statusRing(parent.status, progress: 0, size: 16)
                         VStack(alignment: .leading, spacing: 2) {
@@ -167,23 +166,23 @@ struct BlockDetail: View {
         ActionBar {
             Text(footer).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
-            if block.isProposal && block.proposalReady {
-                Button("Request changes", action: revise).buttonStyle(.console)
-                Button(action: start) {
-                    Label("Create project", systemImage: "checkmark")
+            if block.waiting {
+                if block.isProposal && block.proposalReady {
+                    Button("Request changes", action: revise).buttonStyle(.console)
+                    Button(action: start) {
+                        Label("Create project", systemImage: "checkmark")
+                    }
+                    .buttonStyle(.consolePrimary)
+                } else if block.isProposal {
+                    Button(action: revise) {
+                        Label("Open Product session", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    .buttonStyle(.consolePrimary)
+                } else {
+                    Button("Mark resolved", action: resolve).buttonStyle(.console)
+                    Button(action: start) { Label("Do it now", systemImage: "bolt.fill") }
+                        .buttonStyle(.consolePrimary)
                 }
-                .buttonStyle(.consolePrimary)
-                .disabled(!block.waiting)
-            } else {
-                Button(block.isProposal ? "Dismiss" : "Mark resolved", action: resolve)
-                    .buttonStyle(.console)
-                    .disabled(!block.waiting)
-                Button(action: block.isProposal ? revise : start) {
-                    Label(block.isProposal ? "Open Product session" : "Do it now",
-                          systemImage: block.isProposal ? "bubble.left.and.bubble.right" : "bolt.fill")
-                }
-                .buttonStyle(.consolePrimary)
-                .disabled(!block.waiting)
             }
         }
     }
@@ -199,7 +198,6 @@ struct BlockDetail: View {
     }
 
     private func load() {
-        let text = (try? String(contentsOf: block.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
+        content = NotebookContent.sections(block.body)
     }
 }
