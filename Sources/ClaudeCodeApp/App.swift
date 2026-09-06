@@ -375,7 +375,8 @@ struct ClaudeCodeApp: App {
             refreshChanges(force: true)
             selection = Tag.review(project) + ":" + (changes.first?.path ?? "")
         case .blocks:
-            selection = (project.blocks.first(where: \.waiting) ?? project.blocks.first)
+            selection = (project.blocks.first(where: \.waiting)
+                         ?? (showDone ? project.blocks.first : nil))
                 .map { Tag.block($0) }
         }
     }

@@ -395,7 +395,7 @@ struct ProjectList: View {
         group("Waiting on you", "\(waiting.count)")
         if waiting.isEmpty { empty("Nothing waiting on you") }
         ForEach(waiting) { blockRow($0) }
-        if !resolved.isEmpty {
+        if !resolved.isEmpty && showDone {
             group("Resolved", "\(resolved.count)")
             ForEach(resolved) { blockRow($0).opacity(0.55) }
         }
