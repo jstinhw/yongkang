@@ -32,8 +32,9 @@ struct SubagentViewer: View {
     // MARK: - Header
 
     private var header: some View {
-        TranscriptHeader(role: subagent.agentType, title: subagent.agentType,
-                         subtitle: "spawned by \(session.title)" + (task.map { " · on \($0.title)" } ?? ""),
+        TranscriptHeader(role: subagent.agentType, title: subagent.displayName,
+                         subtitle: "\(subagent.agentType) · spawned by \(session.title)"
+                             + (task.map { " · on \($0.title)" } ?? ""),
                          lines: lines, state: subagent.running ? .working : .done)
     }
 

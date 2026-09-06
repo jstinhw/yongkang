@@ -128,7 +128,7 @@ struct TaskDetail: View {
                         HStack(spacing: 10) {
                             RoleTile(role: subagent.agentType)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(subagent.agentType).font(Typo.text(11.5))
+                                Text(subagent.displayName).font(Typo.text(11.5))
                                     .foregroundStyle(Theme.tx)
                                 Text(session.title).font(Typo.text(10))
                                     .foregroundStyle(Theme.tx3).lineLimit(1)

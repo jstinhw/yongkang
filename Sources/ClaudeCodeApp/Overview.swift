@@ -91,8 +91,8 @@ struct Overview: View {
                 HStack(spacing: 10) {
                     RoleTile(role: subagent.agentType, size: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(subagent.description).font(Typo.mono(11)).foregroundStyle(Theme.tx)
-                            .lineLimit(1).truncationMode(.middle)
+                        Text(subagent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                            .lineLimit(1)
                         Text("\(subagent.agentType) · on \(task?.title ?? subagent.taskID ?? "no task")")
                             .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
@@ -282,7 +282,9 @@ struct Overview: View {
     // MARK: - Team
 
     private var team: some View {
-        let roles = Dictionary(grouping: workers.map(\.subagent), by: \.agentType)
+        // Keyed by who is running, not by the skill: two dispatches of Allen are Allen
+        // twice over, and the skill is still what the tile beside the name is drawn from.
+        let dispatched = Dictionary(grouping: workers.map(\.subagent), by: \.displayName)
         return VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Team").padding(.bottom, 6)
             ForEach(project.sessions.filter { $0.agent != nil }) { session in
@@ -298,12 +300,13 @@ struct Overview: View {
                 }
                 .buttonStyle(.plain)
             }
-            ForEach(roles.keys.sorted(), id: \.self) { role in
+            ForEach(dispatched.keys.sorted(), id: \.self) { name in
+                let running = dispatched[name] ?? []
                 HStack(spacing: 9) {
-                    RoleTile(role: role)
-                    Text(role).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                    RoleTile(role: running.first?.agentType ?? name)
+                    Text(name).font(Typo.text(12)).foregroundStyle(Theme.tx2)
                     Spacer(minLength: 8)
-                    Text("\(roles[role]?.count ?? 0)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    Text("\(running.count)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
                     StateDot(color: Theme.accent, live: true)
                 }
                 .padding(.vertical, 5)

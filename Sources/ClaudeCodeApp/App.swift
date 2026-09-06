@@ -34,6 +34,8 @@ struct ClaudeCodeApp: App {
     @State private var ticks = 0
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
+    /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
+    @State private var addingAgent = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
     /// says so once rather than on every 2-second poll.
     @State private var deliveredBlocks: Set<String> = []
@@ -119,6 +121,19 @@ struct ClaudeCodeApp: App {
                     screen(for: project)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .sheet(isPresented: $addingAgent) {
+                NewAgentForm(
+                    skills: Team.assignableSkills,
+                    taken: project.team.map(\.name),
+                    save: { member in
+                        do { try Team.write(member, root: project.notebookRoot) }
+                        catch { NSAlert(error: error).runModal() }
+                        addingAgent = false
+                        reload()
+                    },
+                    cancel: { addingAgent = false }
+                )
             }
         }
     }
@@ -272,6 +287,7 @@ struct ClaudeCodeApp: App {
             case .lanes:
                 EngineeringLeadBoard(
                     session: watched, cards: project.cards, blocks: project.blocks,
+                    team: project.team,
                     openTask: { section = .board; selection = Tag.task($0) },
                     openSubagent: { subagent in
                         selection = Tag.subagent(watched, subagent)
@@ -515,6 +531,10 @@ struct ClaudeCodeApp: App {
                     section = .agents
                 }
             }
+            Section("Team") {
+                Button("Agent…", systemImage: "person.badge.plus") { addingAgent = true }
+                    .disabled(!project.hasNotebook)
+            }
             Section("Notebook") {
                 Button("Roadmap Entry…", systemImage: "map") { add(.roadmap, to: project) }
                 Button("Project…", systemImage: "shippingbox") { add(.project, to: project) }
@@ -640,6 +660,23 @@ struct ClaudeCodeApp: App {
         selection = Tag.overview(project)
         reload()
         refreshChanges(force: true)
+        // A project with a notebook opens on its always-on Engineering Lead, not Overview.
+        guard let ready = enteredProject, ready.hasNotebook else { return }
+        ensureLead(in: ready)
+        section = .agents
+        openSectionDefault()
+    }
+
+    /// The always-on dispatcher. Every project with a notebook has one live Engineering
+    /// Lead; if none is running yet, it starts here on standby with no batch, and the team
+    /// roster is written to `.notebook/team/` the first time.
+    private func ensureLead(in project: Project) {
+        guard !project.sessions.contains(where: { $0.isEngineeringLead && !$0.exited }) else { return }
+        Team.seedIfAbsent(root: project.notebookRoot)
+        let id = UUID()
+        addSession(agent, id: id, to: project,
+                   prompt: NotebookFormat.engineeringPrompt(tasks: [], sessionID: id, agent: agent),
+                   title: "Engineering Lead", taskIDs: [])
     }
 
     private func leave() {
@@ -717,13 +754,15 @@ struct ClaudeCodeApp: App {
             if cards != projects[index].cards { projects[index].cards = cards }
             let blocks = Blocks.load(root: projects[index].notebookRoot)
             if blocks != projects[index].blocks { projects[index].blocks = blocks }
+            let team = Team.load(root: projects[index].notebookRoot)
+            if team != projects[index].team { projects[index].team = team }
             guard projects[index].id == entered else { continue }
             deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices
                 where !projects[index].sessions[sIndex].exited
                     && projects[index].sessions[sIndex].agent != nil {
                 let session = projects[index].sessions[sIndex]
-                let subagents = subagents(of: session, in: projects[index].directory)
+                let subagents = subagents(of: session, in: projects[index])
                 if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
             }
             // Written from the poll rather than from the usage screen: what an agent spent
@@ -750,15 +789,19 @@ struct ClaudeCodeApp: App {
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent
     /// session, Codex as sibling rollouts pointing back at it — so the session's own agent
     /// picks the reader. A service terminal has neither and is skipped by the caller.
-    private func subagents(of session: CodeSession, in directory: URL) -> [SubagentStatus] {
+    private func subagents(of session: CodeSession, in project: Project) -> [SubagentStatus] {
+        let found: [SubagentStatus]
         switch session.agent {
         case .codex:
-            return CodexTranscripts.subagents(sessionID: session.id, projectDirectory: directory,
-                                              taskIDs: session.taskIDs)
-        default:
-            return ClaudeTranscripts.subagents(sessionID: session.id, projectDirectory: directory,
+            found = CodexTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
                                                taskIDs: session.taskIDs)
+        default:
+            found = ClaudeTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
+                                                taskIDs: session.taskIDs)
         }
+        // Named here rather than in either reader: the roster is project state, and the
+        // screens downstream should never each have to look a running agent up themselves.
+        return found.map { $0.named(in: project.team) }
     }
 
     /// Only the agent actually on screen pays for having its transcript read and parsed —

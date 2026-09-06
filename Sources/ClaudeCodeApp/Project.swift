@@ -10,6 +10,9 @@ struct Project: Identifiable, Equatable {
     var cards: [NotebookCard] = []
     /// What the agents need from the user before they can go on, read the same way.
     var blocks: [UserBlock] = []
+    /// The Engineering Lead's named specialists, from `.notebook/team/` (shipped defaults
+    /// until that folder exists). Read the same way — the folder tree is the state.
+    var team: [TeamMember] = Team.defaults
     var sessions: [CodeSession] = []
 
     var name: String { directory.lastPathComponent }

@@ -266,10 +266,14 @@ enum NotebookFormat {
 
     /// The reusable skill owns orchestration; the opening prompt only carries the batch.
     /// The session id goes in so a block this lead writes says who is waiting on it —
-    /// with two leads running, the answer has to come back to the right one.
+    /// with two leads running, the answer has to come back to the right one. An empty
+    /// batch is the always-on lead on standby: it confirms the team and waits.
     static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
-        agent.skill("engineering-lead",
-                    arguments: "Session id: \(sessionID.uuidString.lowercased())\n\(taskList(tasks))")
+        let id = "Session id: \(sessionID.uuidString.lowercased())"
+        let batch = tasks.isEmpty
+            ? "\(id)\n(No tasks yet — stand by: confirm the team roster and wait for a batch.)"
+            : "\(id)\n\(taskList(tasks))"
+        return agent.skill("engineering-lead", arguments: batch)
     }
 
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.

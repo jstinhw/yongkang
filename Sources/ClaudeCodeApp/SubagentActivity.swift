@@ -12,6 +12,26 @@ struct SubagentStatus: Identifiable, Equatable {
     /// label names no task in the batch — a compaction or review subagent, or a lead that
     /// ignored the naming rule.
     var taskID: String? = nil
+    /// The roster name of the team member whose skill this subagent runs, filled in when
+    /// the session is read. Nil when the label names nobody on the team — a compaction or
+    /// review agent, or a skill no team member owns.
+    var member: String? = nil
+
+    /// What to call it on screen: the person on the team, else the skill it runs.
+    var displayName: String { member ?? agentType }
+
+    /// The same subagent, told who on the team it is. Neither provider can do this: the
+    /// roster is the project's, and a CLI knows only the label it was spawned under.
+    ///
+    /// The skill comes back with the name, and replaces whatever the provider called this
+    /// thread — Codex nicknames a spawned thread ("Dewey", "Dirac"), and a nickname colours
+    /// no tile, groups under nobody, and outlives the run in the ledger.
+    func named(in team: [TeamMember]) -> SubagentStatus {
+        guard let found = Team.running("\(description) \(agentType)", in: team) else { return self }
+        return SubagentStatus(id: id, description: description, agentType: found.skill,
+                              running: running, transcriptURL: transcriptURL, taskID: taskID,
+                              member: found.member.name)
+    }
 }
 
 /// The subagents attached to one assigned task, including an empty group while that task

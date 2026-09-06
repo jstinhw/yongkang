@@ -153,6 +153,10 @@ struct ProviderQuota {
 
 enum AgentUsage {
 
+    /// What a lead's runs are filed under. Named, because it is also what the usage screen
+    /// matches on to call those runs by the lead's name rather than a numbered title.
+    static let leadRole = "lead"
+
     // MARK: - Per-agent spend
 
     /// A session's role, for the panel that groups spend by one. The console names a
@@ -160,7 +164,7 @@ enum AgentUsage {
     /// <block>" — and numbers the second of each, so the first word is the role and the
     /// number is not. A subagent needs none of this: it already carries its agent type.
     static func role(of session: CodeSession) -> String {
-        guard !session.isEngineeringLead else { return "lead" }
+        guard !session.isEngineeringLead else { return leadRole }
         return session.title.split(separator: " ").first.map { $0.lowercased() } ?? "session"
     }
 

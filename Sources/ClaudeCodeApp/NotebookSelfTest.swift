@@ -667,6 +667,51 @@ enum NotebookSelfTest {
         }
         precondition(follow.contains("engineering-lead"), "follow-ups use the dispatcher skill too")
 
+        // The always-on lead: an empty batch is a standby brief, still carrying the id.
+        let standby = NotebookFormat.engineeringPrompt(tasks: [], sessionID: leadID, agent: .claude)
+        precondition(standby.contains("engineering-lead") && standby.contains("stand by"),
+                     "no tasks means the lead confirms the team and waits")
+        precondition(standby.contains("Session id: \(leadID.uuidString.lowercased())"))
+        precondition(echo(AgentCommand.quoted(standby)) == standby, "standby brief mangled by the shell")
+
+        // The team the lead routes by: shipped defaults, then `.notebook/team/` files win.
+        func routing(_ members: [TeamMember]) -> [[String]] {
+            members.map { [$0.name, $0.skills.joined(separator: ","), $0.owns] }
+        }
+        precondition(Team.load(root: root) == Team.defaults, "no team/ folder falls back to the shipped roster")
+        Team.seedIfAbsent(root: root)
+        precondition(routing(Team.load(root: root)) == routing(Team.defaults),
+                     "seeding writes the shipped roster verbatim")
+        Team.seedIfAbsent(root: root)
+        precondition(Team.load(root: root).count == Team.defaults.count, "seeding a populated folder is a no-op")
+        try! Team.write(TeamMember(name: "mobile-dev", skills: ["frontend-dev"],
+                                   owns: "Native app screens", notes: "Ships the iOS target."), root: root)
+        let roster = Team.load(root: root)
+        precondition(roster.contains { $0.name == "mobile-dev" && $0.skills == ["frontend-dev"]
+                        && $0.notes == "Ships the iOS target." },
+                     "a hand-written agent file joins the roster, body and all")
+        precondition(roster.count == Team.defaults.count + 1)
+
+        // Who a running agent is: the lead names it `<task-id>-<skill>`, and the skill in
+        // that name is what puts a person's face on every screen that shows the agent.
+        func running(_ label: String, _ type: String) -> SubagentStatus {
+            SubagentStatus(id: label, description: label, agentType: type, running: true,
+                           transcriptURL: root).named(in: Team.defaults)
+        }
+        precondition(running("edit-todo-frontend-dev", "frontend-dev").displayName == "Allen")
+        precondition(running("deploy-to-vercel-sre-dev", "sre-dev").displayName == "Chris")
+        precondition(running("qa-dev: edit-todo", "qa-dev").displayName == "David",
+                     "a label the lead punctuated its own way still names the right agent")
+        precondition(running("Compact conversation", "general-purpose").displayName == "general-purpose",
+                     "an agent no one on the team owns keeps its own name")
+        precondition(running("edit-todo-frontend-dev", "frontend-dev").named(in: roster).member == "Allen",
+                     "a hand-added agent sharing a skill never outranks the one shipped with it")
+        // Codex nicknames a thread it spawns; the skill in the label is what the run is
+        // filed under, so the tile has a colour and the ledger row groups under a person.
+        let nicknamed = running("render_task_groups_frontend_dev", "Dewey")
+        precondition(nicknamed.displayName == "Allen" && nicknamed.agentType == "frontend-dev",
+                     "a provider's nickname never survives as an agent's role")
+
         // A block, exactly as the engineering-lead skill writes one, and the loop it opens:
         // read it back, hand it to a session, resolve it, tell the waiting lead.
         precondition(Blocks.load(root: root).isEmpty, "no gate hit, no blocks folder")

@@ -51,14 +51,14 @@ struct UsageBoard: View {
                     limits
                     overTime
                     byModel
-                    byAgent
+                    runs
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
 
                 VStack(alignment: .leading, spacing: 20) {
                     totals
-                    byRole
+                    byAgent
                     Spacer(minLength: 0)
                 }
                 .frame(width: 332)
@@ -288,11 +288,13 @@ struct UsageBoard: View {
         }
     }
 
-    // MARK: - By agent
+    // MARK: - Every run
 
-    private var byAgent: some View {
+    /// One row per run — a session, or one dispatch of a specialist. The panel beside it
+    /// sums these by who they belong to; this is the list you click through to a transcript.
+    private var runs: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("By agent", trailing: range.caption)
+            SectionLabel("Agent runs", trailing: range.caption)
             if windowed.isEmpty {
                 note(spends.isEmpty
                      ? "No agent has a transcript on disk yet. Assign work on the board and "
@@ -313,10 +315,16 @@ struct UsageBoard: View {
                 RoleTile(role: spend.role, size: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(spend.name).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
+                        Text(person(spend)).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
                         if spend.running { StateDot(live: true) }
                     }
                     HStack(spacing: 6) {
+                        // The run's own label, when it says more than the name above does —
+                        // which dispatch of a specialist this row is.
+                        if spend.name != person(spend) {
+                            Text(spend.name).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                                .lineLimit(1).truncationMode(.middle)
+                        }
                         if let model = spend.topModel(since: since) {
                             Text(AgentUsage.modelName(model))
                                 .font(Typo.mono(9.5)).foregroundStyle(tint(model))
@@ -377,32 +385,62 @@ struct UsageBoard: View {
         }
     }
 
-    private var byRole: some View {
-        let rows = AgentUsage.group(spends, since: since, by: \.role)
+    /// Spend by who it belongs to rather than by which run spent it: a specialist
+    /// dispatched five times is one member of the team spending five times, and their name
+    /// is the number worth reading. Split by provider underneath, because the same agent
+    /// runs under either CLI and the two plans are metered apart.
+    private var byAgent: some View {
+        let rows = AgentUsage.group(windowed, since: since, by: person)
+        // Ranked against the biggest spender here, not the biggest single run — a person's
+        // bar has to be able to reach the end of the track.
+        let peak = rows.first?.tally.total ?? 0
         return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("By role", trailing: range.caption)
+            SectionLabel("By agent", trailing: range.caption)
             if rows.isEmpty {
                 note("Nothing spent in the \(range.caption).")
             } else {
-                VStack(spacing: 11) {
-                    ForEach(rows, id: \.key) { row in
-                        let count = windowed.filter { $0.role == row.key }.count
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 9) {
-                                RoleTile(role: row.key, size: 20)
-                                Text(row.key).font(Typo.text(12)).foregroundStyle(Theme.tx).lineLimit(1)
-                                Text("\(count)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
-                                Spacer(minLength: 8)
-                                Text(AgentUsage.short(row.tally.total))
-                                    .font(Typo.mono(11, .semibold)).foregroundStyle(Theme.tx2)
-                            }
-                            MeterBar(value: fraction(row.tally), tint: RoleTile.color(of: row.key))
-                        }
-                    }
+                VStack(spacing: 13) {
+                    ForEach(rows, id: \.key) { agentGroup($0.key, $0.tally, peak: peak) }
                 }
                 .cardSurface()
             }
         }
+    }
+
+    private func agentGroup(_ name: String, _ tally: TokenTally, peak: Int) -> some View {
+        let mine = windowed.filter { person($0) == name }
+        // Off the skill, not the name: renaming an agent never changes its colour.
+        let role = mine.first?.role ?? name
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 9) {
+                RoleTile(role: role, size: 20)
+                Text(name).font(Typo.text(12)).foregroundStyle(Theme.tx).lineLimit(1)
+                Text("\(mine.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
+                Spacer(minLength: 8)
+                Text(AgentUsage.short(tally.total))
+                    .font(Typo.mono(11, .semibold)).foregroundStyle(Theme.tx2)
+            }
+            MeterBar(value: peak == 0 ? 0 : Double(tally.total) / Double(peak),
+                     tint: RoleTile.color(of: role))
+            ForEach(AgentUsage.group(mine, since: since, by: \.provider), id: \.key) { row in
+                HStack(spacing: 7) {
+                    Image(systemName: row.key.systemImage)
+                        .font(.system(size: 9)).foregroundStyle(Theme.tx4).frame(width: 11)
+                    Text(row.key.displayName).font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    Spacer(minLength: 8)
+                    Text(AgentUsage.short(row.tally.total))
+                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                }
+                .padding(.leading, 29)
+            }
+        }
+    }
+
+    /// Whose spend a run is. A specialist is the team member whose skill it ran; a session
+    /// is itself, except a lead — the console numbers a second one, and both are the lead.
+    private func person(_ spend: AgentSpend) -> String {
+        if spend.role == AgentUsage.leadRole { return "Engineering Lead" }
+        return Team.running(spend.role, in: project.team)?.member.name ?? spend.name
     }
 
     // MARK: - Shared

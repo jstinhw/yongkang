@@ -85,7 +85,7 @@ struct ProjectList: View {
 
     private var footNote: String? {
         switch section {
-        case .agents: return "Agents are named <task-id>-<role>, which is how a subagent is matched back to its task."
+        case .agents: return "An agent is named for the team member running it; the label under it is <task-id>-<skill>, which is how it is matched back to its task."
         case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it."
         case .review: return "Merging is yours. The lead stops at the PR."
         default: return nil
@@ -264,6 +264,26 @@ struct ProjectList: View {
                 ForEach(displayedSubagents(in: session)) { subagentRow($0, in: session) }
             }
         }
+        if !project.team.isEmpty {
+            group("Team", "\(project.team.count)")
+            ForEach(project.team) { teamRow($0) }
+        }
+    }
+
+    /// A standing member of the Engineering Lead's team — a name and the skill it runs.
+    /// Not a session, so the row is informational, like the notebook counts on Overview.
+    private func teamRow(_ member: TeamMember) -> some View {
+        HStack(spacing: 9) {
+            RoleTile(role: member.skills.first ?? member.name, size: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(member.name).font(Typo.text(12, .medium)).foregroundStyle(Theme.tx).lineLimit(1)
+                Text(member.skills.joined(separator: ", "))
+                    .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+        }
+        .padding(.horizontal, 19)
+        .padding(.vertical, 6)
     }
 
     /// The one row here that is not an agent: what the whole fleet has spent, and how
@@ -349,10 +369,13 @@ struct ProjectList: View {
                 HStack(spacing: 8) {
                     RoleTile(role: subagent.agentType, size: 20)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(subagent.description).font(Typo.mono(10.5))
+                        Text(subagent.displayName).font(Typo.text(12, .medium))
                             .foregroundStyle(selection == tag ? Theme.tx : Theme.tx2)
+                            .lineLimit(1)
+                        // The label underneath is still the link to the task: the lead names
+                        // every subagent `<task-id>-<skill>`, and that is what matches it back.
+                        Text(subagent.description).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
                             .lineLimit(1).truncationMode(.middle)
-                        Text(subagent.agentType).font(Typo.text(10)).foregroundStyle(Theme.tx3)
                     }
                     Spacer(minLength: 4)
                     StateDot(color: subagent.running ? Theme.accent : Theme.green, live: subagent.running)

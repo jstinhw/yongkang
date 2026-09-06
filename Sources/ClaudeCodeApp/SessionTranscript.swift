@@ -136,9 +136,10 @@ struct SessionInspector: View {
                         Button { openSubagent(subagent) } label: {
                             HStack(spacing: 9) {
                                 RoleTile(role: subagent.agentType, size: 20)
-                                Text(subagent.description).font(Typo.mono(10.5))
-                                    .foregroundStyle(Theme.tx2)
-                                    .lineLimit(1).truncationMode(.middle)
+                                Text(subagent.displayName).font(Typo.text(11.5))
+                                    .foregroundStyle(Theme.tx2).lineLimit(1)
+                                Text(subagent.agentType).font(Typo.mono(9.5))
+                                    .foregroundStyle(Theme.tx4).lineLimit(1)
                                 Spacer(minLength: 0)
                                 StateDot(color: subagent.running ? Theme.accent : Theme.green,
                                          live: subagent.running)

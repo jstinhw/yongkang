@@ -46,6 +46,7 @@ enum DesignShots {
 
         write(console(project, section: .agents) {
             EngineeringLeadBoard(session: lead, cards: project.cards, blocks: project.blocks,
+                                 team: Team.defaults,
                                  openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
         }, "agents", into: directory)
 
@@ -249,7 +250,7 @@ enum DesignShots {
                            taskID: "pull-blockers"),
             SubagentStatus(id: "sre", description: "deploy-to-vercel-sre-dev", agentType: "sre-dev",
                            running: true, transcriptURL: transcript, taskID: "deploy-to-vercel")
-        ]
+        ].map { $0.named(in: project.team) }
         project.sessions = [lead,
                             CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude)]
         project.blocks = [

@@ -8,6 +8,8 @@ struct EngineeringLeadBoard: View {
     let session: CodeSession
     let cards: [NotebookCard]
     let blocks: [UserBlock]
+    /// The named specialists this lead dispatches to, from `.notebook/team/`.
+    let team: [TeamMember]
     let openTask: (String) -> Void
     let openSubagent: (SubagentStatus) -> Void
     let openBlock: (UserBlock) -> Void
@@ -28,24 +30,58 @@ struct EngineeringLeadBoard: View {
         .background(Theme.bg)
     }
 
-    @ViewBuilder private var content: some View {
-        if session.taskIDs.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "tray").font(.system(size: 22)).foregroundStyle(Theme.tx4)
-                Text("No tasks assigned to this lead.")
-                    .font(Typo.text(13)).foregroundStyle(Theme.tx3)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+    private var content: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                roster
+                if session.taskIDs.isEmpty {
+                    standbyNote
+                } else {
                     ForEach(groups) { lane($0) }
                     if !unlinked.isEmpty { unlinkedLane }
                 }
-                .padding(22)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(22)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// The team the lead manages, each with the skill(s) that are its system prompt and
+    /// the kind of task it owns — shown whether or not a batch is in flight.
+    private var roster: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Team", trailing: "\(team.count) agent" + (team.count == 1 ? "" : "s"))
+            ForEach(team) { member in
+                HStack(alignment: .top, spacing: 10) {
+                    RoleTile(role: member.skills.first ?? member.name)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(member.name).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                            ForEach(member.skills, id: \.self) { skill in
+                                NotebookStyle.pill(skill, Theme.violet)
+                            }
+                        }
+                        if !member.owns.isEmpty {
+                            Text(member.owns).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+
+    private var standbyNote: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle").font(.system(size: 12)).foregroundStyle(Theme.green)
+            Text("Standing by. Pick tasks on the board and assign them to put the team to work.")
+                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 9)
     }
 
     // MARK: - One task's lane
@@ -168,9 +204,10 @@ struct EngineeringLeadBoard: View {
             HStack(spacing: 10) {
                 RoleTile(role: subagent.agentType)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(subagent.description).font(Typo.mono(11)).foregroundStyle(Theme.tx)
+                    Text(subagent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                        .lineLimit(1)
+                    Text(subagent.description).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                         .lineLimit(1).truncationMode(.middle)
-                    Text(subagent.agentType).font(Typo.text(10)).foregroundStyle(Theme.tx3)
                 }
                 .frame(width: 230, alignment: .leading)
                 Spacer(minLength: 12)
@@ -185,7 +222,7 @@ struct EngineeringLeadBoard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Open \(subagent.description)'s transcript")
+        .help("Open \(subagent.displayName)'s transcript — \(subagent.description)")
     }
 
     private var unlinkedLane: some View {
