@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// Tokens spent, in the four buckets both providers report. Cache reads are kept apart
+/// Tokens spent, in the four buckets the supported providers report. Cache reads are kept apart
 /// from fresh input on purpose: they are the bulk of an agent's traffic and priced
 /// nothing like it, so folding them together makes every agent look identical.
 struct TokenTally: Equatable {
@@ -68,7 +68,7 @@ struct AgentSpend: Identifiable {
     var lastActive: Date? { samples.last?.at }
 }
 
-/// One turn's spend and when it happened. Both CLIs stamp every record they write, which
+/// One turn's spend and when it happened. Each supported CLI stamps every record it writes, which
 /// is what makes a window and a histogram possible at all.
 struct UsageSample {
     let at: Date
@@ -176,7 +176,8 @@ enum AgentUsage {
                 AgentSpend(id: session.id.uuidString, tag: Tag.transcript(session.id),
                            name: session.title, role: role(of: session),
                            provider: provider, running: !session.exited,
-                           samples: samples(at: url, provider))
+                           samples: samples(at: Transcripts.usageURL(of: session, in: project.directory) ?? url,
+                                            provider))
             }
             let spawned = session.subagents.map { subagent in
                 // Scoped to its session: a provider's agent id is unique within the session
@@ -264,10 +265,14 @@ enum AgentUsage {
         var cursor = files[url.path] ?? Cursor()
         let lines = newLines(in: url, cursor: &cursor)
         for line in lines {
-            if let sample = provider == .codex ? codexSample(line, cursor: &cursor)
-                                               : claudeSample(line) {
-                cursor.samples.append(sample)
+            let samples: [UsageSample]
+            switch provider {
+            case .codex: samples = codexSample(line, cursor: &cursor).map { [$0] } ?? []
+            case .claude: samples = claudeSample(line).map { [$0] } ?? []
+            case .grok: samples = grokSamples(line)
+            case .agy: samples = []
             }
+            cursor.samples += samples
         }
         files[url.path] = cursor
         return cursor.samples
@@ -314,6 +319,33 @@ enum AgentUsage {
         let delta = total - cursor.running
         cursor.running = total
         return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
+    }
+
+    /// Grok writes one completed-turn update with a per-model usage breakdown. Its input
+    /// total includes cache reads, so subtract that part before putting it in our additive
+    /// tally, the same way Codex's running total is handled above.
+    private static func grokSamples(_ line: String) -> [UsageSample] {
+        guard let object = json(line),
+              let timestamp = (object["timestamp"] as? NSNumber)?.doubleValue,
+              let params = object["params"] as? [String: Any],
+              let update = params["update"] as? [String: Any],
+              update["sessionUpdate"] as? String == "turn_completed",
+              let usage = update["usage"] as? [String: Any]
+        else { return [] }
+        let at = Date(timeIntervalSince1970: timestamp > 10_000_000_000 ? timestamp / 1000 : timestamp)
+
+        func sample(_ model: String, _ value: [String: Any]) -> UsageSample? {
+            func count(_ key: String) -> Int { (value[key] as? NSNumber)?.intValue ?? 0 }
+            let cached = count("cachedReadTokens")
+            let tally = TokenTally(input: max(0, count("inputTokens") - cached),
+                                   output: count("outputTokens"), cacheRead: cached,
+                                   cacheWrite: count("cacheCreationTokens"))
+            return tally.total == 0 ? nil : UsageSample(at: at, model: model, tally: tally)
+        }
+
+        let models = usage["modelUsage"] as? [String: Any] ?? [:]
+        let split = models.compactMap { model, value in sample(model, value as? [String: Any] ?? [:]) }
+        return split.isEmpty ? sample("grok", usage).map { [$0] } ?? [] : split
     }
 
     /// Whole lines written since this file was last read, advancing the cursor only past
@@ -523,8 +555,8 @@ enum AgentUsage {
     }
 }
 
-/// Where each provider keeps a session's own transcript. Both readers already know this;
-/// naming it once is what keeps the window and the usage screen looking in the same place.
+/// Where supported providers keep a session's own transcript. Naming it once keeps the
+/// window and the usage screen looking in the same place.
 enum Transcripts {
     static func url(of session: CodeSession, in directory: URL) -> URL? {
         switch session.agent {
@@ -532,9 +564,18 @@ enum Transcripts {
             return CodexTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
         case .claude:
             return ClaudeTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
+        case .grok:
+            return GrokTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
+        case .agy:
+            return nil
         case nil:
             // A service terminal is a PTY in a folder, not an agent — it has no transcript.
             return nil
         }
+    }
+
+    static func usageURL(of session: CodeSession, in directory: URL) -> URL? {
+        guard session.agent == .grok else { return url(of: session, in: directory) }
+        return GrokTranscripts.usageURL(sessionID: session.id, projectDirectory: directory)
     }
 }

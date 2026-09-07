@@ -4,14 +4,30 @@ import SwiftTerm
 enum AgentKind: String, CaseIterable, Identifiable {
     case claude
     case codex
+    case grok
+    case agy
 
     var id: Self { self }
-    var displayName: String { self == .claude ? "Claude Code" : "Codex" }
-    var systemImage: String { self == .claude ? "sparkles" : "chevron.left.forwardslash.chevron.right" }
+    var displayName: String {
+        switch self {
+        case .claude: "Claude Code"
+        case .codex: "Codex"
+        case .grok: "Grok"
+        case .agy: "Agy"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .claude: "sparkles"
+        case .codex: "chevron.left.forwardslash.chevron.right"
+        case .grok: "bolt"
+        case .agy: "a.circle"
+        }
+    }
     var command: String { rawValue }
 
     func skillInvocation(_ name: String, arguments: String) -> String {
-        "\(self == .claude ? "/" : "$")\(name) \(arguments)"
+        "\(self == .codex ? "$" : "/")\(name) \(arguments)"
     }
 
     /// Packaged sessions carry the app's exact skill text, so opening another project
@@ -63,23 +79,23 @@ enum AgentCommand {
         "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    /// Both agents take an opening prompt as their first argument, which is how a new
+    /// Each agent takes an opening prompt, which is how a new
     /// project's notebook conversation starts without anyone typing it.
     ///
-    /// `sessionID` only means anything to Claude Code — passing `--session-id` makes its
-    /// transcript land at a path the app already knows, so it can go find that session's
-    /// subagents later. Codex gets none: it picks its own id and never has a transcript
-    /// the app goes looking for.
+    /// Claude Code and Grok accept `--session-id`; Codex gets a marker in its prompt so
+    /// its rollout can be found later. Agy has neither and starts prompted sessions with
+    /// `--prompt-interactive`.
     static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
                      brief: Bool = false) -> String {
         let briefFlag = agent == .claude && brief ? "--brief " : ""
-        let sessionFlag = agent == .claude
+        let sessionFlag = agent == .claude || agent == .grok
             ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
         let command = "\(agent.command) \(briefFlag)\(sessionFlag)".trimmingCharacters(in: .whitespaces)
         let opening = agent == .codex
             ? prompt.flatMap { text in sessionID.map { "\(text)\n\n\(marker($0))" } } ?? prompt
             : prompt
-        let start = opening.map { "exec \(command) \(quoted($0))" } ?? "exec \(command)"
+        let promptFlag = agent == .agy && opening != nil ? " --prompt-interactive" : ""
+        let start = opening.map { "exec \(command)\(promptFlag) \(quoted($0))" } ?? "exec \(command)"
         return "cd \(quoted(directory)) && \(start)"
     }
 

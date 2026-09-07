@@ -77,9 +77,11 @@ struct UsageBoard: View {
     private var signature: String {
         let ledger = (try? UsageLedger.url(root: project.notebookRoot)
             .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let transcripts = project.sessions.compactMap { Transcripts.usageURL(of: $0, in: project.directory) }
+            .compactMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize }
         return project.sessions.map { session in
             session.id.uuidString + session.subagents.map { $0.id + "\($0.running)" }.joined()
-        }.joined() + "\(project.sessions.count):\(ledger)"
+        }.joined() + "\(project.sessions.count):\(ledger):\(transcripts)"
     }
 
     private func load() {

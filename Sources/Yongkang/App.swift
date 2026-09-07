@@ -231,7 +231,7 @@ struct YongkangApp: App {
         Picker("", selection: $agent) {
             ForEach(AgentKind.allCases) { Text($0.displayName).tag($0) }
         }
-        .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+        .pickerStyle(.segmented).labelsHidden().frame(width: 320)
     }
 
     private var completedToggle: some View {
@@ -838,9 +838,11 @@ struct YongkangApp: App {
         case .codex:
             found = CodexTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
                                                taskIDs: session.taskIDs)
-        default:
+        case .claude:
             found = ClaudeTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
                                                 taskIDs: session.taskIDs)
+        default:
+            found = []
         }
         // Named here rather than in either reader: the roster is project state, and the
         // screens downstream should never each have to look a running agent up themselves.
@@ -851,8 +853,13 @@ struct YongkangApp: App {
     /// everything else is covered by the status list above.
     private func reloadAgentTranscript() {
         guard let project = enteredProject, let source = onScreenTranscript(in: project) else { return }
-        let fresh = source.agent == .codex ? CodexTranscripts.transcript(at: source.url)
-                                           : ClaudeTranscripts.transcript(at: source.url)
+        let fresh: [TranscriptLine]
+        switch source.agent {
+        case .codex: fresh = CodexTranscripts.transcript(at: source.url)
+        case .claude: fresh = ClaudeTranscripts.transcript(at: source.url)
+        case .grok: fresh = GrokTranscripts.transcript(at: source.url)
+        default: fresh = []
+        }
         guard source.url != transcriptSource || fresh.count != agentTranscript.count else { return }
         transcriptSource = source.url
         agentTranscript = fresh
@@ -893,9 +900,8 @@ struct YongkangApp: App {
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
                                                     agent: agent, taskIDs: taskIDs))
-        // Every agent is watched through its transcript, however it was started — the same
-        // pane its sidebar row opens. Only a service runner, which has none, lands on its PTY.
-        selection = agent == nil ? id.uuidString : Tag.transcript(id)
+        // Providers with a transcript reader open there; the others land on their live PTY.
+        selection = agent == nil || agent == .agy ? id.uuidString : Tag.transcript(id)
     }
 
     /// Every service in a project's repos, started at once — the board's "run the whole

@@ -1,16 +1,16 @@
 # Yongkang.app
 
-A dark console for running an agent team: multiple `claude` or `codex` CLI sessions in real PTYs (SwiftTerm), the notebook they work from, and the changes they produce. Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
+A dark console for running an agent team: multiple `claude`, `codex`, `grok`, or `agy` CLI sessions in real PTYs (SwiftTerm), the notebook they work from, and the changes they produce. Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
 Every screen is the same four columns: a **rail** picking the section, a **list** of that section's objects, the **work area** holding whichever one is selected, and an **inspector** carrying what you would otherwise have to go and find. The rail's sections are Overview, Board, Agents, Review, Blocks and Terminals.
 
-Inside a project, use the Agent switch in the top bar to choose Claude Code or Codex. The choice is remembered and applies to new notebook setup, Product, Engineering Lead, unblock, and plain sessions; sessions already running keep their original agent.
+Inside a project, use the Agent switch in the top bar to choose Claude Code, Codex, Grok, or Agy. The choice is remembered and applies to new notebook setup, Product, Engineering Lead, unblock, and plain sessions; sessions already running keep their original agent.
 
 ```sh
 ./make-app.sh && open .build/Yongkang.app
 ```
 
-Requires `claude` and/or `codex` on your PATH (they launch via `zsh -ilc`, so `.zshrc` applies).
+Requires whichever of `claude`, `codex`, `grok`, or `agy` you select on your PATH (they launch via `zsh -ilc`, so `.zshrc` applies).
 
 ## Projects
 
@@ -184,6 +184,8 @@ Claude subagents are read from
 `~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id
 rather than taking one, is found by the session id the app's opening prompt quotes and
 then by the rollouts in `~/.codex/sessions/` pointing back at that thread.
+Grok transcripts and usage are read from its UUID-addressed session under
+`~/.grok/sessions/<encoded-project>/`; Agy currently runs in its live terminal only.
 
 ## The team
 

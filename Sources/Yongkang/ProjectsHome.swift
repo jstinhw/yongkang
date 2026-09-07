@@ -61,7 +61,7 @@ struct ProjectsHome: View {
                 ForEach(AgentKind.allCases) { kind in Text(kind.displayName).tag(kind) }
             }
             .pickerStyle(.segmented)
-            .frame(width: 180)
+            .frame(width: 320)
             .labelsHidden()
             Button { add() } label: { Label("Open folder", systemImage: "plus") }
                 .buttonStyle(.console)

@@ -142,6 +142,10 @@ enum NotebookSelfTest {
         precondition(AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi there")
                      == "cd '/a' && exec codex 'hi there'")
         let sid = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        precondition(AgentCommand.line(directory: "/a", agent: .grok, prompt: "hi", sessionID: sid)
+                     == "cd '/a' && exec grok --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'")
+        precondition(AgentCommand.line(directory: "/a", agent: .agy, prompt: "hi", sessionID: sid)
+                     == "cd '/a' && exec agy --prompt-interactive 'hi'")
         precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: "hi", sessionID: sid)
                      == "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'")
         precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: nil, sessionID: sid)
@@ -162,6 +166,8 @@ enum NotebookSelfTest {
         precondition(AgentKind.codex.skillInvocation("product", arguments: "review") == "$product review")
         precondition(AgentKind.claude.skillInvocation("product", arguments: "describe") == "/product describe")
         precondition(AgentKind.codex.skillInvocation("product", arguments: "describe") == "$product describe")
+        precondition(AgentKind.grok.skillInvocation("product", arguments: "describe") == "/product describe")
+        precondition(AgentKind.agy.skillInvocation("product", arguments: "describe") == "/product describe")
         let productPrompt = NotebookFormat.productPrompt(arguments: "review", sessionID: sid, agent: .claude)
         precondition(productPrompt.contains("/product review")
                      && productPrompt.contains("Session id: \(sid.uuidString.lowercased())"),
@@ -248,6 +254,37 @@ enum NotebookSelfTest {
                                             "some results here", "Here is the answer"])
         precondition(ClaudeTranscripts.transcript(at: subagentsDir.appendingPathComponent("missing.jsonl")).isEmpty,
                      "a transcript that is not there yet reads as empty, not a crash")
+
+        // Grok keeps the readable chat and usage stream beside each other under the UUID
+        // Yongkang gives it. Both must resolve from the project path without a scan.
+        let grokHome = tmp.appendingPathComponent(".grok")
+        let grokFolder = GrokTranscripts.sessionFolder(sessionID: sid,
+                                                        projectDirectory: URL(fileURLWithPath: "/a/b c"),
+                                                        grokHome: grokHome)
+        precondition(grokFolder.path.hasSuffix(
+            "/sessions/%2Fa%2Fb%20c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"))
+        try! fm.createDirectory(at: grokFolder, withIntermediateDirectories: true)
+        let grokLog = grokFolder.appendingPathComponent("chat_history.jsonl")
+        try! [
+            #"{"type":"user","content":[{"type":"text","text":"Do the thing"}]}"#,
+            #"{"type":"reasoning","content":"hidden"}"#,
+            #"{"type":"assistant","content":"","model_id":"grok-4.6-build","tool_calls":[{"id":"t1","name":"read_file","arguments":"{\"target_file\":\"README.md\"}"}]}"#,
+            #"{"type":"tool_result","tool_call_id":"t1","content":"file contents"}"#,
+            #"{"type":"assistant","content":"Done","model_id":"grok-4.6-build","tool_calls":[]}"#,
+        ].joined(separator: "\n").write(to: grokLog, atomically: true, encoding: .utf8)
+        let grokLines = GrokTranscripts.transcript(at: grokLog)
+        precondition(grokLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
+                     "Grok reasoning is dropped while messages and tool work remain")
+        precondition(grokLines.map(\.text) == ["Do the thing", "read_file(target_file: README.md)",
+                                               "file contents", "Done"])
+
+        let grokUsage = grokFolder.appendingPathComponent("updates.jsonl")
+        try! (#"{"timestamp":1788784944,"params":{"update":{"sessionUpdate":"turn_completed","usage":{"inputTokens":100,"outputTokens":20,"cachedReadTokens":40,"cacheCreationTokens":5,"modelUsage":{"grok-4.6-build":{"inputTokens":100,"outputTokens":20,"cachedReadTokens":40,"cacheCreationTokens":5}}}}}}"# + "\n")
+            .write(to: grokUsage, atomically: true, encoding: .utf8)
+        let grokSamples = AgentUsage.samples(at: grokUsage, .grok)
+        precondition(grokSamples.count == 1 && grokSamples[0].model == "grok-4.6-build")
+        precondition(grokSamples[0].tally == TokenTally(input: 60, output: 20, cacheRead: 40, cacheWrite: 5),
+                     "Grok cache reads are not counted twice")
 
         // Neither CLI records which task a subagent is for, so the link is its own name —
         // however that provider slugs it, and longest id first so a prefix cannot steal it.
