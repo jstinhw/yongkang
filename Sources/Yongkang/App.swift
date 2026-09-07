@@ -3,7 +3,7 @@ import AppKit
 import Combine
 
 @main
-struct ClaudeCodeApp: App {
+struct YongkangApp: App {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
     // claude scan the home folder and trip every TCC prompt (iCloud Drive, Music,
     // Documents) at launch. An NSOpenPanel choice carries intent, so macOS grants it.

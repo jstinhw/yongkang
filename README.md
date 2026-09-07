@@ -1,4 +1,4 @@
-# Claude Code.app
+# Yongkang.app
 
 A dark console for running an agent team: multiple `claude` or `codex` CLI sessions in real PTYs (SwiftTerm), the notebook they work from, and the changes they produce. Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
@@ -7,7 +7,7 @@ Every screen is the same four columns: a **rail** picking the section, a **list*
 Inside a project, use the Agent switch in the top bar to choose Claude Code or Codex. The choice is remembered and applies to new notebook setup, Product, Engineering Lead, unblock, and plain sessions; sessions already running keep their original agent.
 
 ```sh
-./make-app.sh && open .build/ClaudeCode.app
+./make-app.sh && open .build/Yongkang.app
 ```
 
 Requires `claude` and/or `codex` on your PATH (they launch via `zsh -ilc`, so `.zshrc` applies).
@@ -169,8 +169,8 @@ function over these files. `NOTEBOOK.md` spells out the mapping and the rules th
 it true.
 
 ```sh
-swift run ClaudeCodeApp --selftest        # checks the on-disk format has not drifted
-swift run ClaudeCodeApp --shots /tmp/ui   # renders every screen to PNG from a fixed sample
+swift run Yongkang --selftest        # checks the on-disk format has not drifted
+swift run Yongkang --shots /tmp/ui   # renders every screen to PNG from a fixed sample
 ```
 
 `--shots` draws each screen through an offscreen window at 1440×900. A layout that clips

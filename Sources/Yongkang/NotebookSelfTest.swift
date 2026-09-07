@@ -1,6 +1,6 @@
 import Foundation
 
-/// `swift run ClaudeCodeApp --selftest` — the one check that fails if the on-disk
+/// `swift run Yongkang --selftest` — the one check that fails if the on-disk
 /// notebook format drifts. preconditions, not asserts, so it also works in release.
 enum NotebookSelfTest {
     static func run() {
