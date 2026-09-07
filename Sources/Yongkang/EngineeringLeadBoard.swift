@@ -1,322 +1,390 @@
 import SwiftUI
 
-/// The lead as an orchestrator: one lane per assigned task, the specialists it dispatched
-/// inside that lane, and where the task has got to in the loop the lead actually runs —
-/// dispatch, build, QA, done. Its own transcript and its live terminal are the other two
-/// panes of the switch in the top bar.
+/// The recorded plan stays beside live transcripts, including workers that have returned.
 struct EngineeringLeadBoard: View {
     let session: CodeSession
     let cards: [NotebookCard]
     let blocks: [UserBlock]
-    /// The named specialists this lead dispatches to, from `.notebook/team/`.
     let team: [TeamMember]
     let openTask: (String) -> Void
     let openSubagent: (SubagentStatus) -> Void
     let openBlock: (UserBlock) -> Void
 
-    private var groups: [SubagentTaskGroup] {
-        Subagents.grouped(session.activeSubagents, by: session.taskIDs)
+    private var workers: [LeadWork] { session.coordination?.workers ?? [] }
+    private var taskIDs: [String] {
+        session.taskIDs + Set(workers.map(\.taskID)).subtracting(session.taskIDs).sorted()
     }
-
     private var unlinked: [SubagentStatus] {
-        session.activeSubagents.filter { $0.taskID == nil }
+        session.subagents.filter { agent in
+            !taskIDs.contains(agent.taskID ?? "")
+                && !workers.contains { $0.subagent(in: session)?.id == agent.id }
+        }
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            content
-            inspector
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        plan
+                        if geometry.size.width < 950 {
+                            DisclosureGroup("Check-ins & memory") {
+                                LeadInspector(session: session, cards: cards, blocks: blocks,
+                                              openTask: openTask, openBlock: openBlock, inline: true)
+                            }
+                            .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
+                        }
+                        ForEach(taskIDs, id: \.self) { lane($0) }
+                        if !unlinked.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                SectionLabel("Other workers", trailing: "\(unlinked.count)")
+                                ForEach(unlinked) { legacyWorker($0) }
+                            }
+                            .cardSurface()
+                        }
+                        roster
+                    }
+                    .padding(20)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                if geometry.size.width >= 950 {
+                    LeadInspector(session: session, cards: cards, blocks: blocks,
+                                  openTask: openTask, openBlock: openBlock)
+                }
+            }
         }
         .background(Theme.bg)
     }
 
-    private var content: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
-                roster
-                if session.taskIDs.isEmpty {
-                    standbyNote
-                } else {
-                    ForEach(groups) { lane($0) }
-                    if !unlinked.isEmpty { unlinkedLane }
+    private var plan: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(taskIDs.isEmpty ? "Ready for a task" : "Coordination plan")
+                    .font(Typo.display(21)).foregroundStyle(Theme.tx)
+                Spacer(minLength: 8)
+                if let updated = session.coordination?.updatedAt {
+                    Text("Updated \(AgentUsage.ago(updated))").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                 }
             }
-            .padding(22)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    /// The team the lead manages, each with the skill(s) that are its system prompt and
-    /// the kind of task it owns — shown whether or not a batch is in flight.
-    private var roster: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Team", trailing: "\(team.count) agent" + (team.count == 1 ? "" : "s"))
-            ForEach(team) { member in
-                HStack(alignment: .top, spacing: 10) {
-                    RoleTile(role: member.skills.first ?? member.name)
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text(member.name).font(Typo.display(12)).foregroundStyle(Theme.tx)
-                            ForEach(member.skills, id: \.self) { skill in
-                                NotebookStyle.pill(skill, Theme.violet)
-                            }
+            Text(session.coordination?.strategy.nonEmpty
+                 ?? (taskIDs.isEmpty ? "Assign tasks from the board. The lead will size the work, choose specialists and run independent subtasks together."
+                     : "Waiting for the lead’s plan. Existing workers and their transcripts remain available below."))
+                .font(Typo.text(12)).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
+            if !taskIDs.isEmpty {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 24) { planMetrics }
+                    VStack(alignment: .leading, spacing: 9) { planMetrics }
+                }
+                Divider().overlay(Theme.line)
+                HStack(spacing: 7) {
+                    ForEach(Array(["Plan", "Parallel work", "Report back", "QA", "Accept"].enumerated()), id: \.offset) { index, label in
+                        if index > 0 {
+                            Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(Theme.tx3)
                         }
-                        if !member.owns.isEmpty {
-                            Text(member.owns).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                        Text(label).font(Typo.mono(10)).foregroundStyle(index == 3 ? Theme.violet : Theme.tx2)
                     }
-                    Spacer(minLength: 0)
                 }
+                .accessibilityElement(children: .combine)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
+        .cardSurface(padding: 16, border: Theme.accent.opacity(0.25))
     }
 
-    private var standbyNote: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle").font(.system(size: 12)).foregroundStyle(Theme.green)
-            Text("Standing by. Pick tasks on the board and assign them to put the team to work.")
-                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
-            Spacer(minLength: 0)
+    @ViewBuilder private var planMetrics: some View {
+        summaryMetric("Scope", "\(taskIDs.count) tasks · \(workers.count) planned subtasks")
+        summaryMetric("Parallel", "\(session.activeSubagents.count) running"
+                      + (session.coordination?.parallelLimit.map { " / \($0) slots" } ?? ""))
+        summaryMetric("Estimate", "\(LeadDisplay.tokens(session.coordination?.estimatedTokens)) tokens · "
+                      + LeadDisplay.minutes(session.coordination?.estimatedMinutes))
+    }
+
+    private func summaryMetric(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased()).font(Typo.section).tracking(1).foregroundStyle(Theme.tx3)
+            Text(value).font(Typo.mono(11)).foregroundStyle(Theme.tx)
         }
-        .padding(.vertical, 9)
     }
 
-    // MARK: - One task's lane
-
-    private func lane(_ group: SubagentTaskGroup) -> some View {
-        let card = cards.first { $0.kind == .task && $0.id == group.id }
-        let stage = Stage.of(group, card: card)
-        let block = blocks.first { $0.waiting && $0.task == group.id }
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 11) {
+    private func lane(_ taskID: String) -> some View {
+        let card = cards.first { $0.kind == .task && $0.id == taskID }
+        let assigned = workers.filter { $0.taskID == taskID }
+        let remaining = session.subagents.filter { agent in
+            agent.taskID == taskID && !assigned.contains { $0.subagent(in: session)?.id == agent.id }
+        }
+        let waiting = blocks.filter { $0.waiting && $0.task == taskID }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Button { openTask(group.id) } label: {
-                            Text(card?.title ?? group.id).font(Typo.display(14))
-                                .foregroundStyle(Theme.tx)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(card == nil)
-                        if block != nil {
-                            NotebookStyle.pill("blocked", Theme.amber)
-                        } else if let card, !card.status.isEmpty {
-                            NotebookStyle.pill(card.status)
-                        }
-                        if card == nil { NotebookStyle.pill("missing", Theme.red) }
+                    Button { openTask(taskID) } label: {
+                        Text(card?.title ?? taskID).font(Typo.display(14)).foregroundStyle(Theme.tx)
+                            .multilineTextAlignment(.leading)
                     }
-                    Text("\(group.id) · \(group.subagents.count) agent"
-                         + (group.subagents.count == 1 ? "" : "s"))
-                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    .buttonStyle(.plain).disabled(card == nil)
+                    Text(taskID).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                 }
-                Spacer(minLength: 12)
-                chain(stage)
+                Spacer(minLength: 0)
+                NotebookStyle.pill(card?.status == "done" ? "QA passed" : waiting.isEmpty ? card?.status.capitalized ?? "Planned" : "Blocked",
+                                   card?.status == "done" ? Theme.green : waiting.isEmpty ? Theme.accent : Theme.amber)
             }
-            Rectangle().fill(Theme.line).frame(height: 1).padding(.top, 13).padding(.bottom, 5)
-            if group.subagents.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "hourglass").font(.system(size: 12)).foregroundStyle(Theme.tx3)
-                    Text(waitingReason(for: group.id))
-                        .font(Typo.text(12)).foregroundStyle(Theme.tx3)
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 9)
-            } else {
-                ForEach(group.subagents) { worker($0) }
+            if let dependencies = card?.dependsOn, !dependencies.isEmpty {
+                dependencyLine(dependencies, prefix: "Task follows")
             }
-            if let block {
+            Rectangle().fill(Theme.line).frame(height: 1)
+            if assigned.isEmpty && remaining.isEmpty {
+                Text(card?.status == "done" ? "Accepted. No worker records available." : "Awaiting dispatch after dependencies clear.")
+                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).padding(.vertical, 5)
+            }
+            ForEach(assigned) { worker($0) }
+            ForEach(remaining) { legacyWorker($0) }
+            ForEach(waiting) { block in
                 Button { openBlock(block) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "hand.raised.fill").font(.system(size: 11))
-                        Text("Waiting on you: \(block.title)").font(Typo.text(11.5))
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.amber)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.amber.opacity(0.07)))
-                    .overlay(RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Theme.amber.opacity(0.22), lineWidth: 1))
-                    .contentShape(Rectangle())
+                    Label(block.title, systemImage: "hand.raised.fill")
+                        .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.amber.opacity(0.08)))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 4)
             }
         }
         .cardSurface()
     }
 
-    /// What the lead is waiting for, said in its own terms rather than as a blank row.
-    private func waitingReason(for taskID: String) -> String {
-        let card = cards.first { $0.id == taskID }
-        let waits = (card?.dependsOn ?? []).filter { id in
-            cards.first { $0.id == id }?.status != "done"
-        }
-        if !waits.isEmpty { return "Waiting on \(waits.joined(separator: ", "))" }
-        if card?.status == "done" { return "Done — every agent on it has finished" }
-        return "Waiting for the lead to dispatch a specialist"
-    }
-
-    // MARK: - The loop, as a chain
-
-    private enum Stage: Int {
-        case dispatch, build, qa, done
-
-        static func of(_ group: SubagentTaskGroup, card: NotebookCard?) -> Stage {
-            if card?.status == "done" { return .done }
-            if group.subagents.contains(where: { $0.agentType.lowercased().contains("qa") }) {
-                return .qa
-            }
-            return group.subagents.isEmpty ? .dispatch : .build
-        }
-    }
-
-    private func chain(_ stage: Stage) -> some View {
-        HStack(spacing: 0) {
-            ForEach(Array(["dispatch", "build", "qa", "done"].enumerated()), id: \.offset) { index, name in
-                let tint: Color = index < stage.rawValue ? Theme.green
-                    : (index == stage.rawValue ? Theme.accent : Theme.tx3)
-                Text(name.uppercased())
-                    .font(Typo.mono(9.5)).tracking(0.8)
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, 9)
-                    .frame(height: 22)
-                    .background(RoundedRectangle(cornerRadius: 7)
-                        .fill(index <= stage.rawValue ? tint.opacity(0.12) : .clear))
-                    .overlay(RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(index <= stage.rawValue ? tint.opacity(0.35)
-                                                              : Color(hex: 0x242B37), lineWidth: 1))
-                if index < 3 {
-                    Rectangle().fill(Color(hex: 0x242B37)).frame(width: 14, height: 1)
+    private func worker(_ work: LeadWork) -> some View {
+        let agent = work.subagent(in: session)
+        return HStack(alignment: .top, spacing: 10) {
+            RoleTile(role: work.skill).padding(.top, 1)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(work.title.nonEmpty ?? work.id).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                        Text("\(work.skill.nonEmpty ?? "Skill pending") · \(work.measuredModel ?? work.model.nonEmpty ?? "Model unreported")")
+                            .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    NotebookStyle.pill(LeadDisplay.state(work), LeadDisplay.tint(work),
+                                       live: work.state == "running" && work.runtimeRunning != false)
+                    if let agent {
+                        Button { openSubagent(agent) } label: {
+                            Image(systemName: "arrow.up.right").font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(Theme.tx2)
+                        .accessibilityLabel("Open \(work.title) transcript")
+                        .help("Open \(agent.displayName)’s transcript")
+                    }
                 }
+                if !work.dependsOn.isEmpty { dependencyLine(work.dependsOn, prefix: "After") }
+                HStack(spacing: 12) {
+                    Text("\(LeadDisplay.tokens(work.usedTokens)) \(work.usedTokens == nil ? "used" : work.tokenSource.lowercased()) / \(LeadDisplay.tokens(work.estimatedTokens)) est. tokens")
+                    Text("\(LeadDisplay.minutes(work.elapsedMinutes())) elapsed / \(LeadDisplay.minutes(work.estimatedMinutes)) est.")
+                }
+                .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                .fixedSize(horizontal: false, vertical: true)
+                if !work.report.isEmpty {
+                    Label(work.report, systemImage: "arrow.turn.down.left")
+                        .font(Typo.text(11)).foregroundStyle(Theme.tx2).lineLimit(2)
+                }
+                DisclosureGroup("Why this assignment · check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")") {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(work.reason.nonEmpty ?? "Selection rationale not recorded.")
+                        if !work.report.isEmpty { Text("Report: \(work.report)") }
+                        Text("Worker ID: \(work.id)").font(Typo.mono(10))
+                    }
+                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
+                }
+                .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).tint(Theme.tx3)
             }
         }
+        .padding(.vertical, 5)
     }
 
-    // MARK: - One agent
+    private func dependencyLine(_ ids: [String], prefix: String) -> some View {
+        Text("\(prefix): \(ids.joined(separator: ", "))")
+            .font(Typo.mono(10)).foregroundStyle(Theme.amber)
+            .fixedSize(horizontal: false, vertical: true)
+    }
 
-    private func worker(_ subagent: SubagentStatus) -> some View {
-        Button { openSubagent(subagent) } label: {
+    private func legacyWorker(_ agent: SubagentStatus) -> some View {
+        Button { openSubagent(agent) } label: {
             HStack(spacing: 10) {
-                RoleTile(role: subagent.agentType)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(subagent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
-                        .lineLimit(1)
-                    Text(subagent.description).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
-                        .lineLimit(1).truncationMode(.middle)
+                RoleTile(role: agent.agentType)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(agent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                    Text(agent.description).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(2)
+                    Text("Plan, estimates and check-in unavailable").font(Typo.text(10)).foregroundStyle(Theme.tx3)
                 }
-                .frame(width: 230, alignment: .leading)
-                Spacer(minLength: 12)
-                NotebookStyle.pill(subagent.running ? "Running" : "Done",
-                                   subagent.running ? Theme.accent : Theme.green,
-                                   live: subagent.running)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3)
+                Spacer(minLength: 0)
+                NotebookStyle.pill(agent.running ? "Running" : "Returned",
+                                   agent.running ? Theme.accent : Theme.violet, live: agent.running)
+                Image(systemName: "arrow.up.right").font(.system(size: 10)).foregroundStyle(Theme.tx3)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
+            .contentShape(Rectangle()).padding(.vertical, 5)
         }
         .buttonStyle(.plain)
-        .help("Open \(subagent.displayName)'s transcript — \(subagent.description)")
     }
 
-    private var unlinkedLane: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Unlinked agents")
-            Text("Their names match no task in the batch — a review or compaction agent.")
-                .font(Typo.text(11)).foregroundStyle(Theme.tx3)
-                .padding(.bottom, 4)
-            ForEach(unlinked) { worker($0) }
+    private var roster: some View {
+        DisclosureGroup("Team roster · \(team.count) specialists") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(team) { member in
+                    HStack(alignment: .top, spacing: 10) {
+                        RoleTile(role: member.skills.first ?? member.name)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("\(member.name) · \(member.skills.joined(separator: ", "))")
+                                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                            Text(member.owns).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                        }
+                    }
+                }
+            }.padding(.top, 12)
         }
-        .cardSurface()
-    }
-
-    private var inspector: some View {
-        LeadInspector(session: session, cards: cards, blocks: blocks,
-                      openTask: openTask, openBlock: openBlock)
+        .font(Typo.text(12)).tint(Theme.tx2).foregroundStyle(Theme.tx2).cardSurface()
     }
 }
 
-/// The lead's right-hand column: how far the batch has got, what is holding it up, and the
-/// order it was handed. Shared by the lead's two views — the same facts belong beside its
-/// transcript and beside its lanes.
+/// Shared by the flow and transcript; it scrolls independently when a batch gets long.
 struct LeadInspector: View {
     let session: CodeSession
     let cards: [NotebookCard]
     let blocks: [UserBlock]
     let openTask: (String) -> Void
     let openBlock: (UserBlock) -> Void
+    var inline = false
 
     var body: some View {
-        let done = session.taskIDs.filter { id in
-            cards.contains { $0.id == id && $0.status == "done" }
-        }.count
-        let waiting = blocks.filter { $0.waiting && session.taskIDs.contains($0.task ?? "") }
-        return Inspector {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionLabel("Batch")
-                HStack(spacing: 14) {
-                    NotebookStyle.statusRing(done == session.taskIDs.count ? "done" : "active",
-                                             progress: session.taskIDs.isEmpty ? 0
-                                                : Double(done) / Double(session.taskIDs.count),
-                                             size: 40)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("\(done) of \(session.taskIDs.count) done").font(Typo.display(14))
-                        Text("\(session.activeSubagents.count) agent"
-                             + (session.activeSubagents.count == 1 ? "" : "s") + " running")
-                            .font(Typo.text(11)).foregroundStyle(Theme.tx3)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface(padding: 15)
-
-            if !waiting.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    SectionLabel("Holding this batch up")
-                    ForEach(waiting) { block in
-                        Button { openBlock(block) } label: {
-                            HStack(alignment: .top, spacing: 9) {
-                                Image(systemName: "hand.raised").font(.system(size: 12))
-                                    .foregroundStyle(Theme.amber)
-                                Text(block.title).font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 9) {
-                SectionLabel("Order")
-                ForEach(session.taskIDs, id: \.self) { id in
-                    let card = cards.first { $0.id == id }
-                    Button { openTask(id) } label: {
-                        HStack(spacing: 9) {
-                            StateDot(color: NotebookStyle.color(of: card?.status ?? ""))
-                            Text(card?.title ?? id).font(Typo.text(11.5))
-                                .foregroundStyle(Theme.tx2).lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Spacer(minLength: 0)
-            Text("The lead never reviews its own work: every finished task goes to a qa-dev "
-                 + "agent before it is accepted.")
-                .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineSpacing(2)
+        if inline {
+            content.padding(.top, 12)
+        } else {
+            ScrollView { content.padding(18) }
+                .frame(width: Theme.inspectorWidth)
+                .background(Theme.panel)
+                .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 1) }
         }
     }
+
+    private var content: some View {
+        let done = session.taskIDs.filter { id in cards.contains { $0.id == id && $0.status == "done" } }.count
+        let waiting = blocks.filter { $0.waiting && session.taskIDs.contains($0.task ?? "") }
+        return VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel("Acceptance")
+                Text("\(done) / \(session.taskIDs.count) tasks passed QA").font(Typo.display(15)).foregroundStyle(Theme.tx)
+                MeterBar(value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green)
+                Text("A returned worker still needs independent QA before its task is accepted.")
+                    .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+            }
+            if !waiting.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Needs attention", trailing: "\(waiting.count)")
+                    ForEach(waiting) { block in
+                        Button { openBlock(block) } label: {
+                            Label(block.title, systemImage: "hand.raised")
+                                .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                                .multilineTextAlignment(.leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                SectionLabel("Check-ins & memory")
+                if let coordination = session.coordination {
+                    if !coordination.contextSummary.isEmpty {
+                        Text(coordination.contextSummary).font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ForEach(coordination.workers) { context($0) }
+                    if coordination.workers.isEmpty { unavailableContext }
+                } else { unavailableContext }
+            }
+            if !session.taskIDs.isEmpty {
+                DisclosureGroup("Assigned tasks") {
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(session.taskIDs, id: \.self) { id in
+                            Button { openTask(id) } label: {
+                                Text(cards.first { $0.id == id }?.title ?? id)
+                                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                                    .multilineTextAlignment(.leading)
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(.top, 8)
+                }.font(Typo.text(11.5)).tint(Theme.tx3).foregroundStyle(Theme.tx2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var unavailableContext: some View {
+        Text("Check-ins, context usage and checkpoints appear when the lead records them. Unknown limits stay unreported.")
+            .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func context(_ work: LeadWork) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                StateDot(color: LeadDisplay.tint(work), live: work.state == "running" && work.runtimeRunning != false)
+                Text(work.title.nonEmpty ?? work.id).font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx2)
+            }
+            Text("Check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")")
+                .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+            if let used = work.contextTokens, let window = work.contextWindow, window > 0 {
+                let ratio = Double(used) / Double(window)
+                HStack {
+                    Text("\(AgentUsage.short(used)) / \(AgentUsage.short(window)) context")
+                    Spacer(minLength: 4)
+                    Text(String(format: "%.0f%%", ratio * 100))
+                }
+                .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                MeterBar(value: ratio, tint: ratio >= 0.75 ? Theme.red : ratio >= 0.6 ? Theme.amber : Theme.green)
+                if ratio >= 0.6 {
+                    Text(ratio >= 0.75 ? "Compaction threshold reached" : "Checkpoint threshold reached")
+                        .font(Typo.text(10)).foregroundStyle(ratio >= 0.75 ? Theme.red : Theme.amber)
+                }
+            } else {
+                Text("Context: \(LeadDisplay.tokens(work.contextTokens)) / \(LeadDisplay.tokens(work.contextWindow))")
+                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+            }
+            if !work.contextSource.isEmpty {
+                Text(work.contextSource).font(Typo.text(10)).foregroundStyle(Theme.tx3)
+            }
+            DisclosureGroup(work.checkpoint.isEmpty ? "No checkpoint recorded" : "Saved checkpoint") {
+                Text(work.checkpoint.nonEmpty ?? "A checkpoint has not been reported.")
+                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
+            }
+            .font(Typo.text(10.5)).tint(Theme.tx3).foregroundStyle(Theme.tx3)
+        }
+        .cardSurface(radius: 9, padding: 12)
+    }
+}
+
+private enum LeadDisplay {
+    static func tokens(_ value: Int?) -> String { value.map(AgentUsage.short) ?? "—" }
+    static func minutes(_ value: Double?) -> String {
+        value.map { String(format: $0 < 1 ? "%.1fm" : "%.0fm", $0) } ?? "—"
+    }
+    static func state(_ work: LeadWork) -> String {
+        if work.state == "running", work.runtimeRunning == false { return "Awaiting update" }
+        switch work.state {
+        case "done": return "QA passed"
+        case "review": return "QA pending"
+        default: return work.state.capitalized
+        }
+    }
+    static func tint(_ work: LeadWork) -> Color {
+        if work.state == "running", work.runtimeRunning == false { return Theme.violet }
+        switch work.state {
+        case "running": return Theme.accent
+        case "blocked": return Theme.amber
+        case "failed": return Theme.red
+        case "done": return Theme.green
+        case "review": return Theme.violet
+        default: return Theme.tx3
+        }
+    }
+}
+
+private extension String {
+    var nonEmpty: String? { isEmpty ? nil : self }
 }

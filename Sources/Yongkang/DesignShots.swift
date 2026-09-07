@@ -51,6 +51,26 @@ enum DesignShots {
         }, "agents", into: directory)
 
         write(console(project, section: .agents) {
+            EngineeringLeadBoard(session: lead, cards: project.cards, blocks: project.blocks,
+                                 team: Team.defaults,
+                                 openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
+        }, "agents-narrow", into: directory, width: 1180)
+
+        var legacyLead = lead
+        legacyLead.coordination = nil
+        write(console(project, section: .agents) {
+            EngineeringLeadBoard(session: legacyLead, cards: project.cards, blocks: project.blocks,
+                                 team: Team.defaults,
+                                 openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
+        }, "agents-legacy", into: directory)
+
+        write(console(project, section: .agents) {
+            EngineeringLeadBoard(session: CodeSession(title: "Engineering Lead", icon: "sparkles", line: "codex"),
+                                 cards: [], blocks: [], team: Team.defaults,
+                                 openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
+        }, "agents-standby", into: directory)
+
+        write(console(project, section: .agents) {
             // Two skills on purpose: one owner of several is what the page has to shut by
             // default, and a single-skill member would prove nothing about that.
             TeamMemberDetail(member: TeamMember(name: "Allen", skills: ["frontend-dev", "qa-dev"],
@@ -162,8 +182,9 @@ enum DesignShots {
 
     /// Drawn through a real offscreen window rather than `ImageRenderer`: the renderer
     /// silently draws nothing inside a `ScrollView`, which is most of every screen here.
-    @MainActor private static func write<V: View>(_ view: V, _ name: String, into directory: URL) {
-        let size = NSRect(x: 0, y: 0, width: 1440, height: 900)
+    @MainActor private static func write<V: View>(_ view: V, _ name: String, into directory: URL,
+                                                 width: CGFloat = 1440) {
+        let size = NSRect(x: 0, y: 0, width: width, height: 900)
         let host = NSHostingView(rootView: AnyView(view.frame(width: size.width, height: size.height)
             .environment(\.colorScheme, .dark)))
         host.frame = size
@@ -262,14 +283,58 @@ enum DesignShots {
             SubagentStatus(id: "fe", description: "show-agent-tree-frontend-dev",
                            agentType: "frontend-dev", running: true, transcriptURL: transcript,
                            taskID: "show-agent-tree"),
-            SubagentStatus(id: "qa", description: "show-agent-tree-qa-dev", agentType: "qa-dev",
-                           running: true, transcriptURL: transcript, taskID: "show-agent-tree"),
+            SubagentStatus(id: "qa", description: "pull-blockers-qa-dev", agentType: "qa-dev",
+                           running: true, transcriptURL: transcript, taskID: "pull-blockers"),
             SubagentStatus(id: "be", description: "pull-blockers-backend-dev",
-                           agentType: "backend-dev", running: true, transcriptURL: transcript,
+                           agentType: "backend-dev", running: false, transcriptURL: transcript,
                            taskID: "pull-blockers"),
             SubagentStatus(id: "sre", description: "deploy-to-vercel-sre-dev", agentType: "sre-dev",
-                           running: true, transcriptURL: transcript, taskID: "deploy-to-vercel")
+                           running: false, transcriptURL: transcript, taskID: "deploy-to-vercel")
         ].map { $0.named(in: project.team) }
+        // Explicit preview observations; these context windows are fixture metadata,
+        // never a claim about a model's capacity or a fallback used by the live app.
+        let now = Date()
+        lead.coordination = LeadCoordination(
+            strategy: "Split three tasks into five subtasks. Run UI and blocker work together; queue each QA pass after its build. Deployment waits for setup.",
+            parallelLimit: 2, estimatedTokens: 42000, estimatedMinutes: 24, updatedAt: now.addingTimeInterval(-35),
+            contextSummary: "Keep task contracts, decisions and next steps. Save a checkpoint before replacing a worker’s context.",
+            workers: [
+                LeadWork(id: "show-agent-tree-ui", taskID: "show-agent-tree", title: "Keep every worker visible",
+                         skill: "frontend-dev", model: "gpt-5.6-terra",
+                         reason: "Allen owns the native UI. Bounded SwiftUI work suits the standard coding model; no shared files with the blocker reader.",
+                         state: "running", agentID: "fe", estimatedTokens: 16000, estimatedMinutes: 14,
+                         startedAt: now.addingTimeInterval(-540), updatedAt: now.addingTimeInterval(-35),
+                         contextTokens: 43000, contextWindow: 128000, contextSource: "Preview runtime metadata",
+                         checkpoint: "Preserve finished workers. Board and rail use session.subagents. Next: verify collapsed roots and narrow layout.",
+                         measuredTokens: 9800, measuredModel: "gpt-5.6-terra", runtimeRunning: true),
+                LeadWork(id: "show-agent-tree-qa", taskID: "show-agent-tree", title: "Verify expansion and return states",
+                         skill: "qa-dev", model: "gpt-5.6-luna",
+                         reason: "David runs the existing checks and inspects the screenshots after UI work returns.",
+                         dependsOn: ["show-agent-tree-ui"], estimatedTokens: 6000, estimatedMinutes: 5),
+                LeadWork(id: "pull-blockers-reader", taskID: "pull-blockers", title: "Link blockers to the assigned batch",
+                         skill: "backend-dev", model: "gpt-5.6-terra",
+                         reason: "Ben owns notebook loading; the reader is independent of the UI files.",
+                         state: "review", agentID: "be", estimatedTokens: 11000, estimatedMinutes: 10,
+                         startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-120),
+                         updatedAt: now.addingTimeInterval(-120), actualTokens: 7900,
+                         checkpoint: "Reader complete. Self-test passes; David is checking cross-session routing.",
+                         report: "Returned: blocker reader and self-test pass. Independent QA is in progress."),
+                LeadWork(id: "pull-blockers-qa", taskID: "pull-blockers", title: "Check blocker routing",
+                         skill: "qa-dev", model: "gpt-5.6-luna",
+                         reason: "Focused verification uses the smaller model and the existing self-test.",
+                         dependsOn: ["pull-blockers-reader"], state: "running", agentID: "qa",
+                         estimatedTokens: 5000, estimatedMinutes: 5,
+                         startedAt: now.addingTimeInterval(-90), updatedAt: now.addingTimeInterval(-20),
+                         contextTokens: 19000, contextWindow: 128000, contextSource: "Preview runtime metadata",
+                         measuredTokens: 1700, measuredModel: "gpt-5.6-luna", runtimeRunning: true),
+                LeadWork(id: "deploy-to-vercel-setup", taskID: "deploy-to-vercel", title: "Prepare deployment",
+                         skill: "sre-dev", model: "gpt-5.6-terra",
+                         reason: "Chris owns deployment. Work pauses until the project token is configured.",
+                         state: "blocked", agentID: "sre", estimatedTokens: 4000, estimatedMinutes: 5,
+                         startedAt: now.addingTimeInterval(-720), finishedAt: now.addingTimeInterval(-600),
+                         updatedAt: now.addingTimeInterval(-600), actualTokens: 2100,
+                         report: "Blocked: Vercel project token. Setup steps are ready in Blocks.")
+            ])
         project.sessions = [lead,
                             CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude)]
         project.blocks = [
@@ -308,7 +373,7 @@ enum DesignShots {
                 + "subagents, so the filter belongs on the session itself rather than in each view."),
             TranscriptLine(label: "Tool", text: "Edit(file_path: Sources/Project.swift)"),
             TranscriptLine(label: "Result", text: "+4 −0"),
-            TranscriptLine(label: "Tool", text: "Bash(command: swift build && swift run ClaudeCodeApp --selftest)"),
+            TranscriptLine(label: "Tool", text: "Bash(command: swift build && swift run Yongkang --selftest)"),
             TranscriptLine(label: "Result", text: "Build complete! (4.67s)\nnotebook selftest ok"),
             TranscriptLine(label: "Tool", text: "Bash(command: swift test)"),
             TranscriptLine(label: "Result", text: "error: no such module 'XCTest'", isError: true),

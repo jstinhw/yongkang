@@ -949,8 +949,141 @@ enum NotebookSelfTest {
         precondition(OpenProjects.decode("{\"not\": \"a list\"}").isEmpty)
 
         usage(in: tmp)
+        coordination(in: tmp)
 
         print("notebook selftest ok")
+    }
+
+    /// A lead's durable plan and each runtime observation must stay correctly scoped.
+    private static func coordination(in tmp: URL) {
+        let fm = FileManager.default
+        let root = tmp.appendingPathComponent("coordination")
+        let runs = root.appendingPathComponent("runs")
+        let id = UUID()
+        let prefix = id.uuidString.lowercased()
+        let noon = AgentUsage.date("2026-09-07T12:00:00Z")!
+        var session = CodeSession(id: id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
+                                  taskIDs: ["auth"])
+        precondition(LeadCoordination.load(root: root, session: session) == nil)
+        try! fm.createDirectory(at: runs, withIntermediateDirectories: true)
+        func write(_ suffix: String, _ fields: String, sessionID: UUID? = nil) {
+            try! """
+            ---
+            kind: run
+            session: \((sessionID ?? id).uuidString)
+            \(fields)
+            ---
+            Durable details.
+            """.write(to: runs.appendingPathComponent(prefix + "-" + suffix + ".md"),
+                       atomically: true, encoding: .utf8)
+        }
+        write("coordination", """
+        strategy: API and UI can start together; QA waits for both.
+        parallel_limit: 2
+        estimated_tokens: 12000
+        estimated_minutes: 8.5
+        updated: 2026-09-07T12:02:00Z
+        context_summary: Resume from the handoff.
+        """)
+        write("work-auth-api", """
+        work_id: auth-api
+        task: auth
+        title: Build API
+        skill: backend-dev
+        model: selected-model
+        reason: Bounded server change.
+        depends_on: [auth-contract]
+        status: review
+        agent_id: runtime-1
+        estimated_tokens: 4000
+        estimated_minutes: 3
+        started_at: 2026-09-07T12:00:00Z
+        finished_at: 2026-09-07T12:02:00Z
+        updated: 2026-09-07T12:02:00Z
+        actual_tokens: 90
+        context_tokens: 500
+        context_window: 2000
+        context_source: runtime
+        checkpoint: API contract agreed.
+        report: API ready for QA.
+        """)
+        write("work-auth-qa", """
+        work_id: auth-qa
+        task: auth
+        depends_on: [auth-api]
+        status: queued
+        estimated_tokens: -1
+        estimated_minutes: nan
+        actual_tokens: -10
+        context_tokens: -5
+        context_window: 0
+        agent_id: runtime-1
+        """)
+        write("work-other-session", "work_id: other-session\ntask: auth", sessionID: UUID())
+        write("work-unsafe", "work_id: ../unsafe\ntask: auth")
+        write("work-wrong-task", "work_id: wrong-task\ntask: other-task")
+        write("work-bad-dependency", "work_id: bad-dependency\ntask: auth\ndepends_on: [../escape]")
+        write("work-outside", "work_id: outside\ntask: auth")
+        let outside = tmp.appendingPathComponent("outside-coordination.md")
+        let linked = runs.appendingPathComponent(prefix + "-work-outside.md")
+        try! fm.moveItem(at: linked, to: outside)
+        try! fm.createSymbolicLink(at: linked, withDestinationURL: outside)
+
+        let transcript = root.appendingPathComponent("worker.jsonl")
+        try! """
+        {"type":"assistant","timestamp":"2026-09-07T12:01:00Z","message":{"model":"observed-model","usage":{"input_tokens":100,"output_tokens":20}}}
+
+        """.write(to: transcript, atomically: true, encoding: .utf8)
+        let worker = SubagentStatus(id: "runtime-1", description: "auth-api", agentType: "backend-dev",
+                                   running: false, transcriptURL: transcript, taskID: "auth")
+        session.subagents = [worker]
+        let plan = LeadCoordination.load(root: root, session: session)!
+        precondition(plan.parallelLimit == 2 && plan.estimatedTokens == 12000 && plan.estimatedMinutes == 8.5)
+        precondition(plan.contextSummary == "Resume from the handoff." && plan.updatedAt != nil)
+        precondition(plan.workers.map(\.id) == ["auth-api", "auth-qa"],
+                     "cross-session, mismatched task, unsafe IDs and external symlinks are rejected")
+        let api = plan.workers[0]
+        precondition(api.actualTokens == 90 && api.measuredTokens == 120 && api.usedTokens == 120
+                     && api.tokenSource == "Measured" && api.measuredModel == "observed-model")
+        precondition(api.state == "review" && api.runtimeRunning == false,
+                     "a returned worker still needs QA; runtime completion cannot mark work done")
+        precondition(api.elapsedMinutes(now: noon.addingTimeInterval(600)) == 2)
+        precondition(api.dependsOn == ["auth-contract"] && api.contextWindow == 2000
+                     && api.contextTokens == 500 && api.report == "API ready for QA.")
+        let qa = plan.workers[1]
+        precondition(qa.usedTokens == nil && qa.estimatedTokens == nil && qa.estimatedMinutes == nil
+                     && qa.contextTokens == nil && qa.contextWindow == nil && qa.elapsedMinutes() == nil,
+                     "missing or invalid metrics stay unavailable instead of becoming zero")
+        precondition(qa.report.isEmpty && qa.runtimeRunning == nil,
+                     "a queued reuse cannot claim previous usage or show the contract as a result")
+        precondition(LeadCoordination.load(root: root, session: session) == plan,
+                     "the next poll neither double-counts usage nor changes finished work")
+        precondition(LeadWork(id: "auth-api").subagent(in: session)?.id == worker.id)
+        precondition(LeadWork(id: "auth").subagent(in: session) == nil,
+                     "a task substring must not claim a sibling worker's transcript")
+        precondition(LeadWork(id: "auth-api", agentID: "missing").subagent(in: session) == nil,
+                     "a recorded agent ID wins over a similar label")
+        precondition(LeadWork(id: "running", state: "running", startedAt: noon)
+            .elapsedMinutes(now: noon.addingTimeInterval(180)) == 3)
+        precondition(LeadWork(id: "returned", state: "running", startedAt: noon, runtimeRunning: false)
+            .elapsedMinutes(now: noon.addingTimeInterval(180)) == nil,
+                     "a returned agent without a finish timestamp has unknown elapsed time")
+        write("work-auth-z-retry", """
+        work_id: auth-z-retry
+        task: auth
+        status: review
+        agent_id: runtime-1
+        started_at: 2026-09-07T12:02:00Z
+        finished_at: 2026-09-07T12:04:00Z
+        """)
+        append("""
+        {"type":"assistant","timestamp":"2026-09-07T12:02:00Z","message":{"model":"observed-model","usage":{"input_tokens":20,"output_tokens":10}}}
+        {"type":"assistant","timestamp":"2026-09-07T12:03:00Z","message":{"model":"observed-model","usage":{"input_tokens":40,"output_tokens":20}}}
+
+        """, to: transcript)
+        let retried = LeadCoordination.load(root: root, session: session)!
+        precondition(retried.workers[0].measuredTokens == 150 && retried.workers.last?.measuredTokens == 60,
+                     "reused threads measure (start, finish] so adjacent attempts count a boundary sample once")
     }
 
     /// The usage screen reads token counts out of the same transcripts the console

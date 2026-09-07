@@ -795,11 +795,18 @@ struct YongkangApp: App {
             guard projects[index].id == entered else { continue }
             deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices
-                where !projects[index].sessions[sIndex].exited
-                    && projects[index].sessions[sIndex].agent != nil {
+                where projects[index].sessions[sIndex].agent != nil {
                 let session = projects[index].sessions[sIndex]
-                let subagents = subagents(of: session, in: projects[index])
-                if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
+                if !session.exited {
+                    let subagents = subagents(of: session, in: projects[index])
+                    if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
+                }
+                guard !session.taskIDs.isEmpty else { continue }
+                let coordination = LeadCoordination.load(root: projects[index].notebookRoot,
+                                                         session: projects[index].sessions[sIndex])
+                if coordination != session.coordination {
+                    projects[index].sessions[sIndex].coordination = coordination
+                }
             }
             // Written from the poll rather than from the usage screen: what an agent spent
             // has to survive a run in which nobody opened that screen, and the transcripts

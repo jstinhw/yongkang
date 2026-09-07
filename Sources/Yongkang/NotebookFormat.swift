@@ -414,11 +414,18 @@ enum NotebookFormat {
 
     ## Runs
 
-    One top-level Yongkang session per file. The lead consolidates its subagents into
-    that record; raw transcripts stay outside the notebook. Use an RFC-3339 timestamp
-    in the filename and frontmatter, then a short brief followed by Handoff, Completed,
-    Verification, Changed and Learned sections as applicable. Never store secrets,
-    environment values or machine-local transcript paths.
+    Ordinary sessions append one handoff record with an RFC-3339 timestamp in the
+    filename and frontmatter, then a brief and Handoff, Completed, Verification,
+    Changed and Learned sections as applicable. Engineering Lead sessions keep one
+    mutable `<session-id>-coordination.md` plan and one
+    `<session-id>-work-<work-id>.md` record per subtask attempt, all `kind: run`.
+    The engineering-lead skill defines their flat frontmatter: dependencies, model,
+    estimates, observed usage, status, report and checkpoint. Only that lead writes
+    its coordination records. Work states queued/running/blocked/review/done/failed
+    are separate from task states; a returned build awaits independent QA. These
+    records stay out of notebook navigation and appear on the lead dashboard.
+    Keep raw transcripts outside the notebook. Never store secrets, environment
+    values or machine-local transcript paths.
 
     ## Third-party notebooks (Notion et al.)
 

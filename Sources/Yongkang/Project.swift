@@ -59,6 +59,8 @@ struct CodeSession: Identifiable, Equatable {
     /// disk. Always empty for Codex and service-runner sessions — they never get a
     /// matching `--session-id`, so there is nothing on disk to find.
     var subagents: [SubagentStatus] = []
+    /// The lead's plan and durable worker reports, including completed work.
+    var coordination: LeadCoordination? = nil
 
     /// The ones still working. A finished agent has nothing left to watch, so the lead's
     /// lists drop it; its transcript stays reachable from the task it was dispatched for.
@@ -68,7 +70,8 @@ struct CodeSession: Identifiable, Equatable {
     /// settable: the caller has to hand in the same UUID it passed Claude Code as
     /// `--session-id`, so this row's id is the key that finds that session's transcript.
     init(id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
-         taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = []) {
+         taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = [],
+         coordination: LeadCoordination? = nil) {
         self.id = id
         self.title = title
         self.icon = icon
@@ -77,5 +80,6 @@ struct CodeSession: Identifiable, Equatable {
         self.taskIDs = taskIDs
         self.exited = exited
         self.subagents = subagents
+        self.coordination = coordination
     }
 }
