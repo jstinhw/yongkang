@@ -180,7 +180,8 @@ struct ClaudeCodeApp: App {
             TopBar(crumbs: [project.name],
                    title: selection == Tag.usage(project) ? "Usage"
                         : selectedSubagent(in: project)?.subagent.description
-                        ?? watched?.title ?? selectedSession(in: project)?.title ?? "Agents") {
+                        ?? watched?.title ?? selectedSession(in: project)?.title
+                        ?? selectedMember(in: project)?.name ?? "Agents") {
                 addMenu(for: project)
                 if let watched, selectedSubagent(in: project) == nil {
                     let panes = AgentPane.cases(lead: watched.isEngineeringLead)
@@ -320,6 +321,17 @@ struct ClaudeCodeApp: App {
                            },
                            openTask: { section = .board; selection = Tag.task($0) })
                 .id(selection)
+        } else if let member = selectedMember(in: project) {
+            TeamMemberDetail(
+                member: member,
+                file: Team.file(for: member.name, root: project.notebookRoot),
+                running: runningAgents(of: member, in: project),
+                openSubagent: { session, subagent in
+                    selection = Tag.subagent(session, subagent)
+                    reload()
+                }
+            )
+            .id(member.id)
         } else if let block = selectedBlock(in: project) {
             BlockDetail(
                 block: block, cards: project.cards,
@@ -379,7 +391,8 @@ struct ClaudeCodeApp: App {
             }
         case .agents:
             if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
-                && selectedSession(in: project) == nil && selection != Tag.usage(project) {
+                && selectedSession(in: project) == nil && selectedMember(in: project) == nil
+                && selection != Tag.usage(project) {
                 // A lead first, then any agent — and a service runner only if that is all
                 // there is, on its own tag, because it has no transcript to open.
                 selection = (project.sessions.first { $0.isEngineeringLead }
@@ -403,6 +416,22 @@ struct ClaudeCodeApp: App {
 
     private func selectedSession(in project: Project) -> CodeSession? {
         project.sessions.first { Tag.session($0) == selection }
+    }
+
+    /// The team member the selection is on. A member is a file, not a session, so it is
+    /// matched by roster name — the tag survives the reload the same way.
+    private func selectedMember(in project: Project) -> TeamMember? {
+        Tag.scope(selection, "member").flatMap { name in project.team.first { $0.name == name } }
+    }
+
+    /// The agents running this member's skill right now, wherever they were dispatched
+    /// from — the way back from a standing agent into the work it is doing.
+    private func runningAgents(of member: TeamMember,
+                               in project: Project) -> [(session: CodeSession, subagent: SubagentStatus)] {
+        project.sessions.flatMap { session in
+            session.activeSubagents.filter { $0.member == member.name }
+                .map { (session: session, subagent: $0) }
+        }
     }
 
     /// The agent session the selection is on, whichever of its panes is showing — its
@@ -660,23 +689,14 @@ struct ClaudeCodeApp: App {
         selection = Tag.overview(project)
         reload()
         refreshChanges(force: true)
-        // A project with a notebook opens on its always-on Engineering Lead, not Overview.
+        // The lead is started by an assignment, not by opening the project — an empty
+        // project opens on Overview. One already running from an earlier batch is still
+        // live, standing by, so the project opens on it.
         guard let ready = enteredProject, ready.hasNotebook else { return }
-        ensureLead(in: ready)
+        Team.seedIfAbsent(root: ready.notebookRoot)
+        guard ready.sessions.contains(where: { $0.isEngineeringLead && !$0.exited }) else { return }
         section = .agents
         openSectionDefault()
-    }
-
-    /// The always-on dispatcher. Every project with a notebook has one live Engineering
-    /// Lead; if none is running yet, it starts here on standby with no batch, and the team
-    /// roster is written to `.notebook/team/` the first time.
-    private func ensureLead(in project: Project) {
-        guard !project.sessions.contains(where: { $0.isEngineeringLead && !$0.exited }) else { return }
-        Team.seedIfAbsent(root: project.notebookRoot)
-        let id = UUID()
-        addSession(agent, id: id, to: project,
-                   prompt: NotebookFormat.engineeringPrompt(tasks: [], sessionID: id, agent: agent),
-                   title: "Engineering Lead", taskIDs: [])
     }
 
     private func leave() {

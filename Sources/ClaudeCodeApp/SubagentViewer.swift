@@ -162,10 +162,13 @@ enum AgentState {
 /// agent — what is on screen is a rendering, and this is where the real thing lives.
 struct TranscriptSource: View {
     let url: URL?
+    /// What the file is, for the heading and the button. A transcript everywhere it was
+    /// written for; the roster and skill files on a team member reuse the same block.
+    var label = "Transcript"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("Transcript")
+            SectionLabel(label)
             Text(url?.path ?? "Not on disk yet.")
                 .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
                 .lineLimit(3).truncationMode(.middle)
@@ -177,7 +180,8 @@ struct TranscriptSource: View {
             Button {
                 if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             } label: {
-                Label("Reveal transcript", systemImage: "folder").frame(maxWidth: .infinity)
+                Label("Reveal \(label.lowercased())", systemImage: "folder")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.console)
             .disabled(url == nil)

@@ -271,19 +271,21 @@ struct ProjectList: View {
     }
 
     /// A standing member of the Engineering Lead's team — a name and the skill it runs.
-    /// Not a session, so the row is informational, like the notebook counts on Overview.
+    /// Not a session: opening one reads the agent itself, not a transcript.
     private func teamRow(_ member: TeamMember) -> some View {
-        HStack(spacing: 9) {
-            RoleTile(role: member.skills.first ?? member.name, size: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(member.name).font(Typo.text(12, .medium)).foregroundStyle(Theme.tx).lineLimit(1)
-                Text(member.skills.joined(separator: ", "))
-                    .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+        let tag = Tag.member(member.name)
+        return row(tag) {
+            HStack(spacing: 9) {
+                RoleTile(role: member.skills.first ?? member.name, size: 24)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(member.name).font(Typo.text(12, .medium))
+                        .foregroundStyle(selection == tag ? Theme.tx : Theme.tx2).lineLimit(1)
+                    Text(member.skills.joined(separator: ", "))
+                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                }
+                Spacer(minLength: 6)
             }
-            Spacer(minLength: 6)
         }
-        .padding(.horizontal, 19)
-        .padding(.vertical, 6)
     }
 
     /// The one row here that is not an agent: what the whole fleet has spent, and how

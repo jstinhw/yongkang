@@ -36,14 +36,27 @@ enum AgentKind: String, CaseIterable, Identifiable {
 }
 
 enum BundledSkills {
-    static func load(_ name: String) -> String? {
+    /// The packaged copy of a skill, or nil in a development build that has no Resources
+    /// folder next to the binary.
+    static func url(_ name: String) -> URL? {
         let executableResources = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
             .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
-        for root in [Bundle.main.resourceURL, executableResources].compactMap({ $0 }) {
-            let file = root.appendingPathComponent("skills/\(name)/SKILL.md")
-            if let text = try? String(contentsOf: file, encoding: .utf8) { return text }
-        }
-        return nil
+        return [Bundle.main.resourceURL, executableResources].compactMap { $0 }
+            .map { $0.appendingPathComponent("skills/\(name)/SKILL.md") }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    static func load(_ name: String) -> String? {
+        url(name).flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+    }
+
+    /// The copy to *show* a reader. Falls back to the one a provider would discover
+    /// natively, because a development build has nothing packaged and the skill an agent
+    /// would actually run is still worth being able to read.
+    static func readable(_ name: String) -> URL? {
+        url(name) ?? [FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/skills/\(name)/SKILL.md")]
+            .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 }
 

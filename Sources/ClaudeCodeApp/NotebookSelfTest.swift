@@ -692,6 +692,37 @@ enum NotebookSelfTest {
                      "a hand-written agent file joins the roster, body and all")
         precondition(roster.count == Team.defaults.count + 1)
 
+        // The skill behind a team member, as its page reads it: the block-list `allowed-tools`
+        // the flat frontmatter reader cannot see, and a body that stops at the frontmatter.
+        let skillText = """
+        ---
+        name: frontend-dev
+        description: Build the user-facing half of one Yongkang task.
+        allowed-tools:
+          - Read
+          - Write
+        model: opus
+        ---
+
+        You are the frontend engineer on one task:
+
+        - Read the task file first.
+        """
+        let skill = SkillDoc.parse(skillText, named: "whatever")
+        precondition(skill.name == "frontend-dev", "the file names the skill, not the caller")
+        precondition(skill.summary.hasPrefix("Build the user-facing half"))
+        precondition(skill.tools == ["Read", "Write"],
+                     "a block list of tools is read, and stops before the next field")
+        precondition(skill.body.hasPrefix("You are the frontend engineer")
+                     && skill.body.contains("- Read the task file first."),
+                     "a bullet in the body is instructions, never another tool")
+        precondition(SkillDoc.parse("no frontmatter here", named: "qa-dev")
+                     == SkillDoc(name: "qa-dev", summary: "", tools: [],
+                                 body: "no frontmatter here", url: nil),
+                     "a skill file without frontmatter still reads as its instructions")
+        precondition(SkillDoc.parse("---\nallowed-tools: [Read, Bash]\n---\nGo.", named: "x").tools
+                     == ["Read", "Bash"], "an inline tool list reads the same way")
+
         // Who a running agent is: the lead names it `<task-id>-<skill>`, and the skill in
         // that name is what puts a person's face on every screen that shows the agent.
         func running(_ label: String, _ type: String) -> SubagentStatus {

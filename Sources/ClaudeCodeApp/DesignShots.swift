@@ -51,6 +51,17 @@ enum DesignShots {
         }, "agents", into: directory)
 
         write(console(project, section: .agents) {
+            // Two skills on purpose: one owner of several is what the page has to shut by
+            // default, and a single-skill member would prove nothing about that.
+            TeamMemberDetail(member: TeamMember(name: "Allen", skills: ["frontend-dev", "qa-dev"],
+                                                owns: Team.defaults[0].owns,
+                                                notes: "Prefers the repo's own components over "
+                                                     + "anything new."),
+                             file: URL(fileURLWithPath: "/tmp/.notebook/team/allen.md"),
+                             running: [(lead, worker)], openSubagent: { _, _ in })
+        }, "member", into: directory)
+
+        write(console(project, section: .agents) {
             SubagentViewer(session: lead, subagent: worker, lines: transcript(),
                            task: project.cards.first { $0.id == "show-agent-tree" },
                            openTask: { _ in })

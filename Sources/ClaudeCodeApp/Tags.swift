@@ -24,6 +24,9 @@ enum Tag {
         "subagent:\(session.id.uuidString):\(subagent.id)"
     }
     static func block(_ block: UserBlock) -> String { "block:\(block.id)" }
+    /// A standing team member, by roster name. Not a session — nothing is running — so it
+    /// keys on the name rather than a UUID, and survives the reload like every other tag.
+    static func member(_ name: String) -> String { "member:\(name)" }
     static func preview(_ project: Project, _ directory: URL) -> String {
         "preview:\(project.id.uuidString):\(directory.path)"
     }
