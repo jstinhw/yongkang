@@ -124,13 +124,17 @@ struct YongkangApp: App {
             }
             .sheet(isPresented: $addingAgent) {
                 NewAgentForm(
-                    skills: Team.assignableSkills,
+                    directory: project.directory,
                     taken: project.team.map(\.name),
                     save: { member in
                         do { try Team.write(member, root: project.notebookRoot) }
                         catch { NSAlert(error: error).runModal() }
                         addingAgent = false
                         reload()
+                    },
+                    incubate: { brief in
+                        addingAgent = false
+                        startIncubation(brief, in: project)
                     },
                     cancel: { addingAgent = false }
                 )
@@ -325,6 +329,7 @@ struct YongkangApp: App {
             TeamMemberDetail(
                 member: member,
                 file: Team.file(for: member.name, root: project.notebookRoot),
+                directory: project.directory,
                 running: runningAgents(of: member, in: project),
                 openSubagent: { session, subagent in
                     selection = Tag.subagent(session, subagent)
@@ -735,6 +740,17 @@ struct YongkangApp: App {
         addSession(agent, id: id, to: project,
                    prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
                    title: "Product")
+    }
+
+    /// Incubate mode: the app does not write the agent, a session does. It searches the
+    /// skills this project can already load, fetches or writes what is missing, and adds
+    /// the file to `.notebook/team/` — which the poll picks up as a new roster row, the
+    /// same way any other notebook entry an agent writes turns up.
+    private func startIncubation(_ brief: String, in project: Project) {
+        section = .agents
+        addSession(agent, to: project,
+                   prompt: NotebookFormat.incubatePrompt(brief: brief, agent: agent),
+                   title: "New Agent")
     }
 
     private func isProduct(_ session: CodeSession) -> Bool {

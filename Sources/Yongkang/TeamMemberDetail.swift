@@ -10,6 +10,8 @@ struct TeamMemberDetail: View {
     let member: TeamMember
     /// The roster file this member was read from, so the reader can go edit it.
     let file: URL
+    /// The project folder, which is where a skill installed for this project alone lives.
+    let directory: URL
     /// This member's agents working right now, across every session in the project.
     let running: [(session: CodeSession, subagent: SubagentStatus)]
     let openSubagent: (CodeSession, SubagentStatus) -> Void
@@ -138,8 +140,9 @@ struct TeamMemberDetail: View {
     /// What the skill says it is, or why there is nothing to open.
     private func summary(of doc: SkillDoc) -> String {
         if doc.url == nil {
-            return "Not packaged with the app or installed in ~/.claude/skills — the agent "
-                 + "falls back to whatever its provider discovers natively."
+            return "Not installed in this project, in ~/.claude/skills or ~/.agents/skills, "
+                 + "and not packaged with the app — the agent falls back to whatever its "
+                 + "provider discovers natively."
         }
         return doc.summary.isEmpty ? "No description in the skill's frontmatter." : doc.summary
     }
@@ -185,7 +188,7 @@ struct TeamMemberDetail: View {
     }
 
     private func loadMember() {
-        docs = member.skills.map(SkillDoc.load)
+        docs = member.skills.map { SkillDoc.load($0, project: directory) }
         sections = Dictionary(docs.map { ($0.name, NotebookContent.sections($0.body)) },
                               uniquingKeysWith: { first, _ in first })
         expanded = []
@@ -205,12 +208,26 @@ struct SkillDoc: Identifiable, Equatable {
 
     var id: String { name }
 
-    static func load(_ name: String) -> SkillDoc {
-        guard let url = BundledSkills.readable(name),
-              let text = try? String(contentsOf: url, encoding: .utf8) else {
+    /// The skill this name resolves to for a project — the same file the provider running
+    /// the agent would load, wherever it is installed.
+    static func load(_ name: String, project: URL?) -> SkillDoc {
+        guard let url = Skills.url(name, project: project) else {
+            return SkillDoc(name: name, summary: "", tools: [], body: "", url: nil)
+        }
+        return load(at: url, named: name)
+    }
+
+    static func load(at url: URL, named name: String) -> SkillDoc {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else {
             return SkillDoc(name: name, summary: "", tools: [], body: "", url: nil)
         }
         return parse(text, named: name, at: url)
+    }
+
+    /// The same skill under the name it is installed as. Frontmatter is what a skill says
+    /// about itself; the folder is what an agent can actually ask for.
+    func named(_ name: String) -> SkillDoc {
+        SkillDoc(name: name, summary: summary, tools: tools, body: body, url: url)
     }
 
     static func parse(_ text: String, named name: String, at url: URL? = nil) -> SkillDoc {

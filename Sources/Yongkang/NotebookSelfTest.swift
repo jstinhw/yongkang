@@ -743,6 +743,96 @@ enum NotebookSelfTest {
         precondition(nicknamed.displayName == "Allen" && nicknamed.agentType == "frontend-dev",
                      "a provider's nickname never survives as an agent's role")
 
+        // Where a new agent's skills come from: the folders both providers read, project
+        // before home before the packaged copies, and a git repo installed into the first.
+        let projectSkills = tmp.appendingPathComponent(".claude/skills")
+        let codexSkills = tmp.appendingPathComponent(".agents/skills")
+        func writeSkill(_ folder: URL, _ name: String, described: String) {
+            try! fm.createDirectory(at: folder.appendingPathComponent(name), withIntermediateDirectories: true)
+            try! "---\nname: \(name)\ndescription: \(described)\n---\n\nDo the thing."
+                .write(to: folder.appendingPathComponent("\(name)/SKILL.md"),
+                       atomically: true, encoding: .utf8)
+        }
+        writeSkill(projectSkills, "migrations-dev", described: "Owns schema migrations.")
+        writeSkill(codexSkills, "docs-dev", described: "Writes the docs.")
+        let catalog = Skills.available(project: tmp)
+        precondition(catalog.contains { $0.name == "migrations-dev" && $0.summary == "Owns schema migrations." },
+                     "a skill installed in the project is one the roster can hand out")
+        precondition(catalog.contains { $0.name == "docs-dev" },
+                     "and so is one only Codex's folder holds — the form offers both providers' skills")
+        precondition(Skills.url("migrations-dev", project: tmp)?.path
+                     == projectSkills.appendingPathComponent("migrations-dev/SKILL.md").path,
+                     "the project's own copy is the file its agents would actually load")
+        precondition(Skills.url("nothing-installed", project: tmp) == nil)
+        precondition(catalog.map(\.name) == catalog.map(\.name).sorted() &&
+                     Set(catalog.map(\.name)).count == catalog.count,
+                     "one row per name, in the order the picker draws them")
+        precondition(SkillDoc.load("migrations-dev", project: tmp).summary == "Owns schema migrations.",
+                     "a member's page reads the installed skill, not just a packaged one")
+        // A SKILL.md that calls itself something else is still only reachable at its folder.
+        writeSkill(projectSkills, "_alias-dev", described: "Claims another name.")
+        try! "---\nname: migrations-dev\ndescription: Claims another name.\n---\n\nGo."
+            .write(to: projectSkills.appendingPathComponent("_alias-dev/SKILL.md"),
+                   atomically: true, encoding: .utf8)
+        let aliased = Skills.available(project: tmp)
+        precondition(aliased.contains { $0.name == "_alias-dev" },
+                     "the folder names a skill in the picker, not its frontmatter")
+        precondition(Set(aliased.map(\.name)).count == aliased.count,
+                     "so two skills can never collide into one row the lead cannot resolve")
+
+        // A repo is sometimes one skill, sometimes a folder of them, sometimes keeps them
+        // under `skills/` — all three are found, and `.git` is never mistaken for one.
+        let checkout = tmp.appendingPathComponent("checkout")
+        writeSkill(checkout.appendingPathComponent("skills"), "deep-dev", described: "Nested.")
+        try! fm.createDirectory(at: checkout.appendingPathComponent(".git/skills/hidden-dev"),
+                                withIntermediateDirectories: true)
+        try! "---\nname: hidden\n---\n".write(to: checkout.appendingPathComponent(".git/skills/hidden-dev/SKILL.md"),
+                                              atomically: true, encoding: .utf8)
+        precondition(Skills.skillFolders(in: checkout).map(\.lastPathComponent) == ["deep-dev"],
+                     "a skill under skills/ is found; anything inside a dot folder is not")
+        try! "---\nname: root-dev\ndescription: At the repo root.\n---\n\nDo the thing."
+            .write(to: checkout.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        precondition(Skills.skillFolders(in: checkout).map(\.lastPathComponent)
+                     == [checkout.lastPathComponent],
+                     "a repo that is itself one skill stops the search at its root")
+        precondition(Skills.installName(of: checkout) == "root-dev",
+                     "and installs under the name its own frontmatter claims, not the repo's")
+        precondition(Skills.repositoryName("git@github.com:owner/Team-Skills.git") == "team-skills")
+
+        // The remote is handed to `git clone` as an argument, never through a shell: this
+        // is about a "URL" that is really a git flag or a path to somewhere else on disk.
+        precondition(Skills.isRemote("https://github.com/owner/skills.git"))
+        precondition(Skills.isRemote("git@github.com:owner/skills.git"))
+        precondition(!Skills.isRemote("--upload-pack=/bin/sh"))
+        precondition(!Skills.isRemote("~/Documents/skills"))
+        precondition(!Skills.isRemote("https://host/a b"))
+        var refused = false
+        do { _ = try Skills.install(git: "--upload-pack=x", into: tmp) } catch { refused = true }
+        precondition(refused, "a remote that is not one is refused before git is started")
+
+        // The clone itself, only when asked: `SELFTEST_REMOTE=<git url> swift run
+        // Yongkang --selftest`. Off by default because a check that needs the network
+        // fails for reasons that have nothing to do with this app.
+        if let remote = ProcessInfo.processInfo.environment["SELFTEST_REMOTE"] {
+            let installed = try! Skills.install(git: remote, into: tmp)
+            precondition(!installed.isEmpty, "a skills repo installs at least one skill")
+            for name in installed {
+                precondition(Skills.url(name, project: tmp) != nil, "\(name) is loadable after install")
+                precondition((try? fm.destinationOfSymbolicLink(
+                    atPath: codexSkills.appendingPathComponent(name).path)) != nil,
+                             "and Codex gets the same file through .agents/skills/")
+            }
+            precondition(Set(Skills.available(project: tmp).map(\.name)).isSuperset(of: installed))
+        }
+
+        // Incubate mode: the app writes no agent, the session does — so the prompt is the
+        // skill that knows how to search, carrying only what the user typed.
+        let incubate = NotebookFormat.incubatePrompt(brief: "An agent that owns database migrations",
+                                                     agent: .claude)
+        precondition(incubate.contains("incubate-agent") && incubate.contains("owns database migrations"),
+                     "the description reaches the skill that turns it into a roster file")
+        precondition(echo(AgentCommand.quoted(incubate)) == incubate, "incubate brief mangled by the shell")
+
         // A block, exactly as the engineering-lead skill writes one, and the loop it opens:
         // read it back, hand it to a session, resolve it, tell the waiting lead.
         precondition(Blocks.load(root: root).isEmpty, "no gate hit, no blocks folder")

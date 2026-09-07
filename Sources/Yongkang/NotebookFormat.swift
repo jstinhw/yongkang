@@ -299,6 +299,13 @@ enum NotebookFormat {
         agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
     }
 
+    /// Incubate mode's opening prompt: the description of an agent that does not exist
+    /// yet. The skill owns how to search for a skill to give it and what to write; the
+    /// prompt carries only what the user typed.
+    static func incubatePrompt(brief: String, agent: AgentKind) -> String {
+        agent.skill("incubate-agent", arguments: brief)
+    }
+
     /// Typed into the waiting session once its block clears — the same words a person
     /// would use coming back to say the account is set up now.
     static func unblockedMessage(block: UserBlock) -> String {

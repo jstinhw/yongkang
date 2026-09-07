@@ -58,8 +58,16 @@ enum DesignShots {
                                                 notes: "Prefers the repo's own components over "
                                                      + "anything new."),
                              file: URL(fileURLWithPath: "/tmp/.notebook/team/allen.md"),
+                             directory: project.directory,
                              running: [(lead, worker)], openSubagent: { _, _ in })
         }, "member", into: directory)
+
+        // The sheet behind New → Agent…, drawn on its own: it is the one screen the console
+        // layout does not frame, and the skill list is the part that overflows if it grows.
+        write(NewAgentForm(directory: project.directory, taken: Team.defaults.map(\.name),
+                           save: { _ in }, incubate: { _ in }, cancel: {})
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
+              "new-agent", into: directory)
 
         write(console(project, section: .agents) {
             SubagentViewer(session: lead, subagent: worker, lines: transcript(),

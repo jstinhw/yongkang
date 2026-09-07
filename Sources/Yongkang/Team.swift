@@ -20,9 +20,6 @@ struct TeamMember: Identifiable, Equatable {
 enum Team {
     static let folder = "team"
 
-    /// The skills a new agent can be given — the role skills bundled with the app.
-    static let assignableSkills = ["frontend-dev", "backend-dev", "sre-dev", "qa-dev", "fde-dev"]
-
     /// The roster shipped with the app. Written to `.notebook/team/` the first time a lead
     /// starts in a project that has a notebook; after that the files on disk are the truth.
     static let defaults: [TeamMember] = [
