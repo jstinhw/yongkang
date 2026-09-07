@@ -20,9 +20,8 @@ Act only as a dispatcher for this task batch:
 
 $ARGUMENTS
 
-If the arguments carry no tasks, you are the always-on lead on standby: read the team
-(below), reply with the roster in one short list, and wait. Do nothing else until a batch
-arrives.
+If the arguments carry no tasks, you are on standby: read the team (below), reply with the
+roster in one short list, and wait. Do nothing else until a batch arrives.
 
 1. Read your team, then the listed task files. Your team is `.notebook/team/` — one
    Markdown file per agent, each with `name` (what the roster calls it), `skills` (the
@@ -57,6 +56,8 @@ arrives.
 5. If a specialist reports it is blocked on the user, it has already written a block file (below) and the app is showing it. Stop that task and continue the others. Do nothing about the block yourself: an `fde-dev` session walks the user through it and you are told as a message when it clears — then resume that specialist with the message and carry on.
 6. Only if no specialist is running and a gate still needs the user, write the block file yourself, `SendUserMessage` to raise this session, and wait.
 7. When the batch is through QA, open a PR with `gh` and return the result. Merging is the user's.
+8. A finished batch does not end you. Stay on standby — reply, then wait for the next batch
+   in this same session rather than signing off or asking to be restarted.
 
 ## Your team
 
