@@ -32,6 +32,8 @@ struct YongkangApp: App {
     @State private var head: String?
     @State private var branch: String?
     @State private var ticks = 0
+    /// The list width the current resize drag started from; nil when nothing is dragging.
+    @State private var dragBase: Double?
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
@@ -42,6 +44,10 @@ struct YongkangApp: App {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
+    /// The list column's width, dragged from its trailing divider, and whether it is
+    /// collapsed. Both persist: a window you have sized once should come back that way.
+    @AppStorage("listWidth") private var listWidth = 268.0
+    @AppStorage("listHidden") private var listHidden = false
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
     @AppStorage("agentKind") private var agent = AgentKind.claude
@@ -93,7 +99,7 @@ struct YongkangApp: App {
                 AgentTerminal(line: session.line, label: session.title,
                               pending: pendingBinding(session),
                               onExit: { markExited(session, in: project) })
-                    .padding(.leading, Theme.railWidth + Theme.listWidth)
+                    .padding(.leading, Theme.railWidth + (listHidden ? 0 : listWidth))
                     .padding(.top, Theme.topBarHeight)
                     .opacity(isVisible(session) ? 1 : 0)
                     .allowsHitTesting(isVisible(session))
@@ -109,13 +115,18 @@ struct YongkangApp: App {
         } else if let project = enteredProject {
             HStack(spacing: 0) {
                 // Above the list column: the rail's hover labels hang past its own width.
-                Rail(section: $section, badges: badges(for: project), leave: leave)
+                Rail(section: $section, badges: badges(for: project), leave: leave,
+                     listHidden: listHidden, toggleList: { listHidden.toggle() })
                     .zIndex(1)
-                ProjectList(section: section, project: project, selection: $selection,
-                            showDone: showDone, changes: changes,
-                            assign: { assign($0, in: project) },
-                            closeSession: { close($0, in: project) },
-                            remove: { remove($0, in: project) })
+                if !listHidden {
+                    ProjectList(section: section, project: project, width: listWidth,
+                                selection: $selection,
+                                showDone: showDone, changes: changes,
+                                assign: { assign($0, in: project) },
+                                closeSession: { close($0, in: project) },
+                                remove: { remove($0, in: project) })
+                        .overlay(alignment: .trailing) { listResizer }
+                }
                 VStack(spacing: 0) {
                     topBar(for: project)
                     screen(for: project)
@@ -140,6 +151,25 @@ struct YongkangApp: App {
                 )
             }
         }
+    }
+
+    /// The grab area over the list column's trailing divider. It sits in the overlay rather
+    /// than the HStack so widening the column does not also move it by its own width.
+    private var listResizer: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .onHover { $0 ? NSCursor.resizeLeftRight.set() : NSCursor.arrow.set() }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { drag in
+                        let base = dragBase ?? listWidth
+                        dragBase = base
+                        listWidth = min(560, max(200, base + drag.translation.width))
+                    }
+                    .onEnded { _ in dragBase = nil }
+            )
     }
 
     /// A dot on the rail for the two things that are about the user rather than the work:

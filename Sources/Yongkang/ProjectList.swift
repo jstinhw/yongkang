@@ -1,12 +1,14 @@
 import SwiftUI
 import AppKit
 
-/// The 268pt column: whatever the rail's current section is a list of. One column per
+/// The column beside the rail: whatever its current section is a list of. One column per
 /// section rather than one tree holding everything at once — the old sidebar made you read
 /// past the notebook to find the agent you were watching.
 struct ProjectList: View {
     let section: ConsoleSection
     let project: Project
+    /// Dragged by the user from the divider on its trailing edge.
+    var width: CGFloat = Theme.listWidth
     @Binding var selection: String?
     let showDone: Bool
     /// Only read when the Review section is showing; empty everywhere else.
@@ -22,7 +24,7 @@ struct ProjectList: View {
     @State private var hiddenCompletedTasks: Set<String> = []
 
     var body: some View {
-        ListPane {
+        ListPane(width: width) {
             header
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -391,6 +393,16 @@ struct ProjectList: View {
     @ViewBuilder private var reviewRows: some View {
         let added = changes.reduce(0) { $0 + $1.added }
         let removed = changes.reduce(0) { $0 + $1.removed }
+        group("Handover")
+        // The way back to what the batch did, from whichever file you wandered into.
+        row(Tag.review(project)) {
+            HStack(spacing: 9) {
+                Image(systemName: "checkmark.seal").font(.system(size: 12))
+                    .foregroundStyle(Theme.green)
+                Text("Summary and commit").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                Spacer(minLength: 0)
+            }
+        }
         group("Files", "+\(added) −\(removed)")
         if changes.isEmpty { empty("Nothing changed since HEAD") }
         ForEach(changes) { change in

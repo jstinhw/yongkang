@@ -36,6 +36,9 @@ struct Rail: View {
     /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
     let badges: [ConsoleSection: Color]
     let leave: () -> Void
+    /// Whether the list column beside the rail is currently collapsed, and the toggle for it.
+    var listHidden = false
+    var toggleList: () -> Void = {}
 
     /// The tab under the pointer, which is the one wearing its name.
     @State private var hovered: ConsoleSection?
@@ -43,10 +46,13 @@ struct Rail: View {
     /// `hovering` is only ever passed by the shot renderer, which has no pointer of its own
     /// and would otherwise photograph a rail whose labels never appear.
     init(section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
-         leave: @escaping () -> Void, hovering: ConsoleSection? = nil) {
+         leave: @escaping () -> Void, listHidden: Bool = false,
+         toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil) {
         _section = section
         self.badges = badges
         self.leave = leave
+        self.listHidden = listHidden
+        self.toggleList = toggleList
         _hovered = State(initialValue: hovering)
     }
 
@@ -75,6 +81,15 @@ struct Rail: View {
                     }
             }
             Spacer(minLength: 8)
+            Button(action: toggleList) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(listHidden ? Theme.tx3 : Theme.tx)
+                    .frame(width: 40, height: 38)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("\\", modifiers: .command)
+            .help(listHidden ? "Show list (⌘\\)" : "Hide list (⌘\\)")
         }
         .frame(width: Theme.railWidth)
         .padding(.vertical, 16)
@@ -170,13 +185,15 @@ struct ActionBar<Content: View>: View {
     }
 }
 
-/// The 268pt column of whatever the current section is a list of.
+/// The column of whatever the current section is a list of. Its width is dragged by the
+/// user — file paths and entry titles are as long as the project makes them.
 struct ListPane<Content: View>: View {
+    var width: CGFloat = Theme.listWidth
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .frame(width: Theme.listWidth)
+            .frame(width: width)
             .background(Theme.panel)
             .overlay(alignment: .trailing) { Rectangle().fill(Theme.line).frame(width: 1) }
     }
