@@ -36,6 +36,9 @@ struct YongkangApp: App {
     @State private var dragBase: Double?
     /// Completed notebook work is historical noise until the user asks for it.
     @State private var showDone = false
+    /// The done tasks the window has already seen in this project. nil until the first
+    /// poll seeds it, so opening a project full of finished work does not read as news.
+    @State private var doneTasks: Set<String>?
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State private var addingAgent = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
@@ -379,7 +382,9 @@ struct YongkangApp: App {
         } else if reviewPath(project) != nil {
             ChangeReview(project: project, changes: changes, head: head, branch: branch,
                          path: reviewPath(project) ?? "",
-                         select: { selection = Tag.review(project) + ":" + $0 })
+                         summary: ChangeSummary.of(project, changes: changes),
+                         select: { selection = Tag.review(project) + ":" + $0 },
+                         commit: { commit($0, in: project) })
         } else if let step = previewStep(in: project) {
             ProjectPreview(repo: step.repo, services: step.services,
                            run: { runServices([step], in: project) })
@@ -437,7 +442,9 @@ struct YongkangApp: App {
             }
         case .review:
             refreshChanges(force: true)
-            selection = Tag.review(project) + ":" + (changes.first?.path ?? "")
+            // The summary, not the first file: what the batch did is the thing to read
+            // before any of the diff means anything.
+            selection = Tag.review(project)
         case .blocks:
             selection = (project.blocks.first(where: \.waiting)
                          ?? (showDone ? project.blocks.first : nil))
@@ -720,6 +727,7 @@ struct YongkangApp: App {
 
     private func enter(_ project: Project) {
         entered = project.id
+        doneTasks = nil
         section = .overview
         selection = Tag.overview(project)
         reload()
@@ -736,6 +744,7 @@ struct YongkangApp: App {
 
     private func leave() {
         entered = nil
+        doneTasks = nil
         selection = nil
         reload()
     }
@@ -823,6 +832,7 @@ struct YongkangApp: App {
             let team = Team.load(root: projects[index].notebookRoot)
             if team != projects[index].team { projects[index].team = team }
             guard projects[index].id == entered else { continue }
+            showFinishedWork(in: projects[index])
             deliverUnblocks(in: projects[index])
             for sIndex in projects[index].sessions.indices
                 where projects[index].sessions[sIndex].agent != nil {
@@ -848,6 +858,23 @@ struct YongkangApp: App {
         refreshChanges()
     }
 
+    /// A task turning done is the moment to read what changed, so the window opens the
+    /// review itself rather than waiting to be asked — the summary, its diff and the
+    /// commit line, which is everything the handover needs.
+    ///
+    /// Not while a terminal is up: that pane has the keyboard, and pulling it away would
+    /// drop the user's next keystrokes into an agent they can no longer see.
+    private func showFinishedWork(in project: Project) {
+        let done = Set(project.cards.filter { $0.kind == .task && $0.status == "done" }.map(\.id))
+        let seen = doneTasks
+        if doneTasks != done { doneTasks = done }
+        guard let seen, !done.subtracting(seen).isEmpty,
+              selectedSession(in: project) == nil else { return }
+        section = .review
+        selection = Tag.review(project)
+        refreshChanges(force: true)
+    }
+
     /// git is only asked while a screen that shows its answer is open, and then only every
     /// third tick — a repo-wide diff twice a second is a cost with no reader.
     private func refreshChanges(force: Bool = false) {
@@ -857,6 +884,15 @@ struct YongkangApp: App {
         if fresh != changes { changes = fresh }
         head = GitChanges.head(in: project.directory)
         branch = GitChanges.branch(in: project.directory)
+    }
+
+    /// The review screen's one write to the repo. Staging and committing is all it does —
+    /// no push, no merge, no branch — and only because the user pressed the button.
+    private func commit(_ message: String, in project: Project) -> String? {
+        let failure = GitChanges.commit(message: message, in: project.directory)
+        if failure == nil { selection = Tag.review(project) }
+        refreshChanges(force: true)
+        return failure
     }
 
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent

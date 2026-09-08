@@ -94,6 +94,22 @@ enum GitChanges {
         return text.isEmpty ? nil : text
     }
 
+    /// Stage everything and commit — the one write this app makes to a user's repo, and
+    /// only from the button on the review screen. Returns git's own words on failure and
+    /// nil on success. Pushing and merging stay the user's.
+    static func commit(message: String, in directory: URL) -> String? {
+        let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "A commit needs a message." }
+        guard isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
+        for arguments in [["add", "--all"], ["commit", "--message", text]] {
+            let result = execute(arguments, in: directory)
+            guard result.status != 0 else { continue }
+            let said = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return said.isEmpty ? "git \(arguments[0]) failed (\(result.status))." : said
+        }
+        return nil
+    }
+
     static func isRepository(_ directory: URL) -> Bool {
         run(["rev-parse", "--is-inside-work-tree"], in: directory)
             .trimmingCharacters(in: .whitespacesAndNewlines) == "true"
@@ -141,5 +157,26 @@ enum GitChanges {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         task.waitUntilExit()
         return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    /// The same call, kept for the commands whose failure the user has to be told about:
+    /// one pipe for both streams, because what comes back is a sentence for a person and
+    /// git says most of it on stderr.
+    private static func execute(_ arguments: [String], in directory: URL) -> (status: Int32, text: String) {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        task.arguments = ["git"] + arguments
+        task.currentDirectoryURL = directory
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = pipe
+        do {
+            try task.run()
+        } catch {
+            return (1, "could not run git: \(error.localizedDescription)")
+        }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        return (task.terminationStatus, String(data: data, encoding: .utf8) ?? "")
     }
 }

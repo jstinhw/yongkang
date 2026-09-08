@@ -119,7 +119,9 @@ what accepts them. Parent-task dependencies require that parent's full QA pass.
 Free slots admit the next ready work immediately; do not wait for a whole wave.
 
 On report-back, preserve the result, changed paths, verification evidence and remaining
-work. Build completion means `review`, never `done`. Dispatch the roster's independent
+work; record the changed paths in the work record's `paths`, which is what lets the
+dashboard show each task's own diff instead of one undifferentiated pile of files.
+Build completion means `review`, never `done`. Dispatch the roster's independent
 QA against the work's criteria and the parent contract. QA passes → mark the accepted
 work `done`; all parts integrated and parent acceptance checked → task `status: done`.
 QA fails → return the reproductions to the same owner, with a new attempt record if
@@ -244,6 +246,7 @@ skill: backend-dev
 model: <selected available model>
 reason: "Bounded API change; balanced coding model is sufficient."
 depends_on: []
+paths: [src/api/orders.ts, src/api/orders.test.ts]
 status: queued
 estimated_tokens: 12000
 estimated_minutes: 6
@@ -255,6 +258,9 @@ Add `agent_id`, `started_at`, `finished_at`, `actual_tokens`, `context_tokens`,
 `context_window`, `context_source`, `checkpoint`, `report` as known; all dates are
 RFC-3339. `context_window` is W and `context_source` names telemetry/cache/estimate.
 `report` is a one-line result. Work `status` is queued/running/blocked/review/done/failed.
+`paths` is the repo-relative files this work owns, updated as the worker reports them;
+absolute paths, `~` and `..` are dropped by the reader, and files no work claims are shown
+to the user as unattributed rather than charged to a task.
 `finished_at` is the worker's return/stop time, not the later QA verdict time. Body:
 brief, **Scope and ownership**, **Done when**, **Reporting**, **Estimates**, then
 **Checkpoint** and **Result** when available. Cross-task work edges use work ids;

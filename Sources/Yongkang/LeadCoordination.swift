@@ -46,6 +46,9 @@ struct LeadCoordination: Equatable {
             let dependencies = NotebookIndex.list(fields["depends_on"] ?? "[]")
             guard ["queued", "running", "blocked", "review", "done", "failed"].contains(state),
                   dependencies.allSatisfy(safeID) else { continue }
+            // What this worker owned, as it reported it. Anything that could point outside
+            // the project is dropped rather than shown against the wrong file.
+            let paths = NotebookIndex.list(fields["paths"] ?? "[]").compactMap(safePath)
             let started = AgentUsage.date(fields["started_at"])
             let finished = AgentUsage.date(fields["finished_at"]).flatMap { date -> Date? in
                 if let started, date < started { return nil }
@@ -53,7 +56,8 @@ struct LeadCoordination: Equatable {
             }
             var work = LeadWork(id: id, taskID: taskID, title: nonempty(fields["title"]) ?? id,
                                 skill: fields["skill"] ?? "", model: fields["model"] ?? "",
-                                reason: fields["reason"] ?? "", dependsOn: dependencies, state: state,
+                                reason: fields["reason"] ?? "", dependsOn: dependencies, paths: paths,
+                                state: state,
                                 agentID: nonempty(fields["agent_id"]),
                                 estimatedTokens: count(fields["estimated_tokens"]),
                                 estimatedMinutes: minutes(fields["estimated_minutes"]),
@@ -94,6 +98,16 @@ struct LeadCoordination: Equatable {
         }
     }
 
+    /// A repo-relative path and nothing else: no absolute paths, no `..`, no `~`. The
+    /// leading `./` an agent sometimes writes is dropped so it still matches git's answer.
+    private static func safePath(_ text: String) -> String? {
+        var path = text.trimmingCharacters(in: .whitespaces)
+        while path.hasPrefix("./") { path = String(path.dropFirst(2)) }
+        guard !path.isEmpty, !path.hasPrefix("/"), !path.hasPrefix("~"),
+              !path.split(separator: "/").contains("..") else { return nil }
+        return path
+    }
+
     private static func nonempty(_ text: String?) -> String? {
         text.flatMap { $0.isEmpty ? nil : $0 }
     }
@@ -118,6 +132,10 @@ struct LeadWork: Identifiable, Equatable {
     var model = ""
     var reason = ""
     var dependsOn: [String] = []
+    /// The files this worker reported owning, repo-relative. Empty when the lead did not
+    /// record any — the summary then leaves this work's task without a diff of its own
+    /// rather than guessing which files were its doing.
+    var paths: [String] = []
     var state = "queued"
     var agentID: String? = nil
     var estimatedTokens: Int? = nil

@@ -115,11 +115,21 @@ enum DesignShots {
         here.sessions = project.sessions
         here.blocks = project.blocks
         let changes = GitChanges.changes(in: repo)
+        let summary = ChangeSummary.of(here, changes: changes)
         write(console(here, section: .review, changes: changes) {
             ChangeReview(project: here, changes: changes, head: GitChanges.head(in: repo),
                          branch: GitChanges.branch(in: repo),
-                         path: changes.first?.path ?? "", select: { _ in })
+                         path: changes.first?.path ?? "", summary: summary,
+                         select: { _ in }, commit: { _ in nil })
         }, "review", into: directory)
+
+        // The screen the console lands on when a task finishes: a real diff of this repo
+        // under the fixture batch's own reports, which is the pairing the pane exists for.
+        write(console(here, section: .review, changes: changes) {
+            ChangeReview(project: here, changes: changes, head: GitChanges.head(in: repo),
+                         branch: GitChanges.branch(in: repo),
+                         path: "", summary: summary, select: { _ in }, commit: { _ in nil })
+        }, "handover", into: directory)
 
         // Real numbers, off this machine's own transcripts for the repo the binary was
         // built from: the usage screen is nothing but its readers, so a shot drawn from a
@@ -302,6 +312,7 @@ enum DesignShots {
                 LeadWork(id: "show-agent-tree-ui", taskID: "show-agent-tree", title: "Keep every worker visible",
                          skill: "frontend-dev", model: "gpt-5.6-terra",
                          reason: "Allen owns the native UI. Bounded SwiftUI work suits the standard coding model; no shared files with the blocker reader.",
+                         paths: ["Sources/Yongkang/ChangeSummary.swift", "Sources/Yongkang/ChangeReview.swift"],
                          state: "running", agentID: "fe", estimatedTokens: 16000, estimatedMinutes: 14,
                          startedAt: now.addingTimeInterval(-540), updatedAt: now.addingTimeInterval(-35),
                          contextTokens: 43000, contextWindow: 128000, contextSource: "Preview runtime metadata",
@@ -314,6 +325,7 @@ enum DesignShots {
                 LeadWork(id: "pull-blockers-reader", taskID: "pull-blockers", title: "Link blockers to the assigned batch",
                          skill: "backend-dev", model: "gpt-5.6-terra",
                          reason: "Ben owns notebook loading; the reader is independent of the UI files.",
+                         paths: ["Sources/Yongkang/LeadCoordination.swift", "Sources/Yongkang/GitChanges.swift"],
                          state: "review", agentID: "be", estimatedTokens: 11000, estimatedMinutes: 10,
                          startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-120),
                          updatedAt: now.addingTimeInterval(-120), actualTokens: 7900,
@@ -322,7 +334,8 @@ enum DesignShots {
                 LeadWork(id: "pull-blockers-qa", taskID: "pull-blockers", title: "Check blocker routing",
                          skill: "qa-dev", model: "gpt-5.6-luna",
                          reason: "Focused verification uses the smaller model and the existing self-test.",
-                         dependsOn: ["pull-blockers-reader"], state: "running", agentID: "qa",
+                         dependsOn: ["pull-blockers-reader"], paths: ["Sources/Yongkang/NotebookSelfTest.swift"],
+                         state: "running", agentID: "qa",
                          estimatedTokens: 5000, estimatedMinutes: 5,
                          startedAt: now.addingTimeInterval(-90), updatedAt: now.addingTimeInterval(-20),
                          contextTokens: 19000, contextWindow: 128000, contextSource: "Preview runtime metadata",

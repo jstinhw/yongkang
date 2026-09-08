@@ -219,8 +219,29 @@ where skills live and what a roster file has to say.
 `Review` reads what the agents changed, as a diff, without leaving the window: the files
 against `HEAD` in the list column, a unified diff in the middle, and the branch, commit
 and per-file stats in the inspector. It shells out to `git` in the project folder, so it
-can never disagree with the terminal sitting next to it. Merging stays yours — the lead
-stops at the PR.
+can never disagree with the terminal sitting next to it.
+
+It opens on the handover rather than on a file, and the handover is per task rather than
+one pile of files: each task the batch was given, the specialists that built it as a row
+of who ran in what order, what each one reported back, QA's verdict underneath the build
+it accepted, and that task's own diff as one bar per file it changed. Bars share one scale
+across the screen, so a big task looks bigger. Files no task claimed — your own edits, or
+a lead that recorded none — are listed at the end under **Not claimed by a task**, because
+they are going into the commit too. The lead's own sentence about how it split the work
+and every checkpointed decision are quoted under **Design decisions**.
+
+None of it is written for this screen; it is the run records in `.notebook/runs/`, where
+`paths` on each work record is what attributes a file to a task, so the summary can never
+claim work the notebook does not show. A bar, or a file in the list, opens that diff;
+`Summary and commit` goes back.
+
+A task turning `done` opens this screen by itself, unless a terminal is up — that pane has
+the keyboard, and taking it away would drop your next keystrokes into an agent you can no
+longer see.
+
+Along the bottom is the commit line, prefilled with the tasks that passed QA and yours to
+edit. It stages everything and commits, and that is the only write this app makes to your
+repo. Pushing and merging stay yours — the lead stops at the PR.
 
 ## Blocks
 

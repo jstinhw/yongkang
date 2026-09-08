@@ -10,28 +10,85 @@ struct ChangeReview: View {
     let branch: String?
     /// The file being read. Empty means nothing picked yet.
     let path: String
+    /// What the agents said they were doing, for the screen you land on before picking a
+    /// file. Empty when nothing in this project was run through a lead.
+    let summary: ChangeSummary
     let select: (String) -> Void
+    /// Stages everything and commits. Returns git's own words on failure, nil on success.
+    let commit: (String) -> String?
 
     @State private var lines: [DiffLine] = []
+    /// Prefilled from the batch and replaced as tasks finish — until you start typing,
+    /// after which what you wrote wins.
+    @State private var message = ""
+    @State private var suggested = ""
+    @State private var failure = ""
 
     private var change: FileChange? { changes.first { $0.path == path } }
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                if let change {
-                    fileHeader(change)
-                    diff
-                } else {
-                    empty
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    if let change {
+                        fileHeader(change)
+                        diff
+                    } else if path.isEmpty {
+                        ChangeSummaryPane(summary: summary, changes: changes, select: select)
+                    } else {
+                        empty
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.bg)
+                inspector
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.bg)
-            inspector
+            commitBar
         }
         .task(id: path) { load() }
-        .onAppear { if path.isEmpty, let first = changes.first { select(first.path) } }
+        .task(id: summary.commitMessage) {
+            if message == suggested { message = summary.commitMessage }
+            suggested = summary.commitMessage
+        }
+    }
+
+    // MARK: - Commit
+
+    /// The end of the review, on every pane of it: read the summary, read the diff, commit
+    /// without leaving for a terminal. Nothing is staged until this button is pressed.
+    private var commitBar: some View {
+        ActionBar {
+            Image(systemName: "arrow.triangle.branch")
+                .font(.system(size: 12)).foregroundStyle(Theme.tx3)
+            TextField("Commit message", text: $message)
+                .textFieldStyle(.plain)
+                .font(Typo.mono(11.5))
+                .foregroundStyle(Theme.tx)
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
+                .overlay(RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Theme.line2, lineWidth: 1))
+                .onSubmit(runCommit)
+            if !failure.isEmpty {
+                Text(failure).font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                    .lineLimit(2).frame(maxWidth: 260, alignment: .leading)
+            }
+            Button(action: runCommit) {
+                Label("Commit all changes", systemImage: "checkmark.seal")
+            }
+            .buttonStyle(.consolePrimary)
+            .disabled(changes.isEmpty
+                      || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    private func runCommit() {
+        guard !changes.isEmpty else { return }
+        failure = commit(message) ?? ""
+        // A committed message left in the box is one Return away from a second, empty
+        // commit — so a success clears it and the next batch fills it in again.
+        if failure.isEmpty { message = ""; suggested = "" }
     }
 
     // MARK: - Diff

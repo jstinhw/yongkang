@@ -987,8 +987,95 @@ enum NotebookSelfTest {
 
         usage(in: tmp)
         coordination(in: tmp)
+        handover(in: tmp)
 
         print("notebook selftest ok")
+    }
+
+    /// The review screen's own two claims: that the summary quotes the batch instead of
+    /// inventing one, and that the commit button either commits or says why it did not.
+    private static func handover(in tmp: URL) {
+        var project = Project(directory: tmp, entries: [])
+        precondition(ChangeSummary.of(project).isEmpty, "no batch, nothing to summarise")
+        project.cards = [
+            NotebookCard(id: "wire-auth", url: tmp, kind: .task, title: "Wire auth",
+                         status: "active", project: "launch", dependsOn: []),
+            NotebookCard(id: "read-blockers", url: tmp, kind: .task, title: "Read blockers",
+                         status: "done", project: "launch", dependsOn: []),
+            NotebookCard(id: "launch", url: tmp, kind: .project, title: "Launch",
+                         status: "done", project: nil, dependsOn: [])
+        ]
+        var lead = CodeSession(title: "Engineering Lead", icon: "", line: "", agent: .claude,
+                               taskIDs: ["wire-auth", "read-blockers"])
+        lead.coordination = LeadCoordination(
+            strategy: "Two builds in parallel, QA after each.",
+            contextSummary: "",
+            workers: [LeadWork(id: "a", taskID: "read-blockers", title: "Reader",
+                               skill: "backend-dev",
+                               paths: ["Sources/Loader.swift", "Sources/Gone.swift"], state: "done",
+                               checkpoint: "Reader owns the loader; the UI never parses.",
+                               report: "Reader landed."),
+                      LeadWork(id: "b", taskID: "read-blockers", title: "Check it",
+                               skill: "qa-dev", paths: ["Sources/Loader.swift", "Tests/Loader.swift"],
+                               state: "done", report: "Passed."),
+                      LeadWork(id: "c", taskID: "wire-auth", title: "Endpoint",
+                               skill: "backend-dev", state: "running")])
+        project.sessions = [lead]
+        let tree = ["Sources/Loader.swift", "Tests/Loader.swift", "Sources/Untouched.swift"]
+            .map { FileChange(path: $0, added: $0.hasPrefix("Tests") ? 4 : 20, removed: 1,
+                              untracked: false) }
+        let summary = ChangeSummary.of(project, changes: tree)
+        precondition(summary.tasks.map(\.id) == ["read-blockers", "wire-auth"],
+                     "finished work reads first, and a project card is not a task")
+        precondition(summary.finished.map(\.id) == ["read-blockers"])
+        precondition(summary.tasks[0].builds.map(\.id) == ["a"]
+                     && summary.tasks[0].reviews.map(\.id) == ["b"],
+                     "QA is separated from the build it accepted")
+        precondition(summary.decisions == ["Two builds in parallel, QA after each.",
+                                           "Reader owns the loader; the UI never parses."])
+        precondition(summary.commitMessage == "Read blockers",
+                     "the subject names what passed QA, never work still running")
+        precondition(summary.tasks[0].files.map(\.path) == ["Sources/Loader.swift", "Tests/Loader.swift"],
+                     "a file two workers on one task both claim is listed once, and a path "
+                     + "that is not in the working tree is not invented into a row")
+        precondition(summary.tasks[0].added == 24 && summary.tasks[0].removed == 2,
+                     "a task counts its own files, not the whole tree")
+        precondition(summary.tasks[1].files.isEmpty, "work that reported no paths claims nothing")
+        precondition(summary.unclaimed.map(\.path) == ["Sources/Untouched.swift"],
+                     "a changed file no task claimed is shown, not folded into one")
+        precondition(summary.peak == 21, "bars share one scale across every task")
+        precondition(ChangeSummary.of(project).unclaimed.isEmpty,
+                     "with no working tree to join, no file is claimed or orphaned")
+        project.cards[0] = NotebookCard(id: "wire-auth", url: tmp, kind: .task, title: "Wire auth",
+                                        status: "done", project: "launch", dependsOn: [])
+        precondition(ChangeSummary.of(project).commitMessage
+                     == "Finish 2 tasks: Wire auth, Read blockers",
+                     "with nothing in flight the notebook's own order stands")
+
+        // The commit itself, against a real repo: this is the app's only write to one.
+        let repo = tmp.appendingPathComponent("repo")
+        precondition(GitChanges.commit(message: "nothing here", in: repo) != nil,
+                     "a folder that is not a repository is refused, not silently skipped")
+        try! FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        for arguments in [["init", "--quiet"], ["config", "user.email", "selftest@example.com"],
+                          ["config", "user.name", "Selftest"]] {
+            let git = Process()
+            git.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            git.arguments = ["git"] + arguments
+            git.currentDirectoryURL = repo
+            git.standardOutput = FileHandle.nullDevice
+            git.standardError = FileHandle.nullDevice
+            try! git.run()
+            git.waitUntilExit()
+        }
+        try! "one\n".write(to: repo.appendingPathComponent("new.txt"), atomically: true, encoding: .utf8)
+        precondition(GitChanges.commit(message: "   ", in: repo) != nil, "a blank message is refused")
+        precondition(GitChanges.changes(in: repo).map(\.path) == ["new.txt"])
+        precondition(GitChanges.commit(message: "Add one file", in: repo) == nil)
+        precondition(GitChanges.changes(in: repo).isEmpty, "an untracked file is staged and committed")
+        precondition(GitChanges.head(in: repo)?.hasSuffix("Add one file") == true)
+        precondition(GitChanges.commit(message: "Again", in: repo) != nil,
+                     "an empty commit reports git's own refusal rather than claiming success")
     }
 
     /// A lead's durable plan and each runtime observation must stay correctly scoped.
@@ -1030,6 +1117,7 @@ enum NotebookSelfTest {
         model: selected-model
         reason: Bounded server change.
         depends_on: [auth-contract]
+        paths: [Sources/API.swift, ./Sources/Routes.swift, /etc/passwd, ../outside.swift, "~/secrets"]
         status: review
         agent_id: runtime-1
         estimated_tokens: 4000
@@ -1085,6 +1173,9 @@ enum NotebookSelfTest {
         precondition(api.state == "review" && api.runtimeRunning == false,
                      "a returned worker still needs QA; runtime completion cannot mark work done")
         precondition(api.elapsedMinutes(now: noon.addingTimeInterval(600)) == 2)
+        precondition(api.paths == ["Sources/API.swift", "Sources/Routes.swift"],
+                     "reported paths are repo-relative or dropped; ./ is normalised away")
+        precondition(plan.workers[1].paths.isEmpty, "a record with no paths claims no files")
         precondition(api.dependsOn == ["auth-contract"] && api.contextWindow == 2000
                      && api.contextTokens == 500 && api.report == "API ready for QA.")
         let qa = plan.workers[1]
