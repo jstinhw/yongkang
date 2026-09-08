@@ -41,6 +41,8 @@ struct YongkangApp: App {
     @State private var doneTasks: Set<String>?
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State private var addingAgent = false
+    /// The new-project sheet: a prompt, and where its folder goes.
+    @State private var creatingProject = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
     /// says so once rather than on every 2-second poll.
     @State private var deliveredBlocks: Set<String> = []
@@ -114,7 +116,14 @@ struct YongkangApp: App {
     @ViewBuilder private var chrome: some View {
         if entered == nil {
             ProjectsHome(projects: projects, agent: $agent, enter: enter,
-                         add: openProject, close: close)
+                         create: { creatingProject = true }, add: openProject, close: close)
+                .sheet(isPresented: $creatingProject) {
+                    NewProjectForm(
+                        create: createProject,
+                        openExisting: { creatingProject = false; openProject() },
+                        cancel: { creatingProject = false }
+                    )
+                }
         } else if let project = enteredProject {
             HStack(spacing: 0) {
                 // Above the list column: the rail's hover labels hang past its own width.
@@ -707,6 +716,27 @@ struct YongkangApp: App {
         enter(project)
     }
 
+    /// A project described rather than opened: the folder is new and empty, so the prompt
+    /// that named it goes straight to the session that writes its notebook — the intake
+    /// screen has nothing left to ask.
+    private func createProject(at directory: URL, prompt: String) {
+        creatingProject = false
+        if let existing = projects.first(where: { $0.directory.path == directory.path }) {
+            enter(existing)
+            return
+        }
+        let project = Project(directory: directory,
+                              entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+        projects.append(project)
+        persist()
+        enter(project)
+        guard let started = enteredProject, !started.hasNotebook else { return }
+        section = .agents
+        addSession(agent, to: started,
+                   prompt: NotebookFormat.onboardingPrompt(description: prompt),
+                   title: "Notebook Setup")
+    }
+
     /// Reopens last session's folders, dropping any that have since been moved away.
     private func restore() {
         guard projects.isEmpty else { return }
@@ -1124,7 +1154,7 @@ struct YongkangApp: App {
     }
 }
 
-private func pickDirectory(message: String) -> String? {
+func pickDirectory(message: String) -> String? {
     let panel = NSOpenPanel()
     panel.canChooseDirectories = true
     panel.canChooseFiles = false

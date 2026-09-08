@@ -16,8 +16,12 @@ enum DesignShots {
         let worker = lead.subagents[0]
 
         write(ProjectsHome(projects: [project], agent: .constant(.claude),
-                           enter: { _ in }, add: {}, close: { _ in }),
+                           enter: { _ in }, create: {}, add: {}, close: { _ in }),
               "fleet", into: directory)
+
+        write(NewProjectForm(create: { _, _ in }, openExisting: {}, cancel: {})
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
+              "new-project", into: directory, width: 900)
 
         write(console(project, section: .overview, hovering: .blocks) {
             Overview(project: project, changes: [], head: "51b0740 Show all agents",

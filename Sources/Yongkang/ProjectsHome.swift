@@ -8,6 +8,9 @@ struct ProjectsHome: View {
     let projects: [Project]
     @Binding var agent: AgentKind
     let enter: (Project) -> Void
+    /// Describe a project and an agent creates the folder and starts it.
+    let create: () -> Void
+    /// The other door: a folder that already exists.
     let add: () -> Void
     let close: (Project) -> Void
 
@@ -63,8 +66,11 @@ struct ProjectsHome: View {
             .pickerStyle(.segmented)
             .frame(width: 320)
             .labelsHidden()
-            Button { add() } label: { Label("Open folder", systemImage: "plus") }
+            Button { add() } label: { Label("Open folder", systemImage: "folder") }
                 .buttonStyle(.console)
+                .keyboardShortcut("o")
+            Button { create() } label: { Label("New project", systemImage: "plus") }
+                .buttonStyle(.consolePrimary)
                 .keyboardShortcut("n")
         }
         .padding(.horizontal, 32)
@@ -143,10 +149,11 @@ struct ProjectsHome: View {
     }
 
     private var newProjectTile: some View {
-        Button(action: add) {
+        Button(action: create) {
             VStack(spacing: 9) {
-                Image(systemName: "folder.badge.plus").font(.system(size: 20))
-                Text("Open project folder…").font(Typo.text(12))
+                Image(systemName: "plus").font(.system(size: 20))
+                Text("Describe a new project…").font(Typo.text(12))
+                Text("or ⌘O to open a folder").font(Typo.mono(10))
             }
             .foregroundStyle(Theme.tx3)
             .frame(maxWidth: .infinity, minHeight: 152)

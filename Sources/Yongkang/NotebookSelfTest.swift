@@ -988,8 +988,100 @@ enum NotebookSelfTest {
         usage(in: tmp)
         coordination(in: tmp)
         handover(in: tmp)
+        newProject(in: tmp)
 
         print("notebook selftest ok")
+    }
+
+    /// What the new-project prompt has to get right: an `@` tags something that is really
+    /// there, and a folder named in the prompt is where the project lands.
+    private static func newProject(in tmp: URL) {
+        let fm = FileManager.default
+        let root = tmp.appendingPathComponent("mention")
+        try! fm.createDirectory(at: root.appendingPathComponent("designs/type"), withIntermediateDirectories: true)
+        fm.createFile(atPath: root.appendingPathComponent("SPEC.md").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent(".hidden").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent("design-notes.md").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent("designs/logo.png").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent("designs/type/BODY.md").path, contents: Data())
+
+        precondition(Mention.query(in: "build @des") == "des")
+        precondition(Mention.query(in: "build @des ") == nil, "a finished tag is not still being typed")
+        precondition(Mention.query(in: "a@b.com") == nil, "an email address is not a tag")
+        precondition(Mention.matches("", root: root) == ["design-notes.md", "designs/", "SPEC.md"],
+                     "folders keep their slash, dotfiles stay hidden")
+        precondition(Mention.matches("designs", root: root) == ["designs/"])
+        precondition(Mention.matches("designs/", root: root) == ["designs/logo.png", "designs/type/"],
+                     "tagging a folder lists one level down inside it")
+        precondition(Mention.matches("nope", root: root).isEmpty)
+
+        // Tab, the way a shell does it: as far as the matches agree, then a level at a time.
+        var tab = "build from @de"
+        precondition(Mention.extend(&tab, root: root, absolute: false))
+        precondition(tab == "build from @design", "two matches only agree this far")
+        precondition(Mention.extend(&tab, root: root, absolute: false),
+                     "and Tab stays in the box rather than moving focus")
+        precondition(tab == "build from @design", "with nothing left to add, nothing is picked")
+        tab += "s"
+        precondition(Mention.extend(&tab, root: root, absolute: false))
+        precondition(tab == "build from @designs/", "one match completes, a folder keeps its slash")
+        precondition(Mention.matches(Mention.query(in: tab)!, root: root).count == 2,
+                     "so the list is now what is inside it")
+        precondition(Mention.extend(&tab, root: root, absolute: false))
+        precondition(tab == "build from @designs/", "its two children agree on nothing further")
+        tab += "t"
+        precondition(Mention.extend(&tab, root: root, absolute: false))
+        precondition(tab == "build from @designs/type/", "Tab walks down a level at a time")
+        precondition(Mention.extend(&tab, root: root, absolute: false))
+        precondition(tab == "build from @designs/type/BODY.md ",
+                     "and closes the tag on the one file at the bottom")
+
+        var text = "build from @SP"
+        precondition(Mention.accept(&text, root: root, absolute: false))
+        precondition(text == "build from @SPEC.md ", "Return takes the first tag before it sends")
+        precondition(!Mention.accept(&text, root: root, absolute: false), "and then gets out of the way")
+        var absolute = "build from @SP"
+        precondition(Mention.accept(&absolute, root: root, absolute: true))
+        precondition(absolute == "build from @\(root.path)/SPEC.md ",
+                     "a folder that does not exist yet cannot be what its prompt's paths are relative to")
+        var absoluteTab = "build from @designs"
+        precondition(Mention.extend(&absoluteTab, root: root, absolute: true))
+        precondition(absoluteTab == "build from @\(root.path)/designs/", "Tab writes the same paths")
+        // The one that was broken: an absolute tag has to keep listing what is inside it,
+        // not be re-rooted under the box's root and come back empty.
+        precondition(Mention.matches("\(root.path)/designs/", root: root)
+                        == ["\(root.path)/designs/logo.png", "\(root.path)/designs/type/"],
+                     "a tag that is already a path of its own drills down from where it points")
+        precondition(Mention.extend(&absoluteTab, root: root, absolute: true))
+        precondition(absoluteTab == "build from @\(root.path)/designs/", "two children, nothing agreed")
+        absoluteTab += "t"
+        precondition(Mention.extend(&absoluteTab, root: root, absolute: true))
+        precondition(absoluteTab == "build from @\(root.path)/designs/type/")
+        precondition(Mention.extend(&absoluteTab, root: root, absolute: true))
+        precondition(absoluteTab == "build from @\(root.path)/designs/type/BODY.md ")
+
+        // `@/De` is the folder you are tagging from, not `/dev` on the disk, and the
+        // slash goes so what completes is a path that is really there.
+        var rooted = "build from @/designs"
+        precondition(Mention.matches("/de", root: root) == ["design-notes.md", "designs/"])
+        precondition(Mention.extend(&rooted, root: root, absolute: false))
+        precondition(rooted == "build from @designs/")
+        precondition(Mention.inserted("~/notes/", root: root, absolute: false)
+                        == NSHomeDirectory() + "/notes/",
+                     "a tag written from home is expanded — the agent gets a path it can open")
+
+        precondition(ProjectLocation.parse("a todo app") == nil, "nothing named means the form asks")
+        let named = ProjectLocation.parse("a todo app in \(root.path)/todo")!
+        precondition(named.parent.path == root.path && named.name == "todo")
+        let folder = ProjectLocation.parse("put it in \(root.path), please")!
+        precondition(folder.parent.path == root.path && folder.name.isEmpty,
+                     "an existing folder is where projects live, the name is still missing")
+        precondition(ProjectLocation.parse("read @\(root.path)/SPEC.md") == nil,
+                     "a tag is a reference, not a destination")
+        precondition(ProjectLocation.parse("in \(root.path)/gone/todo") == nil,
+                     "a parent that is not there is not a location")
+        precondition(ProjectLocation.rejection("todo-app") == nil)
+        precondition(ProjectLocation.rejection("../escape") != nil && ProjectLocation.rejection(".hide") != nil)
     }
 
     /// The review screen's own two claims: that the summary quotes the batch instead of

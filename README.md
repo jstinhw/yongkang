@@ -18,6 +18,12 @@ A project is a folder. The app opens on the all-projects screen; click a card to
 one, `‹ All Projects` (⌘[) to leave. Agents keep running while you are away — terminals
 are hidden, never torn down.
 
+`New project` (⌘N) starts one from a prompt: say what to build, tag anything it should
+read with `@`, and name where the folder goes — `~/code/todo` in the prompt is enough,
+and when the prompt names nowhere the form asks. The folder is created and the prompt
+goes straight to the session that writes its notebook. `Open folder` (⌘O) is the other
+door, for a folder that already exists; an empty one asks what it is for on the way in.
+
 Open projects come back on the next launch. Only the folders are remembered, not the
 sessions — those PTYs died with the app — and a folder that has since moved is dropped
 from the list rather than shown broken.

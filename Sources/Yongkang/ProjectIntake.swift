@@ -8,7 +8,6 @@ struct ProjectIntake: View {
 
     @State private var text = ""
     @State private var sent = false
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -26,18 +25,11 @@ struct ProjectIntake: View {
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("This project is…", text: $text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(4...14)
-                .font(Typo.text(13))
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line2, lineWidth: 1))
-                .focused($focused)
-                .onSubmit(send)
+            PromptField(placeholder: "This project is…", root: project.directory,
+                        text: $text, submit: send)
 
             HStack {
-                Text("Return to start · Shift-Return for a new line")
+                Text("@ tags a file or folder · Tab completes it · Return to start")
                     .font(Typo.mono(10.5))
                     .foregroundStyle(Theme.tx3)
                 Spacer()
@@ -55,12 +47,12 @@ struct ProjectIntake: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg)
-        .task { focused = true }
     }
 
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private func send() {
+        if Mention.accept(&text, root: project.directory, absolute: false) { return }
         guard !sent, !trimmed.isEmpty else { return }
         sent = true
         start(trimmed)
