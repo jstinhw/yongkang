@@ -1,14 +1,22 @@
 import SwiftUI
 import AppKit
 
-/// The build order. Every task that could be worked on, laid out left to right in
-/// dependency order — a task sits one lane right of everything it waits on — so the shape
-/// of the work is the layout rather than a line of small print.
+/// The build order, one column per project, read downwards. A task sits under everything
+/// it waits on, so position *is* the dependency and no card has to spell it out.
 ///
-/// The roadmap and projects that used to share this screen now live in the list column
-/// beside it, which leaves the board to do one job: pick the batch and hand it to a lead.
+/// The screen this replaced laid the same graph out as dependency waves running left to
+/// right, which turned two straight chains into seven lanes and pushed four of them off
+/// the right edge. Columns are bounded by the number of projects instead of by the length
+/// of the longest chain, so nothing scrolls sideways.
+///
+/// The other half of the tidying is that detail is spent where it is worth something:
+/// full cards only at the live edge of each chain — what is being designed, what is
+/// waiting on you, what an agent is on, what could start next — and one line each for
+/// work that is finished or still queued behind something.
 struct NotebookBoard: View {
     let cards: [NotebookCard]
+    /// Open demos, which is how a task says a designer is waiting on the user.
+    let blocks: [UserBlock]
     /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
     /// pickable for a new batch.
     let assigned: Set<String>
@@ -17,6 +25,8 @@ struct NotebookBoard: View {
     let review: () -> Void
     /// Opens a card's own page — separate from picking it, which the rest of the card does.
     let openCard: (NotebookCard) -> Void
+    /// Opens the demo waiting on a task, which is the whole point of the gate.
+    let openDemo: (UserBlock) -> Void
     /// Sends a task to the Trash. Off for one a lead already has.
     let remove: (NotebookCard) -> Void
 
@@ -24,26 +34,26 @@ struct NotebookBoard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if waves.isEmpty {
-                empty
-            } else {
-                // Nested single-axis scrolls rather than one two-axis ScrollView: a
-                // two-axis one centres content smaller than its viewport, which floats the
-                // lanes in the middle of the canvas instead of starting them at the top.
-                ScrollView(.vertical) {
-                    ScrollView(.horizontal) {
-                        HStack(alignment: .top, spacing: 0) {
-                            ForEach(Array(waves.enumerated()), id: \.offset) { index, wave in
-                                if index > 0 { arrow }
-                                lane(index: index, wave: wave)
-                            }
+            HStack(spacing: 0) {
+                if chains.isEmpty {
+                    empty
+                } else {
+                    // Worked out once per pass rather than per card: `batch` walks the
+                    // whole graph, and every row asks whether it is in it.
+                    let inBatch = Set(batch.map(\.id))
+                    ScrollView(.vertical) {
+                        HStack(alignment: .top, spacing: 28) {
+                            ForEach(chains) { chain in column(chain, inBatch: inBatch) }
+                            Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 24)
                         .padding(.vertical, 22)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(DotGrid())
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(DotGrid())
+                BoardInspector(demos: demos, cards: cards, batch: batch, picked: Set(picked.map(\.id)),
+                               openDemo: openDemo)
             }
             assignBar
         }
@@ -56,10 +66,64 @@ struct NotebookBoard: View {
         NotebookIndex.visible(cards.filter { $0.kind == .task }, showDone: showDone)
     }
 
-    /// Waves come off the whole task graph: a lane is a level, not a set of edges — its
-    /// cards can all start once the lanes to the left are done.
-    private var waves: [[NotebookCard]] {
-        NotebookIndex.waves(tasks).filter { !$0.isEmpty }
+    /// Demos still waiting, newest file order, by the task they hold up.
+    private var demos: [UserBlock] {
+        blocks.filter { $0.isDemo && $0.waiting }
+    }
+
+    private func demo(for card: NotebookCard) -> UserBlock? {
+        demos.first { $0.task == card.id }
+    }
+
+    /// One column per project, in dependency order, plus a last column for tasks filed
+    /// under no project — those would otherwise be invisible on a board keyed by project.
+    private var chains: [Chain] {
+        let projects = NotebookIndex.ordered(cards.filter { $0.kind == .project })
+        let all = cards.filter { $0.kind == .task }
+        var built: [Chain] = projects.compactMap { project in
+            let mine = all.filter { $0.project == project.id }
+            guard !mine.isEmpty else { return nil }
+            return chain(id: project.id, title: project.title, tasks: mine)
+        }
+        let known = Set(projects.map(\.id))
+        let loose = all.filter { $0.project.map { !known.contains($0) } ?? true }
+        if !loose.isEmpty {
+            built.append(chain(id: "unfiled", title: "Not in a project", tasks: loose))
+        }
+        return built.filter { !$0.rows.isEmpty }
+    }
+
+    private func chain(id: String, title: String, tasks: [NotebookCard]) -> Chain {
+        let done = tasks.filter { $0.status == "done" }.count
+        let shown = NotebookIndex.ordered(NotebookIndex.visible(tasks, showDone: showDone))
+        return Chain(id: id, title: title, done: done, total: tasks.count,
+                     rows: shown.map { Row(card: $0, lane: lane(of: $0), demo: demo(for: $0)) })
+    }
+
+    /// What a card gets to say about itself. Only the first four are worth a full card;
+    /// the rest of a chain is one line until something is actually happening on it.
+    private func lane(of card: NotebookCard) -> Lane {
+        if card.status == "done" { return .done }
+        if demo(for: card) != nil { return .demo }
+        if card.status == "designing" { return .designing }
+        // Blocked keeps its card wherever it sits in the chain: it is the one state that
+        // is waiting on the user rather than on the work in front of it, so collapsing it
+        // into the queue would hide the thing most worth acting on.
+        if card.status == "blocked" { return .blocked }
+        if assigned.contains(card.id) || card.status == "active" { return .active }
+        return NotebookBoard.isReady(card, in: cards) ? .ready : .later
+    }
+
+    /// Ready means nothing it waits on is still outstanding. An id that resolves to
+    /// nothing is not treated as a blocker — the amber unknown-id warning on the card is
+    /// what says that, and a typo must not silently freeze the rest of the chain.
+    static func isReady(_ card: NotebookCard, in cards: [NotebookCard]) -> Bool {
+        card.dependsOn.allSatisfy { id in
+            guard let blocker = cards.first(where: { $0.id == id }) else { return true }
+            return blocker.kind == .project
+                ? NotebookIndex.isFinished(blocker, in: cards)
+                : blocker.status == "done"
+        }
     }
 
     private var picked: [NotebookCard] {
@@ -72,65 +136,109 @@ struct NotebookBoard: View {
         NotebookIndex.withBlockers(picked, in: cards, excluding: assigned)
     }
 
-    /// What the picked cards touch: what they wait on, and what waits on them.
-    private var related: Set<String> {
-        guard !selected.isEmpty else { return [] }
-        var ids = selected
-        for card in cards where selected.contains(card.id) {
-            ids.formUnion(card.dependsOn)
-        }
-        ids.formUnion(cards.filter { $0.dependsOn.contains(where: selected.contains) }.map(\.id))
-        return ids
-    }
+    // MARK: - Columns
 
-    // MARK: - Lanes
-
-    private func lane(index: Int, wave: [NotebookCard]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(index == 0 ? "READY" : "STEP \(index + 1)")
-                    .font(Typo.section).tracking(1.5)
-                    .foregroundStyle(index == 0 ? Theme.accent : Theme.tx3)
-                Text("\(wave.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+    private func column(_ chain: Chain, inBatch: Set<String>) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(chain.title).font(Typo.display(12.5)).foregroundStyle(Theme.tx)
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 4)
+                Text("\(chain.done)/\(chain.total)")
+                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
             }
-            .padding(.bottom, 2)
-            ForEach(wave) { card(of: $0) }
+            HStack(spacing: 8) {
+                MeterBar(value: chain.total == 0 ? 0 : Double(chain.done) / Double(chain.total))
+                Text(chain.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 14)
+
+            ForEach(Array(chain.rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 { connector }
+                self.row(row, inBatch: inBatch)
+            }
         }
-        .frame(width: 266, alignment: .topLeading)
+        .frame(width: 300, alignment: .topLeading)
     }
 
-    private var arrow: some View {
-        Image(systemName: "arrow.right")
-            .font(.system(size: 13))
-            .foregroundStyle(Theme.tx4)
-            .frame(width: 44)
-            .padding(.top, 52)
+    /// The chain drawn as a chain. It carries no information the order does not already —
+    /// it is there so a column reads as one run of work rather than a stack of cards.
+    private var connector: some View {
+        Rectangle().fill(Theme.line2)
+            .frame(width: 1, height: 12)
+            .padding(.leading, 20)
     }
 
-    // MARK: - Cards
+    // MARK: - Rows
 
-    @ViewBuilder private func card(of card: NotebookCard) -> some View {
-        let menu = CardMenu(card: card, busy: assigned.contains(card.id), remove: remove)
-        let locked = assigned.contains(card.id) || card.status == "done"
-        if locked {
-            // Already has a lead on it, or already shipped — not pickable into a batch that
-            // would just hand it out again.
-            body(of: card).opacity(0.6).contextMenu { menu }
-        } else {
-            Button { selected = NotebookBoard.picking(card, from: selected) } label: {
-                body(of: card)
+    @ViewBuilder private func row(_ row: Row, inBatch: Set<String>) -> some View {
+        let menu = CardMenu(card: row.card, busy: assigned.contains(row.card.id), remove: remove)
+        switch row.lane {
+        case .done:
+            finished(row.card).contextMenu { menu }
+        case .later:
+            Button { selected = NotebookBoard.picking(row.card, from: selected) } label: {
+                queued(row.card, inBatch: inBatch)
             }
             .buttonStyle(.plain)
             .contextMenu { menu }
+        default:
+            // Already out with a lead, or already shipped — not pickable into a batch that
+            // would just hand it out again.
+            if assigned.contains(row.card.id) {
+                card(row, inBatch: inBatch).opacity(0.6).contextMenu { menu }
+            } else {
+                Button { selected = NotebookBoard.picking(row.card, from: selected) } label: {
+                    card(row, inBatch: inBatch)
+                }
+                .buttonStyle(.plain)
+                .contextMenu { menu }
+            }
         }
     }
 
-    private func body(of card: NotebookCard) -> some View {
+    /// Finished work, only ever on screen with `Completed` on: one line, out of the way.
+    private func finished(_ card: NotebookCard) -> some View {
+        HStack(spacing: 9) {
+            NotebookStyle.statusRing("done", progress: 1, size: 15)
+            Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
+
+    /// Still behind something. One line — its title is all there is to decide with, and
+    /// picking it pulls in whatever it waits on anyway.
+    private func queued(_ card: NotebookCard, inBatch: Set<String>) -> some View {
         let isPicked = selected.contains(card.id)
-        let project = card.project.flatMap { id in cards.first { $0.id == id } }
+        let inBatch = inBatch.contains(card.id)
+        return HStack(spacing: 9) {
+            Circle().strokeBorder(Theme.tx2.opacity(0.22), lineWidth: 2).frame(width: 15, height: 15)
+            Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+            Spacer(minLength: 4)
+            if card.isDesignWork { RoleTile(role: "design", size: 20) }
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 9).fill(inBatch ? Theme.card : .clear))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(
+            isPicked ? Theme.accent : (inBatch ? Theme.accent.opacity(0.35) : .clear),
+            lineWidth: isPicked ? 1.5 : 1))
+        .opacity(selected.isEmpty || inBatch ? 1 : 0.4)
+        .contentShape(RoundedRectangle(cornerRadius: 9))
+    }
+
+    /// The live edge of a chain, and the only place the board spends a whole card.
+    private func card(_ row: Row, inBatch: Set<String>) -> some View {
+        let card = row.card
+        let isPicked = selected.contains(card.id)
+        let inBatch = inBatch.contains(card.id)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 9) {
-                NotebookStyle.statusRing(card.status, progress: card.status == "active" ? 0.55 : 0,
+                NotebookStyle.statusRing(row.lane.status, progress: row.lane == .active ? 0.55 : 0,
                                          size: 16)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
@@ -151,23 +259,66 @@ struct NotebookBoard: View {
                 .help("Open this task's page")
             }
             HStack(spacing: 6) {
-                if !card.status.isEmpty { NotebookStyle.pill(card.status) }
+                NotebookStyle.pill(row.lane.label, row.lane.tint)
                 if assigned.contains(card.id) { NotebookStyle.pill("wip") }
-                if let project { NotebookStyle.chip(project.title) }
+                if !card.designer.isEmpty { NotebookStyle.chip(card.designer) }
+                Spacer(minLength: 0)
+                if card.isDesignWork { RoleTile(role: "design", size: 20) }
             }
             .padding(.top, 10)
-            if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) {
+            if let waits = NotebookStyle.edge("waits on ", unknown(card), in: cards) {
                 waits.font(Typo.mono(10)).padding(.top, 9)
+            }
+            if let demo = row.demo {
+                footer(demo)
+            } else if row.lane == .designing {
+                designing
             }
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 11).fill(Theme.card))
-        .overlay(RoundedRectangle(cornerRadius: 11)
-            .strokeBorder(isPicked ? Theme.accent : Theme.line2, lineWidth: isPicked ? 1.5 : 1))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(
+            isPicked ? Theme.accent : (row.lane == .demo ? Theme.amber.opacity(0.32)
+                                       : (inBatch ? Theme.accent.opacity(0.35) : Theme.line2)),
+            lineWidth: isPicked ? 1.5 : 1))
         .shadow(color: isPicked ? Theme.accent.opacity(0.25) : .clear, radius: 12, y: 4)
-        .opacity(selected.isEmpty || related.contains(card.id) ? 1 : 0.32)
+        .opacity(selected.isEmpty || inBatch ? 1 : 0.32)
         .contentShape(RoundedRectangle(cornerRadius: 11))
+    }
+
+    /// Order says what a card waits on now, so the line is kept only for the one thing
+    /// order cannot show: an id that resolves to nothing, which is a typo in `depends_on`.
+    private func unknown(_ card: NotebookCard) -> [String] {
+        card.dependsOn.filter { id in !cards.contains { $0.id == id } }
+    }
+
+    private func footer(_ demo: UserBlock) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider().overlay(Theme.line2)
+            HStack(alignment: .top, spacing: 10) {
+                Text(demo.action.isEmpty
+                     ? "A demo is waiting. No engineer starts on this until you have looked at it."
+                     : demo.action)
+                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            Button { openDemo(demo) } label: { Text("See demo") }
+                .buttonStyle(.console)
+        }
+        .padding(.top, 12)
+    }
+
+    private var designing: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().overlay(Theme.line2)
+            Text("Being designed. Nothing is written to the repo yet.")
+                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 12)
     }
 
     /// Picking is a plain toggle: the board holds one kind of card now, and every one of
@@ -178,10 +329,14 @@ struct NotebookBoard: View {
 
     // MARK: - Assign
 
+    /// Design work in a batch changes what the button promises, because the lead does not
+    /// hand those tasks to an engineer — it puts the designer on them first.
+    private var designCount: Int { batch.filter(\.isDesignWork).count }
+
     private var assignBar: some View {
         ActionBar {
             if picked.isEmpty {
-                Text("Click task cards to pick them for an engineering lead.")
+                Text("Pick the work. Full detail is on whatever could start next.")
                     .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - picked.count
@@ -190,8 +345,6 @@ struct NotebookBoard: View {
                     Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in")
                         .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
                 }
-                Text(batch.map(\.id).joined(separator: " → "))
-                    .font(Typo.mono(11)).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             Spacer(minLength: 12)
             Button("Clear") { selected.removeAll() }
@@ -202,7 +355,8 @@ struct NotebookBoard: View {
             Button { review() } label: { Label("Product review", systemImage: "sparkles") }
                 .buttonStyle(.console)
             Button { assign(batch) } label: {
-                Label("Assign to Engineering Lead", systemImage: "point.3.connected.trianglepath.dotted")
+                Label(designCount > 0 ? "Assign — design first" : "Assign to Engineering Lead",
+                      systemImage: "point.3.connected.trianglepath.dotted")
             }
             .buttonStyle(.consolePrimary)
             .disabled(batch.isEmpty)
@@ -221,6 +375,57 @@ struct NotebookBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DotGrid())
+    }
+}
+
+extension NotebookBoard {
+    /// One project's tasks in build order.
+    struct Chain: Identifiable {
+        let id: String
+        let title: String
+        let done: Int
+        let total: Int
+        let rows: [Row]
+    }
+
+    struct Row: Identifiable {
+        let card: NotebookCard
+        let lane: Lane
+        /// The demo waiting on this task, when there is one.
+        let demo: UserBlock?
+
+        var id: String { card.id }
+    }
+
+    /// How much of a card is worth drawing, and what it says. The order is the order work
+    /// moves through: design, your approval, an agent, the queue.
+    enum Lane {
+        case done, designing, demo, blocked, active, ready, later
+
+        /// The notebook's own status word this lane draws as, so one palette covers both.
+        var status: String {
+            switch self {
+            case .done: return "done"
+            case .designing: return "designing"
+            case .demo, .blocked: return "blocked"
+            case .active: return "active"
+            case .ready, .later: return "todo"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .done: return "done"
+            case .designing: return "designing"
+            case .demo: return "demo ready"
+            case .blocked: return "blocked"
+            case .active: return "active"
+            case .ready: return "ready"
+            case .later: return "todo"
+            }
+        }
+
+        var tint: Color { NotebookStyle.color(of: status) }
     }
 }
 

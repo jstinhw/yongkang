@@ -10,7 +10,9 @@ enum NotebookStyle {
         case "active", "running": return Theme.accent
         case "blocked", "partial", "waiting": return Theme.amber
         case "failed": return Theme.red
-        case "wip", "assigned": return Theme.violet
+        // Design and QA share violet the way SRE and FDE share amber: both are somebody
+        // holding the work who is not building it.
+        case "wip", "assigned", "designing": return Theme.violet
         default: return Theme.tx2
         }
     }

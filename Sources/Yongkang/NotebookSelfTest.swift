@@ -989,8 +989,83 @@ enum NotebookSelfTest {
         coordination(in: tmp)
         handover(in: tmp)
         newProject(in: tmp)
+        designGate(in: tmp)
 
         print("notebook selftest ok")
+    }
+
+    /// The gate that holds design work until the user has seen it: Product's `designer:`
+    /// field is what marks a task, a `kind: demo` block is what waits on the user, and the
+    /// board draws full cards only where something is actually happening.
+    private static func designGate(in tmp: URL) {
+        let root = NotebookFormat.root(in: tmp.appendingPathComponent("gate"))
+        let task = try! NotebookFormat.create(.task, title: "Hero and download", in: root,
+                                              project: nil)
+        // Into the frontmatter, the way Product writes it — a line under the body is not
+        // frontmatter and must not read as one.
+        let written = try! String(contentsOf: task, encoding: .utf8)
+            .replacingOccurrences(of: "\nstatus: todo", with: "\nstatus: todo\ndesigner: Allen")
+        try! written.write(to: task, atomically: true, encoding: .utf8)
+        let card = NotebookIndex.card(at: task)!
+        precondition(card.designer == "Allen", "designer: is read off a task")
+        precondition(card.isDesignWork, "a task with a designer is design work")
+
+        let plain = try! NotebookFormat.create(.task, title: "Connect to Vercel", in: root,
+                                               project: nil)
+        precondition(NotebookIndex.card(at: plain)!.isDesignWork == false,
+                     "and a task without one is not — the app never guesses")
+
+        // A demo is a block. Everything the gate shows comes off that one file.
+        let blocks = Blocks.root(in: root)
+        try! FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
+        let file = blocks.appendingPathComponent("hero-and-download-demo.md")
+        try! """
+        ---
+        id: hero-and-download-demo
+        kind: demo
+        title: "Hero and download"
+        status: open
+        task: hero-and-download
+        branch: demo/hero-and-download
+        before: http://localhost:3000
+        url: http://localhost:3101
+        ---
+
+        ## Revisions
+
+        - v1 · three feature columns · http://localhost:3100
+        - v2 · one claim, one button · http://localhost:3101
+        - v3 · a pass that was not kept running
+        """.write(to: file, atomically: true, encoding: .utf8)
+
+        let demo = Blocks.block(at: file)!
+        precondition(demo.isDemo && demo.waiting, "an open demo is waiting on the user")
+        precondition(demo.branch == "demo/hero-and-download")
+        precondition(demo.before?.absoluteString == "http://localhost:3000")
+        precondition(demo.revisions.count == 3, "every pass is listed, not just the last")
+        precondition(demo.revisions[0].label == "v1")
+        precondition(demo.revisions[1].note == "one claim, one button",
+                     "the note is what is left after the label and the url")
+        precondition(demo.revisions[1].url?.absoluteString == "http://localhost:3101")
+        precondition(demo.revisions[2].url == nil,
+                     "a pass with no url still counts — its note is the record")
+
+        // Full cards only at the live edge: what could start, and what is held up.
+        let cards = [
+            NotebookIndex.card(at: plain)!,
+            NotebookCard(id: "done-one", url: file, kind: .task, title: "Scaffold", status: "done",
+                         project: nil, dependsOn: []),
+            NotebookCard(id: "next", url: file, kind: .task, title: "Next", status: "todo",
+                         project: nil, dependsOn: ["done-one"]),
+            NotebookCard(id: "later", url: file, kind: .task, title: "Later", status: "todo",
+                         project: nil, dependsOn: ["next"]),
+        ]
+        precondition(NotebookBoard.isReady(cards[2], in: cards), "its blocker is done")
+        precondition(!NotebookBoard.isReady(cards[3], in: cards), "its blocker is not")
+        let missing = NotebookCard(id: "typo", url: file, kind: .task, title: "Typo",
+                                   status: "todo", project: nil, dependsOn: ["nothing-by-that-id"])
+        precondition(NotebookBoard.isReady(missing, in: cards),
+                     "an id that resolves to nothing must not silently freeze a chain")
     }
 
     /// What the new-project prompt has to get right: an `@` tags something that is really

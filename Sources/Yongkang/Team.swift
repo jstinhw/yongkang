@@ -23,8 +23,10 @@ enum Team {
     /// The roster shipped with the app. Written to `.notebook/team/` the first time a lead
     /// starts in a project that has a notebook; after that the files on disk are the truth.
     static let defaults: [TeamMember] = [
-        TeamMember(name: "Allen", skills: ["frontend-dev"],
-                   owns: "Screens, components, styling, client state — anything the user sees"),
+        // Two skills, in the order they run: Allen settles what a screen looks like and
+        // the user approves it, then Allen builds it.
+        TeamMember(name: "Allen", skills: ["designer", "frontend-dev"],
+                   owns: "Screens, components, styling, client state — anything the user sees, designed before it is built"),
         TeamMember(name: "Ben", skills: ["backend-dev"],
                    owns: "Endpoints, schemas, migrations, jobs, server-side auth — anything behind an API"),
         TeamMember(name: "Chris", skills: ["sre-dev"],

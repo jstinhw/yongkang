@@ -17,6 +17,13 @@ struct NotebookCard: Identifiable, Equatable {
     var subject: String? = nil
     var memoryType: String = ""
     var result: String = ""
+    /// Tasks only: the roster member Product put on the design of this task. Non-empty is
+    /// the whole rule for "this is design work" — the app never infers it from the title,
+    /// the repo or the wording of the criteria, because a guess that is wrong either
+    /// stalls plumbing behind a demo or lets a screen be built before anyone saw it.
+    var designer: String = ""
+
+    var isDesignWork: Bool { !designer.isEmpty }
 }
 
 enum NotebookIndex {
@@ -54,7 +61,8 @@ enum NotebookIndex {
             roadmap: fields["roadmap"].flatMap { $0.isEmpty ? nil : $0 },
             subject: fields["subject"].flatMap { $0.isEmpty ? nil : $0 },
             memoryType: fields["memory_type"] ?? "",
-            result: fields["result"] ?? ""
+            result: fields["result"] ?? "",
+            designer: fields["designer"] ?? ""
         )
     }
 
@@ -144,7 +152,8 @@ enum NotebookIndex {
             return NotebookCard(id: card.id, url: card.url, kind: card.kind, title: card.title,
                                 status: card.status, project: card.project, dependsOn: dependencies,
                                 repos: card.repos, roadmap: card.roadmap, subject: card.subject,
-                                memoryType: card.memoryType, result: card.result)
+                                memoryType: card.memoryType, result: card.result,
+                                designer: card.designer)
         }
 
         let eligible = picked.filter { $0.status != "done" && !assigned.contains($0.id) }

@@ -60,6 +60,7 @@ boundaries, and have the lead handle integration ownership explicitly.
 
 | Work | Default roster member | Skill |
 |---|---|---|
+| Settling what a screen looks like, before it is built | Allen | `designer` |
 | Screens, components, styling, client state | Allen | `frontend-dev` |
 | Endpoints, data, jobs, server auth | Ben | `backend-dev` |
 | Deployment, CI, hosting, credentials, monitoring | Chris | `sre-dev` |
@@ -69,13 +70,32 @@ boundaries, and have the lead handle integration ownership explicitly.
 Use this fallback only if `.notebook/team/` is absent. If an existing roster lacks an
 owner, report that specific gap; do not invent a teammate or silently cross roles.
 
-Design work — a new user-facing surface, or a visual rework of one — goes to the frontend
-owner running under Claude, because the design step is Claude Code's native `/design`
-canvas and no other runtime has it. Spawn that subtask with a Claude model, and say in its
-prompt that the layout is settled in `/design` before any code. Under a runtime without
-`/design`, do not substitute a `design-*` skill or let a worker hand-roll the mockup:
-report it as a gate — this subtask needs a Claude session. Implementing an already-agreed
-design is ordinary frontend work and needs none of this.
+## Design work runs first, and the user gates it
+
+A task is design work when Product set `designer:` in its frontmatter. That field is the
+only test — never infer it from the title, the repo or the wording of the criteria, and
+never add it yourself. Product owns what needs designing; you own what happens next.
+
+For every such task in the batch, before any engineering subtask on it:
+
+1. Set the task's `status: designing`.
+2. Spawn one `designer` subtask for it, owned by the roster member named in `designer:`
+   (fall back to the frontend owner if that name is not on the roster, and report the
+   gap). Its output is a running demo and a `kind: demo` file in `.notebook/blocks/`.
+3. Wait. The demo is a user gate: the task gets no `frontend-dev` subtask, and none of its
+   dependents start on its screens, until the user approves. Independent work in the batch
+   carries on — do not idle the whole batch behind one demo.
+4. Approval reaches you as a message naming the demo and the revision the user chose. Move
+   the task out of `designing` and dispatch the implementation, passing the approved
+   revision's demo branch and canvas link as the design to build. Implementing an agreed
+   design is ordinary frontend work.
+5. If the user asks for changes instead, spawn the designer again on the same task and the
+   same demo file. Do not start engineering on a demo that was sent back.
+
+Both the `designer` and any `/design` step inside `frontend-dev` need Claude Code's native
+`/design` canvas, which no other runtime has: spawn those subtasks with a Claude model.
+Under a runtime without `/design`, do not substitute a `design-*` skill or let a worker
+hand-roll the mockup — report it as a gate: this subtask needs a Claude session.
 
 Discover models, reasoning settings and concurrency from the live tool schema or
 runtime metadata first. Select the least expensive capable available model, allowing

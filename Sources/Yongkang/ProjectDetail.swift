@@ -33,6 +33,10 @@ struct ProjectDetail: View {
     private var batch: [NotebookCard] {
         NotebookIndex.withBlockers(pickedTasks, in: cards, excluding: assigned)
     }
+    /// Every task on this page a new batch could still take — what `Pick all` picks.
+    private var pickable: [NotebookCard] {
+        tasks.filter { !assigned.contains($0.id) && $0.status != "done" }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -210,7 +214,7 @@ struct ProjectDetail: View {
     private var assignBar: some View {
         ActionBar {
             if pickedTasks.isEmpty {
-                Text("Click a task's ring to pick it for an engineering lead.")
+                Text("Click a task's ring, or Pick all, to hand this project to a lead.")
                     .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - pickedTasks.count
@@ -223,6 +227,9 @@ struct ProjectDetail: View {
                     .font(Typo.mono(11)).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             Spacer(minLength: 12)
+            Button("Pick all") { picked = Set(pickable.map(\.id)) }
+                .buttonStyle(.consoleGhost)
+                .disabled(pickable.isEmpty)
             Button("Clear") { picked.removeAll() }
                 .buttonStyle(.consoleGhost)
                 .disabled(picked.isEmpty)

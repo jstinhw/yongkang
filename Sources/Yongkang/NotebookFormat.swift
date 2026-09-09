@@ -350,8 +350,12 @@ enum NotebookFormat {
         id: <slug>          stable, never changes — the filename may, this may not
         kind: roadmap | project | task | memory | run
         title: "One-line human summary"
-        status: todo | active | blocked | done     (state pages only)
+        status: todo | designing | active | blocked | done   (state pages only)
         depends_on: []      ids that must land first (state pages only)
+        designer: <name>    tasks only — set by Product when the task changes something
+                            the user can see. A designer builds a demo and the user
+                            approves it before any engineer starts. Empty on everything
+                            else; never inferred from the title or the repo.
         repos: []           projects only — folders the work lands in, relative to the
                             project folder: [.] for the folder itself, [web, api] for two
         roadmap: <id>       projects only

@@ -29,9 +29,18 @@ enum DesignShots {
         }, "overview", into: directory)
 
         write(console(project, section: .board) {
-            NotebookBoard(cards: project.cards, assigned: ["show-agent-tree"], showDone: false,
-                          assign: { _ in }, review: {}, openCard: { _ in }, remove: { _ in })
+            NotebookBoard(cards: project.cards, blocks: project.blocks,
+                          assigned: ["show-agent-tree"], showDone: false,
+                          assign: { _ in }, review: {}, openCard: { _ in },
+                          openDemo: { _ in }, remove: { _ in })
         }, "board", into: directory)
+
+        // The gate itself. Both panes are live pages in the app; offscreen they render as
+        // the frames, which is enough to catch the layout going wrong.
+        write(console(project, section: .board) {
+            DesignDemo(block: project.blocks.first { $0.isDemo }!, cards: project.cards,
+                       waiting: lead, approve: { _ in }, revise: {})
+        }, "demo", into: directory)
 
         write(console(project, section: .agents) {
             SessionTranscript(session: lead, cards: project.cards, blocks: project.blocks,
@@ -263,9 +272,10 @@ enum DesignShots {
     // MARK: - Sample notebook
 
     private static func card(_ id: String, _ kind: EntryKind, _ title: String, _ status: String,
-                             project: String? = nil, dependsOn: [String] = []) -> NotebookCard {
+                             project: String? = nil, dependsOn: [String] = [],
+                             designer: String = "") -> NotebookCard {
         NotebookCard(id: id, url: URL(fileURLWithPath: "/tmp/\(id).md"), kind: kind, title: title,
-                     status: status, project: project, dependsOn: dependsOn)
+                     status: status, project: project, dependsOn: dependsOn, designer: designer)
     }
 
     private static func sample() -> Project {
@@ -280,9 +290,9 @@ enum DesignShots {
             card("drop-finished", .task, "Drop finished work off the boards", "todo",
                  project: "build-ui-foundation"),
             card("task-diff", .task, "Task page shows its own diff", "todo",
-                 project: "build-ui-foundation", dependsOn: ["show-agent-tree"]),
-            card("review-pane", .task, "Review pane with a QA verdict", "todo",
-                 project: "build-ui-foundation", dependsOn: ["task-diff"]),
+                 project: "build-ui-foundation", dependsOn: ["show-agent-tree"], designer: "Allen"),
+            card("review-pane", .task, "Review pane with a QA verdict", "designing",
+                 project: "build-ui-foundation", dependsOn: ["task-diff"], designer: "Allen"),
             card("deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
                  project: "build-ui-foundation", dependsOn: ["review-pane"]),
             card("transcript-steps", .task, "Lay a transcript out as steps", "done",
@@ -361,14 +371,42 @@ enum DesignShots {
                       task: "deploy-to-vercel", resolution: "",
                       body: "## Steps\n\n1. Open the Vercel dashboard and pick the project\n"
                           + "2. Settings, then Tokens, then Create token\n"
-                          + "3. Paste it when the engineer asks — it is never written down\n"),
+                          + "3. Paste it when the engineer asks — it is never written down\n",
+                      before: nil, branch: "", revisions: []),
             UserBlock(id: "/tmp/offline.md", url: URL(fileURLWithPath: "/tmp/offline.md"),
                       slug: "offline", title: "Offline notebook sync", status: "open",
                       kind: "proposal", stage: "discussion", session: project.sessions.last?.id,
                       action: "", link: nil, task: nil,
-                      resolution: "", body: "")
+                      resolution: "", body: "", before: nil, branch: "", revisions: []),
+            demo(leadID)
         ]
         return project
+    }
+
+    /// A design waiting on the user, written the way the designer skill writes one.
+    private static func demo(_ session: UUID) -> UserBlock {
+        let body = """
+        The task page grows a diff of its own work. Two passes are on the branch.
+
+        ## What changes
+
+        - The file list sits under the criteria instead of in a separate tab.
+        - Additions and deletions read as one column, not two panes.
+
+        ## Revisions
+
+        - v1 · two panes side by side · http://localhost:3100
+        - v2 · one column, the file list under the criteria · http://localhost:3101
+        """
+        return UserBlock(id: "/tmp/task-diff-demo.md",
+                         url: URL(fileURLWithPath: "/tmp/task-diff-demo.md"),
+                         slug: "task-diff-demo", title: "Task page shows its own diff",
+                         status: "open", kind: "demo", stage: "ready", session: session,
+                         action: "Approve the task-page diff, or say what is wrong with it.",
+                         link: URL(string: "http://localhost:3101"), task: "task-diff",
+                         resolution: "", body: body,
+                         before: URL(string: "http://localhost:3000"),
+                         branch: "demo/task-diff", revisions: Blocks.revisions(body))
     }
 
     private static func transcript() -> [TranscriptLine] {

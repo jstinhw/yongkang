@@ -87,8 +87,9 @@ struct ProjectList: View {
 
     private var footNote: String? {
         switch section {
+        case .board: return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents: return "An agent is named for the team member running it; the label under it is <task-id>-<skill>, which is how it is matched back to its task."
-        case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it."
+        case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
         case .review: return "Merging is yours. The lead stops at the PR."
         default: return nil
         }
@@ -131,12 +132,24 @@ struct ProjectList: View {
                     Text(card.id).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                if let done = taskCount(of: card) {
+                    Text(done).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                }
                 if project.assignedTaskIDs.contains(card.id) && card.status != "done" {
                     NotebookStyle.pill("wip")
                 }
             }
             .opacity(card.status == "done" ? 0.6 : 1)
         }
+    }
+
+    /// How far a project's tasks have got, in words rather than only as a ring — the board
+    /// no longer repeats those tasks in this column, so the row has to say it.
+    private func taskCount(of card: NotebookCard) -> String? {
+        guard card.kind == .project else { return nil }
+        let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
+        guard !tasks.isEmpty else { return nil }
+        return "\(tasks.filter { $0.status == "done" }.count)/\(tasks.count)"
     }
 
     private func progress(of card: NotebookCard) -> Double {
@@ -194,19 +207,20 @@ struct ProjectList: View {
         group("Projects", "\(projects.count)")
         if projects.isEmpty { empty("No projects yet") }
         ForEach(projects) { card in
-            cardRow(card, tag: Tag.project(card.id)).contextMenu { menu(for: card) }
+            let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
+            cardRow(card, tag: Tag.project(card.id))
+                .contextMenu {
+                    Button("Assign all tasks to Engineering Lead") { assign(tasks) }
+                        .disabled(tasks.allSatisfy {
+                            $0.status == "done" || project.assignedTaskIDs.contains($0.id)
+                        })
+                    menu(for: card)
+                }
         }
+        // No task rows here any more: the board draws every project's tasks as its chain,
+        // and this column listing the same ones again was half of why the screen read as
+        // busy. A card's own arrow opens its page.
         if let scope = scopedProject {
-            let tasks = visible(project.cards.filter { $0.kind == .task && $0.project == scope.id })
-            group("Tasks in \(scope.title)", "\(tasks.count)")
-            ForEach(tasks) { card in
-                cardRow(card, tag: Tag.task(card.id))
-                    .contextMenu {
-                        Button("Assign to Engineering Lead") { assign([card]) }
-                            .disabled(card.status == "done" || project.assignedTaskIDs.contains(card.id))
-                        menu(for: card)
-                    }
-            }
             let memory = project.cards.filter { $0.kind == .memory && $0.project == scope.id }
             if !memory.isEmpty {
                 group("Memory", "\(memory.count)")
@@ -442,7 +456,9 @@ struct ProjectList: View {
         row(Tag.block(block)) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: block.waiting
-                      ? (block.isProposal ? "lightbulb" : "hand.raised") : "checkmark.circle")
+                      ? (block.isProposal ? "lightbulb"
+                         : block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
+                      : "checkmark.circle")
                     .font(.system(size: 13))
                     .foregroundStyle(block.waiting ? (block.isProposal ? Theme.violet : Theme.amber)
                                                    : Theme.green)
@@ -455,7 +471,8 @@ struct ProjectList: View {
                         Text(block.proposalReady ? "ready to create" : "product needs feedback")
                             .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
                     } else if let task = block.task {
-                        Text("holds \(task)").font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                        Text(block.isDemo ? "demo · \(task)" : "holds \(task)")
+                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 0)

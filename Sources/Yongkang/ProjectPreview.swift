@@ -83,7 +83,8 @@ struct ProjectPreview: View {
 
 /// The WKWebView lives in the parent's @State so Go/Reload can drive it directly — no
 /// delegate or Coordinator needed for that.
-private struct WebPane: NSViewRepresentable {
+/// Shared with the design demo, which shows two of these side by side.
+struct WebPane: NSViewRepresentable {
     let webView: WKWebView
     func makeNSView(context: Context) -> WKWebView { webView }
     func updateNSView(_ view: WKWebView, context: Context) {}

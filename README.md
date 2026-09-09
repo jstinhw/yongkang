@@ -56,7 +56,7 @@ visible and correctable. The app writes nothing; the agent does. Entries look li
 ```
 
 Every entry is Markdown with flat YAML frontmatter (`id`, `kind`, `status`, `depends_on`,
-`roadmap`, `project`, `subject`, `external`). Nothing else stores state, so the agents in the console edit
+`roadmap`, `project`, `subject`, `designer`, `external`). Nothing else stores state, so the agents in the console edit
 the notebook by editing files — no bridge, no API. The console re-reads the tree every
 2s, so entries an agent writes show up on their own.
 
@@ -69,16 +69,48 @@ managed sessions record their result and handoff under runs; engineering leads a
 
 ## Board
 
-`Board` lays every task out in lanes, ordered so nothing appears before what it depends
-on — the lanes read as the build order, `READY` first. Cards show status, project and
-what they wait on; an id nothing resolves to shows in amber, which is how you catch a
-typo in `depends_on`. Clicking a card picks it for a batch and dims everything unrelated
-to it; the arrow on a card opens its own page. The roadmap, projects and tasks that used
-to share this screen are in the list column beside it.
+`Board` is one column per project, its tasks reading downwards in build order. A task sits
+under everything it waits on, so position is the dependency and no card has to spell it
+out — the only `waits on` line left is for an id nothing resolves to, which shows in
+amber, and is how you catch a typo in `depends_on`. Columns are bounded by how many
+projects you have rather than by the longest chain, so the board never scrolls sideways.
+
+Detail goes where it is worth something. A whole card is spent on the live edge of each
+chain — what is being designed, what is waiting on your approval, what an agent is on,
+what is blocked, and whatever could start next — and everything finished or still queued
+behind something is one line. Clicking any of them picks it for a batch and dims what is
+unrelated; the arrow on a card opens its own page.
+
+The inspector carries the batch: what you picked, what came along as a blocker, and in
+which order it will be built. The roadmap and projects are in the list column beside the
+board, which no longer repeats the tasks the board is already showing.
 
 Completed projects and tasks are hidden from the list, board and project task lists by
 default. `Completed` in the top bar reveals them everywhere at once. A project counts as
 finished when its own status says so, or when every task under it is done.
+
+## Design before code
+
+A task that changes something you can look at is designed, and approved by you, before an
+engineer touches it. Nothing is inferred: Product decides, and writes `designer: <name>`
+into the task's frontmatter. Empty means ordinary work that goes straight to the lead.
+
+When the lead picks up such a task it sets `status: designing` and runs the `designer`
+skill on it first. The designer settles the layout in Claude Code's `/design` canvas,
+builds it as a running demo on a throwaway `demo/<task-id>` branch, and writes one
+`kind: demo` file to `.notebook/blocks/`. The rest of the batch carries on meanwhile — one
+demo does not idle the others.
+
+The board shows that task as `demo ready` with `See demo`, which opens the two pages side
+by side: the screen as it stands, and the screen this task would give you. `Before` is
+empty and says so when the task adds a surface that does not exist yet. Every pass the
+designer made is a chip on the `Revisions` strip, so you can follow how the change got
+there rather than being handed one finished thing; a pass they kept serving opens again.
+
+`Build it` clears the demo and tells the lead which revision won — only then does the task
+go to an engineer. `Request changes` opens the transcript of whoever built it, because the
+point is that you say what is wrong in your own words. Saying no throws the branch away;
+nothing was merged and no task status moved.
 
 ## Product review
 
@@ -98,11 +130,15 @@ Once the decisions are settled, Product replaces that notification with the comp
 proposal: roadmap impact, project, dependency-ordered tasks, agent resources and the
 rationale for each. `Request changes` returns to the Product transcript. `Create project`
 is the explicit approval that writes the roadmap changes (when proposed), project and
-tasks to the notebook. Nothing is assigned; picking tasks stays yours.
+tasks to the notebook. Nothing is assigned by that; picking stays yours — but the whole
+project goes in one gesture when you want it to, `Pick all` on its page.
 
 ## Shipping tasks
 
 Click task cards and `Assign to Engineering Lead` to give a batch to the coordinator.
+`Pick all` on a project's page takes every task of its that is not done or already out
+with a lead, and `Assign all tasks to Engineering Lead` on the project's row in the list
+does the same without opening it.
 It reads the task contracts and code boundaries, chooses the smallest useful split,
 and selects a roster specialist, available model and reasoning level for every subtask.
 Independent work starts in parallel; shared files and unfinished prerequisites wait.
@@ -150,8 +186,10 @@ capacity stays unknown. The lead keeps volatile checkpoints in run records and p
 only durable facts to project memory; saving a summary is followed by actual native
 compaction or a fresh worker when supported.
 
-The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `frontend-dev`,
-`backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. `.agents/skills/` links to those same files
+The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `designer`,
+`frontend-dev`, `backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. One roster member runs both
+`designer` and `frontend-dev` — the same agent settles what a screen looks like and then
+builds it, in that order. `.agents/skills/` links to those same files
 for Codex, so the two agents cannot drift. The app bundles the exact skill text into every
 managed session. Install the same role folders in `~/.claude/skills/` and
 `~/.agents/skills/` only for specialist subagents, which start outside the app's launcher
@@ -252,7 +290,8 @@ repo. Pushing and merging stay yours — the lead stops at the PR.
 ## Blocks
 
 Anything only you can settle lives in `.notebook/blocks/` and shows in the `Blocks`
-section of the rail — a product proposal waiting for your opinion, or an agent that
+section of the rail — a product proposal waiting for your opinion, a design waiting for
+your approval, or an agent that
 needs a token, a consent screen, an approval and is sitting there until it has one. The
 row says what is being asked and what it holds up; the button sends it to whoever can act
 on it, which for a proposal is product and for a gate is an engineer.

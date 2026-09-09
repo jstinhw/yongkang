@@ -217,7 +217,13 @@ struct YongkangApp: App {
             }
         case .board:
             let scoped = Tag.card(selection, in: project.cards)
-            TopBar(crumbs: [project.name], title: scoped?.title ?? "Board") {
+            let demo = selectedBlock(in: project).flatMap { $0.isDemo ? $0 : nil }
+            TopBar(crumbs: demo == nil ? [project.name] : [project.name, "Board"],
+                   title: scoped?.title ?? demo?.title ?? "Board") {
+                if let demo {
+                    NotebookStyle.pill(demo.waiting ? "demo · waiting on you" : "approved",
+                                       demo.waiting ? Theme.amber : Theme.green, live: demo.waiting)
+                }
                 if let scoped, scoped.kind == .project { boardProgress(scoped, in: project) }
                 completedToggle
                 addMenu(for: project)
@@ -376,6 +382,14 @@ struct YongkangApp: App {
                 }
             )
             .id(member.id)
+        } else if let block = selectedBlock(in: project), block.isDemo {
+            DesignDemo(
+                block: block, cards: project.cards,
+                waiting: waitingSession(for: block, in: project),
+                approve: { revision in approveDemo(block, revision: revision, in: project) },
+                revise: { openDesigner(block, in: project) }
+            )
+            .id(block.id)
         } else if let block = selectedBlock(in: project) {
             BlockDetail(
                 block: block, cards: project.cards,
@@ -415,13 +429,39 @@ struct YongkangApp: App {
     private func boardView(for project: Project) -> some View {
         NotebookBoard(
             cards: project.cards,
+            blocks: project.blocks,
             assigned: project.assignedTaskIDs,
             showDone: showDone,
             assign: { tasks in assign(tasks, in: project) },
             review: { startProductReview(in: project) },
             openCard: { card in selection = Tag.task(card.id) },
+            openDemo: { demo in selection = Tag.block(demo) },
             remove: { card in remove(card, in: project) }
         )
+    }
+
+    /// Approving a demo is the one gesture that releases design work to an engineer: the
+    /// block is cleared the same way any other is, and the agent waiting on it is told
+    /// which revision won. The app does not touch the task file — the agent owns that,
+    /// like every other status in the notebook.
+    private func approveDemo(_ block: UserBlock, revision: DemoRevision?, in project: Project) {
+        Blocks.resolve(block)
+        if let waiting = waitingSession(for: block, in: project) {
+            let pass = revision.map { " Build \($0.label)." } ?? ""
+            pendingInput[waiting.id] = "The demo at \(block.slug) is approved.\(pass) "
+                + "Update the task's status out of `designing` and build it."
+            section = .agents
+            selection = Tag.transcript(waiting.id)
+        }
+        reload()
+    }
+
+    /// Saying what is wrong goes to whoever made the demo, in their own transcript. There
+    /// is nothing to type on their behalf — the point is that the user says it.
+    private func openDesigner(_ block: UserBlock, in project: Project) {
+        guard let waiting = waitingSession(for: block, in: project) else { return }
+        section = .agents
+        selection = Tag.transcript(waiting.id)
     }
 
     // MARK: - Selection

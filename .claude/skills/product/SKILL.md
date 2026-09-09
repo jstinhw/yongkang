@@ -104,9 +104,10 @@ The ready proposal must be detailed enough that approval is mechanical:
 - Project: id, outcome, done-when criteria, approach, dependencies, and repos.
 - Tasks in build order: id, outcome, `depends_on`, specialist owner, and verifiable
   done-when criteria.
-- Agent resources: `engineering-lead` coordinates the work; which of `frontend-dev`,
-  `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev` verifies completed
-  tasks. Include only specialist roles actually needed.
+- Agent resources: `engineering-lead` coordinates the work; which of `designer`,
+  `frontend-dev`, `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev`
+  verifies completed tasks. Include only specialist roles actually needed.
+- Which tasks are design work, and who designs them — see **Design work** below.
 - Assumptions, risks, and the nearest adjacent work deliberately excluded.
 
 Keep `kind: proposal`, `status: open`, `session:`, and `action:`. Set `stage: ready`, update
@@ -137,7 +138,8 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
 3. Write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
    `owner:`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
 4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`,
-   `depends_on`, and `owner:` set to the specialist named in the proposal. Each task is one
+   `depends_on`, `owner:` set to the specialist named in the proposal, and `designer:` set
+   on the tasks that are design work — see **Design work** below. Each task is one
    shippable change with a `## Done when` checklist another agent can verify. Five to nine
    tasks is normally one project; split a larger plan before writing it.
 5. Record material assumptions or user decisions as one fact per memory file under the
@@ -149,3 +151,23 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
 Never write secrets, environment values, or machine-local paths into the notebook. If
 new evidence makes the proposal wrong, explain it and leave `status: open` rather than
 creating work you no longer recommend.
+
+## Design work
+
+You decide which tasks are design work, and nothing else does. A task's `designer:` field
+is that decision written down: set it to the roster member who will design the task
+(`Allen` by default), and leave it empty on every other task.
+
+`designer:` set means the user sees the screen before it is built. The lead puts that
+designer on the task first, they build a running demo next to the screen as it stands, and
+no engineer starts until the user approves it. That is worth a round trip when the user
+could reasonably want something different from what a task's words imply, and pure cost
+when they could not.
+
+Set it on a task that adds or reworks a surface a person looks at: a new screen, a changed
+layout or flow, a visual system. Leave it empty on scaffolding, deployment, data, wiring,
+copy fixes, and on work that only implements a design already agreed — the demo for those
+answers a question nobody was asking.
+
+When the user has already told you what a screen should look like, say so in the task's
+Context and still set `designer:`. The demo is how they check you heard them right.

@@ -14,9 +14,10 @@ struct UserBlock: Identifiable, Equatable {
     let slug: String
     let title: String
     let status: String
-    /// `block` for a gate an agent cannot pass, `proposal` for work product wants to add.
-    /// Both are the same thing to this folder — something only the user can settle — and
-    /// differ only in who is sent to settle it.
+    /// `block` for a gate an agent cannot pass, `proposal` for work product wants to add,
+    /// `demo` for a design a task cannot be built without your approval of. All three are
+    /// the same thing to this folder — something only the user can settle — and differ
+    /// only in who is sent to settle it.
     let kind: String
     /// Product proposals are discussed in their transcript before they are ready to
     /// create. Old proposal files predate this field and are already approval-ready.
@@ -32,10 +33,31 @@ struct UserBlock: Identifiable, Equatable {
     /// One line about what is now configured, written by whoever cleared it.
     let resolution: String
     let body: String
+    /// Demos only: the page as it stands, so the two can be shown side by side. Nil when
+    /// the task adds a surface that does not exist yet — there is honestly no before.
+    let before: URL?
+    /// Demos only: the throwaway branch the demo runs on, named so it is obvious nothing
+    /// has landed. Approving turns it into the build; rejecting throws it away.
+    let branch: String
+    /// Demos only: every pass the designer made, oldest first, so the change can be
+    /// followed rather than arriving as one finished thing.
+    let revisions: [DemoRevision]
 
     var waiting: Bool { status != "done" }
     var isProposal: Bool { kind == "proposal" }
     var proposalReady: Bool { isProposal && stage == "ready" }
+    /// A design waiting on the user before any engineer starts on its task.
+    var isDemo: Bool { kind == "demo" }
+}
+
+/// One pass of a demo. `url` is whatever the designer left running or published for that
+/// pass; without one the revision is still listed — the note is the record — but only the
+/// passes that kept a URL can be opened again.
+struct DemoRevision: Identifiable, Equatable {
+    let id: Int
+    let label: String
+    let note: String
+    let url: URL?
 }
 
 enum Blocks {
@@ -60,6 +82,7 @@ enum Blocks {
         let fields = NotebookIndex.frontmatter(text)
         let slug = url.deletingPathExtension().lastPathComponent
         let link = fields["url"].flatMap(URL.init(string:))
+        let body = NotebookIndex.body(text)
         return UserBlock(
             id: NotebookEntry.id(for: url),
             url: url,
@@ -73,8 +96,47 @@ enum Blocks {
             link: link?.scheme?.hasPrefix("http") == true ? link : nil,
             task: fields["task"].flatMap { $0.isEmpty ? nil : $0 },
             resolution: fields["resolution"] ?? "",
-            body: NotebookIndex.body(text)
+            body: body,
+            before: web(fields["before"]),
+            branch: fields["branch"] ?? "",
+            revisions: revisions(body)
         )
+    }
+
+    /// Only an http(s) address is worth handing a web view; anything else in the field is
+    /// dropped rather than opened.
+    private static func web(_ value: String?) -> URL? {
+        guard let url = value.flatMap(URL.init(string:)), url.scheme?.hasPrefix("http") == true else {
+            return nil
+        }
+        return url
+    }
+
+    /// The `## Revisions` list out of a demo's body: one `- ` line per pass, oldest first,
+    /// its parts separated by `·`. A line the designer wrote a little differently still
+    /// lists — the label is whatever came first and the rest is the note.
+    static func revisions(_ body: String) -> [DemoRevision] {
+        let lines = body.components(separatedBy: "\n")
+        guard let start = lines.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("## revisions")
+        }) else { return [] }
+
+        var found: [DemoRevision] = []
+        for line in lines[(start + 1)...] {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            if text.hasPrefix("#") { break }
+            guard text.hasPrefix("- ") else { continue }
+            let parts = text.dropFirst(2).components(separatedBy: "·")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            guard let label = parts.first else { continue }
+            let link = parts.dropFirst().compactMap { web($0) }.last
+            let note = parts.dropFirst()
+                .filter { web($0) == nil }
+                .joined(separator: " · ")
+            found.append(DemoRevision(id: found.count, label: label, note: note, url: link))
+        }
+        return found
     }
 
     /// Marking a block resolved by hand is the same edit the guiding session makes: the
