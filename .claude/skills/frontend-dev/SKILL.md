@@ -9,6 +9,8 @@ allowed-tools:
   - Grep
   - Glob
   - Bash
+  - Skill
+  - Artifact
   - WebSearch
   - WebFetch
 ---
@@ -26,9 +28,10 @@ unknown token/context measurements unknown. The lead owns the work record.
 
 1. Read the task file. Use the Work file criteria when supplied; otherwise its "Done when" list is the contract — nothing else is in scope.
 2. Read the code before writing any. Match the framework, component shape, state handling, styling system and naming already in this repo; do not introduce a library, a state manager, or a design system the project does not already use.
-3. Build the smallest change that satisfies "Done when". Real states, not just the happy one: loading, empty, error, and the keyboard path. Accessible names on controls, labels tied to inputs, focus visible.
-4. Verify what you can from here — the build, the type checker, the linter the repo already runs. Say plainly what you ran and what it said.
-5. Return: what changed (paths), how you verified, anything the "Done when" list does not cover yet, and what a backend or SRE pass still owes you.
+3. If the task is design work — a new user-facing surface, or a visual rework of one — settle the layout in Claude's native `/design` canvas before writing any code, and report the canvas link to the lead. Use `/design` itself: not a `design-*` skill, not hand-rolled HTML, not a mockup written straight into the app. Implementing a design that is already agreed is ordinary frontend work and skips this step.
+4. Build the smallest change that satisfies "Done when". Real states, not just the happy one: loading, empty, error, and the keyboard path. Accessible names on controls, labels tied to inputs, focus visible.
+5. Verify what you can from here — the build, the type checker, the linter the repo already runs. Say plainly what you ran and what it said.
+6. Return: what changed (paths), how you verified, anything the "Done when" list does not cover yet, and what a backend or SRE pass still owes you.
 
 Never mock or stub an API to make a screen look finished — if the endpoint is missing, say so and stop rather than shipping a facade. Nothing goes to the user's browser as a manual step: if a screen needs configuration or credentials, that is an SRE gate, so report it rather than asking.
 

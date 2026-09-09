@@ -69,6 +69,14 @@ boundaries, and have the lead handle integration ownership explicitly.
 Use this fallback only if `.notebook/team/` is absent. If an existing roster lacks an
 owner, report that specific gap; do not invent a teammate or silently cross roles.
 
+Design work — a new user-facing surface, or a visual rework of one — goes to the frontend
+owner running under Claude, because the design step is Claude Code's native `/design`
+canvas and no other runtime has it. Spawn that subtask with a Claude model, and say in its
+prompt that the layout is settled in `/design` before any code. Under a runtime without
+`/design`, do not substitute a `design-*` skill or let a worker hand-roll the mockup:
+report it as a gate — this subtask needs a Claude session. Implementing an already-agreed
+design is ordinary frontend work and needs none of this.
+
 Discover models, reasoning settings and concurrency from the live tool schema or
 runtime metadata first. Select the least expensive capable available model, allowing
 for retries and latency; token count alone is not monetary cost. No hardcoded prices.
