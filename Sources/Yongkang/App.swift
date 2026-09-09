@@ -90,6 +90,11 @@ struct YongkangApp: App {
             .task { restore() }
             .onReceive(tick) { _ in reload() }
             .onChange(of: section) { _ in openSectionDefault() }
+            // The transcript follows the selection rather than the poll: a row that opens an
+            // agent must not leave the one before it on screen for up to two seconds under
+            // the new agent's name. Every screen that opens one is covered by this — the
+            // list column and the overview's "Running now" cards included.
+            .onChange(of: selection) { _ in reloadAgentTranscript() }
         }
         .windowToolbarStyle(.unified)
     }
@@ -301,7 +306,7 @@ struct YongkangApp: App {
         } else if selection == Tag.board(project) {
             boardView(for: project)
         } else if selection == Tag.usage(project) {
-            UsageBoard(project: project, open: { selection = $0; reload() })
+            UsageBoard(project: project, open: { selection = $0 })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
                 card: card, cards: project.cards, directory: project.directory,
@@ -321,7 +326,6 @@ struct YongkangApp: App {
                 check: { session, subagent in
                     section = .agents
                     selection = Tag.subagent(session, subagent)
-                    reload()
                 }
             )
             .id(card.id)
@@ -336,10 +340,7 @@ struct YongkangApp: App {
                     session: watched, cards: project.cards, blocks: project.blocks,
                     team: project.team,
                     openTask: { section = .board; selection = Tag.task($0) },
-                    openSubagent: { subagent in
-                        selection = Tag.subagent(watched, subagent)
-                        reload()
-                    },
+                    openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
                     openBlock: { section = .blocks; selection = Tag.block($0) }
                 )
             case .session:
@@ -352,10 +353,7 @@ struct YongkangApp: App {
                     source: Transcripts.url(of: watched, in: project.directory),
                     openTask: { section = .board; selection = Tag.task($0) },
                     openBlock: { section = .blocks; selection = Tag.block($0) },
-                    openSubagent: { subagent in
-                        selection = Tag.subagent(watched, subagent)
-                        reload()
-                    },
+                    openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
                     send: { pendingInput[watched.id] = $0 }
                 )
             }
@@ -375,7 +373,6 @@ struct YongkangApp: App {
                 running: runningAgents(of: member, in: project),
                 openSubagent: { session, subagent in
                     selection = Tag.subagent(session, subagent)
-                    reload()
                 }
             )
             .id(member.id)
