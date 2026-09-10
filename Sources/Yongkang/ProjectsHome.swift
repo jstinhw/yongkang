@@ -6,13 +6,16 @@ import AppKit
 /// got, who is on it, and whether anything is waiting on you.
 struct ProjectsHome: View {
     let projects: [Project]
-    @Binding var agent: AgentKind
     let enter: (Project) -> Void
     /// Describe a project and an agent creates the folder and starts it.
     let create: () -> Void
     /// The other door: a folder that already exists.
     let add: () -> Void
     let close: (Project) -> Void
+
+    /// The card under the pointer, which is the only one that offers to be removed. A
+    /// permanent × on every card reads as a grid of things to undo.
+    @State private var hovered: Project.ID?
 
     private var running: Int {
         projects.reduce(0) { $0 + $1.sessions.filter { !$0.exited && $0.agent != nil }.count }
@@ -32,14 +35,28 @@ struct ProjectsHome: View {
                         ForEach(projects) { project in
                             Button { enter(project) } label: { card(project) }
                                 .buttonStyle(.plain)
+                                .overlay(alignment: .topTrailing) {
+                                    // Centred on the progress ring, and never overhanging
+                                    // the card: a badge outside the frame is outside what
+                                    // the pointer is tracked over, so half of it would
+                                    // draw but not click.
+                                    if hovered == project.id {
+                                        removeTile(project).padding(20)
+                                    }
+                                }
+                                .onHover { inside in
+                                    hovered = inside ? project.id
+                                                     : (hovered == project.id ? nil : hovered)
+                                }
                                 .contextMenu {
                                     Button("Reveal in Finder") {
                                         NSWorkspace.shared.activateFileViewerSelecting([project.directory])
                                     }
-                                    Button("Close Project") { close(project) }
+                                    Button("Remove from Fleet") { close(project) }
                                 }
                         }
                         newProjectTile
+                        openFolderTile
                     }
                 }
                 .padding(.horizontal, 32)
@@ -60,18 +77,6 @@ struct ProjectsHome: View {
                     .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
             Text("Yongkang").font(Typo.display(14)).tracking(0.3)
             Spacer(minLength: 12)
-            Picker("", selection: $agent) {
-                ForEach(AgentKind.allCases) { kind in Text(kind.displayName).tag(kind) }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 320)
-            .labelsHidden()
-            Button { add() } label: { Label("Open folder", systemImage: "folder") }
-                .buttonStyle(.console)
-                .keyboardShortcut("o")
-            Button { create() } label: { Label("New project", systemImage: "plus") }
-                .buttonStyle(.consolePrimary)
-                .keyboardShortcut("n")
         }
         .padding(.horizontal, 32)
         .frame(height: 60)
@@ -148,12 +153,26 @@ struct ProjectsHome: View {
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
+    /// The two ways to add one, sitting where a card would rather than in the toolbar:
+    /// a folder that does not exist yet is described and built, one that does is opened
+    /// as it stands. Picking which comes first, and only then is there a prompt to fill.
     private var newProjectTile: some View {
-        Button(action: create) {
+        tile("plus", "Describe a new project…", "an agent builds it", action: create)
+            .keyboardShortcut("n")
+    }
+
+    private var openFolderTile: some View {
+        tile("folder", "Open a folder you have", "nothing is created", action: add)
+            .keyboardShortcut("o")
+    }
+
+    private func tile(_ symbol: String, _ title: String, _ note: String,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             VStack(spacing: 9) {
-                Image(systemName: "plus").font(.system(size: 20))
-                Text("Describe a new project…").font(Typo.text(12))
-                Text("or ⌘O to open a folder").font(Typo.mono(10))
+                Image(systemName: symbol).font(.system(size: 20))
+                Text(title).font(Typo.text(12))
+                Text(note).font(Typo.mono(10))
             }
             .foregroundStyle(Theme.tx3)
             .frame(maxWidth: .infinity, minHeight: 152)
@@ -161,6 +180,22 @@ struct ProjectsHome: View {
                 .strokeBorder(Color(hex: 0x262D3A), style: StrokeStyle(lineWidth: 1, dash: [4])))
         }
         .buttonStyle(.plain)
+    }
+
+    /// Removing a project takes it off this screen and nothing else: the folder, its
+    /// notebook and anything an agent left there are untouched, and ⌘O opens it again.
+    /// That is why it asks nothing first — there is nothing to lose by pressing it.
+    private func removeTile(_ project: Project) -> some View {
+        Button { close(project) } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Theme.tx2)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Theme.card))
+                .overlay(Circle().strokeBorder(Theme.line2, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .help("Remove \(project.name) from Fleet — the folder stays on disk")
     }
 
     private func summary(_ project: Project) -> String {

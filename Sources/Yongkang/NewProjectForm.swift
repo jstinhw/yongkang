@@ -68,11 +68,10 @@ enum ProjectLocation {
 /// and the folder is created and handed to an agent that writes the notebook. Where it
 /// goes is worked out from the prompt rather than asked for every time — a path named in
 /// the prompt wins, otherwise it is a folder named after the prompt inside the projects
-/// folder, which is asked for once. Opening a folder that already exists is the other
-/// door, kept beside it.
+/// folder, which is asked for once. Which door you came through was already decided on
+/// the Fleet page, so this one only describes.
 struct NewProjectForm: View {
     let create: (URL, String) -> Void
-    let openExisting: () -> Void
     let cancel: () -> Void
 
     @State private var text = ""
@@ -90,16 +89,17 @@ struct NewProjectForm: View {
             Text("New project").font(Typo.display(16)).foregroundStyle(Theme.tx)
 
             VStack(alignment: .leading, spacing: 6) {
-                SectionLabel("What should the agent build?")
+                SectionLabel("Describe it", trailing: "an agent builds it")
                 PromptField(placeholder: "A CLI that…", root: root, absolute: true,
                             text: $text, submit: submit)
                 Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
                     .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                // Not a question, an answer: where this one is about to land.
+                if !prompt.isEmpty {
+                    Text(landing).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                        .lineLimit(1).truncationMode(.head)
+                }
             }
-
-            // Not a question, an answer: where this one is about to land.
-            Text(landing).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
-                .lineLimit(1).truncationMode(.head)
 
             if !failure.isEmpty {
                 Text(failure).font(Typo.text(11.5)).foregroundStyle(Theme.amber)
@@ -107,8 +107,6 @@ struct NewProjectForm: View {
             }
 
             HStack {
-                Button("Open a folder instead…", action: openExisting)
-                    .buttonStyle(.consoleGhost)
                 Spacer()
                 Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
                 Button("Create project", action: submit)
@@ -124,7 +122,6 @@ struct NewProjectForm: View {
     /// Where the prompt as it stands would put the project, so dropping the question
     /// does not make the answer a mystery.
     private var landing: String {
-        guard !prompt.isEmpty else { return "Named in the prompt, or wherever projects live." }
         let (parent, name) = destination
         guard let parent else { return "Ask me where projects live — once." }
         return abbreviated(parent) + "/" + name

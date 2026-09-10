@@ -15,11 +15,11 @@ enum DesignShots {
         let lead = project.sessions[0]
         let worker = lead.subagents[0]
 
-        write(ProjectsHome(projects: [project], agent: .constant(.claude),
-                           enter: { _ in }, create: {}, add: {}, close: { _ in }),
+        write(ProjectsHome(projects: [project], enter: { _ in },
+                           create: {}, add: {}, close: { _ in }),
               "fleet", into: directory)
 
-        write(NewProjectForm(create: { _, _ in }, openExisting: {}, cancel: {})
+        write(NewProjectForm(create: { _, _ in }, cancel: {})
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
               "new-project", into: directory, width: 900)
 

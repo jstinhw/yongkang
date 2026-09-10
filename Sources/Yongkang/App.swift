@@ -41,7 +41,8 @@ struct YongkangApp: App {
     @State private var doneTasks: Set<String>?
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State private var addingAgent = false
-    /// The new-project sheet: a prompt, which is also what says where its folder goes.
+    /// The new-project sheet, opened from the Fleet page's own tile: a prompt, which is
+    /// also what says where its folder goes.
     @State private var creatingProject = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
     /// says so once rather than on every 2-second poll.
@@ -120,14 +121,11 @@ struct YongkangApp: App {
 
     @ViewBuilder private var chrome: some View {
         if entered == nil {
-            ProjectsHome(projects: projects, agent: $agent, enter: enter,
+            ProjectsHome(projects: projects, enter: enter,
                          create: { creatingProject = true }, add: openProject, close: close)
                 .sheet(isPresented: $creatingProject) {
-                    NewProjectForm(
-                        create: createProject,
-                        openExisting: { creatingProject = false; openProject() },
-                        cancel: { creatingProject = false }
-                    )
+                    NewProjectForm(create: createProject,
+                                   cancel: { creatingProject = false })
                 }
         } else if let project = enteredProject {
             HStack(spacing: 0) {
