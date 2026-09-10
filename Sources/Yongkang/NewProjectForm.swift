@@ -66,7 +66,7 @@ struct NewProjectForm: View {
                 PromptField(placeholder: "A CLI that…", root: root, absolute: true,
                             text: $text, submit: submit)
                     .onChange(of: text) { _ in detectLocation() }
-                Text("@ tags a file or folder · Tab completes · Return takes it")
+                Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
                     .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
             }
 

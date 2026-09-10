@@ -1093,11 +1093,16 @@ enum NotebookSelfTest {
         fm.createFile(atPath: root.appendingPathComponent("design-notes.md").path, contents: Data())
         fm.createFile(atPath: root.appendingPathComponent("designs/logo.png").path, contents: Data())
         fm.createFile(atPath: root.appendingPathComponent("designs/type/BODY.md").path, contents: Data())
+        try! fm.createDirectory(at: root.appendingPathComponent("cases"), withIntermediateDirectories: true)
+        fm.createFile(atPath: root.appendingPathComponent("cases-old.md").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent("cases/Alpha.md").path, contents: Data())
+        fm.createFile(atPath: root.appendingPathComponent("cases/alpha-two.md").path, contents: Data())
 
         precondition(Mention.query(in: "build @des") == "des")
         precondition(Mention.query(in: "build @des ") == nil, "a finished tag is not still being typed")
         precondition(Mention.query(in: "a@b.com") == nil, "an email address is not a tag")
-        precondition(Mention.matches("", root: root) == ["design-notes.md", "designs/", "SPEC.md"],
+        precondition(Mention.matches("", root: root)
+                        == ["cases/", "cases-old.md", "design-notes.md", "designs/", "SPEC.md"],
                      "folders keep their slash, dotfiles stay hidden")
         precondition(Mention.matches("designs", root: root) == ["designs/"])
         precondition(Mention.matches("designs/", root: root) == ["designs/logo.png", "designs/type/"],
@@ -1124,6 +1129,19 @@ enum NotebookSelfTest {
         precondition(Mention.extend(&tab, root: root, absolute: false))
         precondition(tab == "build from @designs/type/BODY.md ",
                      "and closes the tag on the one file at the bottom")
+
+        // A sibling that shares the whole folder name must not strand Tab on the folder.
+        var into = "build from @cases"
+        precondition(Mention.extend(&into, root: root, absolute: false))
+        precondition(into == "build from @cases/", "Tab walks into a folder the tag already names")
+        precondition(Mention.extend(&into, root: root, absolute: false))
+        precondition(into == "build from @cases/alpha", "and carries on inside it")
+
+        // Names are matched without regard to case, so what they agree on is read the
+        // same way — otherwise Tab sits there doing nothing on `@cases/a`.
+        var mixed = "build from @cases/a"
+        precondition(Mention.extend(&mixed, root: root, absolute: false))
+        precondition(mixed == "build from @cases/alpha", "a lowercase name and a capitalised one still agree")
 
         var text = "build from @SP"
         precondition(Mention.accept(&text, root: root, absolute: false))

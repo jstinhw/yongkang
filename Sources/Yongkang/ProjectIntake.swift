@@ -29,7 +29,7 @@ struct ProjectIntake: View {
                         text: $text, submit: send)
 
             HStack {
-                Text("@ tags a file or folder · Tab completes it · Return to start")
+                Text("@ tags a file or folder · Tab completes it · ↑↓ picks · Return to start")
                     .font(Typo.mono(10.5))
                     .foregroundStyle(Theme.tx3)
                 Spacer()
