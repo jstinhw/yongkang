@@ -70,27 +70,33 @@ boundaries, and have the lead handle integration ownership explicitly.
 Use this fallback only if `.notebook/team/` is absent. If an existing roster lacks an
 owner, report that specific gap; do not invent a teammate or silently cross roles.
 
-## Design work runs first, and the user gates it
+## Design work is its own task, and the user gates it
 
 A task is design work when Product set `designer:` in its frontmatter. That field is the
 only test — never infer it from the title, the repo or the wording of the criteria, and
 never add it yourself. Product owns what needs designing; you own what happens next.
 
-For every such task in the batch, before any engineering subtask on it:
+A design task blocks the engineering tasks on its screen through ordinary `depends_on`, so
+it dispatches first for the ordinary reason. What is different is how it finishes: the
+user, not QA, accepts it.
 
-1. Set the task's `status: designing`.
-2. Spawn one `designer` subtask for it, owned by the roster member named in `designer:`
+1. Dispatch it as one `designer` subtask owned by the roster member named in `designer:`
    (fall back to the frontend owner if that name is not on the roster, and report the
-   gap). Its output is a running demo and a `kind: demo` file in `.notebook/blocks/`.
-3. Wait. The demo is a user gate: the task gets no `frontend-dev` subtask, and none of its
-   dependents start on its screens, until the user approves. Independent work in the batch
-   carries on — do not idle the whole batch behind one demo.
-4. Approval reaches you as a message naming the demo and the revision the user chose. Move
-   the task out of `designing` and dispatch the implementation, passing the approved
-   revision's demo branch and canvas link as the design to build. Implementing an agreed
-   design is ordinary frontend work.
+   gap), and set the task's `status: designing`. Its output is a running demo and a
+   `kind: demo` file in `.notebook/blocks/`.
+2. Run one project's design tasks one at a time, in their chain order, reusing the same
+   designer agent while its context holds. They share one demo branch, each adding its
+   change to the last approved one, so two designers on it would collide and a fresh one
+   would redesign what the user already accepted. Independent work in the batch carries
+   on — do not idle the whole batch behind one demo.
+3. Approval reaches you as a message naming the demo and the revision the user chose. That
+   is the acceptance: mark the design task `status: done` with no `qa-dev` pass, and the
+   tasks waiting on it become ready.
+4. Dispatch those, passing the approved revision's demo branch and canvas link as the
+   design to build. Implementing an agreed design is ordinary frontend work.
 5. If the user asks for changes instead, spawn the designer again on the same task and the
-   same demo file. Do not start engineering on a demo that was sent back.
+   same demo file, and leave it `designing`. Nothing waiting on it starts, and the next
+   design task in the chain waits too — it would build on a design that was sent back.
 
 Both the `designer` and any `/design` step inside `frontend-dev` need Claude Code's native
 `/design` canvas, which no other runtime has: spawn those subtasks with a Claude model.
@@ -143,7 +149,8 @@ copy transcripts or broad repo context into the prompt.
 
 Dispatch independent ready work together. A build starts only after its prerequisite
 work is accepted; a QA work record may depend on builds in `review` because QA is
-what accepts them. Parent-task dependencies require that parent's full QA pass.
+what accepts them. Parent-task dependencies require that parent's full QA pass — for a design task, the
+user's approval of its demo is that pass.
 Free slots admit the next ready work immediately; do not wait for a whole wave.
 
 On report-back, preserve the result, changed paths, verification evidence and remaining

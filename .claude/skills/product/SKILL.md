@@ -107,7 +107,8 @@ The ready proposal must be detailed enough that approval is mechanical:
 - Agent resources: `engineering-lead` coordinates the work; which of `designer`,
   `frontend-dev`, `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev`
   verifies completed tasks. Include only specialist roles actually needed.
-- Which tasks are design work, and who designs them — see **Design work** below.
+- The design tasks, who designs each, and which engineering tasks each one blocks — see
+  **Design work** below.
 - Assumptions, risks, and the nearest adjacent work deliberately excluded.
 
 Keep `kind: proposal`, `status: open`, `session:`, and `action:`. Set `stage: ready`, update
@@ -138,10 +139,11 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
 3. Write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
    `owner:`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
 4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`,
-   `depends_on`, `owner:` set to the specialist named in the proposal, and `designer:` set
-   on the tasks that are design work — see **Design work** below. Each task is one
-   shippable change with a `## Done when` checklist another agent can verify. Five to nine
-   tasks is normally one project; split a larger plan before writing it.
+   `depends_on`, and `owner:` set to the specialist named in the proposal. Design is a task
+   of its own that blocks the engineering tasks on its screen — see **Design work** below.
+   Each task is one shippable change with a `## Done when` checklist another agent can
+   verify. Five to nine engineering tasks is normally one project, its design tasks on top
+   of that; split a larger plan before writing it.
 5. Record material assumptions or user decisions as one fact per memory file under the
    project. Do not copy the whole proposal into memory.
 6. Edit the proposal last: `status: done`, `updated:` to today, and
@@ -154,20 +156,34 @@ creating work you no longer recommend.
 
 ## Design work
 
-You decide which tasks are design work, and nothing else does. A task's `designer:` field
-is that decision written down: set it to the roster member who will design the task
-(`Allen` by default), and leave it empty on every other task.
+You decide what gets designed, and nothing else does. Design is never a note on an
+engineering task: it is its own task, owned by a designer, that the engineering task waits
+on. Its `designer:` field is that decision written down — set it to the roster member who
+will design it (`Allen` by default), and leave it empty on every other task.
 
-`designer:` set means the user sees the screen before it is built. The lead puts that
-designer on the task first, they build a running demo next to the screen as it stands, and
-no engineer starts until the user approves it. That is worth a round trip when the user
-could reasonably want something different from what a task's words imply, and pure cost
-when they could not.
+A project earns design tasks when it adds or reworks a surface a person looks at: a new
+screen, a changed layout or flow, a visual system. Scaffolding, deployment, data, wiring
+and copy fixes get none, and neither does work that only implements a design already
+agreed — a demo for those answers a question nobody was asking. A project with no visible
+surface has no design tasks at all.
 
-Set it on a task that adds or reworks a surface a person looks at: a new screen, a changed
-layout or flow, a visual system. Leave it empty on scaffolding, deployment, data, wiring,
-copy fixes, and on work that only implements a design already agreed — the demo for those
-answers a question nobody was asking.
+For a project with both halves:
 
-When the user has already told you what a screen should look like, say so in the task's
-Context and still set `designer:`. The demo is how they check you heard them right.
+- Write the design tasks first, one per visible change the user should get to see on its
+  own, then the engineering tasks that build them.
+- Every engineering task that builds a designed surface names its design task in
+  `depends_on`. The design is the blocker: no engineer starts on that screen until the
+  user has approved the demo.
+- The design tasks form one chain — each `depends_on` the one before. They share a single
+  running demo, and each adds its own change to the last approved one, which is what lets
+  the user review one change at a time and ask for a different one instead of being handed
+  a finished product.
+- A design task's "Done when" is what the demo has to show, in visible terms. The user's
+  approval finishes it; there is nothing for QA to run.
+
+Splitting a screen into more design tasks than there are real decisions costs the user a
+round trip each. Split where they could reasonably want something different from what the
+next change implies, not per component.
+
+When the user has already told you what a screen should look like, say so in the design
+task's Context and still write the task. The demo is how they check you heard them right.
