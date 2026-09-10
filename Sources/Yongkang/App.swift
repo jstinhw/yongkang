@@ -41,7 +41,7 @@ struct YongkangApp: App {
     @State private var doneTasks: Set<String>?
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State private var addingAgent = false
-    /// The new-project sheet: a prompt, and where its folder goes.
+    /// The new-project sheet: a prompt, which is also what says where its folder goes.
     @State private var creatingProject = false
     /// Blocks already reported back to the session that was waiting, so a cleared block
     /// says so once rather than on every 2-second poll.

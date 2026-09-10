@@ -1187,6 +1187,17 @@ enum NotebookSelfTest {
                      "a tag is a reference, not a destination")
         precondition(ProjectLocation.parse("in \(root.path)/gone/todo") == nil,
                      "a parent that is not there is not a location")
+        // A prompt that names no path still names the folder: the words that carry
+        // meaning, and never the paths the agent was pointed at.
+        precondition(ProjectLocation.suggest("Build a CLI that renames photos") == "cli-renames-photos")
+        precondition(ProjectLocation.suggest("a todo app") == "todo-app")
+        precondition(ProjectLocation.suggest("read @\(root.path)/SPEC.md and ~/notes") == "read",
+                     "a tag is a reference, not a name")
+        precondition(ProjectLocation.suggest("the  ") == "project", "something has to be typed in the box")
+        precondition(ProjectLocation.vacant(in: root, named: "designs").lastPathComponent == "designs-2",
+                     "a folder already sitting there is not written into")
+        precondition(ProjectLocation.vacant(in: root, named: "todo").lastPathComponent == "todo")
+
         precondition(ProjectLocation.rejection("todo-app") == nil)
         precondition(ProjectLocation.rejection("../escape") != nil && ProjectLocation.rejection(".hide") != nil)
     }
