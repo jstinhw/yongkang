@@ -21,8 +21,9 @@ are hidden, never torn down.
 Two tiles sit at the end of the grid, one per door. `Describe a new project…` (⌘N) opens
 a prompt: say what to build and tag anything it should read with `@`. Where the folder
 goes is worked out from the prompt — `~/code/todo` in it is enough — and otherwise it is
-named after the prompt and sits in your projects folder, which is asked for once. The
-folder is created and the prompt goes straight to the session that writes its notebook.
+named after the prompt and lands beside the projects you already have (`~/Projects` on a
+first run). The line under the box says where before you press Return. The folder is
+created and the prompt goes straight to the session that writes its notebook.
 `Open a folder you have` (⌘O) is the other door, for a folder that already exists; an
 empty one asks what it is for on the way in.
 

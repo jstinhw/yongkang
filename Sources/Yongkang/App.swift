@@ -124,7 +124,7 @@ struct YongkangApp: App {
             ProjectsHome(projects: projects, enter: enter,
                          create: { creatingProject = true }, add: openProject, close: close)
                 .sheet(isPresented: $creatingProject) {
-                    NewProjectForm(create: createProject,
+                    NewProjectForm(parent: projectsParent, create: createProject,
                                    cancel: { creatingProject = false })
                 }
         } else if let project = enteredProject {
@@ -749,6 +749,14 @@ struct YongkangApp: App {
         projects.append(project)
         persist()
         enter(project)
+    }
+
+    /// Where a described project lands when its prompt names nowhere: beside the ones
+    /// already open, since that is where this person keeps projects, and `~/Projects` on
+    /// a first run. Created on the way, so nothing has to be picked in a panel first.
+    private var projectsParent: URL {
+        projects.last.map { $0.directory.deletingLastPathComponent() }
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Projects")
     }
 
     /// A project described rather than opened: the folder is new and empty, so the prompt

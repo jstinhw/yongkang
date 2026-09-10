@@ -66,22 +66,27 @@ enum ProjectLocation {
 
 /// New project as a prompt: say what to build, tag whatever it should look at with `@`,
 /// and the folder is created and handed to an agent that writes the notebook. Where it
-/// goes is worked out from the prompt rather than asked for every time — a path named in
-/// the prompt wins, otherwise it is a folder named after the prompt inside the projects
-/// folder, which is asked for once. Which door you came through was already decided on
-/// the Fleet page, so this one only describes.
+/// goes is worked out rather than asked for at all — a path named in the prompt wins,
+/// otherwise it is a folder named after the prompt beside the projects already open. The
+/// line under the box says which, before Return, so deciding for you is never a surprise;
+/// naming a path in the prompt is how you say otherwise.
 struct NewProjectForm: View {
+    /// Where a project lands when its prompt does not name anywhere.
+    let parent: URL
     let create: (URL, String) -> Void
     let cancel: () -> Void
 
     @State private var text = ""
     @State private var failure = ""
-    /// Where projects live, asked for the first time one needs it and remembered after.
-    @AppStorage("projectsRoot") private var projectsRoot = ""
 
     private var home: URL { URL(fileURLWithPath: NSHomeDirectory()) }
-    private var stored: URL? { projectsRoot.isEmpty ? nil : URL(fileURLWithPath: projectsRoot) }
-    private var root: URL { stored ?? home }
+    /// Where `@` starts browsing: beside the other projects, unless that folder is not
+    /// there yet — an empty list is no place to start tagging from.
+    private var root: URL {
+        var isDirectory: ObjCBool = false
+        let there = FileManager.default.fileExists(atPath: parent.path, isDirectory: &isDirectory)
+        return there && isDirectory.boolValue ? parent : home
+    }
     private var prompt: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
@@ -123,19 +128,18 @@ struct NewProjectForm: View {
     /// does not make the answer a mystery.
     private var landing: String {
         let (parent, name) = destination
-        guard let parent else { return "Ask me where projects live — once." }
         return abbreviated(parent) + "/" + name
     }
 
     /// A path named in the prompt wins; a folder it names that is already there is a
-    /// parent to land in, not the project itself. `parent` is nil only while the projects
-    /// folder is still unknown — `submit` is where that gets asked.
-    private var destination: (parent: URL?, name: String) {
+    /// parent to land in, not the project itself. Nothing named lands beside the other
+    /// projects under a name taken from the prompt.
+    private var destination: (parent: URL, name: String) {
         let found = ProjectLocation.parse(text)
         if let found, !found.name.isEmpty { return (found.parent, found.name) }
-        guard let parent = found?.parent ?? stored else { return (nil, ProjectLocation.suggest(prompt)) }
-        return (parent, ProjectLocation.vacant(in: parent, named: ProjectLocation.suggest(prompt))
-                            .lastPathComponent)
+        let base = found?.parent ?? parent
+        return (base, ProjectLocation.vacant(in: base, named: ProjectLocation.suggest(prompt))
+                          .lastPathComponent)
     }
 
     private func abbreviated(_ url: URL) -> String {
@@ -145,14 +149,7 @@ struct NewProjectForm: View {
     private func submit() {
         if Mention.accept(&text, root: root, absolute: true) { return }
         guard !prompt.isEmpty else { return }
-        // Asked here rather than up front: a prompt that names its own path never needs it.
-        if destination.parent == nil {
-            guard let picked = pickDirectory(message: "New projects are created in here.")
-            else { return }
-            projectsRoot = picked
-        }
         let (parent, name) = destination
-        guard let parent else { return }
         if let rejection = ProjectLocation.rejection(name) {
             failure = rejection
             return

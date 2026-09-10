@@ -19,7 +19,8 @@ enum DesignShots {
                            create: {}, add: {}, close: { _ in }),
               "fleet", into: directory)
 
-        write(NewProjectForm(create: { _, _ in }, cancel: {})
+        write(NewProjectForm(parent: project.directory.deletingLastPathComponent(),
+                             create: { _, _ in }, cancel: {})
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
               "new-project", into: directory, width: 900)
 
