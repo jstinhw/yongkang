@@ -28,4 +28,17 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
+# macOS keys the Desktop/Documents permission to the app's signature, and the ad-hoc one
+# the linker leaves behind changes with every build — which is why the folder prompt comes
+# back after each rebuild. Signing with a stable identity makes one approval stick. Create
+# it once in Keychain Access: Certificate Assistant → Create a Certificate → name it
+# "Yongkang Dev", Identity Type "Self Signed Root", Certificate Type "Code Signing".
+IDENTITY="${YONGKANG_IDENTITY:-Yongkang Dev}"
+if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+  codesign --force --sign "$IDENTITY" --identifier local.yongkang.app "$APP"
+else
+  codesign --force --sign - --identifier local.yongkang.app "$APP"
+  echo "note: no \"$IDENTITY\" signing identity — signed ad-hoc, so macOS asks for Desktop access again after every rebuild"
+fi
+
 echo "built $PWD/$APP  —  open it with: open $APP"
