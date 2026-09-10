@@ -312,10 +312,14 @@ enum DesignShots {
                  project: "build-ui-foundation"),
             card("drop-finished", .task, "Drop finished work off the boards", "todo",
                  project: "build-ui-foundation"),
-            card("task-diff", .task, "Task page shows its own diff", "todo",
+            card("design-task-diff", .task, "Design the task page's diff", "todo",
                  project: "build-ui-foundation", dependsOn: ["show-agent-tree"], designer: "Allen"),
-            card("review-pane", .task, "Review pane with a QA verdict", "designing",
-                 project: "build-ui-foundation", dependsOn: ["task-diff"], designer: "Allen"),
+            card("task-diff", .task, "Task page shows its own diff", "todo",
+                 project: "build-ui-foundation", dependsOn: ["design-task-diff"]),
+            card("design-review-pane", .task, "Design the review pane's verdict", "designing",
+                 project: "build-ui-foundation", dependsOn: ["design-task-diff"], designer: "Allen"),
+            card("review-pane", .task, "Review pane with a QA verdict", "todo",
+                 project: "build-ui-foundation", dependsOn: ["design-review-pane", "task-diff"]),
             card("deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
                  project: "build-ui-foundation", dependsOn: ["review-pane"]),
             card("transcript-steps", .task, "Lay a transcript out as steps", "done",
@@ -417,7 +421,8 @@ enum DesignShots {
     /// A design waiting on the user, written the way the designer skill writes one.
     private static func demo(_ session: UUID) -> UserBlock {
         let body = """
-        The task page grows a diff of its own work. Two passes are on the branch.
+        The task page grows a diff of its own work — one change on the project's demo,
+        and the task that builds it waits on this.
 
         ## What changes
 
@@ -429,15 +434,15 @@ enum DesignShots {
         - v1 · two panes side by side · http://localhost:3100
         - v2 · one column, the file list under the criteria · http://localhost:3101
         """
-        return UserBlock(id: "/tmp/task-diff-demo.md",
-                         url: URL(fileURLWithPath: "/tmp/task-diff-demo.md"),
-                         slug: "task-diff-demo", title: "Task page shows its own diff",
+        return UserBlock(id: "/tmp/design-task-diff-demo.md",
+                         url: URL(fileURLWithPath: "/tmp/design-task-diff-demo.md"),
+                         slug: "design-task-diff-demo", title: "Design the task page's diff",
                          status: "open", kind: "demo", stage: "ready", session: session,
                          action: "Approve the task-page diff, or say what is wrong with it.",
-                         link: URL(string: "http://localhost:3101"), task: "task-diff",
+                         link: URL(string: "http://localhost:3101"), task: "design-task-diff",
                          resolution: "", body: body,
                          before: URL(string: "http://localhost:3000"),
-                         branch: "demo/task-diff", revisions: Blocks.revisions(body))
+                         branch: "demo/build-ui-foundation", revisions: Blocks.revisions(body))
     }
 
     private static func transcript() -> [TranscriptLine] {

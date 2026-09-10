@@ -6,8 +6,9 @@ import AppKit
 ///
 /// A demo is a `kind: demo` file in `.notebook/blocks/`: the designer builds the screen on
 /// a throwaway branch, serves it, and writes down what changed. Approving it is what
-/// releases the task to an engineer, so this screen is the gate — not a preview of work
-/// already done, which is what a diff in Review is.
+/// finishes the design task and releases the engineering tasks waiting on it, so this
+/// screen is the gate — not a preview of work already done, which is what a diff in
+/// Review is.
 ///
 /// Both panes are live pages rather than pictures, because a picture of a layout answers
 /// none of the questions the layout is actually for.

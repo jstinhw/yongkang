@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The board's right-hand column: what is waiting on you, what you have picked, and what
 /// the console will do with it. The batch used to be crammed into the action bar as a run
-/// of ids; here it has room to say which of them Product marked as design work, which is
-/// the difference between "an engineer starts on this" and "you see it first".
+/// of ids; here it has room to say which of them are design tasks, which is the
+/// difference between "an engineer starts on this" and "you see it first".
 struct BoardInspector: View {
     /// Demos still waiting on the user, in board order.
     let demos: [UserBlock]
@@ -106,15 +106,15 @@ struct BoardInspector: View {
                 Spacer(minLength: 0)
             }
             Text(designCount > 0
-                 ? "Product marked \(designCount) of these as design work. A designer builds each one as a demo, and you approve it, before an engineer touches the repo."
-                 : "Product marked none of these as design work, so the batch goes straight to the lead.")
+                 ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the engineering tasks waiting on it can start."
+                 : "No design tasks in this batch, so it goes straight to the lead.")
                 .font(Typo.text(12)).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
             if designCount > 0 {
                 VStack(alignment: .leading, spacing: 9) {
-                    step(1, "Product decides a task is design work and puts a designer on it.")
-                    step(2, "The designer builds the demo first. You can follow it while they work.")
-                    step(3, "You approve it. Only then does the lead give it to engineers.")
+                    step(1, "Product writes design as its own task, and the engineering tasks on that screen wait on it.")
+                    step(2, "The designer builds it onto the project's demo — one change at a time, so you review one at a time.")
+                    step(3, "You approve it, or say what to change. Only then do the engineers start.")
                 }
             }
         }

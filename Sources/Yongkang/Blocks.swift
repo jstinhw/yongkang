@@ -46,7 +46,7 @@ struct UserBlock: Identifiable, Equatable {
     var waiting: Bool { status != "done" }
     var isProposal: Bool { kind == "proposal" }
     var proposalReady: Bool { isProposal && stage == "ready" }
-    /// A design waiting on the user before any engineer starts on its task.
+    /// A design waiting on the user before any engineer starts on what it blocks.
     var isDemo: Bool { kind == "demo" }
 }
 

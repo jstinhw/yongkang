@@ -17,10 +17,11 @@ struct NotebookCard: Identifiable, Equatable {
     var subject: String? = nil
     var memoryType: String = ""
     var result: String = ""
-    /// Tasks only: the roster member Product put on the design of this task. Non-empty is
-    /// the whole rule for "this is design work" — the app never infers it from the title,
-    /// the repo or the wording of the criteria, because a guess that is wrong either
-    /// stalls plumbing behind a demo or lets a screen be built before anyone saw it.
+    /// Tasks only: the roster member designing this task. Non-empty is the whole rule for
+    /// "this is a design task" — the one the engineering tasks on its screen wait on. The
+    /// app never infers it from the title, the repo or the wording of the criteria,
+    /// because a guess that is wrong either stalls plumbing behind a demo or lets a screen
+    /// be built before anyone saw it.
     var designer: String = ""
 
     var isDesignWork: Bool { !designer.isEmpty }

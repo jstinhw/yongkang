@@ -324,7 +324,7 @@ struct NotebookBoard: View {
             Divider().overlay(Theme.line2)
             HStack(alignment: .top, spacing: 10) {
                 Text(demo.action.isEmpty
-                     ? "A demo is waiting. No engineer starts on this until you have looked at it."
+                     ? "A demo is waiting. Nothing that depends on it starts until you have looked at it."
                      : demo.action)
                     .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -355,8 +355,8 @@ struct NotebookBoard: View {
 
     // MARK: - Assign
 
-    /// Design work in a batch changes what the button promises, because the lead does not
-    /// hand those tasks to an engineer — it puts the designer on them first.
+    /// Design work in a batch changes what the button promises, because the lead hands
+    /// those tasks to a designer, and the engineering tasks behind them wait on the user.
     private var designCount: Int { batch.filter(\.isDesignWork).count }
 
     private var assignBar: some View {

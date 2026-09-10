@@ -440,16 +440,16 @@ struct YongkangApp: App {
         )
     }
 
-    /// Approving a demo is the one gesture that releases design work to an engineer: the
-    /// block is cleared the same way any other is, and the agent waiting on it is told
-    /// which revision won. The app does not touch the task file — the agent owns that,
-    /// like every other status in the notebook.
+    /// Approving a demo is the one gesture that releases the engineering tasks waiting on
+    /// a design task: the block is cleared the same way any other is, and the agent that
+    /// made it is told which revision won. The app does not touch the task file — the
+    /// agent owns that, like every other status in the notebook.
     private func approveDemo(_ block: UserBlock, revision: DemoRevision?, in project: Project) {
         Blocks.resolve(block)
         if let waiting = waitingSession(for: block, in: project) {
             let pass = revision.map { " Build \($0.label)." } ?? ""
             pendingInput[waiting.id] = "The demo at \(block.slug) is approved.\(pass) "
-                + "Update the task's status out of `designing` and build it."
+                + "Mark the design task done and start the tasks waiting on it."
             section = .agents
             selection = Tag.transcript(waiting.id)
         }

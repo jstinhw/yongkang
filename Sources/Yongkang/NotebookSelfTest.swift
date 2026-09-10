@@ -1015,6 +1015,20 @@ enum NotebookSelfTest {
         precondition(NotebookIndex.card(at: plain)!.isDesignWork == false,
                      "and a task without one is not — the app never guesses")
 
+        // Design blocks engineering: the build waits on the design task itself, so it
+        // cannot start until the user's approval has finished that task.
+        let design = NotebookIndex.card(at: task)!
+        let build = NotebookCard(id: "build-hero", url: plain, kind: .task,
+                                 title: "Build the hero", status: "todo", project: nil,
+                                 dependsOn: [design.id])
+        precondition(!NotebookBoard.isReady(build, in: [design, build]),
+                     "no engineer starts while the design task is open")
+        let approved = NotebookCard(id: design.id, url: task, kind: .task, title: design.title,
+                                    status: "done", project: nil, dependsOn: [],
+                                    designer: "Allen")
+        precondition(NotebookBoard.isReady(build, in: [approved, build]),
+                     "approving the demo finishes the design task and releases the build")
+
         // A demo is a block. Everything the gate shows comes off that one file.
         let blocks = Blocks.root(in: root)
         try! FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
