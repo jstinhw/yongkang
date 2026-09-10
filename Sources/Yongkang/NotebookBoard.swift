@@ -33,31 +33,57 @@ struct NotebookBoard: View {
     @State private var selected: Set<String> = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                if chains.isEmpty {
-                    empty
-                } else {
-                    // Worked out once per pass rather than per card: `batch` walks the
-                    // whole graph, and every row asks whether it is in it.
-                    let inBatch = Set(batch.map(\.id))
-                    ScrollView(.vertical) {
-                        HStack(alignment: .top, spacing: 28) {
-                            ForEach(chains) { chain in column(chain, inBatch: inBatch) }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 22)
+        GeometryReader { geometry in
+            // Below this the window cannot carry a fourth column: the inspector folds into
+            // the board rather than squeezing the chains into a strip. Same threshold the
+            // lead's board uses, so the two screens fold at the same drag.
+            let narrow = geometry.size.width < 950
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    if chains.isEmpty {
+                        empty
+                    } else {
+                        board(narrow: narrow)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .background(DotGrid())
+                    if !narrow {
+                        BoardInspector(demos: demos, cards: cards, batch: batch,
+                                       picked: Set(picked.map(\.id)), openDemo: openDemo)
+                    }
                 }
-                BoardInspector(demos: demos, cards: cards, batch: batch, picked: Set(picked.map(\.id)),
-                               openDemo: openDemo)
+                assignBar
             }
-            assignBar
         }
         .background(Theme.bg)
+    }
+
+    private func board(narrow: Bool) -> some View {
+        // Worked out once per pass rather than per card: `batch` walks the whole graph,
+        // and every row asks whether it is in it.
+        let inBatch = Set(batch.map(\.id))
+        return ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 18) {
+                if narrow {
+                    DisclosureGroup("The batch, and what is waiting on you") {
+                        BoardInspector(demos: demos, cards: cards, batch: batch,
+                                       picked: Set(picked.map(\.id)), openDemo: openDemo,
+                                       inline: true)
+                    }
+                    .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
+                }
+                // Columns are bounded by how many projects there are, not by the longest
+                // chain — but a narrow window can still run out of room for them, and a
+                // column you cannot scroll to is a column that is gone.
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 28) {
+                        ForEach(chains) { chain in column(chain, inBatch: inBatch) }
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 22)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(DotGrid())
     }
 
     // MARK: - The graph

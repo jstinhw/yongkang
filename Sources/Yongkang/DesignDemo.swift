@@ -45,37 +45,61 @@ struct DesignDemo: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    controls
-                    revisions
-                    panes
+        GeometryReader { geometry in
+            // Two live pages side by side need the room before anything else does, so a
+            // narrow window gives them the inspector's column.
+            let narrow = geometry.size.width < 950
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        controls(narrow: narrow)
+                        revisions
+                        panes
+                        if narrow { folded }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if !narrow { inspector }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                inspector
+                actionBar
             }
-            actionBar
         }
         .background(Theme.bg)
     }
 
     // MARK: - Controls
 
-    private var controls: some View {
+    /// The switch keeps its size at every width; the line explaining it is the first
+    /// thing to go, because the three words on the control already say it.
+    private func controls(narrow: Bool) -> some View {
         HStack(spacing: 12) {
             Picker("", selection: $pane) {
                 ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
             }
-            .pickerStyle(.segmented).labelsHidden().frame(width: 210)
-            Text(hint).font(Typo.text(12)).foregroundStyle(Theme.tx3)
+            .pickerStyle(.segmented).labelsHidden().frame(width: 210).layoutPriority(1)
+            if !narrow {
+                Text(hint).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+            }
             Spacer(minLength: 8)
             if !block.branch.isEmpty {
-                Text(block.branch).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                Text(block.branch).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    .lineLimit(1).truncationMode(.head)
             }
         }
         .padding(.horizontal, 24)
         .padding(.top, 14)
+    }
+
+    /// What the inspector carries, under the panes instead of beside them.
+    private var folded: some View {
+        DisclosureGroup("What changes, and what it holds up") {
+            VStack(alignment: .leading, spacing: 14) { inspectorContent }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
+        }
+        .font(Typo.text(12)).tint(Theme.tx2)
+        .cardSurface()
+        .padding(.horizontal, 24)
+        .padding(.bottom, 14)
     }
 
     private var hint: String {
@@ -186,7 +210,10 @@ struct DesignDemo: View {
     // MARK: - Inspector
 
     private var inspector: some View {
-        Inspector {
+        Inspector { inspectorContent }
+    }
+
+    @ViewBuilder private var inspectorContent: some View {
             if let task {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Holds up")
@@ -231,7 +258,6 @@ struct DesignDemo: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
-        }
     }
 
     private var cost: String {

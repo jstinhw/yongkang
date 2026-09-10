@@ -13,11 +13,22 @@ struct BoardInspector: View {
     /// Which of the batch the user actually clicked, as opposed to what came along.
     let picked: Set<String>
     let openDemo: (UserBlock) -> Void
+    /// Folded into the board itself when the window is too narrow to carry a fourth
+    /// column — the same move the lead's board makes.
+    var inline = false
 
     private var designCount: Int { batch.filter(\.isDesignWork).count }
 
     var body: some View {
-        Inspector {
+        if inline {
+            VStack(alignment: .leading, spacing: 14) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Inspector { content }
+        }
+    }
+
+    @ViewBuilder private var content: some View {
             if !demos.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Waiting on you", trailing: "\(demos.count)")
@@ -39,8 +50,7 @@ struct BoardInspector: View {
             }
 
             if !batch.isEmpty { design }
-            Spacer(minLength: 0)
-        }
+            if !inline { Spacer(minLength: 0) }
     }
 
     private func waiting(_ demo: UserBlock) -> some View {

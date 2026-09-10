@@ -35,12 +35,31 @@ enum DesignShots {
                           openDemo: { _ in }, remove: { _ in })
         }, "board", into: directory)
 
+        // The window's own minimum, which is where fixed-width columns run out of room
+        // first. A screen that clips here clips on a real laptop.
+        write(console(project, section: .board) {
+            NotebookBoard(cards: project.cards, blocks: project.blocks,
+                          assigned: ["show-agent-tree"], showDone: false,
+                          assign: { _ in }, review: {}, openCard: { _ in },
+                          openDemo: { _ in }, remove: { _ in })
+        }, "board-narrow", into: directory, width: 1120)
+
         // The gate itself. Both panes are live pages in the app; offscreen they render as
         // the frames, which is enough to catch the layout going wrong.
         write(console(project, section: .board) {
             DesignDemo(block: project.blocks.first { $0.isDemo }!, cards: project.cards,
                        waiting: lead, approve: { _ in }, revise: {})
         }, "demo", into: directory)
+
+        // With the top bar the app actually draws there: a long task title, a pill and an
+        // action, which is where a title that will not yield pushes the buttons off.
+        write(console(project, section: .board, crumbs: [project.name, "Board"],
+                      title: project.blocks.first { $0.isDemo }!.title,
+                      pill: AnyView(NotebookStyle.pill("demo · waiting on you", Theme.amber, live: true)),
+                      action: "Open task") {
+            DesignDemo(block: project.blocks.first { $0.isDemo }!, cards: project.cards,
+                       waiting: lead, approve: { _ in }, revise: {})
+        }, "demo-narrow", into: directory, width: 1120)
 
         write(console(project, section: .agents) {
             SessionTranscript(session: lead, cards: project.cards, blocks: project.blocks,
@@ -186,6 +205,8 @@ enum DesignShots {
     private static func console<Content: View>(_ project: Project, section: ConsoleSection,
                                                changes: [FileChange] = [],
                                                hovering: ConsoleSection? = nil,
+                                               crumbs: [String]? = nil, title: String? = nil,
+                                               pill: AnyView? = nil, action: String? = nil,
                                                @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 0) {
             Rail(section: .constant(section), badges: [.blocks: Theme.amber], leave: {},
@@ -195,8 +216,10 @@ enum DesignShots {
                         showDone: false, changes: changes, assign: { _ in }, closeSession: { _ in },
                         remove: { _ in })
             VStack(spacing: 0) {
-                TopBar(crumbs: [project.name], title: section.title) {
+                TopBar(crumbs: crumbs ?? [project.name], title: title ?? section.title,
+                       pill: pill) {
                     Button("Completed") {}.buttonStyle(.consoleGhost)
+                    if let action { Button(action) {}.buttonStyle(.console) }
                 }
                 content()
             }
@@ -296,7 +319,15 @@ enum DesignShots {
             card("deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
                  project: "build-ui-foundation", dependsOn: ["review-pane"]),
             card("transcript-steps", .task, "Lay a transcript out as steps", "done",
-                 project: "build-ui-foundation")
+                 project: "build-ui-foundation"),
+            // A second project, because one column never exercised the board running out
+            // of room for the next one.
+            card("ship-the-site", .project, "Put the landing page on Vercel", "todo",
+                 dependsOn: ["build-ui-foundation"]),
+            card("vercel-project", .task, "Connect this repo to Vercel", "todo",
+                 project: "ship-the-site"),
+            card("live-verify", .task, "Verify the live page and the download path", "todo",
+                 project: "ship-the-site", dependsOn: ["vercel-project"])
         ]
         let leadID = UUID()
         let transcript = URL(fileURLWithPath: "/tmp/agent.jsonl")

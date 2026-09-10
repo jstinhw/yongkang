@@ -152,22 +152,33 @@ struct TopBar<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
+        // Where you are gives way before what you can do: a long task title truncates and
+        // the crumbs before it drop out entirely rather than pushing the actions off the
+        // right edge of a narrow window.
         HStack(spacing: 10) {
-            ForEach(Array(crumbs.enumerated()), id: \.offset) { _, crumb in
-                Text(crumb).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Theme.tx4)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { path }
+                HStack(spacing: 10) { path.lineLimit(1).truncationMode(.tail) }
+                Text(title).font(Typo.display(14)).lineLimit(1).truncationMode(.tail)
             }
-            Text(title).font(Typo.display(14))
             if let pill { pill }
             Spacer(minLength: 12)
-            trailing
+            trailing.layoutPriority(1)
         }
         .padding(.horizontal, 20)
         .frame(height: Theme.topBarHeight)
         .background(Theme.bg)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
+    }
+
+    @ViewBuilder private var path: some View {
+        ForEach(Array(crumbs.enumerated()), id: \.offset) { _, crumb in
+            Text(crumb).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Theme.tx4)
+        }
+        Text(title).font(Typo.display(14))
     }
 }
 
