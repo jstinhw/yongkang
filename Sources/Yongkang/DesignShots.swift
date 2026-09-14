@@ -156,13 +156,20 @@ enum DesignShots {
                          select: { _ in }, commit: { _ in nil })
         }, "review", into: directory)
 
-        // The screen the console lands on when a task finishes: a real diff of this repo
-        // under the fixture batch's own reports, which is the pairing the pane exists for.
-        write(console(here, section: .review, changes: changes) {
-            ChangeReview(project: here, changes: changes, head: GitChanges.head(in: repo),
-                         branch: GitChanges.branch(in: repo),
-                         path: "", summary: summary, select: { _ in }, commit: { _ in nil })
-        }, "handover", into: directory)
+        // The screen the console lands on when a task finishes: the task, QA's verdict and
+        // what each agent did, over a real diff of this repo claimed by the fixture batch.
+        let reviewed = finished(here, task: "pull-blockers", in: directory)
+        let reviewedSummary = ChangeSummary.of(reviewed, changes: changes)
+        if let task = reviewedSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
+            var draft = ReviewDraft()
+            draft.comments = [ReviewComment(path: "Sources/Yongkang/GitChanges.swift", line: "104", code: "",
+                                            text: "Say which task the refused commit belonged to.")]
+            write(console(reviewed, section: .review, changes: changes) {
+                TaskReview(task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
+                           team: Team.defaults, branch: GitChanges.branch(in: repo), head: GitChanges.head(in: repo),
+                           draft: .constant(draft), openFile: { _ in }, approve: { _ in nil }, requestChanges: {})
+            }, "handover", into: directory)
+        }
 
         // Real numbers, off this machine's own transcripts for the repo the binary was
         // built from: the usage screen is nothing but its readers, so a shot drawn from a
@@ -294,6 +301,53 @@ enum DesignShots {
     }
 
     // MARK: - Sample notebook
+
+    /// The fixture with one task through QA: its card done, a real task file to read, and
+    /// its QA pass filed with the verdict a reviewer would read.
+    private static func finished(_ project: Project, task id: String, in directory: URL) -> Project {
+        var project = project
+        let url = directory.appendingPathComponent("\(id).md")
+        try? """
+        ---
+        id: \(id)
+        kind: task
+        status: done
+        ---
+
+        Link each block to the batch it holds up, so assigning a task brings its blockers along.
+
+        ## Done when
+
+        - [x] A block names the task it holds and the lead session waiting on it
+        - [x] Assigning a task pulls in every unfinished blocker
+        - [x] The board and the list agree on what a batch is
+        """.write(to: url, atomically: true, encoding: .utf8)
+        project.cards = project.cards.map { card in
+            guard card.id == id else { return card }
+            return NotebookCard(id: card.id, url: url, kind: card.kind, title: card.title, status: "done",
+                                project: card.project, dependsOn: card.dependsOn)
+        }
+        for index in project.sessions.indices {
+            guard var plan = project.sessions[index].coordination else { continue }
+            plan.workers = plan.workers.map { work in
+                guard work.taskID == id else { return work }
+                var work = work
+                work.state = "done"
+                work.runtimeRunning = false
+                if work.skill == "qa-dev" {
+                    work.result = "Verdict **pass**. `swift run Yongkang --selftest` ok; `swift build` exit 0.\n\n"
+                        + "Assigned a task with two open blockers: both joined the batch in dependency order. "
+                        + "Not exercised: two leads racing for the same blocker."
+                } else {
+                    work.result = "Blocks now carry `task` and `session`; the loader resolves both and the "
+                        + "batch expands through them. Self-test covers a missing and a cyclic blocker."
+                }
+                return work
+            }
+            project.sessions[index].coordination = plan
+        }
+        return project
+    }
 
     private static func card(_ id: String, _ kind: EntryKind, _ title: String, _ status: String,
                              project: String? = nil, dependsOn: [String] = [],

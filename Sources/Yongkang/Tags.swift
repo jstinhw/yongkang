@@ -8,6 +8,10 @@ enum Tag {
     static func overview(_ project: Project) -> String { "overview:\(project.id.uuidString)" }
     static func board(_ project: Project) -> String { "board:\(project.id.uuidString)" }
     static func review(_ project: Project) -> String { "review:\(project.id.uuidString)" }
+    /// One task's review page. Its own prefix, not `review:`, whose suffix is a file path.
+    static func reviewTask(_ project: Project, _ taskID: String) -> String {
+        "review-task:\(project.id.uuidString):\(taskID)"
+    }
     /// The project-wide usage screen, which belongs to no single agent.
     static func usage(_ project: Project) -> String { "usage:\(project.id.uuidString)" }
 

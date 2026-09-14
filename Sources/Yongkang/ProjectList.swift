@@ -82,7 +82,7 @@ struct ProjectList: View {
         case .board: return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents: return "Select any agent or subagent to view its live session transcript. Completed agents stay available here."
         case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
-        case .review: return "Merging is yours. The lead stops at the PR."
+        case .review: return "Nothing is committed until you approve it here. No agent commits, pushes or opens a PR."
         default: return nil
         }
     }
@@ -388,35 +388,57 @@ struct ProjectList: View {
 
     // MARK: - Review
 
+    /// Tasks, not files: what is waiting for the user's approval first, then what the agents
+    /// are still on. The whole working tree is one row at the end, for edits no task claims.
     @ViewBuilder private var reviewRows: some View {
+        let summary = ChangeSummary.of(project, changes: changes)
+        let waiting = summary.waiting
+        let flight = summary.tasks.filter { !$0.done }
+        group("Waiting for you", "\(waiting.count)")
+        if waiting.isEmpty { empty("Nothing waiting for review") }
+        ForEach(waiting) { task in
+            reviewRow(task, detail: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
+                      + (task.reviews.isEmpty ? "no QA record" : "QA passed"))
+        }
+        if !flight.isEmpty {
+            group("With the agents", "\(flight.count)")
+            ForEach(flight) { task in reviewRow(task, detail: task.status.isEmpty ? "queued" : task.status) }
+        }
         let added = changes.reduce(0) { $0 + $1.added }
         let removed = changes.reduce(0) { $0 + $1.removed }
-        group("Handover")
-        // The way back to what the batch did, from whichever file you wandered into.
+        group("Working tree", "+\(added) −\(removed)")
         row(Tag.review(project)) {
             HStack(spacing: 9) {
-                Image(systemName: "checkmark.seal").font(.system(size: 12))
-                    .foregroundStyle(Theme.green)
-                Text("Summary and commit").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                Image(systemName: summary.unclaimed.isEmpty ? "doc.on.doc" : "questionmark.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(summary.unclaimed.isEmpty ? Theme.tx3 : Theme.amber)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("All changes").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                    Text(summary.unclaimed.isEmpty ? "\(changes.count) files"
+                         : "\(summary.unclaimed.count) not claimed by a task")
+                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                }
                 Spacer(minLength: 0)
             }
         }
-        group("Files", "+\(added) −\(removed)")
-        if changes.isEmpty { empty("Nothing changed since HEAD") }
-        ForEach(changes) { change in
-            row(Tag.review(project) + ":" + change.path) {
-                HStack(spacing: 9) {
-                    Image(systemName: change.untracked ? "doc.badge.plus" : "doc.text")
-                        .font(.system(size: 12))
-                        .foregroundStyle(change.untracked ? Theme.green : Theme.tx3)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(change.name).font(Typo.mono(11)).foregroundStyle(Theme.tx).lineLimit(1)
-                        Text(change.directory).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
-                            .lineLimit(1).truncationMode(.head)
-                    }
-                    Spacer(minLength: 6)
-                    Text("+\(change.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
-                    Text("−\(change.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+    }
+
+    private func reviewRow(_ task: SummaryTask, detail: String) -> some View {
+        row(Tag.reviewTask(project, task.id)) {
+            HStack(alignment: .top, spacing: 10) {
+                NotebookStyle.statusRing(task.status, progress: 0, size: 14).padding(.top, 2)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(task.title).font(Typo.text(12.5))
+                        .foregroundStyle(selection == Tag.reviewTask(project, task.id) ? Theme.tx : Theme.tx2)
+                        .lineLimit(2).multilineTextAlignment(.leading)
+                    Text(detail).font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if !task.files.isEmpty {
+                    Text("+\(task.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                }
+                if task.done && !task.files.isEmpty {
+                    StateDot(color: Theme.green, live: true).padding(.top, 5).help("Waiting for your review")
                 }
             }
         }

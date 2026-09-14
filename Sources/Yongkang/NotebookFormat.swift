@@ -276,6 +276,14 @@ enum NotebookFormat {
         return agent.skill("engineering-lead", arguments: batch)
     }
 
+    /// A change request with no lead left to type it into: a fresh lead gets the task and
+    /// the user's comments together, and the skill tells it to read the earlier records.
+    static func changeRequestPrompt(task: NotebookCard, message: String, sessionID: UUID,
+                                     agent: AgentKind) -> String {
+        agent.skill("engineering-lead", arguments: "Session id: \(sessionID.uuidString.lowercased())\n"
+                    + "\(taskList([task]))\n\n\(message)")
+    }
+
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.
     static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
         engineeringPrompt(tasks: tasks, sessionID: sessionID, agent: agent)

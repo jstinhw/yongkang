@@ -30,6 +30,9 @@ struct YongkangApp: App {
     /// What the agents changed on disk, read from git. Only refreshed while a screen that
     /// shows it is open — a repo-wide diff every two seconds would be rude.
     @State private var changes: [FileChange] = []
+    /// What the user has written about each task under review, by task id, until they send
+    /// it or approve. Lives here rather than in the page so leaving for a diff keeps it.
+    @State private var reviewDrafts: [String: ReviewDraft] = [:]
     @State private var head: String?
     @State private var branch: String?
     @State private var ticks = 0
@@ -255,7 +258,8 @@ struct YongkangApp: App {
         if project.sessions.contains(where: { !$0.activeSubagents.isEmpty }) {
             badges[.agents] = Theme.accent
         }
-        if !changes.isEmpty { badges[.review] = Theme.green }
+        // Lit for work waiting on the user's approval, not for any edit in the tree.
+        if !ChangeSummary.of(project, changes: changes).waiting.isEmpty { badges[.review] = Theme.green }
         return badges
     }
 
@@ -457,12 +461,27 @@ struct YongkangApp: App {
                 resolve: { Blocks.resolve(block); reload() }
             )
             .id(block.id)
-        } else if reviewPath(project) != nil {
+        } else if let task = reviewedTask(in: project) {
+            TaskReview(task: task, summary: ChangeSummary.of(project, changes: changes),
+                       directory: project.directory, cards: project.cards, team: project.team,
+                       branch: branch, head: head, draft: draft(for: task.id),
+                       openFile: { selection = Tag.review(project) + ":" + $0 },
+                       approve: { approve(task, message: $0, in: project) },
+                       requestChanges: { requestChanges(on: task, in: project) })
+                .id(task.id)
+        } else if let path = reviewPath(project) {
+            let summary = ChangeSummary.of(project, changes: changes)
+            // A file a task's worker claimed is reviewed as part of that task: comments on
+            // its lines join that task's feedback, and the bar is that task's decision.
+            let owner = path.isEmpty ? nil : summary.tasks.first { $0.files.contains { $0.path == path } }
             ChangeReview(project: project, changes: changes, head: head, branch: branch,
-                         path: reviewPath(project) ?? "",
-                         summary: ChangeSummary.of(project, changes: changes),
+                         path: path, summary: summary,
                          select: { selection = Tag.review(project) + ":" + $0 },
-                         commit: { commit($0, in: project) })
+                         commit: { commit($0, in: project) },
+                         task: owner, draft: draft(for: owner?.id ?? ""),
+                         openTask: { selection = Tag.reviewTask(project, $0) },
+                         approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
+                         requestChanges: { if let owner { requestChanges(on: owner, in: project) } })
         } else if let step = previewStep(in: project) {
             ProjectPreview(repo: step.repo, services: step.services,
                            run: { runServices([step], in: project) })
@@ -546,9 +565,9 @@ struct YongkangApp: App {
             }
         case .review:
             refreshChanges(force: true)
-            // The summary, not the first file: what the batch did is the thing to read
-            // before any of the diff means anything.
-            selection = Tag.review(project)
+            // A task, not a file: what the agents did is the thing to read before any of
+            // the diff means anything.
+            selection = firstReview(in: project)
         case .blocks:
             selection = (project.blocks.first(where: \.waiting)
                          ?? (showDone ? project.blocks.first : nil))
@@ -1012,6 +1031,10 @@ struct YongkangApp: App {
             let team = Team.load(root: projects[index].notebookRoot)
             if team != projects[index].team { projects[index].team = team }
             if projects[index].id == entered {
+                let records = LeadCoordination.all(root: projects[index].notebookRoot)
+                if records != projects[index].records { projects[index].records = records }
+            }
+            if projects[index].id == entered {
                 showFinishedWork(in: projects[index])
                 deliverUnblocks(in: projects[index])
             }
@@ -1052,15 +1075,75 @@ struct YongkangApp: App {
         guard let seen, !done.subtracting(seen).isEmpty,
               selectedSession(in: project) == nil else { return }
         section = .review
-        selection = Tag.review(project)
         refreshChanges(force: true)
+        selection = firstReview(in: project)
+    }
+
+    /// The task page to land on: the first one waiting for approval, or the whole working
+    /// tree when nothing is.
+    private func firstReview(in project: Project) -> String {
+        ChangeSummary.of(project, changes: changes).waiting.first
+            .map { Tag.reviewTask(project, $0.id) } ?? Tag.review(project)
+    }
+
+    private func reviewedTask(in project: Project) -> SummaryTask? {
+        let prefix = "review-task:\(project.id.uuidString):"
+        guard let selection, selection.hasPrefix(prefix) else { return nil }
+        let id = String(selection.dropFirst(prefix.count))
+        return ChangeSummary.of(project, changes: changes).tasks.first { $0.id == id }
+    }
+
+    private func draft(for taskID: String) -> Binding<ReviewDraft> {
+        Binding(get: { reviewDrafts[taskID] ?? ReviewDraft() },
+                set: { reviewDrafts[taskID] = $0 == ReviewDraft() ? nil : $0 })
+    }
+
+    /// Approving is committing: only this task's files and its records, then on to the
+    /// next task waiting. Nothing is sent to the lead — it already marked the task done.
+    private func approve(_ task: SummaryTask, message: String, in project: Project) -> String? {
+        let failure = GitChanges.commit(message: message, paths: task.commitPaths, in: project.directory)
+        refreshChanges(force: true)
+        guard failure == nil else { return failure }
+        reviewDrafts[task.id] = nil
+        selection = firstReview(in: project)
+        return nil
+    }
+
+    /// Sending a task back goes to the lead that holds it, typed into its terminal like any
+    /// follow-up; with no lead running, a fresh one starts with the task and the comments.
+    private func requestChanges(on task: SummaryTask, in project: Project) {
+        guard let draft = reviewDrafts[task.id], !draft.isEmpty else { return }
+        let message = draft.message(taskID: task.id, title: task.title)
+        let leads = project.sessions.filter { $0.isEngineeringLead && !$0.exited }
+        if let lead = leads.first(where: { $0.taskIDs.contains(task.id) }) ?? leads.first {
+            if !lead.taskIDs.contains(task.id) { appendTaskIDs([task.id], to: lead, in: project) }
+            reviewDrafts[task.id] = nil
+            section = .agents
+            pendingInput[lead.id] = message
+            selection = Tag.transcript(lead.id)
+            return
+        }
+        guard let card = project.cards.first(where: { $0.id == task.id }) else { return }
+        reviewDrafts[task.id] = nil
+        section = .agents
+        let id = UUID()
+        addSession(agent, id: id, to: project,
+                   prompt: NotebookFormat.changeRequestPrompt(task: card, message: message, sessionID: id, agent: agent),
+                   title: "Engineering Lead", taskIDs: [task.id])
     }
 
     /// git is only asked while a screen that shows its answer is open, and then only every
     /// third tick — a repo-wide diff twice a second is a cost with no reader.
     private func refreshChanges(force: Bool = false) {
-        guard let project = enteredProject, section == .review || section == .overview else { return }
+        // Every section, not only Review: the rail's light says work is waiting for approval,
+        // and it has to come on while you are looking at the board.
+        guard let project = enteredProject else { return }
         guard force || ticks % 3 == 0 else { return }
+        // A project the agents work in needs a repository: without one there is no diff to
+        // review and nowhere for an approval to commit. Created, never committed to.
+        if project.hasNotebook && !GitChanges.isRepository(project.directory) {
+            _ = GitChanges.initialize(in: project.directory)
+        }
         let fresh = GitChanges.changes(in: project.directory)
         if fresh != changes { changes = fresh }
         head = GitChanges.head(in: project.directory)
@@ -1138,7 +1221,8 @@ struct YongkangApp: App {
         addSession(id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
                    line: AgentCommand.line(directory: project.directory.path,
                                            agent: agent, prompt: prompt, sessionID: id,
-                                           brief: title?.hasPrefix("Engineering Lead") == true),
+                                           brief: title?.hasPrefix("Engineering Lead") == true,
+                                           noCommit: title?.hasPrefix("Engineering Lead") == true),
                    agent: agent, taskIDs: taskIDs)
     }
 

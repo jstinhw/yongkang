@@ -150,7 +150,9 @@ The lead adjusts concurrency to the runtime's free slots and the work that is re
 Every worker reports to the lead at start, milestones, blockers and completion. A
 returned build enters `review`; independent QA accepts it or sends reproductions back
 to its owner. Only integrated work that meets the parent task's full acceptance criteria
-makes that task `done`. The lead opens the batch PR after QA; merging stays yours.
+makes that task `done`. Nobody in the batch commits, pushes, branches or opens a PR —
+the work waits uncommitted for you in `Review`, and a lead session is refused those
+commands outright (`--disallowedTools` for Claude Code, `--deny` for Grok).
 
 ```mermaid
 flowchart TD
@@ -166,7 +168,7 @@ flowchart TD
     H -->|Fail| J[Return reproductions to owner]
     J --> D
     I -->|More work| D
-    I -->|All parent criteria met| K[Task done, batch PR and handoff]
+    I -->|All parent criteria met| K[Task done, waits uncommitted for your review]
     E -->|User gate| L[SRE block, FDE assistance]
     L -->|Resolved| D
     G --> M[Check estimates, live status and context]
@@ -263,32 +265,51 @@ where skills live and what a roster file has to say.
 
 ## Review
 
-`Review` reads what the agents changed, as a diff, without leaving the window: the files
-against `HEAD` in the list column, a unified diff in the middle, and the branch, commit
-and per-file stats in the inspector. It shells out to `git` in the project folder, so it
-can never disagree with the terminal sitting next to it.
+No agent commits. A task QA passed waits in `Review` with its work uncommitted, and you
+decide: approve it, which commits it, or send it back with what to change. The rail's
+Review icon lights green while anything is waiting, and so does each waiting task's row.
 
-It opens on the handover rather than on a file, and the handover is per task rather than
-one pile of files: each task the batch was given, the specialists that built it as a row
-of who ran in what order, what each one reported back, QA's verdict underneath the build
-it accepted, and that task's own diff as one bar per file it changed. Bars share one scale
-across the screen, so a big task looks bigger. Files no task claimed — your own edits, or
-a lead that recorded none — are listed at the end under **Not claimed by a task**, because
-they are going into the commit too. The lead's own sentence about how it split the work
-and every checkpointed decision are quoted under **Design decisions**.
+A project with a notebook that is not a git repository is made one (`git init`) the first
+time Review looks at it — there is no diff and nowhere to commit without one. Nothing is
+staged or committed by that.
+
+The list column is tasks, not files: **Waiting for you** (done, work still uncommitted),
+**With the agents** (still being built or checked), and **All changes** for the whole
+working tree, including edits no task claims.
+
+A task opens on what most reviews need, not on code:
+
+- **The task** — its brief and `Done when`, read from the task file.
+- **Reviewer** — QA's verdict, as pass or fail, with the `## Result` it wrote: the
+  commands it ran, what they said, and what it could not exercise.
+- **What the agents did** — each specialist in its own words (`## Result`, or its report),
+  with model, time and the files it owned. A later attempt shows the comments it was
+  answering under **You asked**.
+- **Changes by area** — the task's files grouped as Database, API & services, Frontend,
+  Tests, Config, each with the lines it added and removed. The area is worked out by the
+  app from the path, SQL in the diff, and the owning worker's skill, so a data layer that
+  writes SQL is flagged as Database even with no migration folder.
+
+A file opens its diff on its own page. Click any line to leave a comment on it; comments and a note for
+anything that is not about one line collect under **Feedback for the agents** until you
+send them. The inspector carries the verdict, the areas, what the commit will hold, and a
+warning when a file is also changed by another task still waiting.
+
+The bar at the bottom is the decision, on the task page and on its diffs alike:
+
+- **Approve and commit** stages and commits only this task's files and its run records —
+  whatever else is in the tree or the index is left as it was. Nothing is pushed.
+- **Request changes** types `Changes requested on <task-id>`, your note and every line
+  comment (`path:line`, with the code it is about) into the lead holding the task. With no
+  lead running, a new one starts with the task and the comments. The lead sends each
+  comment to the owner of that file as a new attempt, reruns QA, and the task comes back
+  to **Waiting for you**.
 
 None of it is written for this screen; it is the run records in `.notebook/runs/`, where
-`paths` on each work record is what attributes a file to a task, so the summary can never
-claim work the notebook does not show. A bar, or a file in the list, opens that diff;
-`Summary and commit` goes back.
-
-A task turning `done` opens this screen by itself, unless a terminal is up — that pane has
-the keyboard, and taking it away would drop your next keystrokes into an agent you can no
-longer see.
-
-Along the bottom is the commit line, prefilled with the tasks that passed QA and yours to
-edit. It stages everything and commits, and that is the only write this app makes to your
-repo. Pushing and merging stay yours — the lead stops at the PR.
+`paths` on each work record is what attributes a file to a task. They are read from disk,
+not from the sessions open now, so work stays waiting for review after a relaunch or after
+its lead is closed. A task turning `done`
+opens its review by itself, unless a terminal is up — that pane has the keyboard.
 
 ## Blocks
 

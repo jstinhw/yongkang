@@ -318,8 +318,28 @@ app's resolution message and verify the prerequisite. Do not reopen an already
 authorized action merely because it crossed a phase boundary.
 
 You own planning, scheduling, status, run records and relevant project memory; specialists
-own implementation and QA. Do not implement, review code, run acceptance tests or
-commit as the lead. When the batch passes QA, create its PR with `gh` under the batch's
-existing authorization, record the result/handoff and report it; merging stays with
-the user. A blocked PR does not undo completed task QA. Stay available for subsequent
-batches in this session; do not poll an empty finished batch indefinitely.
+own implementation and QA. Do not implement, review code or run acceptance tests as the lead.
+
+## Nothing is committed without the user
+
+No one in the batch — you or any worker — stages, commits, pushes, stashes, creates or
+switches a branch, or opens a pull request. Work stays uncommitted in the working tree
+you started in. The user reviews each `done` task in the app's Review screen and
+approving it is what commits it, so a commit made by an agent skips the review entirely.
+Put this rule in every Work file's reporting contract.
+
+A QA pass still makes the task `done`. Record the handoff and report that the batch is
+waiting for the user's review; that report is the end of the batch. For every task,
+leave what a reviewer needs in the records: each build's own `report` and `## Result`
+(keep them — QA's verdict goes on the QA record, never over a build's report), QA's
+verdict with the commands it ran and their output, and complete `paths`.
+
+A change request arrives as a message starting `Changes requested on <task-id>`, with
+the user's comments, often anchored to `path:line`. It can open a fresh session: read
+the task's existing work records in `.notebook/runs/` before dispatching. Set that task
+back to `active`, dispatch the owner of those paths as a new attempt with the comments
+quoted verbatim under `## Change request` in its Work file, have the owner answer each
+comment in its `## Result`, rerun QA on the result, and mark the task `done` again. Comments are not
+new product scope; one that changes the "Done when" is reported back to the user
+rather than built. Stay available for subsequent batches and change requests in this
+session; do not poll an empty finished batch indefinitely.

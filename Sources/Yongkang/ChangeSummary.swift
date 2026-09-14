@@ -34,11 +34,17 @@ struct ChangeSummary: Equatable {
     static func of(_ project: Project, changes: [FileChange] = []) -> ChangeSummary {
         var work: [String: [LeadWork]] = [:]
         var strategies: [String] = []
-        for session in project.sessions {
-            guard let coordination = session.coordination else { continue }
+        for (_, coordination) in plans(of: project) {
             let strategy = coordination.strategy.trimmingCharacters(in: .whitespacesAndNewlines)
             if !strategy.isEmpty && !strategies.contains(strategy) { strategies.append(strategy) }
             for worker in coordination.workers { work[worker.taskID, default: []].append(worker) }
+        }
+        // Attempts in the order they ran, across leads, so the last QA pass is the verdict.
+        work = work.mapValues { attempts in
+            attempts.enumerated().sorted { a, b in
+                let (left, right) = (a.element.startedAt ?? .distantFuture, b.element.startedAt ?? .distantFuture)
+                return left == right ? a.offset < b.offset : left < right
+            }.map(\.element)
         }
         let handed = Set(work.keys).union(project.sessions.flatMap(\.taskIDs))
         let byPath = Dictionary(changes.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
@@ -55,13 +61,43 @@ struct ChangeSummary: Equatable {
                     files.append(file)
                     claimed.insert(path)
                 }
-                return SummaryTask(id: card.id, title: card.title, status: card.status,
-                                   work: workers, files: files)
+                // The records this task's workers wrote go in with its code, so the commit
+                // carries the reason for itself. A path git does not list is left out.
+                let records = ([card.url] + plans(of: project).flatMap { session, plan in
+                    plan.workers.filter { $0.taskID == card.id }.map {
+                        project.notebookRoot.appendingPathComponent("runs")
+                            .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
+                    }
+                }).compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
+                return SummaryTask(id: card.id, title: card.title, status: card.status, url: card.url,
+                                   work: workers, files: files, records: records)
             }
         return ChangeSummary(tasks: tasks.filter(\.done) + tasks.filter { !$0.done },
                              strategies: strategies,
                              unclaimed: changes.filter { !claimed.contains($0.path) },
                              peak: max(1, changes.map { $0.added + $0.removed }.max() ?? 1))
+    }
+
+    /// Finished tasks whose work is still uncommitted — what is waiting on the user.
+    var waiting: [SummaryTask] { tasks.filter { $0.done && !$0.files.isEmpty } }
+
+    /// Another task that changed the same file, which approving this one would carry along.
+    func sharing(_ path: String, besides task: SummaryTask) -> SummaryTask? {
+        tasks.first { $0.id != task.id && !$0.commitPaths.isEmpty && $0.files.contains { $0.path == path } }
+    }
+
+    /// The records on disk, with a live session's own copy in place of its disk one — the
+    /// live copy knows whether a worker is still running.
+    static func plans(of project: Project) -> [(UUID, LeadCoordination)] {
+        var plans = project.records
+        for session in project.sessions { if let live = session.coordination { plans[session.id] = live } }
+        return plans.sorted { $0.key.uuidString < $1.key.uuidString }.map { ($0.key, $0.value) }
+    }
+
+    private static func relative(_ url: URL, in directory: URL) -> String? {
+        let base = directory.standardizedFileURL.path + "/"
+        let path = url.standardizedFileURL.path
+        return path.hasPrefix(base) ? String(path.dropFirst(base.count)) : nil
     }
 
     /// A commit subject to edit instead of type. Only finished tasks go in it: naming work
@@ -79,9 +115,16 @@ struct SummaryTask: Identifiable, Equatable {
     let id: String
     var title: String
     var status: String
+    /// The task file, whose body is the brief and the "Done when" the review opens on.
+    var url: URL? = nil
     var work: [LeadWork] = []
     /// The changed files this task's workers reported owning, in the order they named them.
     var files: [FileChange] = []
+    /// Changed notebook files that belong to this task: its own file and its work records.
+    var records: [String] = []
+
+    /// What approving this task commits: its code and its records, nothing else.
+    var commitPaths: [String] { files.map(\.path) + records.filter { path in !files.contains { $0.path == path } } }
 
     var done: Bool { status == "done" }
     var added: Int { files.reduce(0) { $0 + $1.added } }

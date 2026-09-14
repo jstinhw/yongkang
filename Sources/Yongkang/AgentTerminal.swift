@@ -86,17 +86,32 @@ enum AgentCommand {
     /// its rollout can be found later. Agy has neither and starts prompted sessions with
     /// `--prompt-interactive`.
     static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
-                     brief: Bool = false) -> String {
+                     brief: Bool = false, noCommit: Bool = false) -> String {
         let briefFlag = agent == .claude && brief ? "--brief " : ""
         let sessionFlag = agent == .claude || agent == .grok
             ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
-        let command = "\(agent.command) \(briefFlag)\(sessionFlag)".trimmingCharacters(in: .whitespaces)
+        let command = "\(agent.command) \(briefFlag)\(noCommit ? denyCommits(agent) : "")\(sessionFlag)"
+            .trimmingCharacters(in: .whitespaces)
         let opening = agent == .codex
             ? prompt.flatMap { text in sessionID.map { "\(text)\n\n\(marker($0))" } } ?? prompt
             : prompt
         let promptFlag = agent == .agy && opening != nil ? " --prompt-interactive" : ""
         let start = opening.map { "exec \(command)\(promptFlag) \(quoted($0))" } ?? "exec \(command)"
         return "cd \(quoted(directory)) && \(start)"
+    }
+
+    /// Commits are the user's, made from the Review screen once they approve the work, so a
+    /// lead session and its subagents are refused them outright rather than only asked in
+    /// the skill. `=` keeps Claude's variadic flag from swallowing the prompt after it.
+    /// ponytail: prefix rules, so `git -C . commit` slips past; the skill text covers that,
+    /// and Codex and Agy have no deny flag at all.
+    static func denyCommits(_ agent: AgentKind) -> String {
+        let rules = ["Bash(git commit:*)", "Bash(git push:*)", "Bash(gh pr create:*)"]
+        switch agent {
+        case .claude: return "--disallowedTools=\(quoted(rules.joined(separator: ","))) "
+        case .grok: return rules.map { "--deny \(quoted($0)) " }.joined()
+        default: return ""
+        }
     }
 
     /// Codex picks its own thread id, so `--session-id` has nothing to set on it: the only

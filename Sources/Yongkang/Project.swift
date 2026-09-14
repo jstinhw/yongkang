@@ -14,6 +14,9 @@ struct Project: Identifiable, Equatable {
     /// until that folder exists). Read the same way — the folder tree is the state.
     var team: [TeamMember] = Team.defaults
     var sessions: [CodeSession] = []
+    /// Every lead's run records on disk, by session id — including leads that are closed or
+    /// ran before a relaunch, whose finished work may still be waiting for review.
+    var records: [UUID: LeadCoordination] = [:]
 
     var onlineAgentCount: Int {
         sessions.filter { $0.agent != nil }.reduce(0) {

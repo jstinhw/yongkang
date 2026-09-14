@@ -205,6 +205,15 @@ enum NotebookSelfTest {
                                        brief: true)
                      == "cd '/a' && exec claude --brief --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
                      "engineering leads can notify the user without changing ordinary sessions")
+        precondition(AgentCommand.line(directory: "/a", agent: .grok, prompt: "lead", sessionID: sid,
+                                       noCommit: true)
+                     == "cd '/a' && exec grok --deny 'Bash(git commit:*)' --deny 'Bash(git push:*)' "
+                     + "--deny 'Bash(gh pr create:*)' --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
+                     "a lead cannot commit — approving in Review is what commits")
+        precondition(AgentCommand.line(directory: "/a", agent: .claude, prompt: "lead", noCommit: true)
+                     == "cd '/a' && exec claude --disallowedTools='Bash(git commit:*),Bash(git push:*),"
+                     + "Bash(gh pr create:*)' 'lead'",
+                     "the = form, or the variadic flag eats the prompt as a tool name")
         let codexLine = AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: sid)
         precondition(codexLine.hasPrefix("cd '/a' && exec codex 'hi"),
                      "codex never understands --session-id, so the flag is never passed")
@@ -1339,6 +1348,23 @@ enum NotebookSelfTest {
         precondition(ChangeSummary.of(project).commitMessage
                      == "Finish 2 tasks: Wire auth, Read blockers",
                      "with nothing in flight the notebook's own order stands")
+        project.cards[0] = NotebookCard(id: "wire-auth", url: tmp, kind: .task, title: "Wire auth",
+                                        status: "active", project: "launch", dependsOn: [])
+        precondition(summary.waiting.map(\.id) == ["read-blockers"],
+                     "only a finished task with uncommitted work waits on the user")
+        precondition(summary.tasks[0].commitPaths == ["Sources/Loader.swift", "Tests/Loader.swift"],
+                     "approving a task commits its own files, never the whole tree")
+        precondition(summary.sharing("Sources/Loader.swift", besides: summary.tasks[0]) == nil)
+        var relaunched = project
+        relaunched.sessions = []
+        relaunched.records = [lead.id: lead.coordination!]
+        precondition(ChangeSummary.of(relaunched, changes: tree).waiting.map(\.id) == ["read-blockers"],
+                     "records on disk keep work waiting for review after its lead session is gone")
+        reviewAreas()
+        precondition(LeadCoordination.section("Result", of: "---\nkind: run\n---\n# W\n\n## Done when\n\n- a\n\n"
+                                              + "## Result\n\nVerdict **pass**.\n\n`tsc` exit 0\n\n## Later\n\nx")
+                     == "Verdict **pass**.\n\n`tsc` exit 0",
+                     "a work record's Result is its own section and stops at the next heading")
 
         // The commit itself, against a real repo: this is the app's only write to one.
         let repo = tmp.appendingPathComponent("repo")
@@ -1364,6 +1390,54 @@ enum NotebookSelfTest {
         precondition(GitChanges.head(in: repo)?.hasSuffix("Add one file") == true)
         precondition(GitChanges.commit(message: "Again", in: repo) != nil,
                      "an empty commit reports git's own refusal rather than claiming success")
+        for name in ["mine.txt", "theirs.txt"] {
+            try! "x\n".write(to: repo.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        precondition(GitChanges.commit(message: "Nothing", paths: [], in: repo) != nil,
+                     "a task with no files left is refused rather than committing everything")
+        precondition(GitChanges.commit(message: "Approve mine", paths: ["mine.txt"], in: repo) == nil)
+        let fresh = tmp.appendingPathComponent("fresh")
+        try! FileManager.default.createDirectory(at: fresh, withIntermediateDirectories: true)
+        try! "x\n".write(to: fresh.appendingPathComponent("task.txt"), atomically: true, encoding: .utf8)
+        precondition(!GitChanges.isRepository(fresh) && GitChanges.initialize(in: fresh) == nil
+                     && GitChanges.isRepository(fresh), "a folder the agents work in becomes a repository")
+        precondition(GitChanges.changes(in: fresh).map(\.path) == ["task.txt"] && GitChanges.head(in: fresh) == nil,
+                     "created, not committed: everything is still waiting for review")
+        precondition(GitChanges.branch(in: fresh) != nil, "a repository with no commit still names its branch")
+        precondition(GitChanges.changes(in: repo).map(\.path) == ["theirs.txt"],
+                     "approving one task leaves every other task's files uncommitted")
+    }
+
+    /// A file's area is worked out, not declared, and the message that sends a task back
+    /// opens with the words the lead skill listens for.
+    private static func reviewAreas() {
+        precondition(ReviewArea.of("db/migrations/0003_groups.sql") == .database)
+        precondition(ReviewArea.of("prisma/schema.prisma") == .database)
+        precondition(ReviewArea.of("app/actions.ts") == .api)
+        precondition(ReviewArea.of("src/api/orders.ts") == .api)
+        precondition(ReviewArea.of("app/rename-task-group-form.tsx") == .frontend)
+        precondition(ReviewArea.of("app/task-list.test.ts") == .tests, "a test is a test before it is frontend")
+        precondition(ReviewArea.of("Sources/Yongkang/NotebookSelfTest.swift") == .tests)
+        precondition(ReviewArea.of("package.json") == .config && ReviewArea.of(".github/workflows/ci.yml") == .config)
+        precondition(ReviewArea.of(".notebook/runs/a-work-b.md") == .notebook)
+        precondition(ReviewArea.of("Sources/Yongkang/App.swift", skill: "frontend-dev") == .frontend,
+                     "a layout the rules do not know falls back to the worker who owned it")
+        precondition(ReviewArea.of("lib/task-groups.ts") == .other)
+        let sql = [DiffLine(kind: .add, old: "", new: "12", text: "      `update todo_groups"),
+                   DiffLine(kind: .add, old: "", new: "13", text: "          set title = $1")]
+        precondition(ReviewArea.of("lib/task-groups.ts", skill: "backend-dev", diff: sql) == .database,
+                     "SQL written into the change flags the database even with no migration folder")
+        precondition(!ReviewArea.touchesSQL([DiffLine(kind: .context, old: "1", new: "1", text: "select * from t")]),
+                     "only changed lines count, not the context around them")
+
+        var draft = ReviewDraft(note: "   ")
+        precondition(draft.isEmpty, "a blank note is nothing to send")
+        draft.comments.append(ReviewComment(path: "app/remove.tsx", line: "27", code: "  {pending}  ", text: "Ask first. "))
+        let message = draft.message(taskID: "manage-task-group", title: "Rename or remove a task group")
+        precondition(message.hasPrefix("Changes requested on manage-task-group"),
+                     "the lead skill routes on this exact opening")
+        precondition(message.contains("- app/remove.tsx:27 — Ask first.\n  > {pending}"))
+        precondition(message.contains("Do not commit."))
     }
 
     /// A lead's durable plan and each runtime observation must stay correctly scoped.
@@ -1474,6 +1548,12 @@ enum NotebookSelfTest {
                      "a queued reuse cannot claim previous usage or show the contract as a result")
         precondition(LeadCoordination.load(root: root, session: session) == plan,
                      "the next poll neither double-counts usage nor changes finished work")
+        let disk = LeadCoordination.all(root: root)
+        precondition(Array(disk.keys) == [id] && disk[id]?.strategy == plan.strategy,
+                     "records are read from disk with no live session; a mislabelled one is still refused")
+        precondition(disk[id]?.workers.first { $0.id == "auth-api" }?.measuredTokens == nil
+                     && disk[id]?.workers.contains { $0.id == "wrong-task" } == true,
+                     "without a session there is no runtime to observe and no batch to filter by")
         precondition(LeadWork(id: "auth-api").subagent(in: session)?.id == worker.id)
         precondition(LeadWork(id: "auth").subagent(in: session) == nil,
                      "a task substring must not claim a sibling worker's transcript")

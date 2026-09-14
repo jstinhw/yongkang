@@ -1,8 +1,7 @@
 import SwiftUI
 
 /// What the agents actually changed, as a diff you can read without leaving the console.
-/// The lead stops at the PR by design, so this is the last thing between an agent's work
-/// and your merge — the one screen the old window had no answer for at all.
+/// No agent commits, so this is the last thing between an agent's work and the repo — the one screen the old window had no answer for at all.
 struct ChangeReview: View {
     let project: Project
     let changes: [FileChange]
@@ -16,6 +15,13 @@ struct ChangeReview: View {
     let select: (String) -> Void
     /// Stages everything and commits. Returns git's own words on failure, nil on success.
     let commit: (String) -> String?
+    /// The task whose worker claimed this file. With one, a line can be commented on and the
+    /// bar is that task's approve-or-send-back; without, it is the plain commit of everything.
+    var task: SummaryTask? = nil
+    var draft: Binding<ReviewDraft> = .constant(ReviewDraft())
+    var openTask: (String) -> Void = { _ in }
+    var approve: (String) -> String? = { _ in nil }
+    var requestChanges: () -> Void = {}
 
     @State private var lines: [DiffLine] = []
     /// Prefilled from the batch and replaced as tasks finish — until you start typing,
@@ -43,7 +49,11 @@ struct ChangeReview: View {
                 .background(Theme.bg)
                 inspector
             }
-            commitBar
+            if let task {
+                TaskReviewBar(task: task, draft: draft.wrappedValue, approve: approve, requestChanges: requestChanges)
+            } else {
+                commitBar
+            }
         }
         .task(id: path) { load() }
         .task(id: summary.commitMessage) {
@@ -95,6 +105,13 @@ struct ChangeReview: View {
 
     private func fileHeader(_ change: FileChange) -> some View {
         HStack(spacing: 10) {
+            if let task {
+                Button { openTask(task.id) } label: {
+                    Label(task.title, systemImage: "chevron.left").lineLimit(1)
+                }
+                .buttonStyle(.consoleGhost)
+                .help("Back to the task")
+            }
             Image(systemName: change.untracked ? "doc.badge.plus" : "doc.text")
                 .font(.system(size: 12))
                 .foregroundStyle(change.untracked ? Theme.green : Theme.tx3)
@@ -116,45 +133,18 @@ struct ChangeReview: View {
     private var diff: some View {
         ScrollView(.vertical) {
             ScrollView(.horizontal) {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(lines) { row($0) }
-                }
-                .padding(.vertical, 6)
+                DiffLines(path: path, lines: lines, draft: task == nil ? nil : draft)
+                    .padding(.vertical, 6)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func row(_ line: DiffLine) -> some View {
-        let ink: Color
-        let wash: Color
-        switch line.kind {
-        case .add: ink = Color(hex: 0xB6EBD5); wash = Theme.green.opacity(0.07)
-        case .remove: ink = Color(hex: 0xF1BDBD); wash = Theme.red.opacity(0.07)
-        case .hunk: ink = Color(hex: 0x5F9FE0); wash = Theme.accent.opacity(0.06)
-        case .context: ink = Color(hex: 0x8C97A6); wash = .clear
-        }
-        let sign = line.kind == .add ? "+" : (line.kind == .remove ? "−" : " ")
-        return HStack(spacing: 0) {
-            Text(line.old).frame(width: 44, alignment: .trailing)
-                .foregroundStyle(Theme.tx4).padding(.trailing, 10)
-            Text(line.new).frame(width: 44, alignment: .trailing)
-                .foregroundStyle(Theme.tx4).padding(.trailing, 12)
-            Text(sign).frame(width: 12, alignment: .leading).foregroundStyle(ink)
-            Text(line.text).foregroundStyle(ink).fixedSize(horizontal: true, vertical: false)
-            Spacer(minLength: 0)
-        }
-        .font(Typo.mono(11))
-        .frame(height: 19)
-        .padding(.horizontal, 8)
-        .background(wash)
     }
 
     private var empty: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.seal").font(.system(size: 24)).foregroundStyle(Theme.tx4)
             Text(changes.isEmpty ? "Nothing changed since the last commit."
-                                 : "Pick a file to read its diff.")
+                                 : "This file is no longer changed — committed, or reverted.")
                 .font(Typo.text(13)).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -189,9 +179,30 @@ struct ChangeReview: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface(padding: 15)
 
+            if let task, !draft.wrappedValue.comments.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel("Your comments", trailing: "\(draft.wrappedValue.comments.count)")
+                    ForEach(draft.wrappedValue.comments) { saved in
+                        Button { select(saved.path) } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("\(saved.path):\(saved.line)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                                    .lineLimit(1).truncationMode(.head)
+                                Text(saved.text).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).lineLimit(2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cardSurface(radius: 9, padding: 9, fill: Theme.raised)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Text("Sent to the lead when you request changes on \(task.title).")
+                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
             VStack(alignment: .leading, spacing: 9) {
-                SectionLabel("By file")
-                ForEach(changes) { file in
+                SectionLabel(task == nil ? "By file" : "This task's files")
+                ForEach(task?.files ?? changes) { file in
                     Button { select(file.path) } label: {
                         HStack(spacing: 8) {
                             Text(file.name).font(Typo.mono(10.5))
@@ -209,8 +220,8 @@ struct ChangeReview: View {
 
             Spacer(minLength: 0)
 
-            Text("QA passes a task before the lead marks it done; the lead opens the PR and "
-                 + "stops. Merging is yours.")
+            Text(task == nil ? "No agent commits, pushes or opens a PR — committing here is your approval."
+                             : "Click a line to comment on it. Nothing is sent until you request changes.")
                 .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineSpacing(2)
         }
     }

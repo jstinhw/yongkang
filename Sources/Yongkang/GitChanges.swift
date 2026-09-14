@@ -29,8 +29,8 @@ struct DiffLine: Identifiable {
 /// command a person would type means the review pane can never disagree with the terminal
 /// sitting next to it.
 ///
-/// Everything is against `HEAD`, so a review shows the work as it stands — what a lead
-/// hands over before it opens a PR, which is the moment this pane exists for.
+/// Everything is against `HEAD`, so a review shows the work as it stands — uncommitted,
+/// because no agent commits, which is the moment this pane exists for.
 enum GitChanges {
 
     static func changes(in directory: URL) -> [FileChange] {
@@ -89,25 +89,40 @@ enum GitChanges {
 
     static func branch(in directory: URL) -> String? {
         guard isRepository(directory) else { return nil }
-        let text = run(["rev-parse", "--abbrev-ref", "HEAD"], in: directory)
+        // `--show-current`, not `rev-parse`: a repository the app just created has no commit
+        // yet, and only this form still names its branch.
+        let text = run(["branch", "--show-current"], in: directory)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 
-    /// Stage everything and commit — the one write this app makes to a user's repo, and
-    /// only from the button on the review screen. Returns git's own words on failure and
-    /// nil on success. Pushing and merging stay the user's.
-    static func commit(message: String, in directory: URL) -> String? {
+    /// Commit — the one write this app makes to a user's repo, and only from a button on
+    /// the review screen. With `paths` it is one approved task: only those files are staged
+    /// and committed, and whatever else sits in the index or the tree is left exactly as it
+    /// was. Without, everything. Returns git's own words on failure and nil on success.
+    /// Pushing and merging stay the user's.
+    static func commit(message: String, paths: [String]? = nil, in directory: URL) -> String? {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "A commit needs a message." }
+        guard paths?.isEmpty != true else { return "This task has no changed files left to commit." }
         guard isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
-        for arguments in [["add", "--all"], ["commit", "--message", text]] {
+        let steps = paths.map { [["add", "--"] + $0, ["commit", "--message", text, "--"] + $0] }
+            ?? [["add", "--all"], ["commit", "--message", text]]
+        for arguments in steps {
             let result = execute(arguments, in: directory)
             guard result.status != 0 else { continue }
             let said = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
             return said.isEmpty ? "git \(arguments[0]) failed (\(result.status))." : said
         }
         return nil
+    }
+
+    /// `git init`, so agents' work has a baseline to diff against and approving has somewhere
+    /// to commit. Creates the repository only — nothing is staged or committed. Returns git's
+    /// own words on failure.
+    static func initialize(in directory: URL) -> String? {
+        let result = execute(["init"], in: directory)
+        return result.status == 0 ? nil : result.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func isRepository(_ directory: URL) -> Bool {
