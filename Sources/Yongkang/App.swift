@@ -17,6 +17,7 @@ struct YongkangApp: App {
     @State private var selection: String?
     /// Text queued to be typed into a running session, keyed by session id — how a task
     /// reaches a lead that already exists instead of starting a competing one.
+    @State private var attention: [UUID: String] = [:]
     @State private var pendingInput: [UUID: String] = [:]
     /// The lines of whichever agent `selection` currently points at — a subagent, or the
     /// lead itself. Kept apart from `CodeSession.subagents`, which only ever holds each
@@ -86,6 +87,15 @@ struct YongkangApp: App {
                 terminals
                 chrome
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) { attentionNotices }
+            .onReceive(NotificationCenter.default.publisher(for: AgentNotifications.openSession)) { note in
+                guard let id = note.object as? String else { return }
+                for project in projects {
+                    if let session = project.sessions.first(where: { $0.id.uuidString == id }) {
+                        openAttention(session, in: project)
+                    }
+                }
+            }
             .preferredColorScheme(.dark)
             .frame(minWidth: 1120, minHeight: 680)
             .task { restore() }
@@ -100,6 +110,51 @@ struct YongkangApp: App {
         .windowToolbarStyle(.unified)
     }
 
+    private var attentionNotices: some View {
+        VStack(spacing: 0) {
+            ForEach(projects) { project in
+                ForEach(project.sessions.filter { attention[$0.id] != nil && !$0.exited }) { session in
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.bubble.fill").foregroundStyle(Theme.amber)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Action required · \(project.name) · \(session.title)").font(Typo.text(12, .medium))
+                            Text(attention[session.id] ?? "").font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                        }
+                        Spacer()
+                        Button("Open session") { openAttention(session, in: project) }
+                            .buttonStyle(.consolePrimary)
+                    }
+                    .padding(14)
+                    .background(Theme.panel)
+                }
+            }
+        }
+    }
+
+    private func attentionChanged(_ reason: String?, session: CodeSession, project: Project) {
+        if reason != nil {
+            guard projects.contains(where: { $0.id == project.id && $0.sessions.contains(where: {
+                $0.id == session.id && !$0.exited
+            }) }) else { return }
+        }
+        guard attention[session.id] != reason else { return }
+        attention[session.id] = reason
+        if let reason {
+            guard !CommandLine.arguments.contains("--attention-selftest") else { return }
+            AgentNotifications.shared.send(sessionID: session.id,
+                                             title: "\(project.name) · \(session.title)", reason: reason)
+        } else {
+            AgentNotifications.shared.clear(session.id)
+        }
+    }
+
+    private func openAttention(_ session: CodeSession, in project: Project) {
+        if entered != project.id { enter(project) }
+        section = .agents
+        selection = Tag.session(session)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     private var enteredProject: Project? { projects.first { $0.id == entered } }
 
     // MARK: - Chrome
@@ -109,7 +164,11 @@ struct YongkangApp: App {
             ForEach(project.sessions) { session in
                 AgentTerminal(line: session.line, label: session.title,
                               pending: pendingBinding(session),
-                              onExit: { markExited(session, in: project) })
+                              onExit: { markExited(session, in: project) },
+                              onAttention: { reason in
+                                  guard session.agent != nil else { return }
+                                  attentionChanged(reason, session: session, project: project)
+                              }, focused: isVisible(session))
                     .padding(.leading, Theme.railWidth + (listHidden ? 0 : listWidth))
                     .padding(.top, Theme.topBarHeight)
                     .opacity(isVisible(session) ? 1 : 0)
@@ -131,6 +190,7 @@ struct YongkangApp: App {
             HStack(spacing: 0) {
                 // Above the list column: the rail's hover labels hang past its own width.
                 Rail(section: $section, badges: badges(for: project), leave: leave,
+                     agentCount: project.onlineAgentCount,
                      listHidden: listHidden, toggleList: { listHidden.toggle() })
                     .zIndex(1)
                 if !listHidden {
@@ -248,7 +308,7 @@ struct YongkangApp: App {
                 }
                 if let found = selectedSubagent(in: project) {
                     Button { openLiveTerminal(found.subagent, in: found.session) } label: {
-                        Label("Terminal", systemImage: "terminal")
+                        Label("Parent session", systemImage: "terminal")
                     }
                     .buttonStyle(.console)
                 }
@@ -783,6 +843,10 @@ struct YongkangApp: App {
     /// Reopens last session's folders, dropping any that have since been moved away.
     private func restore() {
         guard projects.isEmpty else { return }
+        if CommandLine.arguments.contains("--attention-selftest") {
+            runAttentionSelfTest()
+            return
+        }
         projects = OpenProjects.decode(openProjects)
             .filter { FileManager.default.fileExists(atPath: $0) }
             .map { path in
@@ -792,6 +856,47 @@ struct YongkangApp: App {
             }
         persist()
         reload()
+    }
+
+    /// Full app regression: actual Codex screen bytes travel through the PTY,
+    /// representable callback, app state, banner and session navigation. No real agent.
+    private func runAttentionSelfTest() {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("yk-attention-\(UUID())")
+        let root = NotebookFormat.root(in: directory)
+        _ = try! NotebookFormat.create(.task, title: "Trust screen test", in: root, project: nil)
+        let output = directory.appendingPathComponent("trust.ansi")
+        try! NotebookSelfTest.codexTrustScreen.write(to: output, atomically: true, encoding: .utf8)
+        var project = Project(directory: directory, entries: NotebookLoader.load(root: root))
+        let session = CodeSession(title: "Engineering Lead", icon: "terminal",
+                                  line: "cat \(AgentCommand.quoted(output.path)); exec sleep 30", agent: .codex)
+        project.sessions = [session]
+        projects = [project]
+        entered = project.id
+        section = .agents
+        selection = Tag.transcript(session.id)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            precondition(attention[session.id] != nil, "PTY callback must reach the app's banner state")
+            guard let host = NSApp.windows.first(where: { $0.isVisible })?.contentView,
+                  let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+                preconditionFailure("attention selftest needs a rendered app window")
+            }
+            host.layoutSubtreeIfNeeded()
+            host.cacheDisplay(in: host.bounds, to: rep)
+            try! rep.representation(using: .png, properties: [:])!
+                .write(to: URL(fileURLWithPath: "/tmp/yongkang-attention-selftest.png"))
+            openAttention(session, in: project)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                precondition(isVisible(session), "Open session must reveal the blocked terminal")
+                func stop(_ view: NSView) {
+                    if let terminal = view as? AttentionTerminalView { terminal.terminate() }
+                    view.subviews.forEach(stop)
+                }
+                stop(host)
+                try? FileManager.default.removeItem(at: directory)
+                print("attention app selftest ok — banner rendered and blocked session opened")
+                exit(0)
+            }
+        }
     }
 
     private func persist() {
@@ -823,6 +928,7 @@ struct YongkangApp: App {
     }
 
     private func close(_ project: Project) {
+        for session in project.sessions { attentionChanged(nil, session: session, project: project) }
         projects.removeAll { $0.id == project.id }
         persist()
         if entered == project.id { leave() }
@@ -897,16 +1003,18 @@ struct YongkangApp: App {
             if entries != projects[index].entries { projects[index].entries = entries }
             // The project you are inside pays for reading frontmatter and transcripts; on
             // the fleet screen every project does, because that screen is what it costs.
-            guard projects[index].id == entered || entered == nil else { continue }
+            guard projects[index].id == entered || entered == nil
+                    || projects[index].sessions.contains(where: { $0.agent != nil && !$0.exited }) else { continue }
             let cards = NotebookIndex.load(root: projects[index].notebookRoot)
             if cards != projects[index].cards { projects[index].cards = cards }
             let blocks = Blocks.load(root: projects[index].notebookRoot)
             if blocks != projects[index].blocks { projects[index].blocks = blocks }
             let team = Team.load(root: projects[index].notebookRoot)
             if team != projects[index].team { projects[index].team = team }
-            guard projects[index].id == entered else { continue }
-            showFinishedWork(in: projects[index])
-            deliverUnblocks(in: projects[index])
+            if projects[index].id == entered {
+                showFinishedWork(in: projects[index])
+                deliverUnblocks(in: projects[index])
+            }
             for sIndex in projects[index].sessions.indices
                 where projects[index].sessions[sIndex].agent != nil {
                 let session = projects[index].sessions[sIndex]
@@ -991,7 +1099,11 @@ struct YongkangApp: App {
     /// Only the agent actually on screen pays for having its transcript read and parsed —
     /// everything else is covered by the status list above.
     private func reloadAgentTranscript() {
-        guard let project = enteredProject, let source = onScreenTranscript(in: project) else { return }
+        guard let project = enteredProject, let source = onScreenTranscript(in: project) else {
+            transcriptSource = nil
+            agentTranscript = []
+            return
+        }
         let fresh: [TranscriptLine]
         switch source.agent {
         case .codex: fresh = CodexTranscripts.transcript(at: source.url)
@@ -1093,6 +1205,7 @@ struct YongkangApp: App {
 
     private func close(_ session: CodeSession, in project: Project) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        attentionChanged(nil, session: session, project: project)
         projects[index].sessions.removeAll { $0.id == session.id }
         if AgentPane.of(selection, session: session.id) != nil
             || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true {
@@ -1110,6 +1223,7 @@ struct YongkangApp: App {
         guard let pIndex = projects.firstIndex(where: { $0.id == project.id }),
               let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id }) else { return }
         projects[pIndex].sessions[sIndex].exited = true
+        attentionChanged(nil, session: session, project: project)
     }
 
     private func appendTaskIDs(_ ids: [String], to session: CodeSession, in project: Project) {

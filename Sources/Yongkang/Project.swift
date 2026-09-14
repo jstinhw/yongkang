@@ -15,6 +15,12 @@ struct Project: Identifiable, Equatable {
     var team: [TeamMember] = Team.defaults
     var sessions: [CodeSession] = []
 
+    var onlineAgentCount: Int {
+        sessions.filter { $0.agent != nil }.reduce(0) {
+            $0 + ($1.exited ? 0 : 1) + $1.activeSubagents.count
+        }
+    }
+
     var name: String { directory.lastPathComponent }
     var notebookRoot: URL { NotebookFormat.root(in: directory) }
     /// No `.notebook` on disk means no entries — the folder is left untouched.
@@ -55,9 +61,7 @@ struct CodeSession: Identifiable, Equatable {
     var taskIDs: [String] = []
     /// Set once the underlying process exits — a dead session is never routed more work.
     var exited: Bool = false
-    /// Subagents this session has spawned, read off its own Claude Code transcript on
-    /// disk. Always empty for Codex and service-runner sessions — they never get a
-    /// matching `--session-id`, so there is nothing on disk to find.
+    /// Descendants discovered from the provider's on-disk transcripts.
     var subagents: [SubagentStatus] = []
     /// The lead's plan and durable worker reports, including completed work.
     var coordination: LeadCoordination? = nil

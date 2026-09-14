@@ -211,7 +211,7 @@ enum DesignShots {
                                                @ViewBuilder content: () -> Content) -> some View {
         HStack(spacing: 0) {
             Rail(section: .constant(section), badges: [.blocks: Theme.amber], leave: {},
-                 hovering: hovering)
+                 agentCount: project.onlineAgentCount, hovering: hovering)
                 .zIndex(1)
             ProjectList(section: section, project: project, selection: .constant(nil),
                         showDone: false, changes: changes, assign: { _ in }, closeSession: { _ in },

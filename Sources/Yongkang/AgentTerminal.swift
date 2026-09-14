@@ -127,13 +127,16 @@ struct AgentTerminal: NSViewRepresentable {
     /// Fired once, right when the process exits — the signal that this session can no
     /// longer be talked to.
     let onExit: () -> Void
+    var onAttention: (String?) -> Void = { _ in }
+    var focused = false
 
     func makeCoordinator() -> Coordinator { Coordinator(label: label, onExit: onExit) }
 
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
+    func makeNSView(context: Context) -> AttentionTerminalView {
         // Non-zero frame matters: a 0x0 terminal starts the PTY at 0 columns and the TUI dies.
-        let view = LocalProcessTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
+        let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
         view.processDelegate = context.coordinator
+        view.onAttention = onAttention
         // ponytail: interactive login shell, because a GUI app inherits a bare PATH and
         // agent CLIs commonly live in ~/.local/bin or nvm paths exported from .zshrc.
         view.startProcess(
@@ -144,12 +147,22 @@ struct AgentTerminal: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
+    func updateNSView(_ view: AttentionTerminalView, context: Context) {
+        if focused != context.coordinator.focused {
+            context.coordinator.focused = focused
+            if focused {
+                DispatchQueue.main.async { [weak view] in
+                    guard let view else { return }
+                    view.window?.makeFirstResponder(view)
+                }
+            }
+        }
         // SwiftUI can call this more than once for the same state change (this terminal
         // becoming visible alongside `pending` being set triggers it from two directions
         // at once) — clearing `pending` is deferred to avoid mutating state mid-update, so
         // without this guard a fast second call would still see it set and send it twice.
-        guard let text = pending, view.process.running, !context.coordinator.sending else { return }
+        guard let text = pending, view.process.running, view.attentionReason == nil,
+              !context.coordinator.sending else { return }
         context.coordinator.sending = true
         // ponytail: bracketed paste so embedded newlines land as one message instead of
         // submitting early, then a real Enter to send it — exactly what a paste followed
@@ -163,7 +176,7 @@ struct AgentTerminal: NSViewRepresentable {
         }
     }
 
-    static func dismantleNSView(_ view: LocalProcessTerminalView, coordinator: Coordinator) {
+    static func dismantleNSView(_ view: AttentionTerminalView, coordinator: Coordinator) {
         view.terminate()
     }
 
@@ -173,6 +186,7 @@ struct AgentTerminal: NSViewRepresentable {
         /// Set while a queued `pending` send is in flight, so a repeat `updateNSView` call
         /// before the async clear lands does not send it a second time.
         var sending = false
+        var focused = false
 
         init(label: String, onExit: @escaping () -> Void) {
             self.label = label

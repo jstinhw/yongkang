@@ -20,8 +20,6 @@ struct ProjectList: View {
 
     /// Agent trees start open; this only remembers the roots the user collapsed.
     @State private var collapsed: Set<UUID> = []
-    @State private var previousSection: ConsoleSection?
-    @State private var hiddenCompletedTasks: Set<String> = []
 
     var body: some View {
         ListPane(width: width) {
@@ -40,13 +38,7 @@ struct ProjectList: View {
             }
             footer
         }
-        .onChange(of: section) { next in
-            if previousSection == .agents && next != .agents {
-                hiddenCompletedTasks.formUnion(project.cards.filter { $0.kind == .task && $0.status == "done" }
-                    .map(\.id))
-            }
-            previousSection = next
-        }
+
     }
 
     // MARK: - Header and footer
@@ -88,7 +80,7 @@ struct ProjectList: View {
     private var footNote: String? {
         switch section {
         case .board: return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
-        case .agents: return "An agent is named for the team member running it; the label under it is <task-id>-<skill>, which is how it is matched back to its task."
+        case .agents: return "Select any agent or subagent to view its live session transcript. Completed agents stay available here."
         case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
         case .review: return "Merging is yours. The lead stops at the PR."
         default: return nil
@@ -271,13 +263,13 @@ struct ProjectList: View {
     @ViewBuilder private var agentRows: some View {
         group("Fleet")
         usageRow
-        group("Sessions", "\(project.sessions.count)")
+        group("Sessions", "\(project.onlineAgentCount) online")
         if project.sessions.isEmpty { empty("Nothing running") }
         ForEach(project.sessions) { session in
             sessionRow(session)
                 .contextMenu { Button("Close Session") { closeSession(session) } }
             if !collapsed.contains(session.id) {
-                ForEach(displayedSubagents(in: session)) { subagentRow($0, in: session) }
+                ForEach(session.subagents.sorted { $0.running && !$1.running }) { subagentRow($0, in: session) }
             }
         }
         if !project.team.isEmpty {
@@ -318,14 +310,6 @@ struct ProjectList: View {
                 }
                 Spacer(minLength: 6)
             }
-        }
-    }
-
-    private func displayedSubagents(in session: CodeSession) -> [SubagentStatus] {
-        session.subagents.filter { subagent in
-            guard !subagent.running else { return true }
-            guard let taskID = subagent.taskID else { return false }
-            return !hiddenCompletedTasks.contains(taskID)
         }
     }
 

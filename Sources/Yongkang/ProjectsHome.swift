@@ -18,7 +18,7 @@ struct ProjectsHome: View {
     @State private var hovered: Project.ID?
 
     private var running: Int {
-        projects.reduce(0) { $0 + $1.sessions.filter { !$0.exited && $0.agent != nil }.count }
+        projects.reduce(0) { $0 + $1.onlineAgentCount }
     }
     private var waiting: Int {
         projects.reduce(0) { $0 + $1.blocks.filter(\.waiting).count }
@@ -87,7 +87,7 @@ struct ProjectsHome: View {
         VStack(alignment: .leading, spacing: 11) {
             Text("Fleet").font(Typo.display(27)).foregroundStyle(Theme.tx)
             HStack(spacing: 18) {
-                strip(Theme.accent, "\(running) agent\(running == 1 ? "" : "s") running", live: running > 0)
+                strip(Theme.accent, "\(running) agent\(running == 1 ? "" : "s") online", live: running > 0)
                 strip(Theme.amber, "\(waiting) waiting on you", live: false)
                 strip(Theme.green, "\(projects.count) project\(projects.count == 1 ? "" : "s") open",
                       live: false)

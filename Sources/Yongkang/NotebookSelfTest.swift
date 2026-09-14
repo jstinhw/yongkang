@@ -3,11 +3,62 @@ import Foundation
 /// `swift run Yongkang --selftest` — the one check that fails if the on-disk
 /// notebook format drifts. preconditions, not asserts, so it also works in release.
 enum NotebookSelfTest {
+    static let codexTrustScreen = "\u{1b}[?2026h\u{1b}[1;1H\u{1b}[J\u{1b}[7;19H\u{1b}[0m\u{1b}[m\u{1b}[K\u{1b}[1;1H>\u{1b}[1;3H\u{1b}[1mYou are in \u{1b}[22m/tmp/yongkang-trust-test\u{1b}[3;3HDo\u{1b}[3;6Hyou\u{1b}[3;10Htrust\u{1b}[3;16Hthe\u{1b}[3;20Hcontents\u{1b}[3;29Hof\u{1b}[3;32Hthis\u{1b}[3;37Hdirectory?\u{1b}[3;48HWorking\u{1b}[3;56Hwith\u{1b}[3;61Huntrusted\u{1b}[3;71Hcontents\u{1b}[3;80Hcomes\u{1b}[3;86Hwith\u{1b}[3;91Hhigher\u{1b}[4;3Hrisk\u{1b}[4;8Hof\u{1b}[4;11Hprompt\u{1b}[4;18Hinjection.\u{1b}[4;29HTrusting\u{1b}[4;38Hthe\u{1b}[4;42Hdirectory\u{1b}[4;52Hallows\u{1b}[4;59Hproject-local\u{1b}[4;73Hconfig,\u{1b}[4;81Hhooks,\u{1b}[4;88Hand\u{1b}[4;92Hexec\u{1b}[5;3Hpolicies\u{1b}[5;12Hto\u{1b}[5;15Hload.\u{1b}[7;1H\u{1b}[;m› 1. Yes, continue\u{1b}[8;3H\u{1b}[;m2.\u{1b}[8;6HNo,\u{1b}[8;10Hquit\u{1b}[10;3H\u{1b}[2mPress enter to continue\u{1b}[m\u{1b}[m\u{1b}[0m\u{1b}[?25l\u{1b}[?2026l"
+
     static func run() {
         let fm = FileManager.default
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("notebook-selftest-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: tmp) }
+
+        // Captured from Codex 0.154.0: the trust question is cursor-addressed word by
+        // word, leaving empty terminal cells between words instead of ASCII spaces.
+        do {
+            let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
+            view.resize(cols: 100, rows: 30)
+            view.dataReceived(slice: Array(Self.codexTrustScreen.utf8)[...])
+            precondition(view.attentionReason != nil, "detect the actual cursor-addressed Codex trust screen")
+        }
+
+        // The trust gate exists only in the PTY, before any rollout. Reproduce split,
+        // ANSI-decorated writes in the same terminal renderer used by the live app.
+        do {
+            let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
+            var notices: [String?] = []
+            view.onAttention = { notices.append($0) }
+            func output(_ text: String) { view.dataReceived(slice: Array(text.utf8)[...]) }
+            output("\u{1b}[32mDo you trust the contents of this dire")
+            precondition(view.attentionReason == nil)
+            output("ctory?\u{1b}[0m\r\n1. Yes, continue\r\n2. No, quit\r\nPress enter to continue")
+            precondition(view.attentionReason != nil, "trust prompts must be detected before transcripts exist")
+            // Codex keeps emitting cursor/synchronized-update frames while awaiting input.
+            // Detection must run during that stream, without waiting for it to go quiet.
+            for _ in 0..<12 {
+                output("\u{1b}[?2026h\u{1b}[?25h\u{1b}[?2026l")
+                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            }
+            precondition(notices.count == 1 && notices[0] != nil,
+                         "notify while the trust screen is continuously redrawing")
+            output("\r")
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            precondition(notices.count == 1, "repainting the same prompt must not repeat notifications")
+            output("\u{1b}[2J\u{1b}[HWorking")
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            precondition(view.attentionReason == nil && notices.count == 2 && notices[1] == nil,
+                         "clear attention when the user answers and the gate disappears")
+            precondition(AgentPrompt.reason(in: "Documentation: Do you trust the contents of this directory?") == nil)
+        }
+
+        // Exercise the real LocalProcess delegate path as well as direct renderer writes.
+        do {
+            let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
+            var notified = false
+            view.onAttention = { notified = $0 != nil }
+            view.startProcess(executable: "/bin/sh", args: ["-c", #"printf '%s\r\n' 'Do you trust the contents of this directory?' '1. Yes, continue' '2. No, quit'; while :; do printf '\033[?25h'; sleep 0.05; done"#])
+            defer { view.terminate() }
+            RunLoop.main.run(until: Date().addingTimeInterval(1))
+            precondition(notified, "a real PTY must raise attention while the trust gate keeps redrawing")
+        }
 
         precondition(NotebookFormat.slug("Ship  the *Beta*! v2") == "ship-the-beta-v2")
         precondition(NotebookFormat.slug("///") == "")
@@ -392,10 +443,37 @@ enum NotebookSelfTest {
             .write(to: child, atomically: true, encoding: .utf8)
         precondition(CodexTranscripts.isRunning(child) == false, "the last marker written wins")
 
+        // One session's scan must not hide another session's unchanged rollout.
+        let secondSession = UUID()
+        let secondRollout = rollout("rollout-second.jsonl", [
+            #"{"type":"session_meta","payload":{"id":"thread-second","cwd":"\#(tmp.path)","source":"cli"}}"#,
+            String(repeating: " ", count: 600_000),
+            AgentCommand.marker(secondSession),
+        ])
+        _ = CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp, codexHome: codexHome)
+        precondition(CodexTranscripts.transcriptURL(sessionID: secondSession, projectDirectory: tmp,
+                                                    codexHome: codexHome)?.standardizedFileURL == secondRollout.standardizedFileURL,
+                     "concurrent sessions resolve independently, even beyond the old prompt window")
+        var fleet = Project(directory: tmp)
+        fleet.sessions = [CodeSession(title: "Lead", icon: "", line: "", agent: .codex,
+                                      subagents: codexAgents),
+                          CodeSession(title: "Server", icon: "", line: "")]
+        precondition(fleet.onlineAgentCount == 3, "count the lead and every running descendant, excluding services")
+
         let codexLines = CodexTranscripts.transcript(at: child)
         precondition(codexLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
                      "reasoning and the duplicate event_msg lines are dropped")
         precondition(codexLines.map(\.text) == ["Message Type: NEW_TASK", "exec(ls)", "one file", "Done"])
+
+        try! #"{"agentType":"qa-dev","description":"Nested QA","toolUseId":"nested-call"}"#
+            .write(to: subagentsDir.appendingPathComponent("agent-nested.meta.json"), atomically: true, encoding: .utf8)
+        try! [
+            #"{"message":{"role":"assistant","content":[{"type":"tool_use","id":"nested-call","name":"Agent"}]}}"#,
+            #"{"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"nested-call","content":"Done"}]}}"#,
+        ].joined(separator: "\n").write(to: subagentLog, atomically: true, encoding: .utf8)
+        precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
+                                                 claudeHome: claudeHome).first { $0.id == "nested" }?.running == false,
+                     "nested Claude agents finish in their spawning agent's transcript")
 
         // What the header tells the reader: an agent that has replied is theirs to answer,
         // one mid-tool-call is not, and a dead process is neither.

@@ -37,6 +37,7 @@ struct Rail: View {
     let badges: [ConsoleSection: Color]
     let leave: () -> Void
     /// Whether the list column beside the rail is currently collapsed, and the toggle for it.
+    var agentCount = 0
     var listHidden = false
     var toggleList: () -> Void = {}
 
@@ -46,11 +47,12 @@ struct Rail: View {
     /// `hovering` is only ever passed by the shot renderer, which has no pointer of its own
     /// and would otherwise photograph a rail whose labels never appear.
     init(section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
-         leave: @escaping () -> Void, listHidden: Bool = false,
+         leave: @escaping () -> Void, agentCount: Int = 0, listHidden: Bool = false,
          toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil) {
         _section = section
         self.badges = badges
         self.leave = leave
+        self.agentCount = agentCount
         self.listHidden = listHidden
         self.toggleList = toggleList
         _hovered = State(initialValue: hovering)
@@ -74,7 +76,8 @@ struct Rail: View {
             ForEach(ConsoleSection.allCases) { item in
                 Button { section = item } label: { icon(item) }
                     .buttonStyle(.plain)
-                    .help(item.title)
+                    .help(item == .agents ? "Agents · \(agentCount) online" : item.title)
+                    .accessibilityLabel(item == .agents ? "Agents, \(agentCount) online" : item.title)
                     .onHover { inside in hovered = inside ? item : (hovered == item ? nil : hovered) }
                     .overlay(alignment: .leading) {
                         if hovered == item { flyout(item) }
@@ -133,7 +136,13 @@ struct Rail: View {
                 .overlay(RoundedRectangle(cornerRadius: 9)
                     .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1))
                 .overlay(alignment: .topTrailing) {
-                    if let tint = badges[item] {
+                    if item == .agents {
+                        Text("\(agentCount)").font(Typo.mono(9, .semibold))
+                            .foregroundStyle(Theme.tx)
+                            .padding(.horizontal, 4)
+                            .background(Capsule().fill(Theme.panel))
+                            .offset(x: 2, y: 1)
+                    } else if let tint = badges[item] {
                         Circle().fill(tint).frame(width: 6, height: 6).offset(x: -4, y: 6)
                     }
                 }

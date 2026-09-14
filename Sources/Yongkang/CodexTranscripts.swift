@@ -29,7 +29,7 @@ enum CodexTranscripts {
     private static var threadCache: [UUID: String] = [:]
     /// Sizes of rollouts already searched for a session id and not found, so a file is only
     /// re-read once it has grown — the prompt lands ~100KB in, well after the file appears.
-    private static var searched: [String: UInt64] = [:]
+    private static var searched: [UUID: [String: UInt64]] = [:]
     /// Only rollouts still being written can belong to a session this app started — a live
     /// session touches its rollout on every turn, a dead one never does. Purely a cost
     /// guard on the scan below, with slack for a session opened before the first poll: a
@@ -81,7 +81,7 @@ enum CodexTranscripts {
         let needle = sessionID.uuidString.lowercased()
         for url in rollouts {
             guard let meta = meta(at: url), !meta.isSubagent,
-                  meta.cwd == projectDirectory.path, grew(url), quotes(needle, in: url) else { continue }
+                  meta.cwd == projectDirectory.path, grew(url, for: sessionID), quotes(needle, in: url) else { continue }
             threadCache[sessionID] = meta.threadID
             return meta.threadID
         }
@@ -91,21 +91,26 @@ enum CodexTranscripts {
     /// True the first time a file is seen and again every time it has grown since — a
     /// rollout that has not changed cannot have started quoting a session id it did not
     /// quote last time.
-    private static func grew(_ url: URL) -> Bool {
+    private static func grew(_ url: URL, for sessionID: UUID) -> Bool {
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { UInt64($0) } ?? 0
-        guard searched[url.path] != size else { return false }
-        searched[url.path] = size
+        guard searched[sessionID]?[url.path] != size else { return false }
+        searched[sessionID, default: [:]][url.path] = size
         return true
     }
 
-    /// The prompt sits well into the file, behind the bundled skill text, so this reads a
-    /// window rather than the line — and a window rather than the whole rollout, which
-    /// grows without limit as the session works.
+    /// Prompts can follow arbitrarily long bundled instructions. Stream until the marker
+    /// is found, retaining overlap so a marker crossing a chunk boundary still matches.
     private static func quotes(_ needle: String, in url: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
-        let head = (try? handle.read(upToCount: 512_000)) ?? Data()
-        return String(decoding: head, as: UTF8.self).contains(needle)
+        let marker = Data(needle.utf8)
+        var window = Data()
+        while let chunk = try? handle.read(upToCount: 64_000), !chunk.isEmpty {
+            window.append(chunk)
+            if window.range(of: marker) != nil { return true }
+            window = Data(window.suffix(marker.count - 1))
+        }
+        return false
     }
 
     /// Rollouts this app run could have started, newest first. The tree is `YYYY/MM/DD`, so

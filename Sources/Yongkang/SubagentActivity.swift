@@ -179,14 +179,22 @@ enum ClaudeTranscripts {
         let parent = transcriptURL(sessionID: sessionID, projectDirectory: projectDirectory,
                                    claudeHome: claudeHome)
         let transcript = (try? String(contentsOf: parent, encoding: .utf8)) ?? ""
+        // Nested workers return to the subagent that spawned them, not the root lead.
+        let childTranscripts = metaFiles.compactMap { url -> String? in
+            let log = url.deletingPathExtension().deletingPathExtension().appendingPathExtension("jsonl")
+            return try? String(contentsOf: log, encoding: .utf8)
+        }
 
         return metaFiles.compactMap { url -> SubagentStatus? in
             guard let data = try? Data(contentsOf: url),
                   let meta = try? JSONDecoder().decode(SubagentMeta.self, from: data) else { return nil }
             let agentID = String(url.lastPathComponent.dropFirst("agent-".count).dropLast(".meta.json".count))
+            let owner = ([transcript] + childTranscripts).first { text in
+                text.split(separator: "\n").contains { jsonField("id", equals: meta.toolUseId, in: $0) }
+            } ?? transcript
             return SubagentStatus(id: agentID, description: meta.description, agentType: meta.agentType,
                                    running: !isFinished(agentID: agentID, label: meta.description,
-                                                        toolUseID: meta.toolUseId, in: transcript),
+                                                        toolUseID: meta.toolUseId, in: owner),
                                    transcriptURL: subagentsDir.appendingPathComponent("agent-\(agentID).jsonl"),
                                    taskID: Subagents.taskID(in: meta.description, from: taskIDs))
         }.sorted { $0.description < $1.description }
