@@ -34,7 +34,7 @@ struct TranscriptTimeline: View {
                     .padding(.vertical, 14)
                 }
                 .onAppear { scrollToEnd(proxy) }
-                .onChange(of: lines.count) { _ in scrollToEnd(proxy) }
+                .onChange(of: lines.count) { scrollToEnd(proxy) }
             }
         }
     }

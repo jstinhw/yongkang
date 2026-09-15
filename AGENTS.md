@@ -3,7 +3,7 @@
 A macOS console that runs a team of agent CLIs (`claude`, `codex`, `grok`, `agy`) in real
 PTYs against a project's `.notebook/` folder, and reviews the changes they leave behind.
 
-A Swift package holds all the code, with a thin Xcode project that builds the app. macOS 13+,
+A Swift package holds all the code, with a thin Xcode project that builds the app. macOS 14+,
 one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
 
 `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.

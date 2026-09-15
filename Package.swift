@@ -5,7 +5,7 @@ let v5: [SwiftSetting] = [.swiftLanguageMode(.v5)]
 
 let package = Package(
     name: "Yongkang",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],
     products: [
         // What App/Yongkang.xcodeproj links. The app itself is built there, not by SwiftPM.
         .library(name: "YongkangUI", targets: ["YongkangUI"]),

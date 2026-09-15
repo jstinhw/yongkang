@@ -93,12 +93,12 @@ package struct YongkangApp: App {
             .frame(minWidth: 1120, minHeight: 680)
             .task { restore() }
             .onReceive(tick) { _ in reload() }
-            .onChange(of: section) { _ in openSectionDefault() }
+            .onChange(of: section) { openSectionDefault() }
             // The transcript follows the selection rather than the poll: a row that opens an
             // agent must not leave the one before it on screen for up to two seconds under
             // the new agent's name. Every screen that opens one is covered by this — the
             // list column and the overview's "Running now" cards included.
-            .onChange(of: selection) { _ in reloadAgentTranscript() }
+            .onChange(of: selection) { reloadAgentTranscript() }
         }
         .windowToolbarStyle(.unified)
     }

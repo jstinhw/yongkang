@@ -159,8 +159,8 @@ struct PromptField: View {
             if !suggestions.isEmpty { tags }
         }
         .task { focused = true }
-        .onChange(of: text) { _ in selection = 0 }
-        .onChange(of: focused) { $0 ? claimTab() : releaseTab() }
+        .onChange(of: text) { selection = 0 }
+        .onChange(of: focused) { _, isFocused in isFocused ? claimTab() : releaseTab() }
         .onDisappear(perform: releaseTab)
     }
 

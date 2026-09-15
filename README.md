@@ -9,7 +9,7 @@ Every screen is the same four columns: a **rail** picking the section, a **list*
 
 ## Requirements
 
-- macOS 13+
+- macOS 14+
 - Xcode 16 or later to build the app. On Xcode 26, also run
   `xcodebuild -downloadComponent MetalToolchain` once: Xcode compiles SwiftTerm's shaders.
 - At least one of `claude`, `codex`, `grok` or `agy` on PATH (they launch via `zsh -ilc`, so `.zshrc` applies)
