@@ -5,6 +5,11 @@ import Foundation
 package struct CodexProvider: AgentProvider {
     package static let shared = CodexProvider()
 
+    private let transcripts = CodexTranscripts()
+    private let usageReader = UsageReader { line, cursor in
+        CodexProvider.sample(line, cursor: &cursor).map { [$0] } ?? []
+    }
+
     package init() {}
 
     package var kind: AgentKind { .codex }
@@ -27,20 +32,50 @@ package struct CodexProvider: AgentProvider {
         "(Yongkang session \(sessionID.uuidString.lowercased()) — bookkeeping, not part of the task.)"
     }
 
-    package func transcriptURL(session: UUID, project: URL) -> URL? {
-        CodexTranscripts.transcriptURL(sessionID: session, projectDirectory: project)
+    package func transcriptURL(session: UUID, project: URL) async -> URL? {
+        await transcripts.transcriptURL(sessionID: session, projectDirectory: project)
     }
 
-    package func subagents(session: UUID, project: URL, taskIDs: [String]) -> [SubagentStatus] {
-        CodexTranscripts.subagents(sessionID: session, projectDirectory: project, taskIDs: taskIDs)
+    package func subagents(session: UUID, project: URL, taskIDs: [String]) async -> [SubagentStatus] {
+        await transcripts.subagents(sessionID: session, projectDirectory: project, taskIDs: taskIDs)
     }
 
     package func transcript(at url: URL) -> [TranscriptLine] {
         CodexTranscripts.transcript(at: url)
     }
 
-    package func usage(at url: URL) -> [UsageSample] {
-        AgentUsage.samples(at: url, .codex)
+    package func usage(at url: URL) async -> [UsageSample] {
+        await usageReader.samples(at: url)
+    }
+
+    /// Codex reports the session's running total on every turn instead of that turn's
+    /// cost, so each sample is the difference from the last one. Differencing telescopes:
+    /// the samples always add back up to the total the file last reported, which summing
+    /// its `last_token_usage` fields does not — those repeat within a turn.
+    private static func sample(_ line: String, cursor: inout UsageReader.Cursor) -> UsageSample? {
+        guard let object = AgentUsage.json(line), let payload = object["payload"] as? [String: Any] else { return nil }
+        // A turn names its model before it reports what the turn cost, and a session can
+        // change model partway, so the latest one seen is the one a sample is filed under.
+        if object["type"] as? String == "turn_context" {
+            cursor.model = payload["model"] as? String ?? cursor.model
+            return nil
+        }
+        guard payload["type"] as? String == "token_count",
+            let at = AgentUsage.date(object["timestamp"] as? String),
+            let info = payload["info"] as? [String: Any],
+            let usage = info["total_token_usage"] as? [String: Any]
+        else { return nil }
+        func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
+        // `input_tokens` is the whole prompt, cached part included, so the cached half is
+        // subtracted out rather than counted twice.
+        let cached = count("cached_input_tokens")
+        let total = TokenTally(
+            input: max(0, count("input_tokens") - cached),
+            output: count("output_tokens"), cacheRead: cached,
+            cacheWrite: count("cache_write_input_tokens"))
+        let delta = total - cursor.running
+        cursor.running = total
+        return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
     }
 
     /// Captured in `Fixtures/codex/codex-0.154.0-trust-screen.ansi`.

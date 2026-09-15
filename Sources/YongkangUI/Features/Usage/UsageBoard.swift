@@ -13,6 +13,8 @@ package struct UsageBoard: View {
     /// 60fps would be the most expensive thing in the app.
     @State private var spends: [AgentSpend] = []
     @State private var quotas: [ProviderQuota] = []
+    /// The sessions' own usage files as the last load found them, watched by `signature`.
+    @State private var sources: [URL] = []
     /// How far back every panel below the plan limits is counting. 24 hours by default:
     /// a day is the span a person actually remembers working, and all time on a machine
     /// that has been running agents for months answers a different question.
@@ -70,7 +72,7 @@ package struct UsageBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg)
-        .task(id: signature) { load() }
+        .task(id: signature) { await load() }
     }
 
     /// Re-read when an agent appears, finishes, or writes — the sizes of the files this
@@ -79,19 +81,27 @@ package struct UsageBoard: View {
         let ledger =
             (try? UsageLedger.url(root: project.notebookRoot)
                 .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        let transcripts = project.sessions.compactMap { Transcripts.usageURL(of: $0, in: project.directory) }
-            .compactMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize }
+        // The first load finds these files and changes the signature once more. The re-read it
+        // starts parses nothing new, because each provider remembers how far it has read.
+        let transcripts = sources.compactMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize }
         return project.sessions.map { session in
             session.id.uuidString + session.subagents.map { $0.id + "\($0.running)" }.joined()
         }.joined() + "\(project.sessions.count):\(ledger):\(transcripts)"
     }
 
-    private func load() {
-        now = Date()
+    private func load() async {
+        var urls: [URL] = []
+        for session in project.sessions {
+            if let url = await session.agent?.provider.usageURL(session: session.id, project: project.directory) {
+                urls.append(url)
+            }
+        }
         // Live agents are read from their transcripts at full resolution; the ledger fills
         // in every earlier run, whose sessions died with the app that started them.
-        let live = AgentUsage.spends(in: project)
+        let live = await AgentUsage.spends(in: project)
         let running = Set(live.map(\.id))
+        now = Date()
+        sources = urls
         spends = live + UsageLedger.load(root: project.notebookRoot).filter { !running.contains($0.id) }
         quotas = [AgentUsage.claudeQuota(), AgentUsage.codexQuota()].compactMap { $0 }
     }

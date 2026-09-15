@@ -10,7 +10,10 @@ import Foundation
 /// this row's thread. Its subagents are then every rollout whose parent chain reaches that
 /// thread — read off disk instead of over the daemon socket, because the app already polls
 /// files and a socket would be a second channel.
-package enum CodexTranscripts {
+///
+/// An actor because finding the thread is worth remembering: `CodexProvider` keeps one, and
+/// the poll and the window's transcript both ask it.
+package actor CodexTranscripts {
     /// One rollout's opening `session_meta` line, which never changes once written.
     private struct Meta {
         let threadID: String
@@ -23,44 +26,48 @@ package enum CodexTranscripts {
         let isSubagent: Bool
     }
 
-    /// Parsed `session_meta` by path, and the resolved thread id by app session. Both are
-    /// facts about a file's first line, so they are read once and kept.
-    private static var metaCache: [String: Meta] = [:]
-    private static var threadCache: [UUID: String] = [:]
-    /// Sizes of rollouts already searched for a session id and not found, so a file is only
-    /// re-read once it has grown — the prompt lands ~100KB in, well after the file appears.
-    private static var searched: [UUID: [String: UInt64]] = [:]
+    private let codexHome: URL
     /// Only rollouts still being written can belong to a session this app started — a live
     /// session touches its rollout on every turn, a dead one never does. Purely a cost
     /// guard on the scan below, with slack for a session opened before the first poll: a
     /// stale rollout quotes some earlier run's session id and could never match anyway.
-    /// A `var` so the self-test can wind it back over the fixtures it just wrote.
-    static var launched = Date().addingTimeInterval(-300)
+    private let launched: Date
+    /// Parsed `session_meta` by path, and the resolved thread id by app session. Both are
+    /// facts about a file's first line, so they are read once and kept.
+    private var metaCache: [String: Meta] = [:]
+    private var threadCache: [UUID: String] = [:]
+    /// Sizes of rollouts already searched for a session id and not found, so a file is only
+    /// re-read once it has grown — the prompt lands ~100KB in, well after the file appears.
+    private var searched: [UUID: [String: UInt64]] = [:]
 
-    package static func subagents(
-        sessionID: UUID, projectDirectory: URL, taskIDs: [String] = [],
-        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
-    ) -> [SubagentStatus] {
-        let rollouts = rollouts(in: codexHome)
+    /// `codexHome` and `launched` are for the tests, which write their rollouts into a
+    /// temporary home just before reading them.
+    package init(
+        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex"),
+        launched: Date = Date().addingTimeInterval(-300)
+    ) {
+        self.codexHome = codexHome
+        self.launched = launched
+    }
+
+    package func subagents(sessionID: UUID, projectDirectory: URL, taskIDs: [String] = []) -> [SubagentStatus] {
+        let rollouts = rollouts()
         guard let thread = thread(for: sessionID, in: projectDirectory, rollouts: rollouts) else { return [] }
         let entries = rollouts.compactMap { url in meta(at: url).map { (url, $0) } }
         let parents = Dictionary(entries.map { ($0.1.threadID, $0.1) }, uniquingKeysWith: { first, _ in first })
         return entries.compactMap { url, meta -> SubagentStatus? in
-            guard meta.isSubagent, isDescendant(meta, of: thread, in: parents) else { return nil }
+            guard meta.isSubagent, Self.isDescendant(meta, of: thread, in: parents) else { return nil }
             return SubagentStatus(
                 id: meta.threadID, description: meta.label, agentType: meta.role,
-                running: isRunning(url), transcriptURL: url,
+                running: Self.isRunning(url), transcriptURL: url,
                 taskID: Subagents.taskID(in: meta.label, from: taskIDs))
         }.sorted { $0.description < $1.description }
     }
 
     /// This session's own rollout — the thread the app is driving, rather than one it
     /// spawned. Nil until Codex has written the opening prompt that names the session id.
-    static func transcriptURL(
-        sessionID: UUID, projectDirectory: URL,
-        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
-    ) -> URL? {
-        let files = rollouts(in: codexHome)
+    func transcriptURL(sessionID: UUID, projectDirectory: URL) -> URL? {
+        let files = rollouts()
         guard let thread = thread(for: sessionID, in: projectDirectory, rollouts: files) else { return nil }
         return files.first { meta(at: $0)?.threadID == thread }
     }
@@ -77,12 +84,12 @@ package enum CodexTranscripts {
 
     /// The Codex thread this app session is driving. Cached once found: a PTY keeps its
     /// thread for life, and the scan below is the only expensive part of this file.
-    private static func thread(for sessionID: UUID, in projectDirectory: URL, rollouts: [URL]) -> String? {
+    private func thread(for sessionID: UUID, in projectDirectory: URL, rollouts: [URL]) -> String? {
         if let known = threadCache[sessionID] { return known }
         let needle = sessionID.uuidString.lowercased()
         for url in rollouts {
             guard let meta = meta(at: url), !meta.isSubagent,
-                meta.cwd == projectDirectory.path, grew(url, for: sessionID), quotes(needle, in: url)
+                meta.cwd == projectDirectory.path, grew(url, for: sessionID), Self.quotes(needle, in: url)
             else { continue }
             threadCache[sessionID] = meta.threadID
             return meta.threadID
@@ -93,7 +100,7 @@ package enum CodexTranscripts {
     /// True the first time a file is seen and again every time it has grown since — a
     /// rollout that has not changed cannot have started quoting a session id it did not
     /// quote last time.
-    private static func grew(_ url: URL, for sessionID: UUID) -> Bool {
+    private func grew(_ url: URL, for sessionID: UUID) -> Bool {
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { UInt64($0) } ?? 0
         guard searched[sessionID]?[url.path] != size else { return false }
         searched[sessionID, default: [:]][url.path] = size
@@ -117,7 +124,7 @@ package enum CodexTranscripts {
 
     /// Rollouts this app run could have started, newest first. The tree is `YYYY/MM/DD`, so
     /// the enumerator walks a handful of folders even on a machine with years of sessions.
-    private static func rollouts(in codexHome: URL) -> [URL] {
+    private func rollouts() -> [URL] {
         let root = codexHome.appendingPathComponent("sessions")
         let keys: [URLResourceKey] = [.creationDateKey, .contentModificationDateKey]
         guard
@@ -134,7 +141,7 @@ package enum CodexTranscripts {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }
 
-    private static func meta(at url: URL) -> Meta? {
+    private func meta(at url: URL) -> Meta? {
         if let known = metaCache[url.path] { return known }
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -142,7 +149,7 @@ package enum CodexTranscripts {
         // carries, and reading a fixed window keeps a multi-megabyte rollout cheap.
         let head = String(decoding: (try? handle.read(upToCount: 256_000)) ?? Data(), as: UTF8.self)
         guard let line = head.split(separator: "\n", maxSplits: 1).first,
-            let object = json(String(line)), let payload = object["payload"] as? [String: Any],
+            let object = Self.json(String(line)), let payload = object["payload"] as? [String: Any],
             let threadID = payload["id"] as? String ?? payload["session_id"] as? String,
             let cwd = payload["cwd"] as? String
         else { return nil }

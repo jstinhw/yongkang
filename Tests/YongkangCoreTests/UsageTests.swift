@@ -8,10 +8,9 @@ import Testing
 /// a running total — and the Claude side is read incrementally, so a second pass over
 /// a file that grew must add the new lines and not re-count the old ones.
 ///
-/// Serialized: `AgentUsage.samples` keeps a per-file cursor in an unsynchronised
-/// `static var`. Every test reads transcripts under its own temporary folder, so no
-/// cursor an earlier test left can match one of its files.
-@Suite(.serialized) struct UsageTests {
+/// Every test reads transcripts under its own temporary folder, so no cursor the shared
+/// providers kept from an earlier test can match one of its files.
+@Suite struct UsageTests {
 
     private func at(_ clock: String) -> Date { AgentUsage.date("2026-09-03T\(clock):00.000Z")! }
     private var noon: Date { at("12:00") }
@@ -23,31 +22,31 @@ import Testing
     }
 
     /// The first three Claude turns, read the way the screen reads them.
-    private func grownSamples(in dir: URL) throws -> (transcript: URL, samples: [UsageSample]) {
+    private func grownSamples(in dir: URL) async throws -> (transcript: URL, samples: [UsageSample]) {
         let lines = try claudeLines()
         let transcript = dir.appendingPathComponent("session.jsonl")
         try (lines[0...2].joined(separator: "\n") + "\n").write(to: transcript, atomically: true, encoding: .utf8)
-        return (transcript, AgentUsage.samples(at: transcript, .claude))
+        return (transcript, await AgentKind.claude.provider.usage(at: transcript))
     }
 
-    private func rolloutSamples(in dir: URL) throws -> [UsageSample] {
+    private func rolloutSamples(in dir: URL) async throws -> [UsageSample] {
         let codex = dir.appendingPathComponent("rollout.jsonl")
         try fixture("usage/codex-rollout-token-count.jsonl").write(to: codex, atomically: true, encoding: .utf8)
-        return AgentUsage.samples(at: codex, .codex)
+        return await AgentKind.codex.provider.usage(at: codex)
     }
 
     private func leadSpend(_ samples: [UsageSample]) -> AgentSpend {
         AgentSpend(id: "s", route: nil, name: "Lead", role: "lead", provider: .claude, running: true, samples: samples)
     }
 
-    @Test func claudeTranscriptIsReadIncrementally() throws {
+    @Test func claudeTranscriptIsReadIncrementally() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let lines = try claudeLines()
         let claude = dir.appendingPathComponent("session.jsonl")
 
         try (lines[0] + "\n").write(to: claude, atomically: true, encoding: .utf8)
-        let first = AgentUsage.samples(at: claude, .claude)
+        let first = await AgentKind.claude.provider.usage(at: claude)
         try #require(first.count == 1)
         #expect(first[0].at == noon)
         #expect(first[0].tally.output == 5)
@@ -56,22 +55,22 @@ import Testing
 
         // Appended while the screen is open: the second read must pick up only the new lines.
         try append(lines[1] + "\n" + lines[2] + "\n", to: claude)
-        let grown = AgentUsage.samples(at: claude, .claude)
+        let grown = await AgentKind.claude.provider.usage(at: claude)
         #expect(grown.count == 3, "an appended transcript is not re-counted")
         #expect(grown.filter { $0.model == "claude-opus-5" }.map(\.tally.output).reduce(0, +) == 10)
 
         // A half-written last line is left for the next pass rather than parsed as garbage.
         try append(String(lines[3].prefix(40)), to: claude)
         #expect(
-            AgentUsage.samples(at: claude, .claude).count == 3,
+            await AgentKind.claude.provider.usage(at: claude).count == 3,
             "a partial line is not counted until its newline lands")
     }
 
     // Windowing is what the range picker does: the same samples, narrowed by time.
-    @Test func spendNarrowsToTheWindow() throws {
+    @Test func spendNarrowsToTheWindow() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let spend = leadSpend(try grownSamples(in: dir).samples)
+        let spend = leadSpend(try await grownSamples(in: dir).samples)
 
         #expect(spend.tally(since: nil).total == 403, "all time is every sample")
         #expect(spend.samples(since: at("12:40")).count == 1, "and a window is only what fits")
@@ -81,10 +80,10 @@ import Testing
             "the model on a row is the one that spent most in the window")
     }
 
-    @Test func codexRunningTotalsBecomeSteps() throws {
+    @Test func codexRunningTotalsBecomeSteps() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let rollout = try rolloutSamples(in: dir)
+        let rollout = try await rolloutSamples(in: dir)
 
         try #require(rollout.count == 2, "a repeated running total is not a second turn")
         #expect(rollout.allSatisfy { $0.model == "gpt-5.6-luna" }, "the model comes off turn_context")
@@ -98,11 +97,11 @@ import Testing
     }
 
     // The histogram slices the range into equal buckets and drops nothing inside it.
-    @Test func histogramBucketsEverySampleOnce() throws {
+    @Test func histogramBucketsEverySampleOnce() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let grown = try grownSamples(in: dir).samples
-        let noonish = grown + (try rolloutSamples(in: dir))
+        let grown = try await grownSamples(in: dir).samples
+        let noonish = grown + (try await rolloutSamples(in: dir))
 
         let hour = AgentUsage.histogram(noonish, range: .hour, now: at("13:00"))
         try #require(hour.count == UsageRange.hour.buckets)
@@ -127,10 +126,10 @@ import Testing
     // The ledger is what makes the numbers outlive the app: sessions are not restored
     // on relaunch, so without it a reopened project shows nothing however much its
     // agents spent.
-    @Test func ledgerIsOnlyWrittenIntoANotebook() throws {
+    @Test func ledgerIsOnlyWrittenIntoANotebook() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let spend = leadSpend(try grownSamples(in: dir).samples)
+        let spend = leadSpend(try await grownSamples(in: dir).samples)
         let notebook = dir.appendingPathComponent(".notebook")
 
         #expect(
@@ -143,10 +142,10 @@ import Testing
             "and an unchanged ledger is not rewritten, because the poll calls this")
     }
 
-    @Test func ledgerRemembersSpendByTheHour() throws {
+    @Test func ledgerRemembersSpendByTheHour() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let spend = leadSpend(try grownSamples(in: dir).samples)
+        let spend = leadSpend(try await grownSamples(in: dir).samples)
         let notebook = try makeNotebook(in: dir)
         UsageLedger.record([spend], root: notebook)
 
@@ -169,10 +168,10 @@ import Testing
 
     // Usage only accumulates, so a re-read that comes back short — a truncated or
     // rotated transcript — must not erase the hour it had already recorded.
-    @Test func shortReReadKeepsTheFullerRecord() throws {
+    @Test func shortReReadKeepsTheFullerRecord() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let grown = try grownSamples(in: dir).samples
+        let grown = try await grownSamples(in: dir).samples
         let spend = leadSpend(grown)
         let notebook = try makeNotebook(in: dir)
         UsageLedger.record([spend], root: notebook)
@@ -192,10 +191,10 @@ import Testing
     //
     // The two leads' own transcripts are looked up under the real `~/.claude/projects/`
     // (`spends(in:)` has no home override). Read-only, for random session ids that cannot exist.
-    @Test func sameAgentIDUnderTwoLeadsIsTwoRows() throws {
+    @Test func sameAgentIDUnderTwoLeadsIsTwoRows() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let claude = try grownSamples(in: dir).transcript
+        let claude = try await grownSamples(in: dir).transcript
 
         let shared = SubagentStatus(
             id: "a3a603000d158ff03", description: "qa", agentType: "qa-dev",
@@ -209,21 +208,21 @@ import Testing
                 id: UUID(), title: "Engineering Lead 2", icon: "s", line: "claude",
                 agent: .claude, subagents: [shared]),
         ]
-        let ids = AgentUsage.spends(in: twin).map(\.id)
+        let ids = await AgentUsage.spends(in: twin).map(\.id)
         #expect(ids.count == 2, "both leads' copies of the agent have spend to show")
         #expect(Set(ids).count == ids.count, "the same agent id under two leads is two rows")
     }
 
     // A second agent joins the ledger rather than replacing the first.
-    @Test func secondAgentJoinsTheLedger() throws {
+    @Test func secondAgentJoinsTheLedger() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let notebook = try makeNotebook(in: dir)
-        UsageLedger.record([leadSpend(try grownSamples(in: dir).samples)], root: notebook)
+        UsageLedger.record([leadSpend(try await grownSamples(in: dir).samples)], root: notebook)
 
         let other = AgentSpend(
             id: "codex-1", route: nil, name: "Backend", role: "backend-dev",
-            provider: .codex, running: false, samples: try rolloutSamples(in: dir))
+            provider: .codex, running: false, samples: try await rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         let both = UsageLedger.load(root: notebook)
         #expect(both.count == 2, "and each agent keeps its own provider")
@@ -238,26 +237,26 @@ import Testing
     enum Damage: CaseIterable { case truncated, notJSON }
 
     @Test(arguments: Damage.allCases)
-    func damagedLedgerReadsAsNothing(_ damage: Damage) throws {
+    func damagedLedgerReadsAsNothing(_ damage: Damage) async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let notebook = try makeNotebook(in: dir)
-        let damaged = try damageLedger(damage, in: notebook, samples: try grownSamples(in: dir).samples)
+        let damaged = try damageLedger(damage, in: notebook, samples: try await grownSamples(in: dir).samples)
 
         #expect(UsageLedger.load(root: notebook).isEmpty, "an unreadable ledger reads as no rows, not a crash")
         #expect(try Data(contentsOf: UsageLedger.url(root: notebook)) == damaged, "and reading it changes nothing")
     }
 
     @Test(arguments: Damage.allCases)
-    func damagedLedgerIsNotOverwritten(_ damage: Damage) throws {
+    func damagedLedgerIsNotOverwritten(_ damage: Damage) async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let notebook = try makeNotebook(in: dir)
-        let damaged = try damageLedger(damage, in: notebook, samples: try grownSamples(in: dir).samples)
+        let damaged = try damageLedger(damage, in: notebook, samples: try await grownSamples(in: dir).samples)
 
         let other = AgentSpend(
             id: "codex-1", route: nil, name: "Backend", role: "backend-dev",
-            provider: .codex, running: false, samples: try rolloutSamples(in: dir))
+            provider: .codex, running: false, samples: try await rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         // Compared as text so a failure shows what the file became, not a byte dump.
         let after = try String(contentsOf: UsageLedger.url(root: notebook), encoding: .utf8)

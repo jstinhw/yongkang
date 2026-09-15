@@ -26,6 +26,8 @@ import YongkangCore
     /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
     /// the workflow tests.
     private let terminals: TerminalRegistry?
+    /// The poll's read of what the sessions spawned and spent, while it is still going.
+    @ObservationIgnored private var sessionsRead: Task<Void, Never>?
 
     /// With no snapshot, only the file list is read: the rest comes with the first poll
     /// that looks inside the project.
@@ -71,24 +73,38 @@ import YongkangCore
         if fresh != snapshot { snapshot = fresh }
     }
 
-    /// What each agent session has spawned and recorded since the last poll.
+    /// What each agent session has spawned and recorded since the last poll. The providers
+    /// read their files off the main thread, so this starts that read and returns. A poll that
+    /// lands while the last read is still going starts nothing, rather than a second read of
+    /// the same files beside it.
     func reloadSessions() {
-        for index in sessions.indices where sessions[index].agent != nil {
-            let session = sessions[index]
-            if !session.exited {
-                let subagents = subagents(of: session)
-                if subagents != session.subagents { sessions[index].subagents = subagents }
+        guard sessionsRead == nil else { return }
+        sessionsRead = Task {
+            await readSessions()
+            sessionsRead = nil
+        }
+    }
+
+    private func readSessions() async {
+        // By id rather than index: a session can be closed, or another added, while a
+        // provider reads.
+        for id in sessions.filter({ $0.agent != nil }).map(\.id) {
+            if let session = sessions.first(where: { $0.id == id }), !session.exited {
+                let subagents = await subagents(of: session)
+                if let index = sessions.firstIndex(where: { $0.id == id }), subagents != sessions[index].subagents {
+                    sessions[index].subagents = subagents
+                }
             }
-            guard !session.taskIDs.isEmpty else { continue }
-            let coordination = LeadCoordination.load(root: notebookRoot, session: sessions[index])
-            if coordination != session.coordination {
+            guard let session = sessions.first(where: { $0.id == id }), !session.taskIDs.isEmpty else { continue }
+            let coordination = await LeadCoordination.load(root: notebookRoot, session: session)
+            if let index = sessions.firstIndex(where: { $0.id == id }), coordination != sessions[index].coordination {
                 sessions[index].coordination = coordination
             }
         }
         // Written from the poll rather than from the usage screen: what an agent spent
         // has to survive a run in which nobody opened that screen, and the transcripts
         // it is read from are no longer findable once the sessions are gone.
-        UsageLedger.record(AgentUsage.spends(in: value), root: notebookRoot)
+        UsageLedger.record(await AgentUsage.spends(in: value), root: notebookRoot)
     }
 
     func refreshRepo() {
@@ -104,9 +120,9 @@ import YongkangCore
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent
     /// session, Codex as sibling rollouts pointing back at it — so the session's own agent
     /// reads them. A service terminal has none.
-    private func subagents(of session: CodeSession) -> [SubagentStatus] {
+    private func subagents(of session: CodeSession) async -> [SubagentStatus] {
         let found =
-            session.agent?.provider.subagents(session: session.id, project: directory, taskIDs: session.taskIDs)
+            await session.agent?.provider.subagents(session: session.id, project: directory, taskIDs: session.taskIDs)
             ?? []
         // Named here rather than in either reader: the roster is project state, and the
         // screens downstream should never each have to look a running agent up themselves.

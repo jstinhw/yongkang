@@ -31,8 +31,9 @@ import YongkangCore
     /// for the one actually on screen.
     private(set) var agentTranscript: [TranscriptLine] = []
     /// The file those lines came from, so switching agents replaces them rather than
-    /// leaving one agent's work under another's name when the two are the same length.
-    private var transcriptSource: URL?
+    /// leaving one agent's work under another's name when the two are the same length. The
+    /// session's inspector names it too.
+    private(set) var transcriptSource: URL?
     private var ticks = 0
     /// The done tasks the window has already seen in this project. nil until the first
     /// poll seeds it, so opening a project full of finished work does not read as news.
@@ -326,24 +327,24 @@ import YongkangCore
     /// Only the agent actually on screen pays for having its transcript read and parsed —
     /// everything else is covered by the status list above.
     func reloadAgentTranscript() {
-        guard let project = entered, let source = onScreenTranscript(in: project) else {
+        // Only when the work area is showing the agent's transcript pane.
+        guard let project = entered, let watched = selectedAgent(in: project),
+            selection?.pane(of: watched.id) == .transcript, let provider = watched.agent?.provider
+        else {
             transcriptSource = nil
             agentTranscript = []
             return
         }
-        let fresh = source.agent.provider.transcript(at: source.url)
-        guard source.url != transcriptSource || fresh.count != agentTranscript.count else { return }
-        transcriptSource = source.url
-        agentTranscript = fresh
-    }
-
-    /// The transcript the work area is showing, if it is showing one: a subagent's, or the
-    /// lead's own when its transcript pane is up.
-    private func onScreenTranscript(in project: ProjectModel) -> (agent: AgentKind, url: URL)? {
-        guard let watched = selectedAgent(in: project),
-            selection?.pane(of: watched.id) == .transcript,
-            let url = Transcripts.url(of: watched, in: project.directory)
-        else { return nil }
-        return (watched.agent ?? .claude, url)
+        // The provider looks for the file off the main thread, and by the time it answers the
+        // window may be showing another agent.
+        let asked = selection
+        Task {
+            let url = await provider.transcriptURL(session: watched.id, project: project.directory)
+            guard selection == asked else { return }
+            let fresh = url.map { provider.transcript(at: $0) } ?? []
+            guard url != transcriptSource || fresh.count != agentTranscript.count else { return }
+            transcriptSource = url
+            agentTranscript = fresh
+        }
     }
 }

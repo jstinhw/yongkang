@@ -28,11 +28,13 @@ package struct LeadCoordination: Equatable {
         self.workers = workers
     }
 
-    package static func load(root: URL, session: CodeSession) -> LeadCoordination? {
+    package static func load(root: URL, session: CodeSession) async -> LeadCoordination? {
         guard var result = read(root: root, only: session.id)[session.id] else { return nil }
-        result.workers = result.workers
-            .filter { session.taskIDs.isEmpty || session.taskIDs.contains($0.taskID) }
-            .map { observed($0, in: session) }
+        var workers: [LeadWork] = []
+        for work in result.workers where session.taskIDs.isEmpty || session.taskIDs.contains(work.taskID) {
+            workers.append(await observed(work, in: session))
+        }
+        result.workers = workers
         guard !result.workers.isEmpty || result != LeadCoordination() else { return nil }
         return result
     }
@@ -123,7 +125,7 @@ package struct LeadCoordination: Equatable {
 
     /// What the live session adds to a record: whether its subagent is still running, and
     /// the tokens its transcript measured for this attempt.
-    private static func observed(_ work: LeadWork, in session: CodeSession) -> LeadWork {
+    private static func observed(_ work: LeadWork, in session: CodeSession) async -> LeadWork {
         var work = work
         guard work.state != "queued", let started = work.startedAt, let subagent = work.subagent(in: session)
         else { return work }
@@ -131,8 +133,8 @@ package struct LeadCoordination: Equatable {
         work.runtimeRunning = finished == nil && subagent.running && !session.exited
         // Reused threads contain other attempts. A returned attempt needs its end
         // timestamp before its transcript can be attributed safely.
-        if let provider = session.agent, finished != nil || work.state == "running" || work.state == "blocked" {
-            let samples = AgentUsage.samples(at: subagent.transcriptURL, provider).filter { sample in
+        if let kind = session.agent, finished != nil || work.state == "running" || work.state == "blocked" {
+            let samples = await kind.provider.usage(at: subagent.transcriptURL).filter { sample in
                 sample.at > started && (finished.map { sample.at <= $0 } ?? true)
             }
             if !samples.isEmpty {

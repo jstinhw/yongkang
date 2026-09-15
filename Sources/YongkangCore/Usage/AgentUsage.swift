@@ -179,31 +179,34 @@ package enum AgentUsage {
     }
 
     /// Every agent in the project with something on disk to read, biggest spender first.
-    package static func spends(in project: Project) -> [AgentSpend] {
-        project.sessions.flatMap { session -> [AgentSpend] in
-            let provider = session.agent ?? .claude
-            let own = Transcripts.url(of: session, in: project.directory).map { url in
-                AgentSpend(
-                    id: session.id.uuidString, route: .session(session.id),
-                    name: session.title, role: role(of: session),
-                    provider: provider, running: !session.exited,
-                    samples: samples(
-                        at: Transcripts.usageURL(of: session, in: project.directory) ?? url,
-                        provider))
+    package static func spends(in project: Project) async -> [AgentSpend] {
+        var spends: [AgentSpend] = []
+        // A service terminal is not an agent and spends nothing.
+        for session in project.sessions {
+            guard let kind = session.agent else { continue }
+            let provider = kind.provider
+            if let url = await provider.usageURL(session: session.id, project: project.directory) {
+                spends.append(
+                    AgentSpend(
+                        id: session.id.uuidString, route: .session(session.id),
+                        name: session.title, role: role(of: session),
+                        provider: kind, running: !session.exited,
+                        samples: await provider.usage(at: url)))
             }
-            let spawned = session.subagents.map { subagent in
+            for subagent in session.subagents {
                 // Scoped to its session: a provider's agent id is unique within the session
                 // that spawned it and not beyond, so two sessions can hold the same one —
                 // which would collide as a list key here and as a ledger row on disk.
-                AgentSpend(
-                    id: "\(session.id.uuidString):\(subagent.id)",
-                    route: .subagent(session: session.id, id: subagent.id),
-                    name: subagent.description, role: subagent.agentType,
-                    provider: provider, running: subagent.running,
-                    samples: samples(at: subagent.transcriptURL, provider))
+                spends.append(
+                    AgentSpend(
+                        id: "\(session.id.uuidString):\(subagent.id)",
+                        route: .subagent(session: session.id, id: subagent.id),
+                        name: subagent.description, role: subagent.agentType,
+                        provider: kind, running: subagent.running,
+                        samples: await provider.usage(at: subagent.transcriptURL)))
             }
-            return ([own].compactMap { $0 } + spawned).filter { !$0.samples.isEmpty }
         }
+        return spends.filter { !$0.samples.isEmpty }
     }
 
     /// Sums a keyed slice of the spends — by role, by provider — as one call, because
@@ -264,139 +267,8 @@ package enum AgentUsage {
         }
     }
 
-    // MARK: - Reading a transcript
-
-    /// What has already been read out of one file. A transcript only ever grows at the
-    /// end, so a re-read parses the new lines and nothing else — which is what makes it
-    /// safe to refresh this screen while a dozen agents are writing.
-    private struct Cursor {
-        var offset: UInt64 = 0
-        var samples: [UsageSample] = []
-        /// Codex only. It reports a running total per turn rather than a delta, so the
-        /// previous total is kept to subtract — and the model comes off whichever
-        /// `turn_context` came last, which may be in an earlier pass than the turn is.
-        var running = TokenTally()
-        var model = "unknown"
-    }
-
-    // ponytail: one lock around the whole cursor table, held through the read. The app only
-    // calls this from the main thread; parallel tests don't. Per-provider actor state
-    // replaces it when reads move off the main thread (refactor plan D15).
-    private static let lock = NSLock()
-    private static var files: [String: Cursor] = [:]
-
-    static func samples(at url: URL, _ provider: AgentKind) -> [UsageSample] {
-        lock.lock()
-        defer { lock.unlock() }
-        var cursor = files[url.path] ?? Cursor()
-        let lines = newLines(in: url, cursor: &cursor)
-        for line in lines {
-            let samples: [UsageSample]
-            switch provider {
-            case .codex: samples = codexSample(line, cursor: &cursor).map { [$0] } ?? []
-            case .claude: samples = claudeSample(line).map { [$0] } ?? []
-            case .grok: samples = grokSamples(line)
-            case .agy: samples = []
-            }
-            cursor.samples += samples
-        }
-        files[url.path] = cursor
-        return cursor.samples
-    }
-
-    /// Claude Code stamps every assistant message with its model and what that message
-    /// cost, so the file is already a ledger of deltas — one line, one sample.
-    private static func claudeSample(_ line: String) -> UsageSample? {
-        guard line.contains("\"usage\""), let object = json(line),
-            let at = date(object["timestamp"] as? String),
-            let message = object["message"] as? [String: Any],
-            let usage = message["usage"] as? [String: Any]
-        else { return nil }
-        func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
-        let tally = TokenTally(
-            input: count("input_tokens"), output: count("output_tokens"),
-            cacheRead: count("cache_read_input_tokens"),
-            cacheWrite: count("cache_creation_input_tokens"))
-        return tally.total == 0
-            ? nil
-            : UsageSample(at: at, model: message["model"] as? String ?? "unknown", tally: tally)
-    }
-
-    /// Codex reports the session's running total on every turn instead of that turn's
-    /// cost, so each sample is the difference from the last one. Differencing telescopes:
-    /// the samples always add back up to the total the file last reported, which summing
-    /// its `last_token_usage` fields does not — those repeat within a turn.
-    private static func codexSample(_ line: String, cursor: inout Cursor) -> UsageSample? {
-        guard let object = json(line), let payload = object["payload"] as? [String: Any] else { return nil }
-        // A turn names its model before it reports what the turn cost, and a session can
-        // change model partway, so the latest one seen is the one a sample is filed under.
-        if object["type"] as? String == "turn_context" {
-            cursor.model = payload["model"] as? String ?? cursor.model
-            return nil
-        }
-        guard payload["type"] as? String == "token_count",
-            let at = date(object["timestamp"] as? String),
-            let info = payload["info"] as? [String: Any],
-            let usage = info["total_token_usage"] as? [String: Any]
-        else { return nil }
-        func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
-        // `input_tokens` is the whole prompt, cached part included, so the cached half is
-        // subtracted out rather than counted twice.
-        let cached = count("cached_input_tokens")
-        let total = TokenTally(
-            input: max(0, count("input_tokens") - cached),
-            output: count("output_tokens"), cacheRead: cached,
-            cacheWrite: count("cache_write_input_tokens"))
-        let delta = total - cursor.running
-        cursor.running = total
-        return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
-    }
-
-    /// Grok writes one completed-turn update with a per-model usage breakdown. Its input
-    /// total includes cache reads, so subtract that part before putting it in our additive
-    /// tally, the same way Codex's running total is handled above.
-    private static func grokSamples(_ line: String) -> [UsageSample] {
-        guard let object = json(line),
-            let timestamp = (object["timestamp"] as? NSNumber)?.doubleValue,
-            let params = object["params"] as? [String: Any],
-            let update = params["update"] as? [String: Any],
-            update["sessionUpdate"] as? String == "turn_completed",
-            let usage = update["usage"] as? [String: Any]
-        else { return [] }
-        let at = Date(timeIntervalSince1970: timestamp > 10_000_000_000 ? timestamp / 1000 : timestamp)
-
-        func sample(_ model: String, _ value: [String: Any]) -> UsageSample? {
-            func count(_ key: String) -> Int { (value[key] as? NSNumber)?.intValue ?? 0 }
-            let cached = count("cachedReadTokens")
-            let tally = TokenTally(
-                input: max(0, count("inputTokens") - cached),
-                output: count("outputTokens"), cacheRead: cached,
-                cacheWrite: count("cacheCreationTokens"))
-            return tally.total == 0 ? nil : UsageSample(at: at, model: model, tally: tally)
-        }
-
-        let models = usage["modelUsage"] as? [String: Any] ?? [:]
-        let split = models.compactMap { model, value in sample(model, value as? [String: Any] ?? [:]) }
-        return split.isEmpty ? sample("grok", usage).map { [$0] } ?? [] : split
-    }
-
-    /// Whole lines written since this file was last read, advancing the cursor only past
-    /// the newline — a half-written last line is left for the next pass rather than parsed.
-    private static func newLines(in url: URL, cursor: inout Cursor) -> [String] {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
-        defer { try? handle.close() }
-        let size = (try? handle.seekToEnd()) ?? 0
-        guard size != cursor.offset else { return [] }
-        // A file that shrank was replaced, not appended to; start it over.
-        if size < cursor.offset { cursor = Cursor() }
-        try? handle.seek(toOffset: cursor.offset)
-        let data = (try? handle.readToEnd()) ?? Data()
-        guard let end = data.lastIndex(of: UInt8(ascii: "\n")) else { return [] }
-        cursor.offset += UInt64(end) + 1
-        return String(decoding: data[..<end], as: UTF8.self).split(separator: "\n").map(String.init)
-    }
-
-    private static func json(_ line: String) -> [String: Any]? {
+    /// One JSONL line as an object, or nil for anything else.
+    static func json(_ line: String) -> [String: Any]? {
         guard let data = line.data(using: .utf8) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }

@@ -5,10 +5,10 @@ import Testing
 
 /// A lead's durable plan and each runtime observation must stay correctly scoped.
 ///
-/// Serialized: loading a plan measures workers through `AgentUsage.samples`, whose
-/// per-file cursor cache is an unsynchronised `static var`. Every test writes its
-/// transcript under its own temporary folder, so no cursor an earlier test left can match.
-@Suite(.serialized) struct LeadCoordinationTests {
+/// Loading a plan measures workers through the shared Claude Code provider's usage cursors.
+/// Every test writes its transcript under its own temporary folder, so no cursor an earlier
+/// test left can match.
+@Suite struct LeadCoordinationTests {
 
     /// The session every record in `Fixtures/coordination/` is filed under.
     private static let id = UUID(uuidString: "7C9E6679-7425-40DE-944B-E07FC1F90AE7")!
@@ -60,21 +60,21 @@ import Testing
                 atomically: true, encoding: .utf8)
     }
 
-    @Test func noRecordsNoPlan() throws {
+    @Test func noRecordsNoPlan() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let session = CodeSession(
             id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
             taskIDs: ["auth"])
-        #expect(LeadCoordination.load(root: dir.appendingPathComponent("coordination"), session: session) == nil)
+        #expect(await LeadCoordination.load(root: dir.appendingPathComponent("coordination"), session: session) == nil)
     }
 
-    @Test func planReadsTheCoordinationRecord() throws {
+    @Test func planReadsTheCoordinationRecord() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
-        let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let plan = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         #expect(plan.parallelLimit == 2)
         #expect(plan.estimatedTokens == 12000)
         #expect(plan.estimatedMinutes == 8.5)
@@ -85,12 +85,12 @@ import Testing
             "cross-session, mismatched task, unsafe IDs and external symlinks are rejected")
     }
 
-    @Test func returnedWorkerIsMeasuredAndScoped() throws {
+    @Test func returnedWorkerIsMeasuredAndScoped() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
-        let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let plan = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         try #require(plan.workers.count == 2)
         let api = plan.workers[0]
         #expect(api.actualTokens == 90)
@@ -112,12 +112,12 @@ import Testing
         #expect(api.report == "API ready for QA.")
     }
 
-    @Test func queuedWorkerHasNoMetrics() throws {
+    @Test func queuedWorkerHasNoMetrics() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
-        let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let plan = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         let qa = try #require(plan.workers.last)
         let unavailable: Comment = "missing or invalid metrics stay unavailable instead of becoming zero"
         #expect(qa.usedTokens == nil, unavailable)
@@ -131,23 +131,23 @@ import Testing
         #expect(qa.runtimeRunning == nil, queued)
     }
 
-    @Test func nextPollIsStable() throws {
+    @Test func nextPollIsStable() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
-        let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let plan = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         #expect(
-            LeadCoordination.load(root: seeded.root, session: seeded.session) == plan,
+            await LeadCoordination.load(root: seeded.root, session: seeded.session) == plan,
             "the next poll neither double-counts usage nor changes finished work")
     }
 
-    @Test func allReadsRecordsWithNoSession() throws {
+    @Test func allReadsRecordsWithNoSession() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
-        let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let plan = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         let disk = LeadCoordination.all(root: seeded.root)
         let fromDisk: Comment = "records are read from disk with no live session; a mislabelled one is still refused"
         #expect(Array(disk.keys) == [Self.id], fromDisk)
@@ -182,16 +182,16 @@ import Testing
             "a returned agent without a finish timestamp has unknown elapsed time")
     }
 
-    @Test func retriedAttemptsCountABoundarySampleOnce() throws {
+    @Test func retriedAttemptsCountABoundarySampleOnce() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let seeded = try seed(in: dir)
 
         // A first poll, so the transcript is read incrementally across the retry.
-        _ = LeadCoordination.load(root: seeded.root, session: seeded.session)
+        _ = await LeadCoordination.load(root: seeded.root, session: seeded.session)
         try file("work-auth-z-retry", into: seeded.root.appendingPathComponent("runs"))
         try append(fixture("coordination/worker-retry.jsonl"), to: seeded.transcript)
-        let retried = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
+        let retried = try #require(await LeadCoordination.load(root: seeded.root, session: seeded.session))
         let boundary: Comment =
             "reused threads measure (start, finish] so adjacent attempts count a boundary sample once"
         #expect(retried.workers.first?.measuredTokens == 150, boundary)
@@ -250,7 +250,7 @@ import Testing
             "only repo-relative paths that stay inside the project are claimed")
     }
 
-    @Test func runsFolderLinkedOutsideIsNotRead() throws {
+    @Test func runsFolderLinkedOutsideIsNotRead() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let fm = FileManager.default
@@ -266,7 +266,7 @@ import Testing
             taskIDs: ["auth"])
 
         #expect(LeadCoordination.all(root: root).isEmpty, "a runs folder that points elsewhere is not this project's")
-        #expect(LeadCoordination.load(root: root, session: session) == nil)
+        #expect(await LeadCoordination.load(root: root, session: session) == nil)
     }
 
     @Test func recordThatIsNotTextIsSkipped() throws {

@@ -77,7 +77,7 @@ extension RootView {
                 SessionTranscript(
                     session: watched, cards: project.snapshot.cards, blocks: project.snapshot.blocks,
                     lines: model.agentTranscript,
-                    source: Transcripts.url(of: watched, in: project.directory),
+                    source: model.transcriptSource,
                     openTask: {
                         model.section = .board
                         model.selection = .task($0)

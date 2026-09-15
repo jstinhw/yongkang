@@ -14,11 +14,11 @@ package struct AgyProvider: AgentProvider {
         prompt.map { ["--prompt-interactive", AgentCommand.quoted($0)] } ?? []
     }
 
-    package func transcriptURL(session: UUID, project: URL) -> URL? {
+    package func transcriptURL(session: UUID, project: URL) async -> URL? {
         nil
     }
 
-    package func subagents(session: UUID, project: URL, taskIDs: [String]) -> [SubagentStatus] {
+    package func subagents(session: UUID, project: URL, taskIDs: [String]) async -> [SubagentStatus] {
         []
     }
 
@@ -26,7 +26,7 @@ package struct AgyProvider: AgentProvider {
         []
     }
 
-    package func usage(at url: URL) -> [UsageSample] {
+    package func usage(at url: URL) async -> [UsageSample] {
         []
     }
 

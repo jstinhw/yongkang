@@ -23,16 +23,20 @@ package protocol AgentProvider: Sendable {
     /// where the CLI has a flag for it.
     func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String]
 
+    // The reads a provider may answer from state it keeps between calls are `async`, because
+    // it keeps that state in an actor: its usage cursors, or Codex's index of rollouts.
+
     /// The session's own transcript. Nil when the CLI keeps none, or it can't be found yet.
-    func transcriptURL(session: UUID, project: URL) -> URL?
+    func transcriptURL(session: UUID, project: URL) async -> URL?
     /// Where the session's token usage is written: its transcript, unless the CLI keeps it apart.
-    func usageURL(session: UUID, project: URL) -> URL?
+    func usageURL(session: UUID, project: URL) async -> URL?
     /// The agents the session has spawned, each with the task out of `taskIDs` its label names.
-    func subagents(session: UUID, project: URL, taskIDs: [String]) -> [SubagentStatus]
+    func subagents(session: UUID, project: URL, taskIDs: [String]) async -> [SubagentStatus]
     /// A transcript's lines as the viewer shows them.
     func transcript(at url: URL) -> [TranscriptLine]
-    /// Every turn's spend in a usage file so far.
-    func usage(at url: URL) -> [UsageSample]
+    /// Every turn's spend in a usage file so far. Only what was written since the last call
+    /// is parsed.
+    func usage(at url: URL) async -> [UsageSample]
 
     /// Why the CLI's rendered screen is waiting on the user, such as a trust question, or nil.
     /// Match the question and its controls, never a mention of it in ordinary output.
@@ -42,8 +46,8 @@ package protocol AgentProvider: Sendable {
 }
 
 extension AgentProvider {
-    package func usageURL(session: UUID, project: URL) -> URL? {
-        transcriptURL(session: session, project: project)
+    package func usageURL(session: UUID, project: URL) async -> URL? {
+        await transcriptURL(session: session, project: project)
     }
 }
 

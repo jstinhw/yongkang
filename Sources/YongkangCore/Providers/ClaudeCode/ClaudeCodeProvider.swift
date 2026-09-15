@@ -5,6 +5,8 @@ import Foundation
 package struct ClaudeCodeProvider: AgentProvider {
     package static let shared = ClaudeCodeProvider()
 
+    private let usageReader = UsageReader { line, _ in ClaudeCodeProvider.sample(line).map { [$0] } ?? [] }
+
     package init() {}
 
     package var kind: AgentKind { .claude }
@@ -25,11 +27,11 @@ package struct ClaudeCodeProvider: AgentProvider {
         return words.compactMap { $0 }
     }
 
-    package func transcriptURL(session: UUID, project: URL) -> URL? {
+    package func transcriptURL(session: UUID, project: URL) async -> URL? {
         ClaudeTranscripts.transcriptURL(sessionID: session, projectDirectory: project)
     }
 
-    package func subagents(session: UUID, project: URL, taskIDs: [String]) -> [SubagentStatus] {
+    package func subagents(session: UUID, project: URL, taskIDs: [String]) async -> [SubagentStatus] {
         ClaudeTranscripts.subagents(sessionID: session, projectDirectory: project, taskIDs: taskIDs)
     }
 
@@ -37,8 +39,26 @@ package struct ClaudeCodeProvider: AgentProvider {
         ClaudeTranscripts.transcript(at: url)
     }
 
-    package func usage(at url: URL) -> [UsageSample] {
-        AgentUsage.samples(at: url, .claude)
+    package func usage(at url: URL) async -> [UsageSample] {
+        await usageReader.samples(at: url)
+    }
+
+    /// Claude Code stamps every assistant message with its model and what that message
+    /// cost, so the file is already a ledger of deltas — one line, one sample.
+    private static func sample(_ line: String) -> UsageSample? {
+        guard line.contains("\"usage\""), let object = AgentUsage.json(line),
+            let at = AgentUsage.date(object["timestamp"] as? String),
+            let message = object["message"] as? [String: Any],
+            let usage = message["usage"] as? [String: Any]
+        else { return nil }
+        func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
+        let tally = TokenTally(
+            input: count("input_tokens"), output: count("output_tokens"),
+            cacheRead: count("cache_read_input_tokens"),
+            cacheWrite: count("cache_creation_input_tokens"))
+        return tally.total == 0
+            ? nil
+            : UsageSample(at: at, model: message["model"] as? String ?? "unknown", tally: tally)
     }
 
     package func attentionReason(screen: String) -> String? {

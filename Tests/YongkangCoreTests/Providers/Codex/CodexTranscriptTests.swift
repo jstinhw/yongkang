@@ -3,20 +3,16 @@ import Testing
 
 @testable import YongkangCore
 
-/// `.serialized`: `CodexTranscripts` keeps process-global caches (`metaCache` by path,
-/// `threadCache` and `searched` by session id) in plain dictionaries, and `launched` is a
-/// global cutoff these tests wind back. Every test keys around the caches with its own
-/// temporary directory and fresh session ids, and sets `launched` itself, so none depends
-/// on what an earlier one left behind.
-@Suite(.serialized) struct CodexTranscriptTests {
-    @Test func everyDescendantOfTheLeadsThreadIsItsSubagent() throws {
+/// Every test reads through its own `CodexTranscripts`, over a temporary home, with the
+/// launch cutoff wound back past the fixtures it just wrote.
+@Suite struct CodexTranscriptTests {
+    @Test func everyDescendantOfTheLeadsThreadIsItsSubagent() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
 
-        let codexAgents = CodexTranscripts.subagents(
-            sessionID: fleet.session, projectDirectory: tmp,
-            taskIDs: ["edit-todo"], codexHome: fleet.home)
+        let codexAgents = await fleet.codex.subagents(
+            sessionID: fleet.session, projectDirectory: tmp, taskIDs: ["edit-todo"])
         #expect(
             codexAgents.map(\.description) == ["edit_todo_frontend", "edit_todo_qa"],
             "every descendant of this session's thread is affiliated with the lead")
@@ -28,32 +24,25 @@ import Testing
         #expect(codexAgents.allSatisfy { $0.running }, "started descendants remain running until complete")
     }
 
-    @Test func sessionWhoseThreadIsNotOnDiskReadsEmpty() throws {
+    @Test func sessionWhoseThreadIsNotOnDiskReadsEmpty() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
         #expect(
-            CodexTranscripts.subagents(
-                sessionID: UUID(), projectDirectory: tmp,
-                codexHome: fleet.home
-            ).isEmpty,
+            await fleet.codex.subagents(sessionID: UUID(), projectDirectory: tmp).isEmpty,
             "a session whose thread is not on disk reads as empty, not a crash")
     }
 
-    @Test func leadIsWatchedThroughItsOwnRollout() throws {
+    @Test func leadIsWatchedThroughItsOwnRollout() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
         #expect(
-            CodexTranscripts.transcriptURL(
-                sessionID: fleet.session, projectDirectory: tmp,
-                codexHome: fleet.home)?.lastPathComponent
+            await fleet.codex.transcriptURL(sessionID: fleet.session, projectDirectory: tmp)?.lastPathComponent
                 == "rollout-lead.jsonl",
             "a Codex lead is watched through its own rollout, not one it spawned")
         #expect(
-            CodexTranscripts.transcriptURL(
-                sessionID: UUID(), projectDirectory: tmp,
-                codexHome: fleet.home) == nil,
+            await fleet.codex.transcriptURL(sessionID: UUID(), projectDirectory: tmp) == nil,
             "a thread not on disk yet has no transcript to read, rather than the wrong one")
     }
 
@@ -66,7 +55,7 @@ import Testing
     }
 
     // One session's scan must not hide another session's unchanged rollout.
-    @Test func concurrentSessionsResolveIndependently() throws {
+    @Test func concurrentSessionsResolveIndependently() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
@@ -78,22 +67,19 @@ import Testing
             CodexProvider.marker(secondSession),
         ].joined(separator: "\n").write(to: secondRollout, atomically: true, encoding: .utf8)
 
-        _ = CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp, codexHome: fleet.home)
+        _ = await fleet.codex.transcriptURL(sessionID: UUID(), projectDirectory: tmp)
         #expect(
-            CodexTranscripts.transcriptURL(
-                sessionID: secondSession, projectDirectory: tmp,
-                codexHome: fleet.home)?.standardizedFileURL
+            await fleet.codex.transcriptURL(sessionID: secondSession, projectDirectory: tmp)?.standardizedFileURL
                 == secondRollout.standardizedFileURL,
             "concurrent sessions resolve independently, even beyond the old prompt window")
     }
 
-    @Test func onlineAgentsCountTheLeadAndRunningDescendants() throws {
+    @Test func onlineAgentsCountTheLeadAndRunningDescendants() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
-        let codexAgents = CodexTranscripts.subagents(
-            sessionID: fleet.session, projectDirectory: tmp,
-            taskIDs: ["edit-todo"], codexHome: fleet.home)
+        let codexAgents = await fleet.codex.subagents(
+            sessionID: fleet.session, projectDirectory: tmp, taskIDs: ["edit-todo"])
         var project = Project(directory: tmp)
         project.sessions = [
             CodeSession(
@@ -154,7 +140,7 @@ import Testing
 
     /// A lead rollout caught while its first line is still being written is not a lead yet,
     /// and a failed read must not stick: once the line lands, the same file resolves.
-    @Test func leadWithHalfWrittenSessionMetaResolvesOnceComplete() throws {
+    @Test func leadWithHalfWrittenSessionMetaResolvesOnceComplete() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let home = tmp.appendingPathComponent(".codex")
@@ -163,17 +149,16 @@ import Testing
         let session = UUID()
         let lead = day.appendingPathComponent("rollout-lead.jsonl")
         let full = try rolloutFixture("codex/codex-rollout-lead.jsonl", cwd: tmp, session: session)
-        CodexTranscripts.launched = .distantPast
+        let codex = CodexTranscripts(codexHome: home, launched: .distantPast)
 
         try String(full.prefix(40)).write(to: lead, atomically: true, encoding: .utf8)
         #expect(
-            CodexTranscripts.transcriptURL(sessionID: session, projectDirectory: tmp, codexHome: home) == nil,
+            await codex.transcriptURL(sessionID: session, projectDirectory: tmp) == nil,
             "a half-written session_meta line reads as no lead, not a crash")
         try full.write(to: lead, atomically: true, encoding: .utf8)
         #expect(
-            CodexTranscripts.transcriptURL(
-                sessionID: session, projectDirectory: tmp,
-                codexHome: home)?.lastPathComponent == "rollout-lead.jsonl",
+            await codex.transcriptURL(sessionID: session, projectDirectory: tmp)?.lastPathComponent
+                == "rollout-lead.jsonl",
             "the completed rollout resolves on the next scan")
     }
 }
@@ -182,6 +167,8 @@ import Testing
 /// child the lead spawned, and a grandchild the child spawned.
 private struct CodexFleet {
     let home: URL
+    /// Reads this fleet, and only rollouts written since `.distantPast`: every fixture here.
+    let codex: CodexTranscripts
     let day: URL
     let session: UUID
     let child: URL
@@ -211,9 +198,9 @@ private func makeFleet(in project: URL) throws -> CodexFleet {
     _ = try rollout(
         "rollout-grandchild.jsonl",
         rolloutFixture("codex/codex-rollout-grandchild.jsonl", cwd: project, session: session))
-    // Only rollouts modified since launch are scanned; the fixtures were written just now.
-    CodexTranscripts.launched = .distantPast
-    return CodexFleet(home: codexHome, day: day, session: session, child: child)
+    return CodexFleet(
+        home: codexHome, codex: CodexTranscripts(codexHome: codexHome, launched: .distantPast), day: day,
+        session: session, child: child)
 }
 
 /// A rollout fixture with its `{{CWD}}` and `{{MARKER}}` stand-ins filled in. The opening

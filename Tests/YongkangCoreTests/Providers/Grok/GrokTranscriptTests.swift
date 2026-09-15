@@ -3,11 +3,9 @@ import Testing
 
 @testable import YongkangCore
 
-/// `.serialized`: `AgentUsage.samples` keeps a process-global read cursor per file path
-/// (`AgentUsage.files`, a plain dictionary). Each test reads its own temporary path, so a
-/// cursor left by another test never applies, but the dictionary itself is not safe to
-/// write from two tests at once.
-@Suite(.serialized) struct GrokTranscriptTests {
+/// Each test reads its own temporary path, so a usage cursor the shared provider kept from
+/// another test never applies.
+@Suite struct GrokTranscriptTests {
     private let sid = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
 
     // Grok keeps the readable chat and usage stream beside each other under the UUID
@@ -39,13 +37,13 @@ import Testing
             ])
     }
 
-    @Test func usageDoesNotCountCacheReadsTwice() throws {
+    @Test func usageDoesNotCountCacheReadsTwice() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let grokUsage = try sessionFolder(in: tmp).appendingPathComponent("updates.jsonl")
         try fixture("grok/grok-updates-turn-completed.jsonl").write(to: grokUsage, atomically: true, encoding: .utf8)
 
-        let grokSamples = AgentUsage.samples(at: grokUsage, .grok)
+        let grokSamples = await AgentKind.grok.provider.usage(at: grokUsage)
         try #require(grokSamples.count == 1 && grokSamples[0].model == "grok-4.6-build")
         #expect(
             grokSamples[0].tally == TokenTally(input: 60, output: 20, cacheRead: 40, cacheWrite: 5),
@@ -88,25 +86,26 @@ import Testing
         ("grok/grok-updates-empty.jsonl", 0),
         ("grok/grok-updates-unexpected-type.jsonl", 1),
     ])
-    func malformedUsageKeepsEveryCompleteTurn(path: String, turns: Int) throws {
+    func malformedUsageKeepsEveryCompleteTurn(path: String, turns: Int) async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let usage = tmp.appendingPathComponent("updates.jsonl")
         try fixture(path).write(to: usage, atomically: true, encoding: .utf8)
         #expect(
-            AgentUsage.samples(at: usage, .grok).count == turns,
+            await AgentKind.grok.provider.usage(at: usage).count == turns,
             "only completed turns count, and a bad line costs nothing but itself")
     }
 
-    @Test func halfWrittenUsageLineIsReadOnceFinished() throws {
+    @Test func halfWrittenUsageLineIsReadOnceFinished() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let usage = tmp.appendingPathComponent("updates.jsonl")
         try fixture("grok/grok-updates-truncated-final-line.jsonl").write(to: usage, atomically: true, encoding: .utf8)
-        #expect(AgentUsage.samples(at: usage, .grok).count == 1, "the half-written turn waits for its newline")
+        #expect(
+            await AgentKind.grok.provider.usage(at: usage).count == 1, "the half-written turn waits for its newline")
         try append(#"tTokens":30,"cachedReadTokens":200,"cacheCreationTokens":0}}}}"# + "\n", to: usage)
         #expect(
-            AgentUsage.samples(at: usage, .grok).count == 2,
+            await AgentKind.grok.provider.usage(at: usage).count == 2,
             "and is read on the next pass once the CLI finishes writing it")
     }
 }
