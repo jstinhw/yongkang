@@ -172,13 +172,14 @@ folder.
 A fixture is real CLI output, trimmed down. It's what keeps a reader honest when a CLI
 changes its format.
 
-**Where fixtures live.** Under `Tests/YongkangTests/Fixtures/<provider>/`, loaded with
-`fixture("codex/…")` from `Tests/YongkangTests/Support.swift`:
+**Where fixtures live.** Under `Tests/YongkangCoreTests/Fixtures/<provider>/`, loaded with
+`fixture("codex/…")` from `Tests/YongkangCoreTests/Support.swift`. `YongkangUITests` has
+its own `fixture()`, which reads the same folder:
 
 - **Terminal bytes.** `codex/codex-0.154.0-trust-screen.ansi` is Codex 0.154.0's trust
   screen. `AttentionPromptTests` feeds it to `AttentionTerminalView.dataReceived` and
-  expects an `attentionReason`. The `--attention-selftest` flag in `App.swift` plays the
-  same file through a real PTY.
+  expects an `attentionReason`. The `--attention-selftest` flag in `YongkangApp.swift` plays
+  the same file through a real PTY.
 - **Transcripts and usage.** One JSON object per line, copied into a temporary fake home
   and read back through the real reader. Each reader takes `claudeHome:`, `codexHome:` or
   `grokHome:` for this. Values only known at runtime (a temp path, a session marker) are
@@ -191,7 +192,7 @@ changes its format.
 
 | CLI | File | Read by |
 |---|---|---|
-| Claude Code | `~/.claude/projects/<project path, "/" → "-">/<session-id>.jsonl`, the session's transcript and usage | `ClaudeTranscripts` (`SubagentActivity.swift`), `AgentUsage` |
+| Claude Code | `~/.claude/projects/<project path, "/" → "-">/<session-id>.jsonl`, the session's transcript and usage | `ClaudeTranscripts`, `AgentUsage` |
 | | `…/<session-id>/subagents/agent-<id>.jsonl` and `agent-<id>.meta.json` | `ClaudeTranscripts.subagents` |
 | | `~/.claude.json`, the cached plan and limits | `AgentUsage.claudeQuota` |
 | Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. The first line is `session_meta`; a subagent's `source` carries `subagent.thread_spawn.parent_thread_id`. A lead's rollout is the one whose opening prompt quotes `AgentCommand.marker`. | `CodexTranscripts`, `AgentUsage` |
@@ -223,7 +224,7 @@ those files are named after the UUID.
      `encrypted_content`). Codex's `session_meta` line also carries the base instructions.
    - Remove account ids, emails, org names, API keys and tokens.
    - Check nothing is left: `grep -nE '/Users/|@|sk-|ghp_|Bearer' <file>`.
-5. **Save it** as `Tests/YongkangTests/Fixtures/<provider>/<cli>-<version>-<what>.<ext>`.
+5. **Save it** as `Tests/YongkangCoreTests/Fixtures/<provider>/<cli>-<version>-<what>.<ext>`.
    Copy terminal bytes byte-exact (`cp /tmp/cli.typescript …`, then trim with a hex-safe
    tool), never retyped. Add a new file next to the old one when a CLI changes its format,
    so the folder records which versions are supported.
@@ -263,42 +264,45 @@ certificate hasn't been created on the machine this was written on.)*
 Adding Grok and Agy (`fb13f1e`) touched 8 files. This is the checklist for the next CLI,
 with the code as it is now. The compiler flags the exhaustive `switch`es over `AgentKind`,
 but not the ones that end in `default:`. To find every provider branch, run
-`grep -n '\.codex\|\.grok\|\.agy' Sources/Yongkang/*.swift`.
+`grep -rn '\.codex\|\.grok\|\.agy' Sources`.
 
-1. **`AgentTerminal.swift`**
-   - `AgentKind`: add the case, plus its `displayName` and `systemImage`. `command` is the
-     raw value, so the case name has to match the executable's name on PATH.
-   - `skillInvocation`: how the CLI calls a skill. It's `$name` for Codex and `/name` for
-     the rest.
-   - `AgentCommand.line`: how the CLI accepts a session id (Claude Code and Grok take
-     `--session-id`; Codex gets `marker` appended to its prompt), how it accepts an opening
-     prompt (Agy needs `--prompt-interactive`), and whether it supports `--brief`.
+1. **The command line**, in `YongkangCore`
+   - `Providers/AgentKind.swift`, `AgentKind`: add the case, plus its `displayName` and
+     `systemImage`. `command` is the raw value, so the case name has to match the
+     executable's name on PATH. `skillInvocation` is how the CLI calls a skill: `$name` for
+     Codex and `/name` for the rest.
+   - `Shell/AgentCommand.swift`, `AgentCommand.line`: how the CLI accepts a session id
+     (Claude Code and Grok take `--session-id`; Codex gets `marker` appended to its prompt),
+     how it accepts an opening prompt (Agy needs `--prompt-interactive`), and whether it
+     supports `--brief`.
    - `AgentCommand.denyCommits`: the CLI's flag for refusing `git commit`, `git push` and
      `gh pr create` in lead sessions, if it has one.
-   - `AgentTerminal.Coordinator.navigate` and `ChildAgentPicker`: the command that opens a live
-     child-agent view, and how its picker looks on screen. Only Claude Code (`/tasks`) and
-     Codex (`/subagents`) have one.
-2. **`<Provider>Transcripts.swift`** (new file, like `GrokTranscripts.swift`): where a
-   session's transcript lives and how to parse it into `TranscriptLine`s. Take the home
-   folder as a parameter that defaults to `~/.<cli>`, so the self-test can point it at a
-   temporary folder.
-3. **`AgentUsage.swift`**
-   - `samples(at:_:)`: parse the CLI's token usage (see `grokSamples`).
-   - `Transcripts.url(of:in:)` and `usageURL(of:in:)`: point to the transcript and usage
-     files.
+2. **`YongkangUI/Terminal/AgentTerminal.swift`**, `AgentTerminal.Coordinator.navigate` and
+   `ChildAgentPicker`: the command that opens a live child-agent view, and how its picker
+   looks on screen. Only Claude Code (`/tasks`) and Codex (`/subagents`) have one.
+3. **`YongkangCore/Providers/<Provider>/<Provider>Transcripts.swift`** (new file, like
+   `Providers/Grok/GrokTranscripts.swift`): where a session's transcript lives and how to
+   parse it into `TranscriptLine`s. Take the home folder as a parameter that defaults to
+   `~/.<cli>`, so the self-test can point it at a temporary folder.
+4. **Usage**, in `YongkangCore`
+   - `Usage/AgentUsage.swift`, `samples(at:_:)`: parse the CLI's token usage (see
+     `grokSamples`).
+   - `Providers/Transcripts.swift`, `Transcripts.url(of:in:)` and `usageURL(of:in:)`: point
+     to the transcript and usage files.
    - Optional: a quota reader like `claudeQuota` or `codexQuota`, added to the list in
-     `UsageBoard.load()`.
-4. **`App.swift`**
+     `UsageBoard.load()` (`YongkangUI/Features/Usage/UsageBoard.swift`).
+5. **`YongkangUI/App/YongkangApp.swift`**
    - `reloadAgentTranscript()`: call the new reader.
    - `subagents(of:in:)`: only if the CLI's subagents can be read from disk. Otherwise the
      `default: []` branch covers it.
    - `providerPicker`: widen its frame for the extra segment.
-5. **`AgentAttention.swift`**, `AgentPrompt.reason`: the CLI's trust or consent question, so
-   the **Action required** bar appears. `fb13f1e` skipped this step, so Grok and Agy have
-   no entry.
-6. **`Tests/YongkangTests/`**: captured transcript and usage fixtures, with a test for
-   each (see [Capturing a CLI fixture](#capturing-a-cli-fixture)).
-7. **Docs**: every place in `README.md` and `docs/` that lists the supported CLIs.
+6. **`YongkangUI/Terminal/AgentAttention.swift`**, `AgentPrompt.reason`: the CLI's trust or
+   consent question, so the **Action required** bar appears. `fb13f1e` skipped this step, so
+   Grok and Agy have no entry.
+7. **`Tests/YongkangCoreTests/`**: captured transcript and usage fixtures, with a test for
+   each in `Providers/<Provider>TranscriptTests.swift` (see
+   [Capturing a CLI fixture](#capturing-a-cli-fixture)).
+8. **Docs**: every place in `README.md` and `docs/` that lists the supported CLIs.
 
 Then run `swift test`, render shots (the agent switch gets wider), and do
 the smoke script with the new provider selected.

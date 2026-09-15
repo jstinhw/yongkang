@@ -30,9 +30,9 @@ it true.
 
 ```sh
 swift test                           # checks the on-disk format has not drifted
-swift run Yongkang --shots /tmp/ui   # renders every screen to PNG from a fixed sample
+swift run shots /tmp/ui              # renders every screen to PNG from a fixed sample
 ```
 
-`--shots` draws each screen through an offscreen window at 1440×900. A layout that clips
+`shots` draws each screen through an offscreen window at 1440×900. A layout that clips
 or collapses is invisible in a compiler pass and obvious in a picture, and the screens are
 too wide to check by launching the app on every change.

@@ -7,7 +7,7 @@ import YongkangUI
 /// clips, overflows or collapses is invisible in a compiler pass and obvious in a picture,
 /// and the screens are too wide to check by launching the app on every change.
 ///
-///     swift run Yongkang --shots /tmp/shots
+///     swift run shots /tmp/shots
 enum DesignShots {
     @MainActor static func run(into directory: URL) {
         NSApplication.shared.setActivationPolicy(.accessory)
