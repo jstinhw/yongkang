@@ -212,10 +212,9 @@ import YongkangCore
                     .map { .session($0.id) }
             }
         case .review:
-            refreshChanges(force: true)
             // A task, not a file: what the agents did is the thing to read before any of
             // the diff means anything.
-            selection = project.firstReview
+            openReview(in: project)
         case .blocks:
             selection =
                 (project.snapshot.blocks.first(where: \.waiting)
@@ -296,8 +295,7 @@ import YongkangCore
             selectedSession(in: project) == nil
         else { return }
         section = .review
-        refreshChanges(force: true)
-        selection = project.firstReview
+        openReview(in: project)
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —
@@ -321,7 +319,20 @@ import YongkangCore
         // and it has to come on while you are looking at the board.
         guard let project = entered else { return }
         guard force || ticks % 3 == 0 else { return }
-        project.refreshRepo()
+        Task { await project.refreshRepo() }
+    }
+
+    /// Review opens on the first task waiting for approval, as git sees the tree. The read
+    /// this starts answers a moment later, so the page is picked now from the last read and
+    /// picked again once the new one is in, unless the user has already moved on.
+    private func openReview(in project: ProjectModel) {
+        selection = project.firstReview
+        let landed = selection
+        Task {
+            await project.refreshRepo()
+            guard entered === project, selection == landed else { return }
+            selection = project.firstReview
+        }
     }
 
     /// Only the agent actually on screen pays for having its transcript read and parsed —

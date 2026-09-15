@@ -1,7 +1,7 @@
 # Fixtures
 
-Real output captured from the agent CLIs and sample repo files, one folder per source:
-`claude/`, `codex/`, `grok/`, `compose/`, `notebook/`. Load one with `fixture("codex/…")`.
+Real output captured from the agent CLIs, git and sample repo files, one folder per source:
+`claude/`, `codex/`, `grok/`, `git/`, `compose/`, `notebook/`. Load one with `fixture("codex/…")`.
 
 Name a capture after the CLI version it came from (`codex-0.154.0-trust-screen.ansi`), so the
 folder records which formats are supported. When a CLI changes its format, add a new file

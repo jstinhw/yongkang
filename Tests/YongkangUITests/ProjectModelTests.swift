@@ -64,6 +64,27 @@ import Testing
         #expect(!firstChanged, "and nothing a screen of the other project reads was written")
     }
 
+    /// The poll, a forced refresh and the read after a commit overlap, and git answers them in
+    /// whatever order it finishes.
+    @Test func aRepoReadThatAnswersLateNeverReplacesANewerOne() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = ProjectModel(directory: try notebook("app", in: tmp))
+        let older = RepoStatus(changes: [FileChange(path: "old.txt", added: 1, removed: 0, untracked: true)])
+        let newer = RepoStatus(changes: [FileChange(path: "new.txt", added: 1, removed: 0, untracked: true)])
+
+        let (reads, read) = AsyncStream.makeStream(of: CheckedContinuation<RepoStatus, Never>.self)
+        let slow = Task { await project.refreshRepo { await withCheckedContinuation { read.yield($0) } } }
+        var started = reads.makeAsyncIterator()
+        let late = try #require(await started.next())
+
+        await project.refreshRepo { newer }
+        #expect(project.repo == newer, "a read that started later still shows while the earlier one runs")
+        late.resume(returning: older)
+        await slow.value
+        #expect(project.repo == newer, "and the earlier one, answering last, is dropped")
+    }
+
     // `@AppStorage("openProjects")` is a string in defaults; relaunching reads it back.
     @Test func openProjectsRoundTripThroughDefaults() throws {
         let tmp = try makeTemporaryDirectory()

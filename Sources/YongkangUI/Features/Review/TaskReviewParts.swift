@@ -140,11 +140,13 @@ struct FeedbackCard: View {
 struct TaskReviewBar: View {
     let task: SummaryTask
     let draft: ReviewDraft
-    let approve: (String) -> String?
+    let approve: (String) async -> String?
     let requestChanges: () -> Void
 
     @State private var message = ""
     @State private var failure = ""
+    /// While git commits, so a second press doesn't start a second commit behind it.
+    @State private var committing = false
 
     var body: some View {
         ActionBar {
@@ -186,12 +188,16 @@ struct TaskReviewBar: View {
 
     private var approveButton: some View {
         Button {
-            failure = approve(message) ?? ""
+            committing = true
+            Task {
+                failure = await approve(message) ?? ""
+                committing = false
+            }
         } label: {
             Label("Approve and commit", systemImage: "checkmark.seal")
         }
         .disabled(
-            !task.done || task.commitPaths.isEmpty
+            committing || !task.done || task.commitPaths.isEmpty
                 || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 }

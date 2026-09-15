@@ -190,13 +190,14 @@ enum DesignShots {
         here.cards = project.cards
         here.sessions = project.sessions
         here.blocks = project.blocks
-        let changes = GitChanges.changes(in: repo)
+        let status = readRepo(repo)
+        let changes = status.changes
         let summary = ChangeSummary.of(here, changes: changes)
         write(
             console(here, section: .review, changes: changes) {
                 ChangeReview(
-                    project: here, changes: changes, head: GitChanges.head(in: repo),
-                    branch: GitChanges.branch(in: repo),
+                    project: here, changes: changes, head: status.head,
+                    branch: status.branch,
                     path: changes.first?.path ?? "", summary: summary,
                     select: { _ in }, commit: { _ in nil })
             }, "review", into: directory)
@@ -216,7 +217,7 @@ enum DesignShots {
                 console(reviewed, section: .review, changes: changes) {
                     TaskReview(
                         task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
-                        team: Team.defaults, branch: GitChanges.branch(in: repo), head: GitChanges.head(in: repo),
+                        team: Team.defaults, branch: status.branch, head: status.head,
                         draft: .constant(draft), openFile: { _ in }, approve: { _ in nil }, requestChanges: {})
                 }, "handover", into: directory)
         }
@@ -233,6 +234,21 @@ enum DesignShots {
             }, "usage", into: directory)
 
         print("shots written to \(directory.path)")
+    }
+
+    /// git's answer, waited for on the main thread. The shots stay synchronous on purpose:
+    /// run from inside an async main-actor job, the run loop `write` spins never starts the
+    /// screens' `.task`s, and a pane that loads in one is drawn empty.
+    private static func readRepo(_ repo: URL) -> RepoStatus {
+        final class Answer: @unchecked Sendable { var status = RepoStatus() }
+        let answer = Answer()
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            answer.status = await RepoStatus.read(in: repo) ?? RepoStatus()
+            done.signal()
+        }
+        done.wait()
+        return answer.status
     }
 
     /// This repo's own agent sessions, as the console would hold them — every Claude Code

@@ -15,7 +15,7 @@ package struct TaskReview: View {
     let head: String?
     @Binding var draft: ReviewDraft
     let openFile: (String) -> Void
-    let approve: (String) -> String?
+    let approve: (String) async -> String?
     let requestChanges: () -> Void
 
     @State private var content: [NotebookContent.Section] = []
@@ -33,7 +33,7 @@ package struct TaskReview: View {
         head: String?,
         draft: Binding<ReviewDraft>,
         openFile: @escaping (String) -> Void,
-        approve: @escaping (String) -> String?,
+        approve: @escaping (String) async -> String?,
         requestChanges: @escaping () -> Void
     ) {
         self.task = task
@@ -83,7 +83,7 @@ package struct TaskReview: View {
             }
             TaskReviewBar(task: task, draft: draft, approve: approve, requestChanges: requestChanges)
         }
-        .task(id: task.files) { load() }
+        .task(id: task.files) { await load() }
     }
 
     // MARK: - Header
@@ -360,14 +360,17 @@ package struct TaskReview: View {
         .cardSurface(padding: 12, border: Theme.amber.opacity(0.26), fill: Theme.amber.opacity(0.06))
     }
 
-    private func load() {
+    private func load() async {
         let text = task.url.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
         content = NotebookContent.sections(NotebookIndex.body(text))
         var found: [String: ReviewArea] = [:]
         for file in task.files {
             let owner = task.work.first { $0.paths.contains(file.path) }?.skill ?? ""
-            found[file.path] = ReviewArea.of(file.path, skill: owner, diff: GitChanges.diff(of: file, in: directory))
+            found[file.path] = ReviewArea.of(
+                file.path, skill: owner, diff: await GitClient.diff(of: file, in: directory))
         }
+        // The files changed while git was diffing, and a newer load has them.
+        guard !Task.isCancelled else { return }
         areas = found
     }
 }

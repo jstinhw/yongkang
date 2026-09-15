@@ -31,36 +31,62 @@ package struct DiffLine: Identifiable {
 ///
 /// Everything is against `HEAD`, so a review shows the work as it stands — uncommitted,
 /// because no agent commits, which is the moment this pane exists for.
-package enum GitChanges {
+///
+/// Every call is `async` and runs git through `AsyncProcess`, so a slow repo costs a wait and
+/// never a frozen window.
+package enum GitClient {
+    /// The part of `git status` a refresh needs: the commit and branch the tree is on, and the
+    /// files git has never seen. Tracked changes come from `numstat`, which also counts them.
+    struct Status: Equatable {
+        /// Nil before the first commit, which is `(initial)`.
+        var oid: String?
+        /// Nil on a detached HEAD, which has no branch to name.
+        var branch: String?
+        var untracked: [String] = []
+    }
 
-    package static func changes(in directory: URL) -> [FileChange] {
-        guard isRepository(directory) else { return [] }
-        var counts: [String: (Int, Int)] = [:]
-        for line in run(["diff", "--numstat", "HEAD"], in: directory).split(separator: "\n") {
-            let parts = line.split(separator: "\t", maxSplits: 2).map(String.init)
-            guard parts.count == 3 else { continue }
-            counts[parts[2]] = (Int(parts[0]) ?? 0, Int(parts[1]) ?? 0)
+    /// Nil when `directory` is not in a repository, which is also the only check a refresh
+    /// makes for that.
+    ///
+    /// `--no-optional-locks`, because a plain `git status` refreshes the index and writes it
+    /// back, taking `index.lock` while it does: polled every few seconds beside agents that run
+    /// git themselves, that is an agent's `git add` failing on a lock the app holds.
+    /// `--untracked-files=all` lists each file in a new folder rather than the folder, which is
+    /// what a task's recorded paths are matched against.
+    static func status(in directory: URL) async -> Status? {
+        guard
+            let output = await git(
+                ["--no-optional-locks", "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"],
+                in: directory),
+            output.status == 0
+        else { return nil }
+        return parseStatus(output.stdout)
+    }
+
+    /// Every tracked file that differs from `HEAD`, staged or not, with its line counts. Only
+    /// meaningful once there is a `HEAD`; before the first commit git refuses, and nothing is
+    /// listed.
+    static func numstat(in directory: URL) async -> [FileChange] {
+        guard let output = await git(["diff", "--numstat", "-z", "HEAD"], in: directory), output.status == 0 else {
+            return []
         }
-        let tracked = counts.map {
-            FileChange(
-                path: $0.key, added: $0.value.0,
-                removed: $0.value.1, untracked: false)
-        }
-        let untracked = run(["ls-files", "--others", "--exclude-standard"], in: directory)
-            .split(separator: "\n")
-            .map {
-                FileChange(
-                    path: String($0), added: lineCount(String($0), in: directory),
-                    removed: 0, untracked: true)
-            }
-        return (tracked + untracked).sorted { $0.path < $1.path }
+        return parseNumstat(output.stdout)
+    }
+
+    /// The commit a review is standing on, as `<short sha> <subject>`, so the pane can say what
+    /// it is diffing against. `status` already gives its id; this is the one extra call, and
+    /// `RepoStatus.read` only makes it when that id changes.
+    static func head(in directory: URL) async -> String? {
+        let text = await git(["log", "-1", "--format=%h %s"], in: directory)?.text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text?.isEmpty == false ? text : nil
     }
 
     /// The unified diff of one file, already split into rows with their line numbers so the
     /// view only has to draw them.
-    package static func diff(of change: FileChange, in directory: URL) -> [DiffLine] {
+    package static func diff(of change: FileChange, in directory: URL) async -> [DiffLine] {
         guard !change.untracked else { return newFileLines(change, in: directory) }
-        let text = run(["diff", "--unified=3", "HEAD", "--", change.path], in: directory)
+        let text = await git(["diff", "--unified=3", "HEAD", "--", change.path], in: directory)?.text ?? ""
         var lines: [DiffLine] = []
         var old = 0
         var new = 0
@@ -89,38 +115,21 @@ package enum GitChanges {
         return lines
     }
 
-    /// The commit a review is standing on, so the pane can say what it is diffing against.
-    package static func head(in directory: URL) -> String? {
-        guard isRepository(directory) else { return nil }
-        let text = run(["log", "-1", "--format=%h %s"], in: directory)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
-    }
-
-    package static func branch(in directory: URL) -> String? {
-        guard isRepository(directory) else { return nil }
-        // `--show-current`, not `rev-parse`: a repository the app just created has no commit
-        // yet, and only this form still names its branch.
-        let text = run(["branch", "--show-current"], in: directory)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
-    }
-
     /// Commit — the one write this app makes to a user's repo, and only from a button on
     /// the review screen. With `paths` it is one approved task: only those files are staged
     /// and committed, and whatever else sits in the index or the tree is left exactly as it
     /// was. Without, everything. Returns git's own words on failure and nil on success.
     /// Pushing and merging stay the user's.
-    package static func commit(message: String, paths: [String]? = nil, in directory: URL) -> String? {
+    package static func commit(message: String, paths: [String]? = nil, in directory: URL) async -> String? {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "A commit needs a message." }
         guard paths?.isEmpty != true else { return "This task has no changed files left to commit." }
-        guard isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
+        guard await isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
         let steps =
             paths.map { [["add", "--"] + $0, ["commit", "--message", text, "--"] + $0] }
             ?? [["add", "--all"], ["commit", "--message", text]]
         for arguments in steps {
-            let result = execute(arguments, in: directory)
+            let result = await execute(arguments, in: directory)
             guard result.status != 0 else { continue }
             let said = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
             return said.isEmpty ? "git \(arguments[0]) failed (\(result.status))." : said
@@ -131,14 +140,64 @@ package enum GitChanges {
     /// `git init`, so agents' work has a baseline to diff against and approving has somewhere
     /// to commit. Creates the repository only — nothing is staged or committed. Returns git's
     /// own words on failure.
-    package static func initialize(in directory: URL) -> String? {
-        let result = execute(["init"], in: directory)
+    package static func initialize(in directory: URL) async -> String? {
+        let result = await execute(["init"], in: directory)
         return result.status == 0 ? nil : result.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    package static func isRepository(_ directory: URL) -> Bool {
-        run(["rev-parse", "--is-inside-work-tree"], in: directory)
-            .trimmingCharacters(in: .whitespacesAndNewlines) == "true"
+    // MARK: - Parsing
+
+    /// `git status --porcelain=v2 --branch -z`: `# branch.*` headers, then one NUL-terminated
+    /// record per file. Paths are raw bytes with nothing quoted, so a space or a newline in a
+    /// name is just part of it.
+    static func parseStatus(_ output: Data) -> Status {
+        var status = Status()
+        var records = output.split(separator: 0, omittingEmptySubsequences: false).makeIterator()
+        while let record = records.next() {
+            if let oid = record.value(after: "# branch.oid ") {
+                status.oid = oid == "(initial)" ? nil : oid
+            } else if let head = record.value(after: "# branch.head ") {
+                status.branch = head == "(detached)" ? nil : head
+            } else if let path = record.value(after: "? ") {
+                status.untracked.append(path)
+            } else if record.value(after: "2 ") != nil {
+                // A rename or copy: the original path is the next NUL-separated record, not a
+                // record of its own. `1` and `u` records carry one path and need nothing.
+                _ = records.next()
+            }
+        }
+        return status
+    }
+
+    /// `git diff --numstat -z`: `<added>\t<removed>\t<path>` per file, NUL-terminated. A rename
+    /// leaves the path empty and gives the old and new paths as the next two records, and a
+    /// binary file counts `-` for both.
+    static func parseNumstat(_ output: Data) -> [FileChange] {
+        var changes: [String: FileChange] = [:]
+        var records = output.split(separator: 0, omittingEmptySubsequences: false).makeIterator()
+        while let record = records.next() {
+            let fields = record.split(separator: UInt8(ascii: "\t"), maxSplits: 2, omittingEmptySubsequences: false)
+            guard fields.count == 3 else { continue }
+            var path = String(decoding: fields[2], as: UTF8.self)
+            if path.isEmpty {
+                _ = records.next()
+                path = records.next().map { String(decoding: $0, as: UTF8.self) } ?? ""
+            }
+            guard !path.isEmpty else { continue }
+            func count(_ field: Data) -> Int { Int(String(decoding: field, as: UTF8.self)) ?? 0 }
+            changes[path] = FileChange(path: path, added: count(fields[0]), removed: count(fields[1]), untracked: false)
+        }
+        return Array(changes.values)
+    }
+
+    /// `@@ -215,12 +215,14 @@` — the two starting line numbers.
+    static func hunkStart(_ line: String) -> (Int, Int) {
+        let parts = line.split(separator: " ")
+        func number(_ token: Substring?) -> Int {
+            guard let token else { return 0 }
+            return Int(token.dropFirst().split(separator: ",").first ?? "") ?? 0
+        }
+        return (number(parts.first { $0.hasPrefix("-") }), number(parts.first { $0.hasPrefix("+") }))
     }
 
     // MARK: - Plumbing
@@ -156,6 +215,11 @@ package enum GitChanges {
         ].contains($0.key)
     }
 
+    private static func isRepository(_ directory: URL) async -> Bool {
+        await git(["rev-parse", "--is-inside-work-tree"], in: directory)?.text
+            .trimmingCharacters(in: .whitespacesAndNewlines) == "true"
+    }
+
     private static func newFileLines(_ change: FileChange, in directory: URL) -> [DiffLine] {
         let url = directory.appendingPathComponent(change.path)
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
@@ -164,60 +228,32 @@ package enum GitChanges {
             .map { DiffLine(kind: .add, old: "", new: "\($0.offset + 1)", text: String($0.element)) }
     }
 
-    private static func lineCount(_ path: String, in directory: URL) -> Int {
-        let url = directory.appendingPathComponent(path)
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return 0 }
-        return text.split(separator: "\n").count
-    }
-
-    /// `@@ -215,12 +215,14 @@` — the two starting line numbers.
-    static func hunkStart(_ line: String) -> (Int, Int) {
-        let parts = line.split(separator: " ")
-        func number(_ token: Substring?) -> Int {
-            guard let token else { return 0 }
-            return Int(token.dropFirst().split(separator: ",").first ?? "") ?? 0
-        }
-        return (number(parts.first { $0.hasPrefix("-") }), number(parts.first { $0.hasPrefix("+") }))
-    }
-
-    private static func run(_ arguments: [String], in directory: URL) -> String {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["git"] + arguments
-        task.environment = environment
-        task.currentDirectoryURL = directory
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-        do {
-            try task.run()
-        } catch {
-            return ""
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        return String(data: data, encoding: .utf8) ?? ""
+    /// Nil when git could not be started, or the caller was cancelled.
+    private static func git(_ arguments: [String], in directory: URL) async -> AsyncProcess.Output? {
+        try? await AsyncProcess.run(
+            URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory, environment: environment)
     }
 
     /// The same call, kept for the commands whose failure the user has to be told about:
     /// one pipe for both streams, because what comes back is a sentence for a person and
     /// git says most of it on stderr.
-    private static func execute(_ arguments: [String], in directory: URL) -> (status: Int32, text: String) {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["git"] + arguments
-        task.environment = environment
-        task.currentDirectoryURL = directory
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
+    private static func execute(_ arguments: [String], in directory: URL) async -> (status: Int32, text: String) {
         do {
-            try task.run()
+            let output = try await AsyncProcess.run(
+                URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory,
+                environment: environment, stderr: .merge)
+            return (output.status, output.text)
         } catch {
             return (1, "could not run git: \(error.localizedDescription)")
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        return (task.terminationStatus, String(data: data, encoding: .utf8) ?? "")
+    }
+}
+
+extension Data {
+    /// The rest of the record after `prefix`, or nil when it doesn't start with it. Matched on
+    /// bytes, not characters: a path that begins with a combining mark would join the space
+    /// before it into one character, and a `String` prefix would no longer match.
+    fileprivate func value(after prefix: String) -> String? {
+        starts(with: prefix.utf8) ? String(decoding: dropFirst(prefix.utf8.count), as: UTF8.self) : nil
     }
 }

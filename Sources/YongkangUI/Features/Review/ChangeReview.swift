@@ -15,13 +15,13 @@ package struct ChangeReview: View {
     let summary: ChangeSummary
     let select: (String) -> Void
     /// Stages everything and commits. Returns git's own words on failure, nil on success.
-    let commit: (String) -> String?
+    let commit: (String) async -> String?
     /// The task whose worker claimed this file. With one, a line can be commented on and the
     /// bar is that task's approve-or-send-back; without, it is the plain commit of everything.
     var task: SummaryTask? = nil
     var draft: Binding<ReviewDraft> = .constant(ReviewDraft())
     var openTask: (String) -> Void = { _ in }
-    var approve: (String) -> String? = { _ in nil }
+    var approve: (String) async -> String? = { _ in nil }
     var requestChanges: () -> Void = {}
 
     @State private var lines: [DiffLine] = []
@@ -30,6 +30,8 @@ package struct ChangeReview: View {
     @State private var message = ""
     @State private var suggested = ""
     @State private var failure = ""
+    /// While git commits, so pressing Return again doesn't start a second commit behind it.
+    @State private var committing = false
 
     package init(
         project: Project,
@@ -39,11 +41,11 @@ package struct ChangeReview: View {
         path: String,
         summary: ChangeSummary,
         select: @escaping (String) -> Void,
-        commit: @escaping (String) -> String?,
+        commit: @escaping (String) async -> String?,
         task: SummaryTask? = nil,
         draft: Binding<ReviewDraft> = .constant(ReviewDraft()),
         openTask: @escaping (String) -> Void = { _ in },
-        approve: @escaping (String) -> String? = { _ in nil },
+        approve: @escaping (String) async -> String? = { _ in nil },
         requestChanges: @escaping () -> Void = {}
     ) {
         self.project = project
@@ -86,7 +88,7 @@ package struct ChangeReview: View {
                 commitBar
             }
         }
-        .task(id: path) { load() }
+        .task(id: path) { await load() }
         .task(id: summary.commitMessage) {
             if message == suggested { message = summary.commitMessage }
             suggested = summary.commitMessage
@@ -122,19 +124,23 @@ package struct ChangeReview: View {
             }
             .buttonStyle(.consolePrimary)
             .disabled(
-                changes.isEmpty
+                committing || changes.isEmpty
                     || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 
     private func runCommit() {
-        guard !changes.isEmpty else { return }
-        failure = commit(message) ?? ""
-        // A committed message left in the box is one Return away from a second, empty
-        // commit — so a success clears it and the next batch fills it in again.
-        if failure.isEmpty {
-            message = ""
-            suggested = ""
+        guard !changes.isEmpty, !committing else { return }
+        committing = true
+        Task {
+            failure = await commit(message) ?? ""
+            committing = false
+            // A committed message left in the box is one Return away from a second, empty
+            // commit — so a success clears it and the next batch fills it in again.
+            if failure.isEmpty {
+                message = ""
+                suggested = ""
+            }
         }
     }
 
@@ -275,11 +281,14 @@ package struct ChangeReview: View {
         }
     }
 
-    private func load() {
+    private func load() async {
         guard let change else {
             lines = []
             return
         }
-        lines = GitChanges.diff(of: change, in: project.directory)
+        let diff = await GitClient.diff(of: change, in: project.directory)
+        // Another file was picked while git was diffing this one, and its load owns `lines`.
+        guard !Task.isCancelled else { return }
+        lines = diff
     }
 }

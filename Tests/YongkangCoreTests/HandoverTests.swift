@@ -138,72 +138,54 @@ import Testing
 
     // The commit itself, against a real repo: this is the app's only write to one.
 
-    @Test func commitRefusesAFolderThatIsNotARepository() throws {
+    @Test func commitRefusesAFolderThatIsNotARepository() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         #expect(
-            GitChanges.commit(message: "nothing here", in: dir.appendingPathComponent("repo")) != nil,
+            await GitClient.commit(message: "nothing here", in: dir.appendingPathComponent("repo")) != nil,
             "a folder that is not a repository is refused, not silently skipped")
     }
 
-    @Test func commitAgainstARealRepository() throws {
+    @Test func commitAgainstARealRepository() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let repo = dir.appendingPathComponent("repo")
-        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
-        for arguments in [
-            ["init", "--quiet"], ["config", "user.email", "selftest@example.com"],
-            ["config", "user.name", "Selftest"],
-        ] {
-            try git(arguments, in: repo)
-        }
+        try await makeRepository(repo)
         try "one\n".write(to: repo.appendingPathComponent("new.txt"), atomically: true, encoding: .utf8)
-        #expect(GitChanges.commit(message: "   ", in: repo) != nil, "a blank message is refused")
-        #expect(GitChanges.changes(in: repo).map(\.path) == ["new.txt"])
-        #expect(GitChanges.commit(message: "Add one file", in: repo) == nil)
-        #expect(GitChanges.changes(in: repo).isEmpty, "an untracked file is staged and committed")
-        #expect(GitChanges.head(in: repo)?.hasSuffix("Add one file") == true)
+        #expect(await GitClient.commit(message: "   ", in: repo) != nil, "a blank message is refused")
+        #expect(await RepoStatus.read(in: repo)?.changes.map(\.path) == ["new.txt"])
+        #expect(await GitClient.commit(message: "Add one file", in: repo) == nil)
+        let committed = try #require(await RepoStatus.read(in: repo))
+        #expect(committed.changes.isEmpty, "an untracked file is staged and committed")
+        #expect(committed.head?.hasSuffix("Add one file") == true)
         #expect(
-            GitChanges.commit(message: "Again", in: repo) != nil,
+            await GitClient.commit(message: "Again", in: repo) != nil,
             "an empty commit reports git's own refusal rather than claiming success")
         for name in ["mine.txt", "theirs.txt"] {
             try "x\n".write(to: repo.appendingPathComponent(name), atomically: true, encoding: .utf8)
         }
         #expect(
-            GitChanges.commit(message: "Nothing", paths: [], in: repo) != nil,
+            await GitClient.commit(message: "Nothing", paths: [], in: repo) != nil,
             "a task with no files left is refused rather than committing everything")
-        #expect(GitChanges.commit(message: "Approve mine", paths: ["mine.txt"], in: repo) == nil)
+        #expect(await GitClient.commit(message: "Approve mine", paths: ["mine.txt"], in: repo) == nil)
         #expect(
-            GitChanges.changes(in: repo).map(\.path) == ["theirs.txt"],
+            await RepoStatus.read(in: repo)?.changes.map(\.path) == ["theirs.txt"],
             "approving one task leaves every other task's files uncommitted")
     }
 
-    @Test func initializeMakesARepository() throws {
+    @Test func initializeMakesARepository() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let fresh = dir.appendingPathComponent("fresh")
         try FileManager.default.createDirectory(at: fresh, withIntermediateDirectories: true)
         try "x\n".write(to: fresh.appendingPathComponent("task.txt"), atomically: true, encoding: .utf8)
         let becomes: Comment = "a folder the agents work in becomes a repository"
-        try #require(!GitChanges.isRepository(fresh), becomes)
-        #expect(GitChanges.initialize(in: fresh) == nil, becomes)
-        #expect(GitChanges.isRepository(fresh), becomes)
+        try #require(await RepoStatus.read(in: fresh) == nil, becomes)
+        #expect(await GitClient.initialize(in: fresh) == nil, becomes)
+        let status = try #require(await RepoStatus.read(in: fresh), becomes)
         let waiting: Comment = "created, not committed: everything is still waiting for review"
-        #expect(GitChanges.changes(in: fresh).map(\.path) == ["task.txt"], waiting)
-        #expect(GitChanges.head(in: fresh) == nil, waiting)
-        #expect(GitChanges.branch(in: fresh) != nil, "a repository with no commit still names its branch")
-    }
-
-    private func git(_ arguments: [String], in directory: URL) throws {
-        let git = Process()
-        git.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        git.arguments = ["git"] + arguments
-        git.environment = GitChanges.environment
-        git.currentDirectoryURL = directory
-        git.standardOutput = FileHandle.nullDevice
-        git.standardError = FileHandle.nullDevice
-        try git.run()
-        git.waitUntilExit()
-        try #require(git.terminationStatus == 0, "git \(arguments.joined(separator: " ")) failed")
+        #expect(status.changes.map(\.path) == ["task.txt"], waiting)
+        #expect(status.head == nil, waiting)
+        #expect(status.branch != nil, "a repository with no commit still names its branch")
     }
 }

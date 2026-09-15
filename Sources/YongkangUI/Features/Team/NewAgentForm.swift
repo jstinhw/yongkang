@@ -219,8 +219,8 @@ package struct NewAgentForm: View {
 
     /// Clones the repo into the project's own skills folder and ticks what it brought, so
     /// fetching a skill and assigning it is one move rather than two. Off the main thread,
-    /// unlike the app's other `git` calls: those read a local repo, this one is a network
-    /// clone and would hold the sheet frozen for as long as the remote takes.
+    /// because `Skills.install` waits on the clone, and a network clone would hold the sheet
+    /// frozen for as long as the remote takes.
     private func fetch() {
         guard !fetching, Skills.isRemote(remote) else { return }
         let url = remote

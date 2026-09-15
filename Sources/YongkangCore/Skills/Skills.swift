@@ -97,9 +97,10 @@ package enum Skills {
     /// names. A skill already there under the same name is replaced — pointing the field
     /// at the same repo again is how you update one.
     ///
-    /// ponytail: synchronous, like every other `git` call in the app. A shallow clone of
-    /// a skills repo is a second or two of a modal sheet; move it off the main thread if
-    /// someone points it at a repo that is actually big.
+    /// ponytail: synchronous, the one `git` call that still waits on its process. The form
+    /// that calls it already runs it on a global queue, so it holds a background thread
+    /// for the clone and never the window. Move it to `AsyncProcess` if an install ever
+    /// needs cancelling.
     package static func install(git remote: String, into project: URL) throws -> [String] {
         let url = remote.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isRemote(url) else {
@@ -152,7 +153,7 @@ package enum Skills {
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         // `--` so a remote that still slipped past validation is read as a path, not a flag.
         task.arguments = ["git", "clone", "--depth", "1", "--quiet", "--", remote, checkout.path]
-        task.environment = GitChanges.environment
+        task.environment = GitClient.environment
         let pipe = Pipe()
         task.standardOutput = FileHandle.nullDevice
         task.standardError = pipe

@@ -9,9 +9,9 @@ struct CommitFailure: Error, Equatable {
 extension ProjectModel {
     /// Approving is committing: only this task's files and its records, then on to the
     /// next task waiting. Nothing is sent to the lead — it already marked the task done.
-    func approve(_ task: SummaryTask, message: String) throws(CommitFailure) -> Route {
-        let failure = GitChanges.commit(message: message, paths: task.commitPaths, in: directory)
-        refreshRepo()
+    func approve(_ task: SummaryTask, message: String) async throws(CommitFailure) -> Route {
+        let failure = await GitClient.commit(message: message, paths: task.commitPaths, in: directory)
+        await refreshRepo()
         if let failure { throw CommitFailure(reason: failure) }
         reviewDrafts[task.id] = nil
         return firstReview
@@ -43,9 +43,9 @@ extension ProjectModel {
 
     /// The review screen's one write to the repo. Staging and committing is all it does —
     /// no push, no merge, no branch — and only because the user pressed the button.
-    func commit(_ message: String) throws(CommitFailure) -> Route {
-        let failure = GitChanges.commit(message: message, in: directory)
-        refreshRepo()
+    func commit(_ message: String) async throws(CommitFailure) -> Route {
+        let failure = await GitClient.commit(message: message, in: directory)
+        await refreshRepo()
         if let failure { throw CommitFailure(reason: failure) }
         return .review(file: nil)
     }

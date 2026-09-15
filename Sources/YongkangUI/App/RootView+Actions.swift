@@ -88,18 +88,18 @@ extension RootView {
     // MARK: - Review
 
     /// The failure is shown under the button rather than in an alert, so it comes back as text.
-    func approve(_ task: SummaryTask, message: String, in project: ProjectModel) -> String? {
+    func approve(_ task: SummaryTask, message: String, in project: ProjectModel) async -> String? {
         do {
-            model.selection = try project.approve(task, message: message)
+            model.selection = try await project.approve(task, message: message)
             return nil
         } catch {
             return error.reason
         }
     }
 
-    func commit(_ message: String, in project: ProjectModel) -> String? {
+    func commit(_ message: String, in project: ProjectModel) async -> String? {
         do {
-            model.selection = try project.commit(message)
+            model.selection = try await project.commit(message)
             return nil
         } catch {
             return error.reason

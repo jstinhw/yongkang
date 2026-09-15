@@ -15,6 +15,9 @@ import YongkangCore
     /// What the agents changed on disk, read from git. Only refreshed while you are inside
     /// the project — a repo-wide diff of every open project would be rude.
     private(set) var repo = RepoStatus()
+    /// Repo reads started, and the newest of them whose answer `repo` holds. See `refreshRepo`.
+    @ObservationIgnored private var repoReads = 0
+    @ObservationIgnored private var repoShown = 0
     var sessions: [CodeSession]
     /// What the user has written about each task under review, by task id, until they send
     /// it or approve. Lives here rather than in the page so leaving for a diff keeps it.
@@ -107,14 +110,38 @@ import YongkangCore
         UsageLedger.record(await AgentUsage.spends(in: value), root: notebookRoot)
     }
 
-    func refreshRepo() {
+    /// Reads git off the main thread and publishes what it found, if it differs. Returns once
+    /// `repo` holds this read, or a newer one.
+    func refreshRepo() async {
+        await refreshRepo { [directory, repo, hasNotebook] in
+            await Self.readRepo(in: directory, after: repo, initializing: hasNotebook)
+        }
+    }
+
+    /// `read` is the git read itself; tests stand in for it to make one answer arrive late.
+    ///
+    /// Reads overlap — the poll, a forced refresh, the one after a commit — and git can answer
+    /// them in any order. Each read is numbered when it starts, and an answer is only shown if
+    /// it is newer than the one on screen, so a slow early read never overwrites a later one.
+    /// A newest-only rule would do that too, but a poll that keeps starting reads faster than
+    /// git answers would then never show any.
+    func refreshRepo(_ read: () async -> RepoStatus) async {
+        repoReads += 1
+        let request = repoReads
+        let fresh = await read()
+        guard request > repoShown else { return }
+        repoShown = request
+        if fresh != repo { repo = fresh }
+    }
+
+    nonisolated private static func readRepo(
+        in directory: URL, after previous: RepoStatus, initializing: Bool
+    ) async -> RepoStatus {
+        if let status = await RepoStatus.read(in: directory, after: previous) { return status }
         // A project the agents work in needs a repository: without one there is no diff to
         // review and nowhere for an approval to commit. Created, never committed to.
-        if hasNotebook && !GitChanges.isRepository(directory) {
-            _ = GitChanges.initialize(in: directory)
-        }
-        let fresh = RepoStatus.read(in: directory)
-        if fresh != repo { repo = fresh }
+        guard initializing, await GitClient.initialize(in: directory) == nil else { return RepoStatus() }
+        return await RepoStatus.read(in: directory) ?? RepoStatus()
     }
 
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent
