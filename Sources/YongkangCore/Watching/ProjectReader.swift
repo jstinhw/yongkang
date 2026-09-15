@@ -12,7 +12,8 @@ import Foundation
 /// Answers can therefore still arrive in an order the reads did not start in, which is why
 /// `ProjectModel` numbers its repo reads rather than trusting this queue.
 package actor ProjectReader {
-    package let directory: URL
+    /// Never changes, so anyone may ask without waiting for the reads in front of them.
+    nonisolated package let directory: URL
     private var notebookRoot: URL { NotebookFormat.root(in: directory) }
 
     package init(directory: URL) {

@@ -1,5 +1,50 @@
 # Architecture
 
+## Reading a project
+
+Nothing the poll does touches a file on the main actor. Each open project owns a
+**`ProjectReader`** (`Sources/YongkangCore/Watching/`), a Foundation-only actor holding one
+project's reads: the notebook, each session's subagents and run records, the usage ledger, the
+transcript on screen, and git. It answers with values. **`ProjectModel` is the only thing that
+publishes them**, and only when they differ from what it already holds — an unchanged notebook
+leaves every screen that reads it alone.
+
+- **The poll** is a 2 s timer calling `AppModel.reload()`, which starts the reads and returns.
+  `reloadNow()` is the same poll awaited, for the tests and for the one caller that needs the
+  card it just wrote (`AppModel.add`). FSEvents is PR 4.5.
+- **In flight.** `ProjectModel` keeps one notebook read and one session read at a time. A poll
+  landing on top of a notebook read joins it; one landing on top of a session read starts
+  nothing. Neither can pile up behind a slow disk.
+- **Ordering.** Actors are reentrant, so a read suspended on git lets the next one past and
+  answers can arrive in an order the reads did not start in. `refreshRepo` therefore numbers
+  every repo read (`repoReads`/`repoShown`) and shows only an answer newer than what is on
+  screen, so `approve` and `commit` come back with their own read or a later one.
+- **Off-actor by being `async`.** `UsageLedger.load`, `AgentUsage.claudeQuota`/`codexQuota` and
+  the usage screen's file-size checks are `nonisolated async`, so they run on the cooperative
+  pool rather than on whichever actor asked.
+
+`Tests/YongkangUITests/ProjectModelTests.swift` checks the claim rather than asserting it from
+the code's shape: `aReloadDoesItsReadingOffTheMainActor` reads a 401-page notebook to completion
+while the test, itself a main-actor job, spins without once giving the main actor up.
+
+## Nothing is read while a screen draws
+
+A view body derives; it never opens a file or runs detection. What that costs is paid once, by
+whoever read the notebook:
+
+- **A card carries its page's Markdown** (`NotebookCard.body`, and `SummaryTask.body` through
+  the summary). The project, task, page and review screens draw a card's text from the snapshot.
+  `NotebookEditor` is the exception: it edits the raw file, frontmatter and all, so it reads
+  that file — off the main actor, in a `.task`.
+- **Service detection is a value.** `Service.plan` answers with `ServicePlan`s that already say
+  whether the folder is on disk and whether a service has a front end. `ProjectModel.services`
+  is detected when the cards change.
+- **`ChangeSummary` is stored**, re-derived when the snapshot, the sessions or the repo change,
+  and published only when it differs. `ProjectList` takes it rather than deriving its own.
+- **Anything that still has to read** does it in a `.task` that bails on `Task.isCancelled`
+  before assigning — the diffs in `ChangeReview` and `TaskReview`, and the tag list in
+  `PromptField`.
+
 ## Terminal lifetime
 
 Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm

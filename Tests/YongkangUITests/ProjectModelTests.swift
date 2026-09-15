@@ -109,6 +109,89 @@ import Testing
         #expect(project.repo == shown)
     }
 
+    /// A folder with `tasks` task pages, each with a body, and one project card.
+    private func bigNotebook(tasks: Int, in tmp: URL) throws -> URL {
+        let directory = tmp.appendingPathComponent("big")
+        let root = NotebookFormat.root(in: directory)
+        _ = try NotebookFormat.create(.project, title: "Console", in: root, project: nil)
+        for index in 0..<tasks {
+            let file = try NotebookFormat.create(.task, title: "Task \(index)", in: root, project: "console")
+            let page = try String(contentsOf: file, encoding: .utf8)
+            try (page + "\nWhat this task is for.\n\n## Done when\n\n- [ ] It works\n")
+                .write(to: file, atomically: true, encoding: .utf8)
+        }
+        return directory
+    }
+
+    /// The main-thread claim, checked rather than asserted from the code's shape: a read of a
+    /// notebook with hundreds of pages runs to completion while this test, which is a main-actor
+    /// job, never once gives the main actor up. Anything reading there could not have finished.
+    @Test func aReloadDoesItsReadingOffTheMainActor() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let directory = try bigNotebook(tasks: 400, in: tmp)
+
+        // What the read costs with nothing competing for the main actor.
+        let warm = ProjectModel(directory: directory)
+        let started = Date()
+        await warm.reloadNotebook(frontmatter: true, records: true)
+        let cost = Date().timeIntervalSince(started)
+        try #require(warm.snapshot.cards.count == 401, "400 tasks and the project they are filed under")
+
+        // The same read again, from a cold snapshot, started off the main actor.
+        final class Answer: @unchecked Sendable { var cards = -1 }
+        let answer = Answer()
+        let done = DispatchSemaphore(value: 0)
+        let reader = ProjectReader(directory: directory)
+        Task.detached {
+            let read = await reader.notebook(after: NotebookSnapshot(), frontmatter: true, records: true)
+            answer.cards = read?.cards.count ?? -1
+            done.signal()
+        }
+
+        // Hold the main actor without suspending, for long enough that a read running here
+        // would have had to finish in this window — and it has no window, because this loop
+        // never yields.
+        let held = max(cost * 6, 1)
+        let start = Date()
+        while Date().timeIntervalSince(start) < held {}
+        let reading = Int(cost * 1000)
+        #expect(
+            done.wait(timeout: .now()) == .success && answer.cards == 401,
+            """
+            the notebook was read while the main actor was busy for \(Int(held * 1000))ms, \
+            so none of it ran there (the read alone costs \(reading)ms)
+            """)
+    }
+
+    /// What the pages on the board draw is in the model before they draw it. The notebook is
+    /// moved away first, so anything still reaching for a file has nothing to reach for.
+    @Test func aBoardBuiltFromASnapshotNeedsNoDisk() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let directory = tmp.appendingPathComponent("app")
+        let root = NotebookFormat.root(in: directory)
+        _ = try NotebookFormat.create(.project, title: "Console", in: root, project: nil)
+        let task = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "console")
+        try (try String(contentsOf: task, encoding: .utf8) + "\nHow the token is refreshed.\n")
+            .write(to: task, atomically: true, encoding: .utf8)
+
+        let project = ProjectModel(directory: directory)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        let card = try #require(project.snapshot.cards.first { $0.id == "wire-auth" })
+        let console = try #require(project.snapshot.cards.first { $0.kind == .project })
+        let repos = project.services(of: console)
+        let summary = project.summary
+
+        try FileManager.default.removeItem(at: directory)
+        #expect(
+            NotebookContent.sections(card.body)
+                .contains { $0.blocks.contains(.paragraph("How the token is refreshed.")) },
+            "a task page's text is the card's, not the file's")
+        #expect(repos.map(\.repo) == ["app"] && repos.allSatisfy(\.exists), "and its repos were detected once")
+        #expect(project.summary == summary, "and the summary is stored, not derived per read")
+    }
+
     // `@AppStorage("openProjects")` is a string in defaults; relaunching reads it back.
     @Test func openProjectsRoundTripThroughDefaults() throws {
         let tmp = try makeTemporaryDirectory()
