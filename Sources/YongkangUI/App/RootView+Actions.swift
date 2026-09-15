@@ -3,7 +3,10 @@ import SwiftUI
 import YongkangCore
 
 extension RootView {
-    // MARK: - Assigning
+    // MARK: - Workflows
+
+    // The workflows are `ProjectModel` methods that return where to go. What stays in the
+    // view is going there, and the prompts and alerts that need a window.
 
     /// Where a workflow said to go. `input` only ever goes to the session `route` opens.
     func go(to destination: Destination?) {
@@ -69,10 +72,8 @@ extension RootView {
         model.enter(project)
         guard let started = model.entered, !started.hasNotebook else { return }
         model.section = .agents
-        addSession(
-            agent, to: started,
-            prompt: NotebookFormat.onboardingPrompt(description: prompt),
-            title: "Notebook Setup")
+        model.selection = started.addSession(
+            agent, prompt: NotebookFormat.onboardingPrompt(description: prompt), title: "Notebook Setup")
     }
 
     func close(_ project: ProjectModel) {
@@ -101,14 +102,7 @@ extension RootView {
         }
     }
 
-    // MARK: - Sessions
-
-    func addSession(
-        _ agent: AgentKind, id: UUID = UUID(), to project: ProjectModel,
-        prompt: String? = nil, title: String? = nil, taskIDs: [String] = []
-    ) {
-        model.selection = project.addSession(agent, id: id, prompt: prompt, title: title, taskIDs: taskIDs)
-    }
+    // MARK: - Services
 
     /// Every service in a project's repos, started at once — the board's "run the whole
     /// project" action.

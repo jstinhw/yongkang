@@ -9,10 +9,8 @@ extension RootView {
         if let empty = needsIntake {
             // An empty project has nothing to click, so it asks what it is instead.
             ProjectIntake(project: empty.value) { description in
-                addSession(
-                    agent, to: empty,
-                    prompt: NotebookFormat.onboardingPrompt(description: description),
-                    title: "Notebook Setup")
+                model.selection = empty.addSession(
+                    agent, prompt: NotebookFormat.onboardingPrompt(description: description), title: "Notebook Setup")
             }
         } else if model.selection == .overview {
             Overview(

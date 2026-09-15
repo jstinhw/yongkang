@@ -119,7 +119,7 @@ extension RootView {
         Menu {
             Section("Session") {
                 Button(agent.displayName, systemImage: agent.systemImage) {
-                    addSession(agent, to: project)
+                    model.selection = project.addSession(agent)
                     model.section = .agents
                 }
             }
