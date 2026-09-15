@@ -226,7 +226,10 @@ import Testing
                 to: runs.appendingPathComponent("\(Self.prefix)-work-\(suffix).md"),
                 atomically: true, encoding: .utf8)
 
-        #expect((LeadCoordination.all(root: dir)[Self.id]?.workers ?? []).isEmpty, Comment(rawValue: why))
+        // Hoisted out of #expect: the macro rewrites `?.` and `??` into a shape the compiler
+        // then warns about, and a warning-free build is the point of Swift 6 mode here.
+        let workers = LeadCoordination.all(root: dir)[Self.id]?.workers ?? []
+        #expect(workers.isEmpty, Comment(rawValue: why))
     }
 
     @Test func pathsThatLeaveTheProjectAreDropped() throws {
