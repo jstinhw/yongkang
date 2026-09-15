@@ -162,9 +162,9 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let log = tmp.appendingPathComponent("agent.jsonl")
         try cutMidCharacter("claude/claude-transcript-truncated-final-line.jsonl").write(to: log)
-        withKnownIssue("the whole file is decoded as strict UTF-8, so one half-written character empties it") {
-            #expect(ClaudeTranscripts.transcript(at: log).map(\.label) == ["Task", "Tool"])
-        }
+        #expect(
+            ClaudeTranscripts.transcript(at: log).map(\.label) == ["Task", "Tool"],
+            "one half-written character costs its own line, not the whole file")
     }
 
     @Test func leadTranscriptCutMidCharacterStillFinishesItsSubagents() throws {
@@ -174,14 +174,13 @@ import Testing
         var lead = try Data(contentsOf: session.leadLog)
         lead.append(contentsOf: Array("\n{\"type\":\"assistant\",\"text\":\"\u{2014}".utf8.dropLast(1)))
         try lead.write(to: session.leadLog)
-        withKnownIssue("the lead's transcript is decoded as strict UTF-8, so every subagent reads as running") {
-            #expect(
-                ClaudeTranscripts.subagents(
-                    sessionID: session.id, projectDirectory: tmp,
-                    claudeHome: session.home
-                )
-                .first { $0.id == "done1" }?.running == false)
-        }
+        #expect(
+            ClaudeTranscripts.subagents(
+                sessionID: session.id, projectDirectory: tmp,
+                claudeHome: session.home
+            )
+            .first { $0.id == "done1" }?.running == false,
+            "a lead caught mid-character still has the result that finished its subagent")
     }
 }
 

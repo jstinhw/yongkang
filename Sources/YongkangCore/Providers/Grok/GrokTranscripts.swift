@@ -52,7 +52,7 @@ package enum GrokTranscripts {
     }
 
     package static func transcript(at url: URL) -> [TranscriptLine] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let text = Transcripts.text(at: url) else { return [] }
         return text.split(separator: "\n").flatMap { line -> [TranscriptLine] in
             guard let data = line.data(using: .utf8),
                 let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]

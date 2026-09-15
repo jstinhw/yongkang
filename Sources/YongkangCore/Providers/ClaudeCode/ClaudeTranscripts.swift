@@ -105,11 +105,11 @@ package enum ClaudeTranscripts {
         let parent = transcriptURL(
             sessionID: sessionID, projectDirectory: projectDirectory,
             claudeHome: claudeHome)
-        let transcript = (try? String(contentsOf: parent, encoding: .utf8)) ?? ""
+        let transcript = Transcripts.text(at: parent) ?? ""
         // Nested workers return to the subagent that spawned them, not the root lead.
         let childTranscripts = metaFiles.compactMap { url -> String? in
-            let log = url.deletingPathExtension().deletingPathExtension().appendingPathExtension("jsonl")
-            return try? String(contentsOf: log, encoding: .utf8)
+            Transcripts.text(
+                at: url.deletingPathExtension().deletingPathExtension().appendingPathExtension("jsonl"))
         }
 
         return metaFiles.compactMap { url -> SubagentStatus? in
@@ -132,7 +132,7 @@ package enum ClaudeTranscripts {
     }
 
     package static func transcript(at url: URL) -> [TranscriptLine] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let text = Transcripts.text(at: url) else { return [] }
         return text.split(separator: "\n").flatMap { line -> [TranscriptLine] in
             guard let data = line.data(using: .utf8),
                 let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

@@ -185,7 +185,7 @@ package enum CodexTranscripts {
     /// Only `response_item` lines are read: the `event_msg` lines beside them repeat the
     /// same assistant text, and everything else in the file is bookkeeping.
     package static func transcript(at url: URL) -> [TranscriptLine] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let text = Transcripts.text(at: url) else { return [] }
         return text.split(separator: "\n").compactMap { line -> TranscriptLine? in
             guard let object = json(String(line)), object["type"] as? String == "response_item",
                 let payload = object["payload"] as? [String: Any]

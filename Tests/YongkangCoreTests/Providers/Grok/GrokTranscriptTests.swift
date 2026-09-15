@@ -77,9 +77,9 @@ import Testing
         try
             (Data(try fixture("grok/grok-transcript-truncated-final-line.jsonl").utf8)
             + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
-        withKnownIssue("the whole file is decoded as strict UTF-8, so one half-written character empties it") {
-            #expect(GrokTranscripts.transcript(at: log).map(\.label) == ["Task", "Result"])
-        }
+        #expect(
+            GrokTranscripts.transcript(at: log).map(\.label) == ["Task", "Result"],
+            "one half-written character costs its own line, not the whole file")
     }
 
     @Test(arguments: [

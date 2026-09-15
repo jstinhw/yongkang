@@ -147,9 +147,9 @@ import Testing
         try
             (Data(try fixture("codex/codex-transcript-truncated-final-line.jsonl").utf8)
             + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
-        withKnownIssue("the whole file is decoded as strict UTF-8, so one half-written character empties it") {
-            #expect(CodexTranscripts.transcript(at: log).map(\.label) == ["Task", "Tool"])
-        }
+        #expect(
+            CodexTranscripts.transcript(at: log).map(\.label) == ["Task", "Tool"],
+            "one half-written character costs its own line, not the whole file")
     }
 
     /// A lead rollout caught while its first line is still being written is not a lead yet,
