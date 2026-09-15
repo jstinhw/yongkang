@@ -111,10 +111,11 @@ import YongkangCore
     }
 
     /// Reads git off the main thread and publishes what it found, if it differs. Returns once
-    /// `repo` holds this read, or a newer one.
-    func refreshRepo() async {
+    /// `repo` holds this read, or a newer one. `countingLines` is for a screen that shows
+    /// untracked files' line counts; see `RepoStatus.read`.
+    func refreshRepo(countingLines: Bool = true) async {
         await refreshRepo { [directory, repo, hasNotebook] in
-            await Self.readRepo(in: directory, after: repo, initializing: hasNotebook)
+            await Self.readRepo(in: directory, after: repo, countingLines: countingLines, initializing: hasNotebook)
         }
     }
 
@@ -135,13 +136,15 @@ import YongkangCore
     }
 
     nonisolated private static func readRepo(
-        in directory: URL, after previous: RepoStatus, initializing: Bool
+        in directory: URL, after previous: RepoStatus, countingLines: Bool, initializing: Bool
     ) async -> RepoStatus {
-        if let status = await RepoStatus.read(in: directory, after: previous) { return status }
+        if let status = await RepoStatus.read(in: directory, after: previous, countingLines: countingLines) {
+            return status
+        }
         // A project the agents work in needs a repository: without one there is no diff to
         // review and nowhere for an approval to commit. Created, never committed to.
         guard initializing, await GitClient.initialize(in: directory) == nil else { return RepoStatus() }
-        return await RepoStatus.read(in: directory) ?? RepoStatus()
+        return await RepoStatus.read(in: directory, countingLines: countingLines) ?? RepoStatus()
     }
 
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent

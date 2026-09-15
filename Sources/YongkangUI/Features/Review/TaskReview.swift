@@ -249,8 +249,12 @@ package struct TaskReview: View {
                 if summary.sharing(file.path, besides: task) != nil { NotebookStyle.pill("shared", Theme.amber) }
                 Spacer(minLength: 8)
                 if comments > 0 { NotebookStyle.pill("\(comments) comment\(comments == 1 ? "" : "s")", Theme.violet) }
-                Text("+\(file.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
-                Text("−\(file.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                if file.counted {
+                    Text("+\(file.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
+                    Text("−\(file.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                } else {
+                    Text("new file").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
+                }
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.tx4)
             }
             .padding(.horizontal, 10)

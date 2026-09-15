@@ -98,10 +98,16 @@ struct ChangeSummaryPane: View {
                 }
             }
             .frame(height: 8)
-            Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
-                .frame(width: 44, alignment: .trailing)
-            Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
-                .frame(width: 44, alignment: .trailing)
+            if file.counted {
+                Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                    .frame(width: 44, alignment: .trailing)
+                Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+                    .frame(width: 44, alignment: .trailing)
+            } else {
+                // The width of the two counts and the gap between them, so the bars stay aligned.
+                Text("new file").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                    .frame(width: 98, alignment: .trailing)
+            }
         }
         .contentShape(Rectangle())
     }

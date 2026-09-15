@@ -162,8 +162,11 @@ package struct ChangeReview: View {
                 .foregroundStyle(change.untracked ? Theme.green : Theme.tx3)
             Text(change.path).font(Typo.mono(11.5)).foregroundStyle(Theme.tx).lineLimit(1)
                 .truncationMode(.head)
-            Text("+\(change.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
-            Text("−\(change.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+            // An uncounted file already wears the "new file" pill, so it shows no numbers.
+            if change.counted {
+                Text("+\(change.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
+                Text("−\(change.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+            }
             Spacer(minLength: 12)
             if change.untracked {
                 NotebookStyle.pill("new file", Theme.green)
@@ -261,8 +264,12 @@ package struct ChangeReview: View {
                                 .foregroundStyle(file.path == path ? Theme.tx : Theme.tx2)
                                 .lineLimit(1).truncationMode(.middle)
                             Spacer(minLength: 6)
-                            Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
-                            Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+                            if file.counted {
+                                Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                                Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+                            } else {
+                                Text("new file").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                            }
                         }
                         .contentShape(Rectangle())
                     }

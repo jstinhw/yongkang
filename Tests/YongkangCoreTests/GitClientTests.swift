@@ -112,6 +112,49 @@ import Testing
         #expect(status.head?.hasSuffix(" First") == true)
     }
 
+    // MARK: - Untracked line counts
+
+    @Test func anUntrackedFileOverAMegabyteIsNotReadAndShowsAsNew() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try await makeRepository(dir)
+        try "one\ntwo\n".write(to: dir.appendingPathComponent("small.txt"), atomically: true, encoding: .utf8)
+        try String(repeating: "x\n", count: FileChange.countLimit / 2 + 1)
+            .write(to: dir.appendingPathComponent("big.log"), atomically: true, encoding: .utf8)
+
+        let status = try #require(await RepoStatus.read(in: dir))
+        let (big, small) = (status.changes[0], status.changes[1])
+        #expect(small.counted && small.added == 2)
+        #expect(
+            !big.counted && big.added == 0,
+            "half a million lines, none counted: counting them would have meant reading the file")
+    }
+
+    @Test func untrackedLinesAreCountedWhenAskedAndAgainOnlyWhenTheFileChanges() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try await makeRepository(dir)
+        let notes = dir.appendingPathComponent("notes.md")
+        try "a\nb\n".write(to: notes, atomically: true, encoding: .utf8)
+
+        let listed = try #require(await RepoStatus.read(in: dir, countingLines: false))
+        #expect(listed.changes.map(\.counted) == [false], "a read that shows no counts opens no file")
+        #expect(await RepoStatus.read(in: dir, after: listed)?.changes.map(\.added) == [2])
+
+        // A count no read of the file gives, at the file's real size: if it survives, the file
+        // was not opened again.
+        let remembered = RepoStatus(
+            changes: [FileChange(path: "notes.md", added: 99, removed: 0, untracked: true, bytes: 4)])
+        #expect(await RepoStatus.read(in: dir, after: remembered)?.changes.map(\.added) == [99])
+        #expect(
+            await RepoStatus.read(in: dir, after: remembered, countingLines: false)?.changes.map(\.added) == [99],
+            "and a read that counts nothing keeps what was counted")
+        try "a\nb\nc\n".write(to: notes, atomically: true, encoding: .utf8)
+        #expect(
+            await RepoStatus.read(in: dir, after: remembered)?.changes.map(\.added) == [3],
+            "a file whose size moved is counted again")
+    }
+
     @Test func theSubjectIsOnlyAskedForWhenTheCommitMoves() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }

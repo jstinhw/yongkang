@@ -9,6 +9,13 @@ package struct FileChange: Identifiable, Equatable {
     /// A file git has never seen — written by an agent this session, with nothing to diff
     /// against, so it is listed as whole-file new rather than shown as a fake hunk.
     package let untracked: Bool
+    /// An untracked file's size when its lines were last counted, and nil until they are.
+    /// git doesn't count lines in a file it has never seen, so `RepoStatus.read` opens it.
+    var bytes: Int? = nil
+
+    /// False for an untracked file whose lines are not counted — over `countLimit`, or not
+    /// counted yet — so a screen says "new file" rather than a +0 it doesn't know.
+    package var counted: Bool { !untracked || (bytes ?? .max) <= Self.countLimit }
 
     package var name: String { (path as NSString).lastPathComponent }
     var directory: String { (path as NSString).deletingLastPathComponent }

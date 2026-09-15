@@ -319,7 +319,10 @@ import YongkangCore
         // and it has to come on while you are looking at the board.
         guard let project = entered else { return }
         guard force || ticks % 3 == 0 else { return }
-        Task { await project.refreshRepo() }
+        // Only Overview and Review show line counts, so only they pay for opening untracked
+        // files to count them. The light on the rail needs the file list, not its lines.
+        let countingLines = section == .overview || section == .review
+        Task { await project.refreshRepo(countingLines: countingLines) }
     }
 
     /// Review opens on the first task waiting for approval, as git sees the tree. The read
