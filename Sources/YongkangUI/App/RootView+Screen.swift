@@ -72,12 +72,7 @@ extension RootView {
                     }
                 )
             case .session:
-                // The session's terminal is mounted underneath.
-                Color.clear.overlay(alignment: .top) {
-                    if let message = model.childNavigation[watched.id] {
-                        Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
-                    }
-                }
+                terminal(for: watched)
             default:
                 SessionTranscript(
                     session: watched, cards: project.snapshot.cards, blocks: project.snapshot.blocks,
@@ -92,15 +87,11 @@ extension RootView {
                         model.selection = .block($0.id)
                     },
                     openSubagent: { subagent in model.selection = .subagent(session: watched.id, id: subagent.id) },
-                    send: { model.pendingInput[watched.id] = $0 }
+                    send: { model.terminals.send($0, to: watched.id) }
                 )
             }
         } else if let found = model.selectedSubagent(in: project) {
-            Color.clear.overlay(alignment: .top) {
-                if let message = model.childNavigation[found.session.id] {
-                    Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
-                }
-            }
+            terminal(for: found.session, showing: found.subagent)
         } else if let member = model.selectedMember(in: project) {
             TeamMemberDetail(
                 member: member,
@@ -168,9 +159,9 @@ extension RootView {
             .id(model.selection)
         } else if let entry = selectedEntry {
             NotebookEditor(entry: entry).id(entry.id)
-        } else if model.selectedSession(in: project) != nil {
-            // The terminal itself is mounted underneath; this pane stays out of its way.
-            Color.clear
+        } else if let session = model.selectedSession(in: project) {
+            // A service runner: its terminal is all it has.
+            terminal(for: session)
         } else {
             VStack(spacing: 8) {
                 Image(systemName: model.section.systemImage).font(.system(size: 22))
@@ -180,6 +171,22 @@ extension RootView {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.bg)
+        }
+    }
+
+    /// A session's live terminal, borrowed from the registry for as long as this pane is up,
+    /// with the CLI steered to `child`'s own view when there is one. A new host per session,
+    /// so switching sessions hands the pane over rather than swapping what one host holds.
+    @ViewBuilder private func terminal(for session: CodeSession, showing child: SubagentStatus? = nil) -> some View {
+        if let view = model.terminals.view(for: session.id) {
+            TerminalHost(terminal: view)
+                .overlay(alignment: .top) {
+                    if let message = model.terminals.childNavigation[session.id] {
+                        Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
+                    }
+                }
+                .task(id: child?.id) { await model.terminals.showChild(child, in: session.id) }
+                .id(session.id)
         }
     }
 

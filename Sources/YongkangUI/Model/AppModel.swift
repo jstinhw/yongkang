@@ -2,9 +2,9 @@ import Foundation
 import Observation
 import YongkangCore
 
-/// The window's state: the open projects, where in them the window is, and what the
-/// terminals show or are waiting to type. Screens read it and call into it; each project's
-/// own state lives in its `ProjectModel`.
+/// The window's state: the open projects, where in them the window is, and the terminals their
+/// sessions run in. Screens read it and call into it; each project's own state lives in its
+/// `ProjectModel`.
 @MainActor @Observable final class AppModel {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
     // claude scan the home folder and trip every TCC prompt (iCloud Drive, Music,
@@ -19,11 +19,10 @@ import YongkangCore
     var selection: Route?
     /// Completed notebook work is historical noise until the user asks for it.
     var showDone = false
-    /// Progress or a fallback instruction while selecting a child inside its CLI.
-    var childNavigation: [UUID: String] = [:]
     private(set) var attention: [UUID: String] = [:]
-    /// Text for a running session to type in, by session id. Its terminal clears it once sent.
-    var pendingInput: [UUID: String] = [:]
+    /// Every open session's terminal. Projects start a session's process when they add it, and
+    /// closing the session or its project ends it; nothing on screen does either.
+    let terminals: TerminalRegistry
     /// The lines of whichever agent `selection` currently points at — a subagent, or the
     /// lead itself. Kept apart from `CodeSession.subagents`, which only ever holds each
     /// one's status, because reading and parsing a whole transcript is only worth doing
@@ -37,6 +36,21 @@ import YongkangCore
     /// poll seeds it, so opening a project full of finished work does not read as news.
     private var doneTasks: Set<String>?
 
+    /// `terminals` is for the tests, which run `/bin/sh` rather than the user's login shell.
+    init(terminals: TerminalRegistry? = nil) {
+        let terminals = terminals ?? TerminalRegistry()
+        self.terminals = terminals
+        terminals.onExit = { [weak self] id in
+            guard let self, let found = self.session(id) else { return }
+            self.markExited(found.session, in: found.project)
+        }
+        terminals.onAttention = { [weak self] id, reason in
+            // A service runner's output is nobody's question.
+            guard let self, let found = self.session(id), found.session.agent != nil else { return }
+            self.attentionChanged(reason, session: found.session, project: found.project)
+        }
+    }
+
     // MARK: - Going
 
     /// Where a workflow said to go. `input` only ever goes to the session `route` opens.
@@ -45,7 +59,7 @@ import YongkangCore
         section = destination.section
         if let route = destination.route { selection = route }
         if let input = destination.input, case .session(let id, _)? = destination.route {
-            pendingInput[id] = input
+            terminals.send(input, to: id)
         }
     }
 
@@ -58,7 +72,7 @@ import YongkangCore
     func restore(_ stored: String) {
         projects = OpenProjects.decode(stored)
             .filter { FileManager.default.fileExists(atPath: $0) }
-            .map { ProjectModel(directory: URL(fileURLWithPath: $0)) }
+            .map { ProjectModel(directory: URL(fileURLWithPath: $0), terminals: terminals) }
     }
 
     func project(at directory: URL) -> ProjectModel? {
@@ -71,13 +85,16 @@ import YongkangCore
 
     /// Adds a folder to the open projects. Check `project(at:)` first: a folder opens once.
     func open(_ directory: URL) -> ProjectModel {
-        let project = ProjectModel(directory: directory)
+        let project = ProjectModel(directory: directory, terminals: terminals)
         projects.append(project)
         return project
     }
 
     func close(_ project: ProjectModel) {
-        for session in project.sessions { attentionChanged(nil, session: session, project: project) }
+        for session in project.sessions {
+            attentionChanged(nil, session: session, project: project)
+            terminals.terminate(session.id)
+        }
         projects.removeAll { $0 === project }
         if entered === project { leave() }
     }
@@ -107,6 +124,14 @@ import YongkangCore
     }
 
     // MARK: - Sessions
+
+    /// A session and the project it is open in, wherever that is.
+    private func session(_ id: UUID) -> (session: CodeSession, project: ProjectModel)? {
+        for project in projects {
+            if let session = project.sessions.first(where: { $0.id == id }) { return (session, project) }
+        }
+        return nil
+    }
 
     func attentionChanged(_ reason: String?, session: CodeSession, project: ProjectModel) {
         if reason != nil {

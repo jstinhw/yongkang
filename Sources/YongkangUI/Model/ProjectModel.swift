@@ -23,14 +23,21 @@ import YongkangCore
     /// poll says so once rather than on every tick. A workflow that clears a block with its own
     /// message records it here too, or the poll would type "Unblocked" over it.
     var deliveredBlocks: Set<String> = []
+    /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
+    /// the workflow tests.
+    private let terminals: TerminalRegistry?
 
     /// With no snapshot, only the file list is read: the rest comes with the first poll
     /// that looks inside the project.
-    init(directory: URL, snapshot: NotebookSnapshot? = nil, sessions: [CodeSession] = []) {
+    init(
+        directory: URL, snapshot: NotebookSnapshot? = nil, sessions: [CodeSession] = [],
+        terminals: TerminalRegistry? = nil
+    ) {
         self.directory = directory
         self.snapshot =
             snapshot ?? NotebookSnapshot(entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         self.sessions = sessions
+        self.terminals = terminals
     }
 
     /// The project as the one value the screens and Core's readers take. Reading it observes
@@ -145,14 +152,15 @@ import YongkangCore
         // unusable, and several leads at once is a normal thing to want.
         let taken = sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
-        sessions.append(
-            CodeSession(
-                id: id, title: name, icon: icon, line: line,
-                agent: agent, taskIDs: taskIDs))
+        let session = CodeSession(id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
+        sessions.append(session)
+        terminals?.start(session)
     }
 
+    /// Ends the session's process along with its row: a closed session has no one to stop it later.
     func removeSession(_ id: UUID) {
         sessions.removeAll { $0.id == id }
+        terminals?.terminate(id)
     }
 
     /// False when this project no longer has the session, so there is nothing to clear.

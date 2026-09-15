@@ -15,3 +15,20 @@ func fixture(_ path: String) throws -> String {
         .appendingPathComponent("../YongkangCoreTests/Fixtures/\(path)")
     return try String(contentsOf: url, encoding: .utf8)
 }
+
+/// True once `condition` holds, false if it still doesn't after `seconds`. Suspends between
+/// checks instead of pumping `RunLoop.main`: a main-actor test is itself a main-queue job, so a
+/// nested pump never runs the PTY reads queued behind it.
+///
+/// ponytail: a generous bound, not a timing claim. Other suites run on the main actor in
+/// parallel (WorkflowTests' git calls hold it for seconds), so the PTY reads can queue for
+/// a while. Tighten it once git runs off the main thread (plan PR 4.1/4.2).
+@MainActor
+func eventually(within seconds: Double = 15, _ condition: () -> Bool) async throws -> Bool {
+    let deadline = Date().addingTimeInterval(seconds)
+    while !condition() {
+        guard Date() < deadline else { return false }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    return true
+}

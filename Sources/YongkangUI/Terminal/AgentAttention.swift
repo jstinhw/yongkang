@@ -26,10 +26,12 @@ enum AgentPrompt {
 
 final class AttentionTerminalView: LocalProcessTerminalView {
     var onAttention: (String?) -> Void = { _ in }
+    /// Runs on every attention check, whether or not the reason changed: the moment a CLI has
+    /// redrawn after the user answered it, submitted a draft or left a picker, so whatever
+    /// was waiting for that can go.
+    var onCheck: () -> Void = {}
     var onUserInput: () -> Void = {}
     private(set) var hasDraft = false
-
-    var inputMonitor: Any?
 
     func recordInput(_ event: NSEvent) {
         onUserInput()
@@ -65,9 +67,11 @@ final class AttentionTerminalView: LocalProcessTerminalView {
             guard let self else { return }
             self.check = nil
             let reason = self.attentionReason
-            guard reason != self.lastReason else { return }
-            self.lastReason = reason
-            self.onAttention(reason)
+            if reason != self.lastReason {
+                self.lastReason = reason
+                self.onAttention(reason)
+            }
+            self.onCheck()
         }
         check = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)

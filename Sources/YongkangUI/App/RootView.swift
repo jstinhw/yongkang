@@ -29,11 +29,6 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             Theme.bg.ignoresSafeArea()
-            // ponytail: every terminal stays mounted for the life of the app. Leaving a
-            // project, switching sections, or browsing the fleet must not tear down a
-            // running agent's PTY, so these are inset into the work area and hidden
-            // rather than removed.
-            terminals
             chrome
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { attentionNotices }
@@ -70,14 +65,6 @@ struct RootView: View {
     }
 
     // MARK: - Chrome
-
-    private var terminals: some View {
-        ForEach(model.projects) { project in
-            ProjectTerminals(
-                model: model, project: project,
-                leading: Theme.railWidth + (listHidden ? 0 : listWidth))
-        }
-    }
 
     @ViewBuilder private var chrome: some View {
         if model.entered == nil {
@@ -218,11 +205,7 @@ struct RootView: View {
             openAttention(session, in: project)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 precondition(model.isVisible(session), "Open session must reveal the blocked terminal")
-                func stop(_ view: NSView) {
-                    if let terminal = view as? AttentionTerminalView { terminal.terminate() }
-                    view.subviews.forEach(stop)
-                }
-                stop(host)
+                model.close(project)
                 try? FileManager.default.removeItem(at: directory)
                 print("attention app selftest ok — banner rendered and blocked session opened")
                 exit(0)
@@ -235,44 +218,8 @@ struct RootView: View {
     }
 }
 
-/// One project's terminals, in their own view so a poll that changes this project's
-/// sessions re-renders its terminals and not the window around them.
-private struct ProjectTerminals: View {
-    let model: AppModel
-    let project: ProjectModel
-    /// Past the rail and the list column, into the work area.
-    let leading: CGFloat
-
-    var body: some View {
-        ForEach(project.sessions) { session in
-            // Read here as well as through the binding, so text queued for this session
-            // re-renders its terminal even when nothing else about it changed.
-            let _ = model.pendingInput[session.id]
-            AgentTerminal(
-                line: session.line, label: session.title,
-                pending: Binding(
-                    get: { model.pendingInput[session.id] }, set: { model.pendingInput[session.id] = $0 }),
-                onExit: { model.markExited(session, in: project) },
-                onAttention: { reason in
-                    guard session.agent != nil else { return }
-                    model.attentionChanged(reason, session: session, project: project)
-                }, focused: model.isVisible(session), agent: session.agent,
-                child: model.isVisible(session) ? model.selectedSubagent(in: project)?.subagent : nil,
-                onChildNavigation: { message in
-                    if model.childNavigation[session.id] != message { model.childNavigation[session.id] = message }
-                }
-            )
-            .padding(.leading, leading)
-            .padding(.top, Theme.topBarHeight)
-            .opacity(model.isVisible(session) ? 1 : 0)
-            .allowsHitTesting(model.isVisible(session))
-            .accessibilityHidden(!model.isVisible(session))
-        }
-    }
-}
-
-/// One project's "Action required" notices, in their own view for the same reason as
-/// `ProjectTerminals`.
+/// One project's "Action required" notices, in their own view so a poll that changes this
+/// project's sessions re-renders its notices and not the window around them.
 private struct AttentionNotices: View {
     let model: AppModel
     let project: ProjectModel

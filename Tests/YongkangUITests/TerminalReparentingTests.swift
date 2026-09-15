@@ -31,7 +31,7 @@ struct TerminalReparentingTests {
 
     // MARK: - Helpers
 
-    /// Sized like `AgentTerminal` makes it: a 0x0 terminal starts the PTY at 0 columns.
+    /// Sized like `TerminalRegistry` makes it: a 0x0 terminal starts the PTY at 0 columns.
     private func startTerminal(_ script: String) -> AttentionTerminalView {
         let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
         view.startProcess(executable: "/bin/sh", args: ["-c", script])
@@ -39,7 +39,8 @@ struct TerminalReparentingTests {
     }
 
     /// `terminate()` cancels SwiftTerm's exit watcher before the child has exited, so nothing
-    /// reaps it. Kill and reap it here, so no test leaves a process behind, even on failure.
+    /// reaps it (`TerminalRegistry.terminate` does). Kill and reap it here, so no test leaves a
+    /// process behind, even on failure.
     private func stop(_ view: AttentionTerminalView) {
         let pid = view.process.shellPid
         view.terminate()
@@ -88,21 +89,6 @@ struct TerminalReparentingTests {
 
     private func isAlive(_ view: AttentionTerminalView) -> Bool {
         view.process.running && kill(view.process.shellPid, 0) == 0
-    }
-
-    /// Suspends between checks instead of pumping `RunLoop.main`: the test is itself a
-    /// main-queue job, so a nested pump never runs the PTY reads queued behind it.
-    ///
-    /// ponytail: a generous bound, not a timing claim. Other suites run on the main actor in
-    /// parallel (WorkflowTests' git calls hold it for seconds), so the PTY reads can queue for
-    /// a while. Tighten it once git runs off the main thread (plan PR 4.1/4.2).
-    private func eventually(within seconds: Double = 15, _ condition: () -> Bool) async throws -> Bool {
-        let deadline = Date().addingTimeInterval(seconds)
-        while !condition() {
-            guard Date() < deadline else { return false }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        return true
     }
 
     // MARK: - AppKit
