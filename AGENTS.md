@@ -13,8 +13,10 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
 - **`Sources/YongkangCore/`**: the logic, Foundation only. `Notebook/`, `Project/`,
   `Providers/` (with one folder per CLI's transcript reader), `Git/`, `Review/`,
   `Services/`, `Skills/`, `Shell/`, `Prompts/`, `Usage/`.
-- **`Sources/YongkangUI/`**: SwiftUI, AppKit and SwiftTerm. `App/` (`YongkangApp`, the rail
-  and the list column), `Terminal/`, `DesignSystem/`, and `Features/<screen>/`.
+- **`Sources/YongkangUI/`**: SwiftUI, AppKit and SwiftTerm. `Model/` (`AppModel` and one
+  `ProjectModel` per open project, the `@Observable` state every screen reads), `App/`
+  (`YongkangApp`, `RootView`, the rail and the list column), `Terminal/`, `DesignSystem/`,
+  and `Features/<screen>/`.
 - **`App/`**: the thin Xcode shell that builds `Yongkang.app` (bundle ID `ai.yongkang.Yongkang`).
   `Yongkang/main.swift` only calls `YongkangMain.run()`; the rest is assets, entitlements and
   `Config/Signing.xcconfig`. Its sources are a synchronized folder, so adding a file never
@@ -22,8 +24,8 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
 - **`Sources/Shots/`**: dev-only, renders every screen offscreen. Never part of the app.
 - **`Tests/YongkangCoreTests/`**: tests of Core, with captured CLI output under
   `Fixtures/<provider>/`.
-- **`Tests/YongkangUITests/`**: tests that need a view, the terminal or a SwiftUI colour.
-  They read the same `Fixtures/`.
+- **`Tests/YongkangUITests/`**: tests that need a view, the terminal, a SwiftUI colour or
+  the models. They read the same `Fixtures/`.
 
 ## Commands
 
@@ -77,8 +79,7 @@ A handoff needs all of these:
   skills for this, and shots don't count as a design step.
 - **Review opens on outcomes.** A review screen shows the task, the QA verdict and what the
   agents did first. The diff is one click away.
-- **No file over 800 lines.** `YongkangApp.swift` is a known exception
-  that is being refactored. Don't grow it.
+- **No file over 800 lines.**
 - **The notebook files are the only state.** The app never writes what agents write, and
   it never commits unless the user approves in Review.
 - **Keep the comment culture.** Comments explain *why*. `ponytail:` markers name a

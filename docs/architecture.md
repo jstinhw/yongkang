@@ -4,7 +4,7 @@
 
 Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
 `LocalProcessTerminalView`. Today `AgentTerminal`, an `NSViewRepresentable`, creates that view,
-and its `dismantleNSView` calls `view.terminate()`. `YongkangApp.swift` keeps the agent alive by never
+and its `dismantleNSView` calls `view.terminate()`. `RootView.swift` keeps the agent alive by never
 unmounting it: every terminal stays in a `ZStack` at `opacity(0)`. D13 in
 `docs/refactor-plan.md` replaces this with a `TerminalRegistry` that owns one view per session.
 A `TerminalHost` representable then **re-parents** that view into whichever pane is visible.

@@ -179,7 +179,7 @@ its own `fixture()`, which reads the same folder:
 
 - **Terminal bytes.** `codex/codex-0.154.0-trust-screen.ansi` is Codex 0.154.0's trust
   screen. `AttentionPromptTests` feeds it to `AttentionTerminalView.dataReceived` and
-  expects an `attentionReason`. The `--attention-selftest` flag in `YongkangApp.swift` plays
+  expects an `attentionReason`. The `--attention-selftest` flag in `RootView.swift` plays
   the same file through a real PTY.
 - **Transcripts and usage.** One JSON object per line, copied into a temporary fake home
   and read back through the real reader. Each reader takes `claudeHome:`, `codexHome:` or
@@ -299,11 +299,11 @@ but not the ones that end in `default:`. To find every provider branch, run
      to the transcript and usage files.
    - Optional: a quota reader like `claudeQuota` or `codexQuota`, added to the list in
      `UsageBoard.load()` (`YongkangUI/Features/Usage/UsageBoard.swift`).
-5. **`YongkangUI/Model/` and `YongkangUI/App/YongkangApp.swift`**
+5. **`YongkangUI/Model/` and `YongkangUI/App/`**
    - `AppModel.reloadAgentTranscript()`: call the new reader.
    - `ProjectModel.subagents(of:)`: only if the CLI's subagents can be read from disk.
      Otherwise the `default: []` branch covers it.
-   - `providerPicker`: widen its frame for the extra segment.
+   - `providerPicker` in `RootView+TopBar.swift`: widen its frame for the extra segment.
 6. **`YongkangUI/Terminal/AgentAttention.swift`**, `AgentPrompt.reason`: the CLI's trust or
    consent question, so the **Action required** bar appears. `fb13f1e` skipped this step, so
    Grok and Agy have no entry.
