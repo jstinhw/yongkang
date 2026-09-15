@@ -1,0 +1,96 @@
+# Providers
+
+Yongkang runs four agent CLIs: Claude Code (`claude`), Codex (`codex`), Grok (`grok`) and Agy
+(`agy`). Everything the app knows about one of them lives in its **provider**, one folder under
+`Sources/YongkangCore/Providers/`. A new CLI, or a format change in one, is that folder plus its
+fixtures.
+
+## The protocol
+
+`AgentKind` is what persists: a session row's `agent`, the agent switch's `@AppStorage`. Its raw
+value is the executable's name on PATH. `AgentKind.provider` is the one switch that maps a kind
+to its `AgentProvider` (`Providers/AgentProvider.swift`):
+
+| Member | What it answers | Who asks |
+|---|---|---|
+| `kind`, `displayName`, `systemImage` | Identity, the agent switch's label, the row's SF Symbol | `AgentKind` forwards the last two |
+| `skillPrefix` | What starts a skill in a prompt: `$` for Codex, `/` for the rest | `AgentKind.skillInvocation` |
+| `launch(prompt:sessionID:brief:noCommit:)` | The words after the executable: the session id strategy, the brief flag, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
+| `transcriptURL(session:project:) async` | The session's own transcript, or nil | `AppModel.reloadAgentTranscript`, `AgentUsage.spends` (through `usageURL`) |
+| `usageURL(session:project:) async` | Where token usage is written. Defaults to the transcript; Grok overrides it | `AgentUsage.spends`, `UsageBoard` |
+| `subagents(session:project:taskIDs:) async` | The agents the session spawned, with the task each one's label names | `ProjectModel`'s poll |
+| `transcript(at:)` | A transcript's lines as the viewer shows them (Task, Tool, Result, Reply) | `AppModel.reloadAgentTranscript` |
+| `usage(at:) async` | Every turn's spend in a usage file, parsing only what's new | `AgentUsage.spends`, `LeadCoordination.load` |
+| `attentionReason(screen:)` | Why the rendered terminal is waiting on the user, such as a trust question | `AgentPrompt.reason`, which asks every provider |
+| `childView` | The CLI's child-agent picker: its command (`/tasks`, `/subagents`), how to recognise it on screen, and the row that goes back to the session. Nil when there's none | `TerminalRegistry.showChild`, which does the typing and key-walking |
+
+**State lives in actors.** A provider is a `Sendable` struct, and the ones with something to
+remember keep one `static let shared` instance. What they remember between calls sits in an actor
+the provider owns: every provider that reads usage has a
+`UsageReader` (`Usage/UsageReader.swift`, one read cursor per file), and Codex has a
+`CodexTranscripts` (the rollout index: parsed `session_meta` lines, the thread each session
+drives, and the rollouts already searched). Nothing in `Providers/` or `Usage/` is a mutable
+`static var`. The members that can touch that state are `async`, and the models await them:
+`ProjectModel` starts the poll's read in a task, and `AppModel` resolves the on-screen
+transcript before swapping it in.
+
+**Shared plumbing** a provider reuses rather than re-implements:
+
+- `Transcripts.text(at:)` reads a file a CLI is still writing, keeping every line that
+  decodes. A read of the whole file as strict UTF-8 would lose every line when the CLI is caught
+  mid-character.
+- `AgentUsage.json(_:)` and `AgentUsage.date(_:)` parse a JSONL line and an ISO 8601 stamp.
+- `AgentCommand.quoted(_:)` and `AgentCommand.commitRules`, for `launch`.
+- `AgentPrompt.visibleText(_:)` turns a rendered screen into the text a person reads:
+  lowercased, with NUL cells and runs of whitespace as one space.
+- `ClaudeTranscripts.resultText`, `describe` and `truncate` turn arbitrary JSON content into
+  one-line transcript text. Codex and Grok use them too.
+
+## The folders
+
+| Provider | Folder | Files | Fixtures |
+|---|---|---|---|
+| Claude Code | `Providers/ClaudeCode/` | `ClaudeCodeProvider.swift`; `ClaudeTranscripts.swift` (the session folder, subagents and their finished state, the transcript) | `Fixtures/claude/`, `Fixtures/usage/claude-*` |
+| Codex | `Providers/Codex/` | `CodexProvider.swift` (with the prompt `marker` and the running-total usage parser); `CodexTranscripts.swift` (the rollout index actor and the transcript) | `Fixtures/codex/`, `Fixtures/usage/codex-*` |
+| Grok | `Providers/Grok/` | `GrokProvider.swift`; `GrokTranscripts.swift` (the session folder, chat history and usage stream) | `Fixtures/grok/` |
+| Agy | `Providers/Agy/` | `AgyProvider.swift`. Agy only runs in its terminal, so it reads nothing | none |
+
+Tests sit in the same shape: `Tests/YongkangCoreTests/Providers/<Provider>/`, beside
+`Providers/AgentProviderTests.swift`, which checks every kind against its provider. Terminal
+captures are rendered through SwiftTerm in `Tests/YongkangUITests/AttentionPromptTests.swift`.
+
+## Where fixtures go
+
+Under `Tests/YongkangCoreTests/Fixtures/<cli>/`, named after the CLI version they came from
+(`codex-0.154.0-trust-screen.ansi`). Put the malformed inputs a CLI could plausibly write
+(truncated lines, non-JSON lines, empty files) beside the good captures.
+[Capturing a CLI fixture](development.md#capturing-a-cli-fixture) has the steps, including
+how to scrub a capture.
+
+## Adding a CLI
+
+1. **The folder.** `Sources/YongkangCore/Providers/<Name>/<Name>Provider.swift`, a
+   `package struct` that conforms to `AgentProvider`. The compiler lists what's missing. Put its
+   readers beside it (`<Name>Transcripts.swift`), and keep anything they remember between calls
+   in an actor the provider owns, like `UsageReader`. Take a home folder in the reader so tests
+   can point it at a temporary one.
+   - `launch`: how the CLI takes a session id (a flag, a marker in the prompt, or nothing), an
+     opening prompt, and a deny-commit flag if it has one. `AgentCommandTests` pins every line
+     byte for byte, so add a case there.
+   - `transcriptURL`, `subagents`, `transcript`, `usage`: return nil or empty for what the CLI
+     doesn't write, as `AgyProvider` does.
+   - `attentionReason`: the CLI's trust or consent question, matched with its controls, so the
+     **Action required** bar appears. Nil until one has been captured.
+   - `childView`: nil unless the CLI has a live child-agent picker.
+2. **The kind.** In `Providers/AgentKind.swift`, add the case, named after the executable, and
+   its arm in `provider`. That switch is exhaustive, so the compiler points at it.
+3. **Fixtures and tests.** Captured transcripts and usage in `Fixtures/<cli>/`, and
+   `Tests/YongkangCoreTests/Providers/<Name>/<Name>TranscriptTests.swift` reading them through
+   the real reader. A captured trust screen gets a case in `AttentionPromptTests`.
+4. **Outside the folder, only if it applies:**
+   - A plan-limits reader like `AgentUsage.claudeQuota`, added to the list in `UsageBoard.load()`.
+   - `providerPicker` in `YongkangUI/App/RootView+TopBar.swift` is a fixed width: widen it for
+     the extra segment.
+   - `README.md` and `docs/guide/` list the supported CLIs.
+5. **Check it.** `make check`, render shots before and after (the agent switch changes), and run
+   the [smoke script](development.md#manual-smoke-script) with the new CLI selected.
