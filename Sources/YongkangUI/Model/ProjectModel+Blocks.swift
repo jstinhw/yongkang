@@ -46,6 +46,7 @@ extension ProjectModel {
     func approveDemo(_ block: UserBlock, revision: DemoRevision?) -> Destination? {
         Blocks.resolve(block)
         guard let waiting = waitingSession(for: block) else { return nil }
+        deliveredBlocks.insert(block.id)
         let pass = revision.map { " Build \($0.label)." } ?? ""
         return Destination(
             section: .agents, route: .session(waiting.id),

@@ -117,18 +117,18 @@ extension RootView {
                 block: block, cards: project.snapshot.cards,
                 waiting: project.waitingSession(for: block),
                 approve: { revision in
-                    go(to: project.approveDemo(block, revision: revision))
+                    model.go(to: project.approveDemo(block, revision: revision))
                     model.reload()
                 },
-                revise: { go(to: project.openDesigner(block)) }
+                revise: { model.go(to: project.openDesigner(block)) }
             )
             .id(block.id)
         } else if let block = selectedBlock(in: project) {
             BlockDetail(
                 block: block, cards: project.snapshot.cards,
                 waiting: project.waitingSession(for: block),
-                start: { go(to: project.startUnblock(block, agent: agent)) },
-                revise: { go(to: project.openProposal(block, approve: false, agent: agent)) },
+                start: { model.go(to: project.startUnblock(block, agent: agent)) },
+                revise: { model.go(to: project.openProposal(block, approve: false, agent: agent)) },
                 resolve: {
                     Blocks.resolve(block)
                     model.reload()
@@ -142,7 +142,7 @@ extension RootView {
                 branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
                 openFile: { model.selection = .review(file: $0) },
                 approve: { approve(task, message: $0, in: project) },
-                requestChanges: { go(to: project.requestChanges(on: task, agent: agent)) }
+                requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) }
             )
             .id(task.id)
         } else if let path = reviewPath {
@@ -159,7 +159,7 @@ extension RootView {
                 task: owner, draft: draft(for: owner?.id ?? "", in: project),
                 openTask: { model.selection = .reviewTask($0) },
                 approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
-                requestChanges: { if let owner { go(to: project.requestChanges(on: owner, agent: agent)) } })
+                requestChanges: { if let owner { model.go(to: project.requestChanges(on: owner, agent: agent)) } })
         } else if let step = previewStep(in: project) {
             ProjectPreview(
                 repo: step.repo, services: step.services,
@@ -190,7 +190,7 @@ extension RootView {
             assigned: project.assignedTaskIDs,
             showDone: model.showDone,
             assign: { tasks in assign(tasks, in: project) },
-            review: { go(to: project.startProductReview(agent: agent)) },
+            review: { model.go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
             openDemo: { demo in model.selection = .block(demo.id) },
             remove: { card in remove(card, in: project) }

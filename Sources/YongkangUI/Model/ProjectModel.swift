@@ -19,6 +19,10 @@ import YongkangCore
     /// What the user has written about each task under review, by task id, until they send
     /// it or approve. Lives here rather than in the page so leaving for a diff keeps it.
     var reviewDrafts: [String: ReviewDraft] = [:]
+    /// Blocks, by id, whose clearing the waiting session has already been told about, so the
+    /// poll says so once rather than on every tick. A workflow that clears a block with its own
+    /// message records it here too, or the poll would type "Unblocked" over it.
+    var deliveredBlocks: Set<String> = []
 
     /// With no snapshot, only the file list is read: the rest comes with the first poll
     /// that looks inside the project.

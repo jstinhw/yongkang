@@ -194,6 +194,23 @@ import Testing
         #expect(Blocks.block(at: demo.url)?.waiting == false, "the block is cleared the way any other is")
     }
 
+    @Test func thePollAfterApprovingADemoDoesNotTypeOverTheApproval() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel()
+        let project = model.open(try self.project(tasks: ["Hero"], in: tmp).directory)
+        let designer = running("Engineering Lead", in: project)
+        let demo = try demo(madeBy: designer, in: project)
+        model.enter(project)
+
+        // What the demo page's approve button does.
+        model.go(to: project.approveDemo(demo, revision: demo.revisions.last))
+        model.reload()
+        #expect(
+            model.pendingInput[designer]?.hasPrefix("The demo at hero-demo is approved. Build v2.") == true,
+            "the block the approval cleared counts as delivered, so the poll doesn't send Unblocked instead")
+    }
+
     @Test func revisingADemoOpensTheSessionThatMadeIt() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

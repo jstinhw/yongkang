@@ -36,9 +36,18 @@ import YongkangCore
     /// The done tasks the window has already seen in this project. nil until the first
     /// poll seeds it, so opening a project full of finished work does not read as news.
     private var doneTasks: Set<String>?
-    /// Blocks already reported back to the session that was waiting, so a cleared block
-    /// says so once rather than on every 2-second poll.
-    private var deliveredBlocks: Set<String> = []
+
+    // MARK: - Going
+
+    /// Where a workflow said to go. `input` only ever goes to the session `route` opens.
+    func go(to destination: Destination?) {
+        guard let destination else { return }
+        section = destination.section
+        if let route = destination.route { selection = route }
+        if let input = destination.input, case .session(let id, _)? = destination.route {
+            pendingInput[id] = input
+        }
+    }
 
     // MARK: - Projects
 
@@ -260,12 +269,13 @@ import YongkangCore
     /// it is sitting at a prompt. Typing it in is what closes the loop the user opened by
     /// pressing the button.
     private func deliverUnblocks(in project: ProjectModel) {
-        for block in project.snapshot.blocks where !block.waiting && !deliveredBlocks.contains(block.id) {
+        for block in project.snapshot.blocks where !block.waiting && !project.deliveredBlocks.contains(block.id) {
             guard let session = project.waitingSession(for: block) else { continue }
-            deliveredBlocks.insert(block.id)
-            pendingInput[session.id] = NotebookFormat.unblockedMessage(block: block)
-            section = .agents
-            selection = .session(session.id)
+            project.deliveredBlocks.insert(block.id)
+            go(
+                to: Destination(
+                    section: .agents, route: .session(session.id),
+                    input: NotebookFormat.unblockedMessage(block: block)))
         }
     }
 

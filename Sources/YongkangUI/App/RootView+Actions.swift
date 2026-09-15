@@ -5,18 +5,8 @@ import YongkangCore
 extension RootView {
     // MARK: - Workflows
 
-    // The workflows are `ProjectModel` methods that return where to go. What stays in the
-    // view is going there, and the prompts and alerts that need a window.
-
-    /// Where a workflow said to go. `input` only ever goes to the session `route` opens.
-    func go(to destination: Destination?) {
-        guard let destination else { return }
-        model.section = destination.section
-        if let route = destination.route { model.selection = route }
-        if let input = destination.input, case .session(let id, _)? = destination.route {
-            model.pendingInput[id] = input
-        }
-    }
+    // The workflows are `ProjectModel` methods that return where to go, and `AppModel.go(to:)`
+    // goes there. What stays in the view is the prompts and alerts that need a window.
 
     func assign(_ tasks: [NotebookCard], in project: ProjectModel) {
         guard let destination = project.assign(tasks, agent: agent) else {
@@ -29,7 +19,7 @@ extension RootView {
             alert.runModal()
             return
         }
-        go(to: destination)
+        model.go(to: destination)
     }
 
     // MARK: - Projects
@@ -115,7 +105,7 @@ extension RootView {
         in project: ProjectModel
     ) {
         let run = project.runServices(steps)
-        go(to: run.destination)
+        model.go(to: run.destination)
         guard !run.unstarted.isEmpty else { return }
         let alert = NSAlert()
         // No route means no service was started or shown: none of them had a command.
@@ -138,7 +128,7 @@ extension RootView {
         do {
             let destination = try project.add(kind, title: title, selection: model.selection)
             model.reload()
-            go(to: destination)
+            model.go(to: destination)
         } catch {
             NSAlert(error: error).runModal()
         }

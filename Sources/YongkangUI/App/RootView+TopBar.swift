@@ -36,7 +36,7 @@ extension RootView {
                 completedToggle
                 addMenu(for: project)
                 Button {
-                    go(to: project.startProductReview(agent: agent))
+                    model.go(to: project.startProductReview(agent: agent))
                 } label: {
                     Label("Product review", systemImage: "sparkles")
                 }
@@ -136,7 +136,7 @@ extension RootView {
             }
             Divider()
             Button("Describe New Feature…", systemImage: "text.bubble") {
-                go(to: project.startProduct("describe", agent: agent))
+                model.go(to: project.startProduct("describe", agent: agent))
             }
             .disabled(!project.hasNotebook)
             Button("Reveal in Finder", systemImage: "folder") {

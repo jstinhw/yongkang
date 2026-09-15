@@ -131,7 +131,7 @@ struct RootView: View {
                     },
                     incubate: { brief in
                         addingAgent = false
-                        go(to: project.startIncubation(brief, agent: agent))
+                        model.go(to: project.startIncubation(brief, agent: agent))
                     },
                     cancel: { addingAgent = false }
                 )
