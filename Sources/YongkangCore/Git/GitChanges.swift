@@ -143,6 +143,19 @@ package enum GitChanges {
 
     // MARK: - Plumbing
 
+    /// This process's environment without the variables that point git at a repository
+    /// (`git rev-parse --local-env-vars`). Run from a git hook or `git rebase --exec`, an
+    /// inherited `GIT_DIR` beats `currentDirectoryURL`: a test's `git init` in a temp folder
+    /// once rewrote the real checkout's config to `bare = true`.
+    static let environment = ProcessInfo.processInfo.environment.filter {
+        ![
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
+            "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE", "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE",
+            "GIT_INDEX_FILE", "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX", "GIT_SHALLOW_FILE",
+            "GIT_COMMON_DIR",
+        ].contains($0.key)
+    }
+
     private static func newFileLines(_ change: FileChange, in directory: URL) -> [DiffLine] {
         let url = directory.appendingPathComponent(change.path)
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
@@ -171,6 +184,7 @@ package enum GitChanges {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         task.arguments = ["git"] + arguments
+        task.environment = environment
         task.currentDirectoryURL = directory
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -192,6 +206,7 @@ package enum GitChanges {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         task.arguments = ["git"] + arguments
+        task.environment = environment
         task.currentDirectoryURL = directory
         let pipe = Pipe()
         task.standardOutput = pipe

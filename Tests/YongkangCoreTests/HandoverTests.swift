@@ -198,6 +198,7 @@ import Testing
         let git = Process()
         git.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         git.arguments = ["git"] + arguments
+        git.environment = GitChanges.environment
         git.currentDirectoryURL = directory
         git.standardOutput = FileHandle.nullDevice
         git.standardError = FileHandle.nullDevice

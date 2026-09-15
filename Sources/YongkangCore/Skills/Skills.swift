@@ -152,6 +152,7 @@ package enum Skills {
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         // `--` so a remote that still slipped past validation is read as a path, not a flag.
         task.arguments = ["git", "clone", "--depth", "1", "--quiet", "--", remote, checkout.path]
+        task.environment = GitChanges.environment
         let pipe = Pipe()
         task.standardOutput = FileHandle.nullDevice
         task.standardError = pipe
