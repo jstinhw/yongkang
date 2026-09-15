@@ -68,10 +68,6 @@ struct YongkangApp: App {
     private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     init() {
-        if CommandLine.arguments.contains("--selftest") {
-            NotebookSelfTest.run()
-            exit(0)
-        }
         if let index = CommandLine.arguments.firstIndex(of: "--shots"),
            let path = CommandLine.arguments[safe: index + 1] {
             DesignShots.run(into: URL(fileURLWithPath: path))
@@ -882,7 +878,10 @@ struct YongkangApp: App {
         let root = NotebookFormat.root(in: directory)
         _ = try! NotebookFormat.create(.task, title: "Trust screen test", in: root, project: nil)
         let output = directory.appendingPathComponent("trust.ansi")
-        try! NotebookSelfTest.codexTrustScreen.write(to: output, atomically: true, encoding: .utf8)
+        // Dev-only, run from a checkout: the capture is the test fixture, not a copy of it.
+        let capture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../Tests/YongkangTests/Fixtures/codex/codex-0.154.0-trust-screen.ansi")
+        try! FileManager.default.copyItem(at: capture, to: output)
         var project = Project(directory: directory, entries: NotebookLoader.load(root: root))
         let session = CodeSession(title: "Engineering Lead", icon: "terminal",
                                   line: "cat \(AgentCommand.quoted(output.path)); exec sleep 30", agent: .codex)

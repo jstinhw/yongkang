@@ -16,7 +16,7 @@ Every screen is the same four columns: a **rail** picking the section, a **list*
 
 ```sh
 ./make-app.sh && open .build/Yongkang.app
-swift run Yongkang --selftest        # checks the on-disk format has not drifted
+swift test                           # parsers, notebook format and workflows
 swift run Yongkang --shots /tmp/ui   # renders every screen to PNG from a fixed sample
 ```
 

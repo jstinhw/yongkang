@@ -172,16 +172,20 @@ folder.
 A fixture is real CLI output, trimmed down. It's what keeps a reader honest when a CLI
 changes its format.
 
-**Where fixtures live today.** They're inline in `Sources/Yongkang/NotebookSelfTest.swift`:
+**Where fixtures live.** Under `Tests/YongkangTests/Fixtures/<provider>/`, loaded with
+`fixture("codex/…")` from `Tests/YongkangTests/Support.swift`:
 
-- **Terminal bytes.** `static let codexTrustScreen` is Codex 0.154.0's trust screen, kept
-  as a Swift string with `\u{1b}` escapes. `run()` feeds it to
-  `AttentionTerminalView.dataReceived` and requires an `attentionReason`. The
-  `--attention-selftest` flag in `App.swift` plays the same bytes through a real PTY.
-- **Transcripts and usage.** Raw string literals (`#"…"#`), one JSON object per line, are
-  written under a temporary fake home and read back through the real reader. Each reader
-  takes `claudeHome:`, `codexHome:` or `grokHome:` for this. Preconditions then check what
-  the reader returns: labels, text, running state and token tallies.
+- **Terminal bytes.** `codex/codex-0.154.0-trust-screen.ansi` is Codex 0.154.0's trust
+  screen. `AttentionPromptTests` feeds it to `AttentionTerminalView.dataReceived` and
+  expects an `attentionReason`. The `--attention-selftest` flag in `App.swift` plays the
+  same file through a real PTY.
+- **Transcripts and usage.** One JSON object per line, copied into a temporary fake home
+  and read back through the real reader. Each reader takes `claudeHome:`, `codexHome:` or
+  `grokHome:` for this. Values only known at runtime (a temp path, a session marker) are
+  `{{CWD}}`-style placeholders that the test fills in.
+- **Malformed inputs.** Truncated lines, non-JSON lines, empty files, injected newlines and
+  `../` paths sit beside the good captures. The readers take files agents write, so a bad
+  file must not crash them or escape the project.
 
 **Where the real files are**
 
@@ -219,20 +223,14 @@ those files are named after the UUID.
      `encrypted_content`). Codex's `session_meta` line also carries the base instructions.
    - Remove account ids, emails, org names, API keys and tokens.
    - Check nothing is left: `grep -nE '/Users/|@|sk-|ghp_|Bearer' <file>`.
-5. **Embed it.**
-   - Put a JSONL line in `#"…"#` as it is.
-   - Terminal bytes need escaping for a Swift string:
-     `perl -0pe 's/\\/\\\\/g; s/"/\\"/g; s/\r/\\r/g; s/\n/\\n/g; s/([\x00-\x1f\x7f])/sprintf("\\u{%x}",ord $1)/ge' /tmp/cli.typescript`
-   - Add a comment saying where it came from and which version ("Captured from Codex
-     0.154.0: …").
-6. **Add a check.** Next to the other checks for that reader in `NotebookSelfTest.swift`,
-   write the fixture under the fake home, call the reader, and add a `precondition` whose
-   message names the behaviour it protects. Use `precondition`, not `assert`, so the check
-   also runs in release builds. Run `swift run Yongkang --selftest`. Then break the reader
-   on purpose for a moment and confirm the check fails.
-
-Phase 1 of the refactor moves these fixtures out of inline strings into
-`Tests/YongkangCoreTests/Fixtures/<provider>/` files.
+5. **Save it** as `Tests/YongkangTests/Fixtures/<provider>/<cli>-<version>-<what>.<ext>`.
+   Copy terminal bytes byte-exact (`cp /tmp/cli.typescript …`, then trim with a hex-safe
+   tool), never retyped. Add a new file next to the old one when a CLI changes its format,
+   so the folder records which versions are supported.
+6. **Add a check.** In that reader's test file (`Providers/CodexTranscriptTests.swift` and so
+   on), copy the fixture into a temp home, call the reader, and `#expect` the behaviour with a
+   message naming what it protects. Run `swift test`. Then break the reader on purpose for a
+   moment and confirm the check fails.
 
 ## Stable local signing identity
 
@@ -298,11 +296,11 @@ but not the ones that end in `default:`. To find every provider branch, run
 5. **`AgentAttention.swift`**, `AgentPrompt.reason`: the CLI's trust or consent question, so
    the **Action required** bar appears. `fb13f1e` skipped this step, so Grok and Agy have
    no entry.
-6. **`NotebookSelfTest.swift`**: captured transcript and usage samples, with a check for
+6. **`Tests/YongkangTests/`**: captured transcript and usage fixtures, with a test for
    each (see [Capturing a CLI fixture](#capturing-a-cli-fixture)).
 7. **Docs**: every place in `README.md` and `docs/` that lists the supported CLIs.
 
-Then run `swift run Yongkang --selftest`, render shots (the agent switch gets wider), and do
+Then run `swift test`, render shots (the agent switch gets wider), and do
 the smoke script with the new provider selected.
 
 Phase 4.3 of the refactor replaces this checklist with a single `AgentProvider` folder per

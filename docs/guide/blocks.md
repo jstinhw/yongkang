@@ -29,7 +29,7 @@ function over these files. `NOTEBOOK.md` spells out the mapping and the rules th
 it true.
 
 ```sh
-swift run Yongkang --selftest        # checks the on-disk format has not drifted
+swift test                           # checks the on-disk format has not drifted
 swift run Yongkang --shots /tmp/ui   # renders every screen to PNG from a fixed sample
 ```
 

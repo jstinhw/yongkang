@@ -8,3 +8,6 @@ folder records which formats are supported. When a CLI changes its format, add a
 next to the old one rather than editing it. Inputs an agent or CLI could plausibly write
 badly (truncated JSONL, injected newlines, `../` paths) belong here too. The parsers read
 untrusted files. See `docs/development.md` for how to capture one.
+
+Codex rollouts use `{{CWD}}` and `{{MARKER}}` placeholders, filled in by the test, for values
+only known at runtime.

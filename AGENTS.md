@@ -4,8 +4,8 @@ A macOS console that runs a team of agent CLIs (`claude`, `codex`, `grok`, `agy`
 PTYs against a project's `.notebook/` folder, and reviews the changes they leave behind.
 
 SwiftPM, macOS 13+, one dependency (SwiftTerm). All code is one flat executable target in
-`Sources/Yongkang/`. There is no test target yet: the checks are `precondition`s in
-`NotebookSelfTest.swift`, run through a command-line flag.
+`Sources/Yongkang/`. Tests are Swift Testing in `Tests/YongkangTests/`, one file per domain,
+with captured CLI output under `Fixtures/<provider>/`.
 
 `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
 
@@ -13,7 +13,7 @@ SwiftPM, macOS 13+, one dependency (SwiftTerm). All code is one flat executable 
 
 ```sh
 swift build                           # build
-swift run Yongkang --selftest         # test: prints "notebook selftest ok", exits non-zero on failure
+swift test                            # test
 swift run Yongkang --shots <dir>      # render every screen offscreen to <dir>/*.png
 ./make-app.sh && open .build/Yongkang.app   # release build, bundled skills, signed app
 ```
@@ -30,21 +30,21 @@ swift run Yongkang --shots <dir>      # render every screen offscreen to <dir>/*
 A handoff needs all of these:
 
 1. `swift build` succeeds.
-2. `swift run Yongkang --selftest` prints `notebook selftest ok`.
+2. `swift test` passes. A `withKnownIssue` is a recorded bug, not a pass to copy.
 3. For any UI or structural change, you rendered shots before and after and compared them.
    Say what changed on screen, or that nothing did.
 
 ## Rules
 
 - **The `.notebook/` format is a contract.** Never change it without updating
-  `NotebookFormat.specText` and the self-test checks that cover it.
+  `NotebookFormat.specText`, `docs/notebook-format.md` and the tests that cover it.
 - **Design before SwiftUI.** UI or design work goes through Claude Code's native `/design`
   skill (a design canvas) before any SwiftUI is written. Don't use the gstack `design-*`
   skills for this, and `--shots` doesn't count as a design step.
 - **Review opens on outcomes.** A review screen shows the task, the QA verdict and what the
   agents did first. The diff is one click away.
-- **No file over 800 lines.** `App.swift` and `NotebookSelfTest.swift` are known exceptions
-  that are being refactored. Don't grow them.
+- **No file over 800 lines.** `App.swift` is a known exception
+  that is being refactored. Don't grow it.
 - **The notebook files are the only state.** The app never writes what agents write, and
   it never commits unless the user approves in Review.
 - **Keep the comment culture.** Comments explain *why*. `ponytail:` markers name a
