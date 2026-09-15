@@ -285,7 +285,7 @@ but not the ones that end in `default:`. To find every provider branch, run
      supports `--brief`.
    - `AgentCommand.denyCommits`: the CLI's flag for refusing `git commit`, `git push` and
      `gh pr create` in lead sessions, if it has one.
-2. **`YongkangUI/Terminal/AgentTerminal.swift`**, `AgentTerminal.Coordinator.navigate` and
+2. **`YongkangUI/Terminal/TerminalRegistry.swift`**, `TerminalRegistry.showChild` and
    `ChildAgentPicker`: the command that opens a live child-agent view, and how its picker
    looks on screen. Only Claude Code (`/tasks`) and Codex (`/subagents`) have one.
 3. **`YongkangCore/Providers/<Provider>/<Provider>Transcripts.swift`** (new file, like

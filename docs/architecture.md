@@ -3,18 +3,22 @@
 ## Terminal lifetime
 
 Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
-`LocalProcessTerminalView`. Today `AgentTerminal`, an `NSViewRepresentable`, creates that view,
-and its `dismantleNSView` calls `view.terminate()`. `RootView.swift` keeps the agent alive by never
-unmounting it: every terminal stays in a `ZStack` at `opacity(0)`. D13 in
-`docs/refactor-plan.md` replaces this with a `TerminalRegistry` that owns one view per session.
-A `TerminalHost` representable then **re-parents** that view into whichever pane is visible.
+`LocalProcessTerminalView`, and nothing on screen decides how long it lives (D13 in
+`docs/refactor-plan.md`).
 
-A spike (PR 2.1) checked whether re-parenting is safe.
+- **`TerminalRegistry`** (`Sources/YongkangUI/Terminal/`), owned by `AppModel` as `terminals`,
+  creates one view per session when `ProjectModel.addSession` adds it. Closing the session or its
+  project calls `terminate(_:)`. Typing into a session (`send(_:to:)`) and steering its CLI to a
+  child agent (`showChild(_:in:)`) go through it too.
+- **`TerminalHost`**, an `NSViewRepresentable`, **re-parents** the registry's view into the work
+  area while that session's pane is on screen, and lets go of it when the pane goes.
+
+A spike (PR 2.1) checked whether re-parenting is safe, before the registry was built.
 `Tests/YongkangUITests/TerminalReparentingTests.swift` runs real `/bin/sh` children inside
 `AttentionTerminalView`s. It moves them between panes of different sizes in an offscreen
-`NSWindow`, and through a SwiftUI host inside an `NSHostingView`. The suite now stays as the
-regression test for PR 3.4. Source lines below are from SwiftTerm 1.18.0 (`Package.resolved`),
-under `.build/checkouts/SwiftTerm/Sources/SwiftTerm/`.
+`NSWindow`, and through `TerminalHost` inside an `NSHostingView`. It stays as the regression test
+for that behaviour, beside `TerminalRegistryTests.swift`. Source lines below are from SwiftTerm
+1.18.0 (`Package.resolved`), under `.build/checkouts/SwiftTerm/Sources/SwiftTerm/`.
 
 ### Verdicts
 
@@ -78,13 +82,13 @@ under `.build/checkouts/SwiftTerm/Sources/SwiftTerm/`.
      transient size while SwiftUI lays out.
    - Tests: `swiftUIHostBorrowsTheTerminalAcrossRemovalAndResize`.
 
-### Recommendation for PR 3.4
+### Recommendation the registry followed
 
 **Re-parent, as D13 proposes.** Every question above passed, so the spike didn't build D13's
 fallback, one permanent host view positioned from outside. If it's ever needed, it resizes
 through the same `setFrameSize` path as point 3.
 
-### Constraints PR 3.4 must respect
+### Constraints the registry and host respect
 
 - **The registry must hold the view strongly, and end a session only with `terminate()`.**
   - The view is the only owner of its `LocalProcess` (`MacLocalTerminalView.swift:69`).
@@ -95,9 +99,8 @@ through the same `setFrameSize` path as point 3.
 - **Keep a strong reference to `processDelegate`.** The view holds it `weak`
   (`MacLocalTerminalView.swift:99`), so the registry must own whatever object receives the
   exit and size callbacks.
-- **The host never terminates.** Today's `AgentTerminal.dismantleNSView` calls `terminate()`;
-  that call moves to `TerminalRegistry.terminate(_:)`. Remove the key-down `NSEvent` monitor there
-  too, not in dismantle.
+- **The host never terminates.** Only `TerminalRegistry.terminate(_:)` calls `terminate()`. The
+  key-down `NSEvent` monitor is the registry's too, one for every terminal.
 - **`dismantleNSView` removes only what its own container still holds,** meaning
   `container.subviews`, never the terminal by reference.
   - When a session moves between panes in one update, SwiftUI calls `makeNSView` on the new
@@ -115,7 +118,7 @@ through the same `setFrameSize` path as point 3.
     don't animate a host up from zero size.
 - **Request focus after the terminal is in the window.**
   - `makeNSView`, and the first `updateNSView` after it, run before the container has a
-    window. Defer `window.makeFirstResponder(terminal)`, as `AgentTerminal` already does with
+    window. `TerminalHost` defers `window.makeFirstResponder(terminal)` with
     `DispatchQueue.main.async`.
   - Check `window.firstResponder === terminal`, not the return value.
     `makeFirstResponder` also returns true for a view that isn't in the window.
@@ -123,11 +126,13 @@ through the same `setFrameSize` path as point 3.
   (`LocalProcess.swift:586`, then 269-277).
   - As a result, `processDelegate.processTerminated` never fires for a session the app
     terminates.
-  - Nothing calls `waitpid`, so the child stays a zombie until the app quits. Today's app
-    already behaves this way.
-  - The registry should do its own exit bookkeeping for a terminate, and reap the pid off the
-    main thread. The exit callback only covers a child that exits by itself.
-- **Keep terminals in one window.** Moving to another `NSWindow` is untested. With Metal on, it
+  - Unless something calls `waitpid`, the child stays a zombie until the app quits, as it did
+    before the registry.
+  - So `TerminalRegistry.terminate(_:)` forgets the session itself and reaps the pid off the
+    main thread, with SIGKILL if the child is still there after 5 s. `onExit` only covers a child
+    that exits by itself.
+- **Keep terminals in one window.** Moving to another `NSWindow` is untested. A second app window
+  showing the same session would take the terminal from the first. With Metal on, it
   rebuilds the Metal view (`MacTerminalView.swift:220-226`, 583-592).
 - **Hiding a terminal isn't free.** A detached terminal still parses its output on the main
-  thread, as a hidden terminal in the `opacity(0)` stack does today.
+  thread, as the hidden terminals in the old `opacity(0)` stack did.
