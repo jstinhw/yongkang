@@ -259,9 +259,15 @@ enum AgentUsage {
         var model = "unknown"
     }
 
+    // ponytail: one lock around the whole cursor table, held through the read. The app only
+    // calls this from the main thread; parallel tests don't. Per-provider actor state
+    // replaces it when reads move off the main thread (refactor plan D15).
+    private static let lock = NSLock()
     private static var files: [String: Cursor] = [:]
 
     static func samples(at url: URL, _ provider: AgentKind) -> [UsageSample] {
+        lock.lock()
+        defer { lock.unlock() }
         var cursor = files[url.path] ?? Cursor()
         let lines = newLines(in: url, cursor: &cursor)
         for line in lines {
