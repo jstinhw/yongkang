@@ -1,0 +1,61 @@
+import Foundation
+import YongkangCore
+
+extension ProjectModel {
+    /// A gate starts a session whose only job is unblocking it. A proposal instead returns
+    /// to its Product transcript, and only a ready proposal's create button sends approval.
+    ///
+    /// The page is deliberately not opened here. A browser tab that appears before the
+    /// session has said anything lands the user on a token screen with no idea what it is
+    /// for; the engineer explains first, and opens the page when the user is ready for it.
+    func startUnblock(_ block: UserBlock, agent: AgentKind) -> Destination {
+        guard !block.isProposal else {
+            return openProposal(block, approve: block.proposalReady, agent: agent)
+        }
+        return Destination(
+            section: .agents,
+            route: addSession(
+                agent, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
+                title: "Unblock \(block.title)"))
+    }
+
+    /// A proposal belongs to the Product conversation that shaped it. Opening it is only
+    /// navigation; the ready proposal's explicit create action is the approval message.
+    /// `agent` is only used when no Product session is left to return to.
+    func openProposal(_ block: UserBlock, approve: Bool, agent: AgentKind) -> Destination {
+        let running =
+            block.session.flatMap { id in
+                sessions.first { $0.id == id && !$0.exited }
+            } ?? sessions.last { $0.isProduct && !$0.exited }
+        if let running {
+            return Destination(
+                section: .agents, route: .session(running.id),
+                input: approve
+                    ? "Approved. Create the roadmap changes, project, and tasks in this ready proposal." : nil)
+        }
+        let decision = approve ? "\nDecision: approve" : ""
+        return startProduct(NotebookFormat.relativePath(block.url) + decision, agent: agent)
+    }
+
+    /// Approving a demo is the one gesture that releases the engineering tasks waiting on
+    /// a design task: the block is cleared the same way any other is, and the agent that
+    /// made it is told which revision won. The app does not touch the task file — the
+    /// agent owns that, like every other status in the notebook.
+    ///
+    /// Nil when no session is waiting on the demo: the block is still cleared.
+    func approveDemo(_ block: UserBlock, revision: DemoRevision?) -> Destination? {
+        Blocks.resolve(block)
+        guard let waiting = waitingSession(for: block) else { return nil }
+        let pass = revision.map { " Build \($0.label)." } ?? ""
+        return Destination(
+            section: .agents, route: .session(waiting.id),
+            input: "The demo at \(block.slug) is approved.\(pass) "
+                + "Mark the design task done and start the tasks waiting on it.")
+    }
+
+    /// Saying what is wrong goes to whoever made the demo, in their own transcript. There
+    /// is nothing to type on their behalf — the point is that the user says it.
+    func openDesigner(_ block: UserBlock) -> Destination? {
+        waitingSession(for: block).map { Destination(section: .agents, route: .session($0.id)) }
+    }
+}

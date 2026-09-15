@@ -29,44 +29,6 @@ extension RootView {
         go(to: destination)
     }
 
-    // MARK: - Blocks
-
-    /// A gate starts a session whose only job is unblocking it. A proposal instead returns
-    /// to its Product transcript, and only a ready proposal's create button sends approval.
-    ///
-    /// The page is deliberately not opened here. A browser tab that appears before the
-    /// session has said anything lands the user on a token screen with no idea what it is
-    /// for; the engineer explains first, and opens the page when the user is ready for it.
-    func startUnblock(_ block: UserBlock, in project: ProjectModel) {
-        guard !block.isProposal else {
-            return openProposal(block, approve: block.proposalReady, in: project)
-        }
-        addSession(
-            agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
-            title: "Unblock \(block.title)")
-        model.section = .agents
-    }
-
-    /// A proposal belongs to the Product conversation that shaped it. Opening it is only
-    /// navigation; the ready proposal's explicit create action is the approval message.
-    func openProposal(_ block: UserBlock, approve: Bool, in project: ProjectModel) {
-        let running =
-            block.session.flatMap { id in
-                project.sessions.first { $0.id == id && !$0.exited }
-            } ?? project.sessions.last { isProduct($0) && !$0.exited }
-        if let running {
-            model.section = .agents
-            model.selection = .session(running.id)
-            if approve {
-                model.pendingInput[running.id] =
-                    "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
-            }
-            return
-        }
-        let decision = approve ? "\nDecision: approve" : ""
-        startProduct(NotebookFormat.relativePath(block.url) + decision, in: project)
-    }
-
     // MARK: - Projects
 
     func openProject() {
@@ -116,49 +78,6 @@ extension RootView {
     func close(_ project: ProjectModel) {
         model.close(project)
         persist()
-    }
-
-    /// Product looks at the whole product and discusses what should come next. Blocks gets
-    /// one link back to that transcript, then the finalized plan; the board stays unchanged
-    /// until the user explicitly creates it.
-    func startProductReview(in project: ProjectModel) {
-        startProduct("review", in: project)
-    }
-
-    /// One product voice per project. A second session would propose against a board the
-    /// first one is already rewriting, so a running one is talked to instead — the same
-    /// rule the Engineering Lead follows for a second batch.
-    func startProduct(_ arguments: String, in project: ProjectModel) {
-        model.section = .agents
-        if let running = project.sessions.first(where: { isProduct($0) && !$0.exited }) {
-            let productAgent = running.agent ?? .claude
-            model.pendingInput[running.id] = NotebookFormat.productPrompt(
-                arguments: arguments, sessionID: running.id, agent: productAgent
-            )
-            model.selection = .session(running.id)
-            return
-        }
-        let id = UUID()
-        addSession(
-            agent, id: id, to: project,
-            prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
-            title: "Product")
-    }
-
-    /// Incubate mode: the app does not write the agent, a session does. It searches the
-    /// skills this project can already load, fetches or writes what is missing, and adds
-    /// the file to `.notebook/team/` — which the poll picks up as a new roster row, the
-    /// same way any other notebook entry an agent writes turns up.
-    func startIncubation(_ brief: String, in project: ProjectModel) {
-        model.section = .agents
-        addSession(
-            agent, to: project,
-            prompt: NotebookFormat.incubatePrompt(brief: brief, agent: agent),
-            title: "New Agent")
-    }
-
-    private func isProduct(_ session: CodeSession) -> Bool {
-        session.title == "Product" || session.title.hasPrefix("Product ")
     }
 
     // MARK: - Review

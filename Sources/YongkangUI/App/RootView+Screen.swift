@@ -118,16 +118,19 @@ extension RootView {
             DesignDemo(
                 block: block, cards: project.snapshot.cards,
                 waiting: project.waitingSession(for: block),
-                approve: { revision in approveDemo(block, revision: revision, in: project) },
-                revise: { openDesigner(block, in: project) }
+                approve: { revision in
+                    go(to: project.approveDemo(block, revision: revision))
+                    model.reload()
+                },
+                revise: { go(to: project.openDesigner(block)) }
             )
             .id(block.id)
         } else if let block = selectedBlock(in: project) {
             BlockDetail(
                 block: block, cards: project.snapshot.cards,
                 waiting: project.waitingSession(for: block),
-                start: { startUnblock(block, in: project) },
-                revise: { openProposal(block, approve: false, in: project) },
+                start: { go(to: project.startUnblock(block, agent: agent)) },
+                revise: { go(to: project.openProposal(block, approve: false, agent: agent)) },
                 resolve: {
                     Blocks.resolve(block)
                     model.reload()
@@ -189,36 +192,11 @@ extension RootView {
             assigned: project.assignedTaskIDs,
             showDone: model.showDone,
             assign: { tasks in assign(tasks, in: project) },
-            review: { startProductReview(in: project) },
+            review: { go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
             openDemo: { demo in model.selection = .block(demo.id) },
             remove: { card in remove(card, in: project) }
         )
-    }
-
-    /// Approving a demo is the one gesture that releases the engineering tasks waiting on
-    /// a design task: the block is cleared the same way any other is, and the agent that
-    /// made it is told which revision won. The app does not touch the task file — the
-    /// agent owns that, like every other status in the notebook.
-    private func approveDemo(_ block: UserBlock, revision: DemoRevision?, in project: ProjectModel) {
-        Blocks.resolve(block)
-        if let waiting = project.waitingSession(for: block) {
-            let pass = revision.map { " Build \($0.label)." } ?? ""
-            model.pendingInput[waiting.id] =
-                "The demo at \(block.slug) is approved.\(pass) "
-                + "Mark the design task done and start the tasks waiting on it."
-            model.section = .agents
-            model.selection = .session(waiting.id)
-        }
-        model.reload()
-    }
-
-    /// Saying what is wrong goes to whoever made the demo, in their own transcript. There
-    /// is nothing to type on their behalf — the point is that the user says it.
-    private func openDesigner(_ block: UserBlock, in project: ProjectModel) {
-        guard let waiting = project.waitingSession(for: block) else { return }
-        model.section = .agents
-        model.selection = .session(waiting.id)
     }
 
     // MARK: - Selection
