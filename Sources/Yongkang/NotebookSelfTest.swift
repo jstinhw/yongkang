@@ -375,6 +375,12 @@ enum NotebookSelfTest {
 
         // A session is several selections, not one: its own transcript by default, a lead's
         // lanes, and the live terminal under the tag its PTY is already mounted on.
+        let picker = "Background\n❯ task-a-frontend (running)\n  task-b-qa (running)\nEnter to view · Esc to close"
+        let pickerRow = ChildAgentPicker.selectedRow(in: picker, agent: .claude)!
+        precondition(ChildAgentPicker.matches(pickerRow, identities: ["task-a-frontend"]))
+        precondition(!ChildAgentPicker.matches(pickerRow, identities: ["task-a", "task-b-qa"]))
+        precondition(ChildAgentPicker.selectedRow(in: "❯ Explain background agents", agent: .claude) == nil)
+        precondition(ChildAgentPicker.selectedRow(in: "Select agent\n› child-123\nEnter to select", agent: .codex) == "› child-123")
         let paneSession = UUID()
         precondition(AgentPane.of(Tag.transcript(paneSession), session: paneSession) == .transcript,
                      "an agent row lands on its transcript, the way a subagent row does")
@@ -383,9 +389,9 @@ enum NotebookSelfTest {
                      "the session stays reachable for anyone who wants to type at it")
         precondition(AgentPane.of(Tag.transcript(UUID()), session: paneSession) == nil,
                      "another session's tag is not this one's pane")
-        precondition(AgentPane.cases(lead: true) == [.transcript, .lanes, .session]
-                     && AgentPane.cases(lead: false) == [.transcript, .session],
-                     "only a lead has specialists to show lanes of")
+        precondition(AgentPane.cases(lead: true) == [.lanes, .session]
+                     && AgentPane.cases(lead: false) == [.session],
+                     "Transcript is hidden; only a lead has specialist lanes")
         precondition(ClaudeTranscripts.subagents(sessionID: sessionID, projectDirectory: tmp,
                                                   taskIDs: ["research-x"], claudeHome: claudeHome)
                      .first { $0.id == "done1" }?.taskID == "research-x",

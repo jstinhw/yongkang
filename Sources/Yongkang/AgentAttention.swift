@@ -24,17 +24,35 @@ enum AgentPrompt {
 
 final class AttentionTerminalView: LocalProcessTerminalView {
     var onAttention: (String?) -> Void = { _ in }
+    var onUserInput: () -> Void = {}
+    private(set) var hasDraft = false
+
+    var inputMonitor: Any?
+
+    func recordInput(_ event: NSEvent) {
+        onUserInput()
+        if event.keyCode == 36 || (event.modifierFlags.contains(.control) && event.charactersIgnoringModifiers == "u") {
+            hasDraft = false
+        } else if event.modifierFlags.contains(.command) {
+            if event.charactersIgnoringModifiers == "v" { hasDraft = true }
+        } else if event.characters?.unicodeScalars.contains(where: { $0.value >= 32 && $0.value < 0xF700 }) == true {
+            hasDraft = true
+        }
+    }
+
     private var check: DispatchWorkItem?
     private var lastReason: String?
 
-    var attentionReason: String? {
+    var screen: String {
         let terminal = getTerminal()
         // ponytail: bounded by the terminal's scrollback; use a screen-only buffer API
         // if large scrollback makes this measurable. History never triggers a notice.
         let lines = String(decoding: terminal.getBufferAsData(), as: UTF8.self)
             .split(separator: "\n", omittingEmptySubsequences: false).dropLast()
-        return AgentPrompt.reason(in: lines.suffix(terminal.rows).joined(separator: "\n"))
+        return lines.suffix(terminal.rows).joined(separator: "\n")
     }
+
+    var attentionReason: String? { AgentPrompt.reason(in: screen) }
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
         super.dataReceived(slice: slice)

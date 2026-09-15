@@ -204,21 +204,22 @@ The engineers are that lead session's own subagents, not sibling terminals. Sepa
 PTYs have no way to report back to a lead, so the review loop only closes inside one
 agent.
 
-A task's own page lists the subagents working on it under `Working on it`, running or
-done, and `Check` opens that one's transcript — read live off disk, which is as close as
-either CLI gets to attaching to a single subagent (`/tasks` in Claude Code and `/agent` in
-Codex both open a picker, and neither can be told which row to take; the `Terminal` button
-on a subagent's page sends whichever of the two its session speaks). The link
+Agent rows open the live **Session**; **Transcript** is hidden for now. A task's
+**Check** action and subagent rows open the CLI's live child view. The app opens
+`/tasks` in Claude Code or `/subagents` in Codex and selects the row matching that child's
+ID or task description. If the CLI truncates the identity or changes its picker layout,
+a notice asks you to select the child in the picker. **Parent session** returns to the
+lead. Queued messages for the lead wait while a child view is open. The task link
 is the subagent's own name: the lead names each one `<task-id>-<subtask>-<attempt>-<role>`, Claude keeps that
 as the subagent's description and Codex slugs it into the spawned thread's name, and the
 app matches them back to the task either way. `Agents` in the rail shows that hierarchy
 directly: Engineering Lead is the parent and every `<task-id>-<subtask>-<attempt>-<role>` agent is its child.
-Selecting the lead opens the coordination dashboard. The plan and parallel capacity
+The lead's **Agents** pane opens the coordination dashboard. The plan and parallel capacity
 come first, followed by parent tasks and their subtasks. Worker cards show the skill,
 model and selection reason, dependency waits, reported state, last check-in, token and
 time estimates, observed usage, and the returned result. Finished workers remain
 available. The inspector carries batch progress and context/checkpoint details; the
-roster is secondary to the work. `Check` opens the worker's transcript and a block opens
+roster is secondary to the work. `Check` opens the worker's live CLI view and a block opens
 its existing resolution flow. Its `Agents / Session` switch opens the live terminal.
 
 The lead writes `.notebook/runs/<session-id>-coordination.md` and one

@@ -288,7 +288,7 @@ struct Overview: View {
         return VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Team").padding(.bottom, 6)
             ForEach(project.sessions.filter { $0.agent != nil }) { session in
-                Button { go(.agents, Tag.transcript(session.id)) } label: {
+                Button { go(.agents, Tag.session(session)) } label: {
                     HStack(spacing: 9) {
                         RoleTile(role: session.isEngineeringLead ? "lead" : session.title)
                         Text(session.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)

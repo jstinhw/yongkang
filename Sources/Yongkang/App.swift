@@ -15,8 +15,8 @@ struct YongkangApp: App {
     @State private var section: ConsoleSection = .overview
     /// Notebook entries tag by file path, terminals by UUID, everything else by `Tag`.
     @State private var selection: String?
-    /// Text queued to be typed into a running session, keyed by session id — how a task
-    /// reaches a lead that already exists instead of starting a competing one.
+    /// Progress or a fallback instruction while selecting a child inside its CLI.
+    @State private var childNavigation: [UUID: String] = [:]
     @State private var attention: [UUID: String] = [:]
     @State private var pendingInput: [UUID: String] = [:]
     /// The lines of whichever agent `selection` currently points at — a subagent, or the
@@ -171,7 +171,11 @@ struct YongkangApp: App {
                               onAttention: { reason in
                                   guard session.agent != nil else { return }
                                   attentionChanged(reason, session: session, project: project)
-                              }, focused: isVisible(session))
+                              }, focused: isVisible(session), agent: session.agent,
+                              child: isVisible(session) ? selectedSubagent(in: project)?.subagent : nil,
+                              onChildNavigation: { message in
+                                  if childNavigation[session.id] != message { childNavigation[session.id] = message }
+                              })
                     .padding(.leading, Theme.railWidth + (listHidden ? 0 : listWidth))
                     .padding(.top, Theme.topBarHeight)
                     .opacity(isVisible(session) ? 1 : 0)
@@ -311,7 +315,7 @@ struct YongkangApp: App {
                     .frame(width: panes.count == 3 ? 250 : 175)
                 }
                 if let found = selectedSubagent(in: project) {
-                    Button { openLiveTerminal(found.subagent, in: found.session) } label: {
+                    Button { selection = Tag.session(found.session) } label: {
                         Label("Parent session", systemImage: "terminal")
                     }
                     .buttonStyle(.console)
@@ -412,8 +416,12 @@ struct YongkangApp: App {
                     openBlock: { section = .blocks; selection = Tag.block($0) }
                 )
             case .session:
-                // The session's terminal is mounted underneath; this pane stays out of its way.
-                Color.clear
+                // The session's terminal is mounted underneath.
+                Color.clear.overlay(alignment: .top) {
+                    if let message = childNavigation[watched.id] {
+                        Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
+                    }
+                }
             default:
                 SessionTranscript(
                     session: watched, cards: project.cards, blocks: project.blocks,
@@ -426,13 +434,11 @@ struct YongkangApp: App {
                 )
             }
         } else if let found = selectedSubagent(in: project) {
-            SubagentViewer(session: found.session, subagent: found.subagent,
-                           lines: agentTranscript,
-                           task: found.subagent.taskID.flatMap { id in
-                               project.cards.first { $0.id == id }
-                           },
-                           openTask: { section = .board; selection = Tag.task($0) })
-                .id(selection)
+            Color.clear.overlay(alignment: .top) {
+                if let message = childNavigation[found.session.id] {
+                    Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
+                }
+            }
         } else if let member = selectedMember(in: project) {
             TeamMemberDetail(
                 member: member,
@@ -528,7 +534,7 @@ struct YongkangApp: App {
             pendingInput[waiting.id] = "The demo at \(block.slug) is approved.\(pass) "
                 + "Mark the design task done and start the tasks waiting on it."
             section = .agents
-            selection = Tag.transcript(waiting.id)
+            selection = Tag.session(waiting)
         }
         reload()
     }
@@ -538,7 +544,7 @@ struct YongkangApp: App {
     private func openDesigner(_ block: UserBlock, in project: Project) {
         guard let waiting = waitingSession(for: block, in: project) else { return }
         section = .agents
-        selection = Tag.transcript(waiting.id)
+        selection = Tag.session(waiting)
     }
 
     // MARK: - Selection
@@ -560,7 +566,7 @@ struct YongkangApp: App {
                 // there is, on its own tag, because it has no transcript to open.
                 selection = (project.sessions.first { $0.isEngineeringLead }
                              ?? project.sessions.first { $0.agent != nil })
-                    .map { Tag.transcript($0.id) }
+                    .map { Tag.session($0) }
                     ?? project.sessions.first.map { Tag.session($0) }
             }
         case .review:
@@ -576,7 +582,9 @@ struct YongkangApp: App {
     }
 
     private func isVisible(_ session: CodeSession) -> Bool {
-        entered != nil && selection == session.id.uuidString
+        enteredProject.map { project in
+            selection == Tag.session(session) || selectedSubagent(in: project)?.session.id == session.id
+        } ?? false
     }
 
     private func selectedSession(in project: Project) -> CodeSession? {
@@ -610,7 +618,7 @@ struct YongkangApp: App {
 
     private func agentPane(_ session: CodeSession) -> Binding<AgentPane> {
         Binding(
-            get: { AgentPane.of(selection, session: session.id) ?? .transcript },
+            get: { AgentPane.of(selection, session: session.id) ?? .session },
             set: {
                 selection = $0.tag(session.id)
                 reloadAgentTranscript()
@@ -669,16 +677,6 @@ struct YongkangApp: App {
         return rest.hasPrefix(":") ? String(rest.dropFirst()) : ""
     }
 
-    /// Brings the session's terminal forward and sends that CLI's own subagent picker:
-    /// `/tasks` in Claude Code, `/agent` in Codex. Both are best-effort — exact with one
-    /// subagent running, a list to pick from with several, since neither can be told which
-    /// one to open.
-    private func openLiveTerminal(_ subagent: SubagentStatus, in session: CodeSession) {
-        section = .agents
-        selection = session.id.uuidString
-        pendingInput[session.id] = session.agent == .codex ? "/agent" : "/tasks"
-    }
-
     // MARK: - Assigning
 
     /// Blockers come along whichever way the tasks were picked — expanding here means the
@@ -706,7 +704,7 @@ struct YongkangApp: App {
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
             pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
                                                                          agent: leadAgent)
-            selection = Tag.transcript(lead.id)
+            selection = Tag.session(lead)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
@@ -789,7 +787,7 @@ struct YongkangApp: App {
         } ?? project.sessions.last { isProduct($0) && !$0.exited }
         if let running {
             section = .agents
-            selection = Tag.transcript(running.id)
+            selection = Tag.session(running)
             if approve {
                 pendingInput[running.id] = "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
             }
@@ -892,7 +890,7 @@ struct YongkangApp: App {
         projects = [project]
         entered = project.id
         section = .agents
-        selection = Tag.transcript(session.id)
+        selection = Tag.session(session)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             precondition(attention[session.id] != nil, "PTY callback must reach the app's banner state")
             guard let host = NSApp.windows.first(where: { $0.isVisible })?.contentView,
@@ -970,7 +968,7 @@ struct YongkangApp: App {
             pendingInput[running.id] = NotebookFormat.productPrompt(
                 arguments: arguments, sessionID: running.id, agent: productAgent
             )
-            selection = Tag.transcript(running.id)
+            selection = Tag.session(running)
             return
         }
         let id = UUID()
@@ -1120,7 +1118,7 @@ struct YongkangApp: App {
             reviewDrafts[task.id] = nil
             section = .agents
             pendingInput[lead.id] = message
-            selection = Tag.transcript(lead.id)
+            selection = Tag.session(lead)
             return
         }
         guard let card = project.cards.first(where: { $0.id == task.id }) else { return }
@@ -1202,9 +1200,6 @@ struct YongkangApp: App {
     /// The transcript the work area is showing, if it is showing one: a subagent's, or the
     /// lead's own when its transcript pane is up.
     private func onScreenTranscript(in project: Project) -> (agent: AgentKind, url: URL)? {
-        if let found = selectedSubagent(in: project) {
-            return (found.session.agent ?? .claude, found.subagent.transcriptURL)
-        }
         guard let watched = selectedAgent(in: project),
               AgentPane.of(selection, session: watched.id) == .transcript,
               let url = Transcripts.url(of: watched, in: project.directory) else { return nil }
@@ -1235,8 +1230,8 @@ struct YongkangApp: App {
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
                                                     agent: agent, taskIDs: taskIDs))
-        // Providers with a transcript reader open there; the others land on their live PTY.
-        selection = agent == nil || agent == .agy ? id.uuidString : Tag.transcript(id)
+        // New sessions open their live CLI.
+        selection = id.uuidString
     }
 
     /// Every service in a project's repos, started at once — the board's "run the whole

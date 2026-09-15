@@ -314,9 +314,8 @@ struct ProjectList: View {
     }
 
     private func sessionRow(_ session: CodeSession) -> some View {
-        // Every agent row opens that agent's transcript; a service runner has none, so its
-        // row is its terminal — the only session that is nothing but a PTY.
-        let tag = session.agent == nil ? Tag.session(session) : Tag.transcript(session.id)
+        // Agent and service rows open their live sessions.
+        let tag = Tag.session(session)
         let running = session.activeSubagents.count
         return row(tag) {
             HStack(spacing: 9) {

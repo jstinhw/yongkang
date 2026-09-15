@@ -50,13 +50,7 @@ enum Tag {
     }
 }
 
-/// The ways to watch one agent session, and the selection tag each one is.
-///
-/// `transcript` is first because it is the default, for every session and not just the
-/// lead: an agent's own transcript is what it has said and done, read as steps rather
-/// than as a wall of terminal output that scrolls away. The lanes belong to a lead, which
-/// is the only session with specialists under it; the terminal is for typing at any of
-/// them, a click away rather than the thing you land on.
+/// The available agent panes. Transcript remains implemented but is hidden for now.
 enum AgentPane: String, CaseIterable, Identifiable {
     case transcript = "Transcript"
     case lanes = "Agents"
@@ -77,7 +71,7 @@ enum AgentPane: String, CaseIterable, Identifiable {
     /// The panes a session actually has. Only a lead dispatches specialists, so only a
     /// lead has lanes to show them in.
     static func cases(lead: Bool) -> [AgentPane] {
-        lead ? allCases : allCases.filter { $0 != .lanes }
+        lead ? [.lanes, .session] : [.session]
     }
 
     /// Which pane a selection is showing for this session, or nil when it points elsewhere.

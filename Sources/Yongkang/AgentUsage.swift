@@ -173,7 +173,7 @@ enum AgentUsage {
         project.sessions.flatMap { session -> [AgentSpend] in
             let provider = session.agent ?? .claude
             let own = Transcripts.url(of: session, in: project.directory).map { url in
-                AgentSpend(id: session.id.uuidString, tag: Tag.transcript(session.id),
+                AgentSpend(id: session.id.uuidString, tag: Tag.session(session),
                            name: session.title, role: role(of: session),
                            provider: provider, running: !session.exited,
                            samples: samples(at: Transcripts.usageURL(of: session, in: project.directory) ?? url,
