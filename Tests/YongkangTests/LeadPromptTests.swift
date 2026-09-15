@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 @Suite struct LeadPromptTests {
@@ -37,16 +38,19 @@ import Testing
         let leadID = UUID()
         let brief = NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID, agent: .claude)
 
-        #expect(brief.contains(leadID.uuidString.lowercased()),
-                "a lead has to know its own session id to route a block's answer back")
+        #expect(
+            brief.contains(leadID.uuidString.lowercased()),
+            "a lead has to know its own session id to route a block's answer back")
         #expect(brief.contains("engineering-lead"), "task batches invoke the dispatcher skill")
         for task in picked {
             #expect(brief.contains(task.id) && !brief.contains(task.title))
-            #expect(brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
-                    "the lead needs a path it can open from the project root")
+            #expect(
+                brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
+                "the lead needs a path it can open from the project root")
         }
-        #expect(brief.contains("Session id: \(leadID.uuidString.lowercased())"),
-                "the lead needs its session id for blocks")
+        #expect(
+            brief.contains("Session id: \(leadID.uuidString.lowercased())"),
+            "the lead needs its session id for blocks")
         let echoed = try echo(AgentCommand.quoted(brief))
         #expect(echoed == brief, "task brief mangled by the shell")
     }
@@ -68,8 +72,9 @@ import Testing
     @Test func emptyBatchIsAStandbyBrief() throws {
         let leadID = UUID()
         let standby = NotebookFormat.engineeringPrompt(tasks: [], sessionID: leadID, agent: .claude)
-        #expect(standby.contains("engineering-lead") && standby.contains("stand by"),
-                "no tasks means the lead confirms the team and waits")
+        #expect(
+            standby.contains("engineering-lead") && standby.contains("stand by"),
+            "no tasks means the lead confirms the team and waits")
         #expect(standby.contains("Session id: \(leadID.uuidString.lowercased())"))
         let echoed = try echo(AgentCommand.quoted(standby))
         #expect(echoed == standby, "standby brief mangled by the shell")
@@ -78,10 +83,12 @@ import Testing
     // Incubate mode: the app writes no agent, the session does — so the prompt is the
     // skill that knows how to search, carrying only what the user typed.
     @Test func incubatePromptCarriesTheDescription() throws {
-        let incubate = NotebookFormat.incubatePrompt(brief: "An agent that owns database migrations",
-                                                     agent: .claude)
-        #expect(incubate.contains("incubate-agent") && incubate.contains("owns database migrations"),
-                "the description reaches the skill that turns it into a roster file")
+        let incubate = NotebookFormat.incubatePrompt(
+            brief: "An agent that owns database migrations",
+            agent: .claude)
+        #expect(
+            incubate.contains("incubate-agent") && incubate.contains("owns database migrations"),
+            "the description reaches the skill that turns it into a roster file")
         let echoed = try echo(AgentCommand.quoted(incubate))
         #expect(echoed == incubate, "incubate brief mangled by the shell")
     }

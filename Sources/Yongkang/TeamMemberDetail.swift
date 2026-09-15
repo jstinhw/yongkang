@@ -40,11 +40,13 @@ struct TeamMemberDetail: View {
                             .cardSurface(padding: 16)
                         }
                         if docs.isEmpty {
-                            Text("This agent has no skill assigned, so the lead has nothing "
-                                 + "to route to it.")
-                                .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .cardSurface()
+                            Text(
+                                "This agent has no skill assigned, so the lead has nothing "
+                                    + "to route to it."
+                            )
+                            .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .cardSurface()
                         }
                         ForEach(docs) { skillCard($0) }
                     }
@@ -71,8 +73,9 @@ struct TeamMemberDetail: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
-            NotebookStyle.chip("\(member.skills.count) skill\(member.skills.count == 1 ? "" : "s")",
-                               mono: true)
+            NotebookStyle.chip(
+                "\(member.skills.count) skill\(member.skills.count == 1 ? "" : "s")",
+                mono: true)
             if !running.isEmpty {
                 NotebookStyle.pill("\(running.count) running", Theme.accent, live: true)
             }
@@ -90,7 +93,9 @@ struct TeamMemberDetail: View {
     private func skillCard(_ doc: SkillDoc) -> some View {
         let open = expanded.contains(doc.name)
         return VStack(alignment: .leading, spacing: 14) {
-            Button { toggle(doc.name) } label: {
+            Button {
+                toggle(doc.name)
+            } label: {
                 HStack(alignment: .top, spacing: 11) {
                     RoleTile(role: doc.name, size: 26)
                     VStack(alignment: .leading, spacing: 4) {
@@ -125,7 +130,9 @@ struct TeamMemberDetail: View {
                         Text(url.path).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
                             .lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 8)
-                        Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        } label: {
                             Label("Reveal", systemImage: "folder")
                         }
                         .buttonStyle(.consoleGhost)
@@ -141,8 +148,8 @@ struct TeamMemberDetail: View {
     private func summary(of doc: SkillDoc) -> String {
         if doc.url == nil {
             return "Not installed in this project, in ~/.claude/skills or ~/.agents/skills, "
-                 + "and not packaged with the app — the agent falls back to whatever its "
-                 + "provider discovers natively."
+                + "and not packaged with the app — the agent falls back to whatever its "
+                + "provider discovers natively."
         }
         return doc.summary.isEmpty ? "No description in the skill's frontmatter." : doc.summary
     }
@@ -162,7 +169,9 @@ struct TeamMemberDetail: View {
                 VStack(alignment: .leading, spacing: 9) {
                     SectionLabel("Running now", trailing: "\(running.count)")
                     ForEach(running, id: \.subagent.id) { found in
-                        Button { openSubagent(found.session, found.subagent) } label: {
+                        Button {
+                            openSubagent(found.session, found.subagent)
+                        } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(found.subagent.description).font(Typo.mono(10.5))
                                     .foregroundStyle(Theme.tx2)
@@ -178,8 +187,9 @@ struct TeamMemberDetail: View {
                 }
             }
             Spacer(minLength: 0)
-            TranscriptSource(url: FileManager.default.fileExists(atPath: file.path) ? file : nil,
-                             label: "Agent file")
+            TranscriptSource(
+                url: FileManager.default.fileExists(atPath: file.path) ? file : nil,
+                label: "Agent file")
         }
     }
 
@@ -189,8 +199,9 @@ struct TeamMemberDetail: View {
 
     private func loadMember() {
         docs = member.skills.map { SkillDoc.load($0, project: directory) }
-        sections = Dictionary(docs.map { ($0.name, NotebookContent.sections($0.body)) },
-                              uniquingKeysWith: { first, _ in first })
+        sections = Dictionary(
+            docs.map { ($0.name, NotebookContent.sections($0.body)) },
+            uniquingKeysWith: { first, _ in first })
         expanded = []
         notes = NotebookContent.sections(member.notes)
     }
@@ -232,11 +243,12 @@ struct SkillDoc: Identifiable, Equatable {
 
     static func parse(_ text: String, named name: String, at url: URL? = nil) -> SkillDoc {
         let fields = NotebookIndex.frontmatter(text)
-        return SkillDoc(name: fields["name"].flatMap { $0.isEmpty ? nil : $0 } ?? name,
-                        summary: fields["description"] ?? "",
-                        tools: tools(text, inline: fields["allowed-tools"]),
-                        body: NotebookIndex.body(text),
-                        url: url)
+        return SkillDoc(
+            name: fields["name"].flatMap { $0.isEmpty ? nil : $0 } ?? name,
+            summary: fields["description"] ?? "",
+            tools: tools(text, inline: fields["allowed-tools"]),
+            body: NotebookIndex.body(text),
+            url: url)
     }
 
     /// `allowed-tools` is the one field a skill writes as a YAML block list, which the flat
@@ -269,9 +281,12 @@ struct ChipGrid<Item: Hashable, Content: View>: View {
     var body: some View {
         // ponytail: fixed 3-up grid rather than a measuring flow layout. Tool names are
         // short and the inspector width is fixed; swap in a Layout if that stops holding.
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .leading),
-                                 count: 3),
-                  alignment: .leading, spacing: 6) {
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: 6, alignment: .leading),
+                count: 3),
+            alignment: .leading, spacing: 6
+        ) {
             ForEach(items, id: \.self) { content($0) }
         }
     }

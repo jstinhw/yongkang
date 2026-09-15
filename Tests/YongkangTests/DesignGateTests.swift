@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// The gate that holds design work until the user has seen it: Product's `designer:`
@@ -40,15 +41,19 @@ import Testing
         let gate = try makeGate(in: dir)
 
         let design = try #require(NotebookIndex.card(at: gate.task))
-        let build = NotebookCard(id: "build-hero", url: gate.plain, kind: .task,
-                                 title: "Build the hero", status: "todo", project: nil,
-                                 dependsOn: [design.id])
-        #expect(!NotebookBoard.isReady(build, in: [design, build]),
-                "no engineer starts while the design task is open")
-        let approved = NotebookCard(id: design.id, url: gate.task, kind: .task, title: design.title,
-                                    status: "done", project: nil, dependsOn: [], designer: "Allen")
-        #expect(NotebookBoard.isReady(build, in: [approved, build]),
-                "approving the demo finishes the design task and releases the build")
+        let build = NotebookCard(
+            id: "build-hero", url: gate.plain, kind: .task,
+            title: "Build the hero", status: "todo", project: nil,
+            dependsOn: [design.id])
+        #expect(
+            !NotebookBoard.isReady(build, in: [design, build]),
+            "no engineer starts while the design task is open")
+        let approved = NotebookCard(
+            id: design.id, url: gate.task, kind: .task, title: design.title,
+            status: "done", project: nil, dependsOn: [], designer: "Allen")
+        #expect(
+            NotebookBoard.isReady(build, in: [approved, build]),
+            "approving the demo finishes the design task and releases the build")
     }
 
     // A demo is a block. Everything the gate shows comes off that one file.
@@ -83,11 +88,13 @@ import Testing
         #expect(demo.before?.absoluteString == "http://localhost:3000")
         try #require(demo.revisions.count == 3, "every pass is listed, not just the last")
         #expect(demo.revisions[0].label == "v1")
-        #expect(demo.revisions[1].note == "one claim, one button",
-                "the note is what is left after the label and the url")
+        #expect(
+            demo.revisions[1].note == "one claim, one button",
+            "the note is what is left after the label and the url")
         #expect(demo.revisions[1].url?.absoluteString == "http://localhost:3101")
-        #expect(demo.revisions[2].url == nil,
-                "a pass with no url still counts — its note is the record")
+        #expect(
+            demo.revisions[2].url == nil,
+            "a pass with no url still counts — its note is the record")
     }
 
     // Full cards only at the live edge: what could start, and what is held up.
@@ -99,18 +106,23 @@ import Testing
 
         let cards = [
             try #require(NotebookIndex.card(at: gate.plain)),
-            NotebookCard(id: "done-one", url: file, kind: .task, title: "Scaffold", status: "done",
-                         project: nil, dependsOn: []),
-            NotebookCard(id: "next", url: file, kind: .task, title: "Next", status: "todo",
-                         project: nil, dependsOn: ["done-one"]),
-            NotebookCard(id: "later", url: file, kind: .task, title: "Later", status: "todo",
-                         project: nil, dependsOn: ["next"]),
+            NotebookCard(
+                id: "done-one", url: file, kind: .task, title: "Scaffold", status: "done",
+                project: nil, dependsOn: []),
+            NotebookCard(
+                id: "next", url: file, kind: .task, title: "Next", status: "todo",
+                project: nil, dependsOn: ["done-one"]),
+            NotebookCard(
+                id: "later", url: file, kind: .task, title: "Later", status: "todo",
+                project: nil, dependsOn: ["next"]),
         ]
         #expect(NotebookBoard.isReady(cards[2], in: cards), "its blocker is done")
         #expect(!NotebookBoard.isReady(cards[3], in: cards), "its blocker is not")
-        let missing = NotebookCard(id: "typo", url: file, kind: .task, title: "Typo",
-                                   status: "todo", project: nil, dependsOn: ["nothing-by-that-id"])
-        #expect(NotebookBoard.isReady(missing, in: cards),
-                "an id that resolves to nothing must not silently freeze a chain")
+        let missing = NotebookCard(
+            id: "typo", url: file, kind: .task, title: "Typo",
+            status: "todo", project: nil, dependsOn: ["nothing-by-that-id"])
+        #expect(
+            NotebookBoard.isReady(missing, in: cards),
+            "an id that resolves to nothing must not silently freeze a chain")
     }
 }

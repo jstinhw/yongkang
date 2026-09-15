@@ -27,10 +27,18 @@ struct DiffLines: View {
         let ink: Color
         let wash: Color
         switch line.kind {
-        case .add: ink = Color(hex: 0xB6EBD5); wash = Theme.green.opacity(0.07)
-        case .remove: ink = Color(hex: 0xF1BDBD); wash = Theme.red.opacity(0.07)
-        case .hunk: ink = Color(hex: 0x5F9FE0); wash = Theme.accent.opacity(0.06)
-        case .context: ink = Color(hex: 0x8C97A6); wash = .clear
+        case .add:
+            ink = Color(hex: 0xB6EBD5)
+            wash = Theme.green.opacity(0.07)
+        case .remove:
+            ink = Color(hex: 0xF1BDBD)
+            wash = Theme.red.opacity(0.07)
+        case .hunk:
+            ink = Color(hex: 0x5F9FE0)
+            wash = Theme.accent.opacity(0.06)
+        case .context:
+            ink = Color(hex: 0x8C97A6)
+            wash = .clear
         }
         let sign = line.kind == .add ? "+" : (line.kind == .remove ? "−" : " ")
         return HStack(spacing: 0) {
@@ -73,7 +81,9 @@ struct DiffLines: View {
             Text(saved.text).font(Typo.text(12)).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
-            Button { draft?.wrappedValue.comments.removeAll { $0.id == saved.id } } label: {
+            Button {
+                draft?.wrappedValue.comments.removeAll { $0.id == saved.id }
+            } label: {
                 Image(systemName: "xmark").font(.system(size: 10))
             }
             .buttonStyle(.consoleGhost)
@@ -97,10 +107,14 @@ struct DiffLines: View {
                 Spacer(minLength: 8)
                 Button("Cancel") { composing = nil }.buttonStyle(.consoleGhost)
                 Button {
-                    draft?.wrappedValue.comments.append(ReviewComment(path: path, line: Self.number(of: line),
-                                                                      code: line.text, text: comment))
+                    draft?.wrappedValue.comments.append(
+                        ReviewComment(
+                            path: path, line: Self.number(of: line),
+                            code: line.text, text: comment))
                     composing = nil
-                } label: { Label("Add comment", systemImage: "text.bubble") }
+                } label: {
+                    Label("Add comment", systemImage: "text.bubble")
+                }
                 .buttonStyle(.console)
                 .disabled(comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 @Suite struct NotebookFormatTests {
@@ -20,10 +21,12 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let root = NotebookFormat.root(in: tmp)
 
-        let project = try NotebookFormat.create(.project, title: "Launch Beta", in: root,
-                                                project: nil, roadmap: "ship-beta")
-        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("NOTEBOOK.md").path),
-                "the first entry scaffolds the notebook")
+        let project = try NotebookFormat.create(
+            .project, title: "Launch Beta", in: root,
+            project: nil, roadmap: "ship-beta")
+        #expect(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("NOTEBOOK.md").path),
+            "the first entry scaffolds the notebook")
         #expect(project.path.hasSuffix("projects/launch-beta/project.md"))
         let text = try String(contentsOf: project, encoding: .utf8)
         #expect(text.contains("id: launch-beta"))
@@ -62,8 +65,10 @@ import Testing
         let second = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "launch-beta")
         #expect(first != second, "same title must not clobber an existing task")
         let task = try String(contentsOf: first, encoding: .utf8)
-        for field in ["id: wire-auth", "kind: task", "title: \"Wire auth\"", "status: todo",
-                      "project: launch-beta", "depends_on: []", "external: {}"] {
+        for field in [
+            "id: wire-auth", "kind: task", "title: \"Wire auth\"", "status: todo",
+            "project: launch-beta", "depends_on: []", "external: {}",
+        ] {
             #expect(task.contains(field), "task frontmatter missing \(field)")
         }
     }
@@ -72,8 +77,9 @@ import Testing
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let run = try NotebookFormat.create(.run, title: "Auth partially wired", in: NotebookFormat.root(in: tmp),
-                                            project: "launch-beta", subject: "wire-auth")
+        let run = try NotebookFormat.create(
+            .run, title: "Auth partially wired", in: NotebookFormat.root(in: tmp),
+            project: "launch-beta", subject: "wire-auth")
         let text = try String(contentsOf: run, encoding: .utf8)
         for field in ["kind: run", "project: launch-beta", "subject: wire-auth", "result: partial"] {
             #expect(text.contains(field), "run frontmatter missing \(field)")
@@ -84,10 +90,12 @@ import Testing
     // anchored to .notebook/, or it creates roadmap/ and tasks/ at the project root.
     @Test(arguments: NotebookFormat.folders)
     func specAnchorsLayoutPaths(folder: String) {
-        #expect(NotebookFormat.specText.contains(".notebook/\(folder)/"),
-                "\(folder) is not anchored to .notebook/ in the spec")
-        #expect(!NotebookFormat.specText.contains("\n    \(folder)/"),
-                "\(folder) still appears as a bare project-root path in the spec")
+        #expect(
+            NotebookFormat.specText.contains(".notebook/\(folder)/"),
+            "\(folder) is not anchored to .notebook/ in the spec")
+        #expect(
+            !NotebookFormat.specText.contains("\n    \(folder)/"),
+            "\(folder) still appears as a bare project-root path in the spec")
     }
 
     // The app writes the title into frontmatter that NotebookIndex reads line by line, so a
@@ -97,8 +105,9 @@ import Testing
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let url = try NotebookFormat.create(.task, title: title, in: NotebookFormat.root(in: tmp),
-                                            project: "launch-beta")
+        let url = try NotebookFormat.create(
+            .task, title: title, in: NotebookFormat.root(in: tmp),
+            project: "launch-beta")
         let card = try #require(NotebookIndex.card(at: url))
         #expect(card.id == NotebookFormat.slug(title), "keys written before the title are untouched")
         #expect(card.kind == .task, "keys written before the title are untouched")

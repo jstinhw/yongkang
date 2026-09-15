@@ -75,8 +75,9 @@ struct UsageBoard: View {
     /// Re-read when an agent appears, finishes, or writes — the sizes of the files this
     /// screen reads are what change as work happens, and a byte more is a token more.
     private var signature: String {
-        let ledger = (try? UsageLedger.url(root: project.notebookRoot)
-            .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let ledger =
+            (try? UsageLedger.url(root: project.notebookRoot)
+                .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         let transcripts = project.sessions.compactMap { Transcripts.usageURL(of: $0, in: project.directory) }
             .compactMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize }
         return project.sessions.map { session in
@@ -153,12 +154,16 @@ struct UsageBoard: View {
     /// bucket would be unreadable at 12 buckets and absurd at 32.
     private func axis(_ buckets: [UsageBucket]) -> some View {
         HStack(spacing: 0) {
-            ForEach([buckets.first, buckets[buckets.count / 2], buckets.last].compactMap { $0 },
-                    id: \.id) { bucket in
+            ForEach(
+                [buckets.first, buckets[buckets.count / 2], buckets.last].compactMap { $0 },
+                id: \.id
+            ) { bucket in
                 Text(stamp(bucket.start)).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
-                    .frame(maxWidth: .infinity,
-                           alignment: bucket.id == 0 ? .leading
-                               : (bucket.id == buckets.last?.id ? .trailing : .center))
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: bucket.id == 0
+                            ? .leading
+                            : (bucket.id == buckets.last?.id ? .trailing : .center))
             }
         }
     }
@@ -177,8 +182,9 @@ struct UsageBoard: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Plan limits", trailing: "read from each CLI's own cache")
             if quotas.isEmpty {
-                note("No plan limits on disk yet. Both CLIs write these as they work — run "
-                     + "an agent and they appear.")
+                note(
+                    "No plan limits on disk yet. Both CLIs write these as they work — run "
+                        + "an agent and they appear.")
             } else {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(quotas, id: \.provider) { quotaCard($0) }
@@ -251,9 +257,12 @@ struct UsageBoard: View {
                         HStack(spacing: 2) {
                             ForEach(rows, id: \.key) { row in
                                 Capsule().fill(tint(row.key))
-                                    .frame(width: max(2, geo.size.width
-                                                      * Double(row.tally.total)
-                                                      / Double(max(1, total.total))))
+                                    .frame(
+                                        width: max(
+                                            2,
+                                            geo.size.width
+                                                * Double(row.tally.total)
+                                                / Double(max(1, total.total))))
                             }
                         }
                     }
@@ -282,8 +291,12 @@ struct UsageBoard: View {
     /// sent fresh, and what the cache already held.
     private func splitLabels(_ tally: TokenTally) -> some View {
         HStack(spacing: 10) {
-            ForEach([("out", tally.output), ("in", tally.input),
-                     ("cache", tally.cacheRead + tally.cacheWrite)], id: \.0) { label, value in
+            ForEach(
+                [
+                    ("out", tally.output), ("in", tally.input),
+                    ("cache", tally.cacheRead + tally.cacheWrite),
+                ], id: \.0
+            ) { label, value in
                 Text("\(label) \(AgentUsage.short(value))")
                     .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
             }
@@ -298,10 +311,11 @@ struct UsageBoard: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Agent runs", trailing: range.caption)
             if windowed.isEmpty {
-                note(spends.isEmpty
-                     ? "No agent has a transcript on disk yet. Assign work on the board and "
-                       + "the lead's specialists show up here as they run."
-                     : "No agent spent anything in the \(range.caption).")
+                note(
+                    spends.isEmpty
+                        ? "No agent has a transcript on disk yet. Assign work on the board and "
+                            + "the lead's specialists show up here as they run."
+                        : "No agent spent anything in the \(range.caption).")
             } else {
                 VStack(spacing: 0) {
                     ForEach(windowed) { agentRow($0) }
@@ -312,7 +326,9 @@ struct UsageBoard: View {
     }
 
     private func agentRow(_ spend: AgentSpend) -> some View {
-        Button { open(spend.tag) } label: {
+        Button {
+            open(spend.tag)
+        } label: {
             HStack(spacing: 10) {
                 RoleTile(role: spend.role, size: 22)
                 VStack(alignment: .leading, spacing: 2) {
@@ -359,9 +375,13 @@ struct UsageBoard: View {
                     Text(AgentUsage.short(total.total)).font(Typo.display(26))
                     Text("tokens").font(Typo.text(12)).foregroundStyle(Theme.tx3)
                 }
-                ForEach([("Output", total.output), ("Input", total.input),
-                         ("Cache write", total.cacheWrite), ("Cache read", total.cacheRead)],
-                        id: \.0) { label, value in
+                ForEach(
+                    [
+                        ("Output", total.output), ("Input", total.input),
+                        ("Cache write", total.cacheWrite), ("Cache read", total.cacheRead),
+                    ],
+                    id: \.0
+                ) { label, value in
                     HStack(spacing: 8) {
                         Text(label).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
                         Spacer(minLength: 8)
@@ -422,8 +442,9 @@ struct UsageBoard: View {
                 Text(AgentUsage.short(tally.total))
                     .font(Typo.mono(11, .semibold)).foregroundStyle(Theme.tx2)
             }
-            MeterBar(value: peak == 0 ? 0 : Double(tally.total) / Double(peak),
-                     tint: RoleTile.color(of: role))
+            MeterBar(
+                value: peak == 0 ? 0 : Double(tally.total) / Double(peak),
+                tint: RoleTile.color(of: role))
             ForEach(AgentUsage.group(mine, since: since, by: \.provider), id: \.key) { row in
                 HStack(spacing: 7) {
                     Image(systemName: row.key.systemImage)

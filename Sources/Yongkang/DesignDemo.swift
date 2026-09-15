@@ -1,6 +1,6 @@
+import AppKit
 import SwiftUI
 import WebKit
-import AppKit
 
 /// The design a task cannot be built without, next to the thing it would replace.
 ///
@@ -27,7 +27,9 @@ struct DesignDemo: View {
     @State private var revision: Int?
 
     enum Pane: String, CaseIterable, Identifiable {
-        case before = "Before", both = "Both", after = "After"
+        case before = "Before"
+        case both = "Both"
+        case after = "After"
         var id: Self { self }
     }
 
@@ -142,14 +144,20 @@ struct DesignDemo: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: 7)
-                .fill(on ? Theme.violet.opacity(0.14) : .clear))
-            .overlay(RoundedRectangle(cornerRadius: 7)
-                .strokeBorder(on ? Theme.violet.opacity(0.4) : Theme.line2, lineWidth: 1))
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(on ? Theme.violet.opacity(0.14) : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(on ? Theme.violet.opacity(0.4) : Theme.line2, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .help(pass.url == nil ? "\(pass.note) — this pass was not kept running"
-                              : pass.note)
+        .help(
+            pass.url == nil
+                ? "\(pass.note) — this pass was not kept running"
+                : pass.note
+        )
         .disabled(pass.url == nil && pass.id != block.revisions.count - 1)
     }
 
@@ -175,8 +183,10 @@ struct DesignDemo: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func pageFrame<Fallback: View>(_ label: String, tint: Color, url: URL?,
-                                           @ViewBuilder fallback: () -> Fallback) -> some View {
+    private func pageFrame<Fallback: View>(
+        _ label: String, tint: Color, url: URL?,
+        @ViewBuilder fallback: () -> Fallback
+    ) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text(label.uppercased()).font(Typo.section).tracking(1.4).foregroundStyle(tint)
@@ -215,50 +225,50 @@ struct DesignDemo: View {
     }
 
     @ViewBuilder private var inspectorContent: some View {
-            if let task {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Holds up")
-                    HStack(spacing: 10) {
-                        NotebookStyle.statusRing(task.status, progress: 0, size: 16)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
-                                .lineLimit(2).multilineTextAlignment(.leading)
-                            Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
-                        }
-                        Spacer(minLength: 0)
-                        if !task.designer.isEmpty { RoleTile(role: "design", size: 22) }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardSurface(padding: 15)
-            }
-
-            if let task {
-                let items = NotebookIndex.checklist(at: task.url)
-                if !items.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionLabel("Done when", trailing: "\(items.filter(\.done).count)/\(items.count)")
-                        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                            HStack(alignment: .top, spacing: 9) {
-                                Image(systemName: item.done ? "checkmark.square.fill" : "square")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(item.done ? Theme.green : Theme.tx4)
-                                    .padding(.top, 1)
-                                Text(item.text).font(Typo.text(12))
-                                    .foregroundStyle(item.done ? Theme.tx2 : Theme.tx3)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                }
-            }
-
+        if let task {
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("Cost of the demo")
-                Text(cost).font(Typo.text(12)).foregroundStyle(Theme.tx2)
-                    .fixedSize(horizontal: false, vertical: true)
+                SectionLabel("Holds up")
+                HStack(spacing: 10) {
+                    NotebookStyle.statusRing(task.status, progress: 0, size: 16)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                            .lineLimit(2).multilineTextAlignment(.leading)
+                        Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    }
+                    Spacer(minLength: 0)
+                    if !task.designer.isEmpty { RoleTile(role: "design", size: 22) }
+                }
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface(padding: 15)
+        }
+
+        if let task {
+            let items = NotebookIndex.checklist(at: task.url)
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Done when", trailing: "\(items.filter(\.done).count)/\(items.count)")
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        HStack(alignment: .top, spacing: 9) {
+                            Image(systemName: item.done ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 11))
+                                .foregroundStyle(item.done ? Theme.green : Theme.tx4)
+                                .padding(.top, 1)
+                            Text(item.text).font(Typo.text(12))
+                                .foregroundStyle(item.done ? Theme.tx2 : Theme.tx3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Cost of the demo")
+            Text(cost).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        Spacer(minLength: 0)
     }
 
     private var cost: String {
@@ -274,16 +284,24 @@ struct DesignDemo: View {
         ActionBar {
             Image(systemName: "hand.raised.fill").font(.system(size: 12))
                 .foregroundStyle(Theme.amber)
-            Text(block.waiting
-                 ? "Nothing is written to the repo until you build it."
-                 : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The lead has it.")")
-                .font(Typo.text(12.5))
-                .foregroundStyle(block.waiting ? Theme.tx3 : Theme.green)
+            Text(
+                block.waiting
+                    ? "Nothing is written to the repo until you build it."
+                    : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The lead has it.")"
+            )
+            .font(Typo.text(12.5))
+            .foregroundStyle(block.waiting ? Theme.tx3 : Theme.green)
             Spacer(minLength: 12)
-            Button { revise() } label: { Label("Request changes", systemImage: "arrow.uturn.left") }
-                .buttonStyle(.console)
-                .disabled(!block.waiting)
-            Button { approve(shown ?? block.revisions.last) } label: {
+            Button {
+                revise()
+            } label: {
+                Label("Request changes", systemImage: "arrow.uturn.left")
+            }
+            .buttonStyle(.console)
+            .disabled(!block.waiting)
+            Button {
+                approve(shown ?? block.revisions.last)
+            } label: {
                 Label("Build it", systemImage: "checkmark.seal")
             }
             .buttonStyle(.consolePrimary)

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// A lead's durable plan and each runtime observation must stay correctly scoped.
@@ -29,8 +30,10 @@ import Testing
         let root = dir.appendingPathComponent("coordination")
         let runs = root.appendingPathComponent("runs")
         try fm.createDirectory(at: runs, withIntermediateDirectories: true)
-        for record in ["coordination", "work-auth-api", "work-auth-qa", "work-other-session", "work-unsafe",
-                       "work-wrong-task", "work-bad-dependency", "work-outside"] {
+        for record in [
+            "coordination", "work-auth-api", "work-auth-qa", "work-other-session", "work-unsafe",
+            "work-wrong-task", "work-bad-dependency", "work-outside",
+        ] {
             try file(record, into: runs)
         }
         let outside = dir.appendingPathComponent("outside-coordination.md")
@@ -40,25 +43,29 @@ import Testing
 
         let transcript = root.appendingPathComponent("worker.jsonl")
         try fixture("coordination/worker.jsonl").write(to: transcript, atomically: true, encoding: .utf8)
-        let worker = SubagentStatus(id: "runtime-1", description: "auth-api", agentType: "backend-dev",
-                                    running: false, transcriptURL: transcript, taskID: "auth")
-        let session = CodeSession(id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
-                                  taskIDs: ["auth"], subagents: [worker])
+        let worker = SubagentStatus(
+            id: "runtime-1", description: "auth-api", agentType: "backend-dev",
+            running: false, transcriptURL: transcript, taskID: "auth")
+        let session = CodeSession(
+            id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
+            taskIDs: ["auth"], subagents: [worker])
         return Seeded(root: root, transcript: transcript, worker: worker, session: session)
     }
 
     /// Copies `Fixtures/coordination/<record>.md` into `runs/` under the session's prefix.
     private func file(_ record: String, into runs: URL) throws {
         try fixture("coordination/\(record).md")
-            .write(to: runs.appendingPathComponent(Self.prefix + "-" + record + ".md"),
-                   atomically: true, encoding: .utf8)
+            .write(
+                to: runs.appendingPathComponent(Self.prefix + "-" + record + ".md"),
+                atomically: true, encoding: .utf8)
     }
 
     @Test func noRecordsNoPlan() throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        let session = CodeSession(id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
-                                  taskIDs: ["auth"])
+        let session = CodeSession(
+            id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
+            taskIDs: ["auth"])
         #expect(LeadCoordination.load(root: dir.appendingPathComponent("coordination"), session: session) == nil)
     }
 
@@ -73,8 +80,9 @@ import Testing
         #expect(plan.estimatedMinutes == 8.5)
         #expect(plan.contextSummary == "Resume from the handoff.")
         #expect(plan.updatedAt != nil)
-        #expect(plan.workers.map(\.id) == ["auth-api", "auth-qa"],
-                "cross-session, mismatched task, unsafe IDs and external symlinks are rejected")
+        #expect(
+            plan.workers.map(\.id) == ["auth-api", "auth-qa"],
+            "cross-session, mismatched task, unsafe IDs and external symlinks are rejected")
     }
 
     @Test func returnedWorkerIsMeasuredAndScoped() throws {
@@ -94,8 +102,9 @@ import Testing
         #expect(api.state == "review", returned)
         #expect(api.runtimeRunning == false, returned)
         #expect(api.elapsedMinutes(now: Self.noon.addingTimeInterval(600)) == 2)
-        #expect(api.paths == ["Sources/API.swift", "Sources/Routes.swift"],
-                "reported paths are repo-relative or dropped; ./ is normalised away")
+        #expect(
+            api.paths == ["Sources/API.swift", "Sources/Routes.swift"],
+            "reported paths are repo-relative or dropped; ./ is normalised away")
         #expect(plan.workers[1].paths.isEmpty, "a record with no paths claims no files")
         #expect(api.dependsOn == ["auth-contract"])
         #expect(api.contextWindow == 2000)
@@ -128,8 +137,9 @@ import Testing
         let seeded = try seed(in: dir)
 
         let plan = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
-        #expect(LeadCoordination.load(root: seeded.root, session: seeded.session) == plan,
-                "the next poll neither double-counts usage nor changes finished work")
+        #expect(
+            LeadCoordination.load(root: seeded.root, session: seeded.session) == plan,
+            "the next poll neither double-counts usage nor changes finished work")
     }
 
     @Test func allReadsRecordsWithNoSession() throws {
@@ -153,19 +163,23 @@ import Testing
         let seeded = try seed(in: dir)
 
         #expect(LeadWork(id: "auth-api").subagent(in: seeded.session)?.id == seeded.worker.id)
-        #expect(LeadWork(id: "auth").subagent(in: seeded.session) == nil,
-                "a task substring must not claim a sibling worker's transcript")
-        #expect(LeadWork(id: "auth-api", agentID: "missing").subagent(in: seeded.session) == nil,
-                "a recorded agent ID wins over a similar label")
+        #expect(
+            LeadWork(id: "auth").subagent(in: seeded.session) == nil,
+            "a task substring must not claim a sibling worker's transcript")
+        #expect(
+            LeadWork(id: "auth-api", agentID: "missing").subagent(in: seeded.session) == nil,
+            "a recorded agent ID wins over a similar label")
     }
 
     @Test func elapsedMinutesComeFromTimestamps() {
         let noon = Self.noon
-        #expect(LeadWork(id: "running", state: "running", startedAt: noon)
-            .elapsedMinutes(now: noon.addingTimeInterval(180)) == 3)
-        #expect(LeadWork(id: "returned", state: "running", startedAt: noon, runtimeRunning: false)
-            .elapsedMinutes(now: noon.addingTimeInterval(180)) == nil,
-                "a returned agent without a finish timestamp has unknown elapsed time")
+        #expect(
+            LeadWork(id: "running", state: "running", startedAt: noon)
+                .elapsedMinutes(now: noon.addingTimeInterval(180)) == 3)
+        #expect(
+            LeadWork(id: "returned", state: "running", startedAt: noon, runtimeRunning: false)
+                .elapsedMinutes(now: noon.addingTimeInterval(180)) == nil,
+            "a returned agent without a finish timestamp has unknown elapsed time")
     }
 
     @Test func retriedAttemptsCountABoundarySampleOnce() throws {
@@ -178,7 +192,8 @@ import Testing
         try file("work-auth-z-retry", into: seeded.root.appendingPathComponent("runs"))
         try append(fixture("coordination/worker-retry.jsonl"), to: seeded.transcript)
         let retried = try #require(LeadCoordination.load(root: seeded.root, session: seeded.session))
-        let boundary: Comment = "reused threads measure (start, finish] so adjacent attempts count a boundary sample once"
+        let boundary: Comment =
+            "reused threads measure (start, finish] so adjacent attempts count a boundary sample once"
         #expect(retried.workers.first?.measuredTokens == 150, boundary)
         #expect(retried.workers.last?.measuredTokens == 60, boundary)
     }
@@ -207,8 +222,9 @@ import Testing
         let runs = dir.appendingPathComponent("runs")
         try FileManager.default.createDirectory(at: runs, withIntermediateDirectories: true)
         try "---\nkind: run\nsession: \(Self.id.uuidString)\n\(fields)\n---\nDurable details."
-            .write(to: runs.appendingPathComponent("\(Self.prefix)-work-\(suffix).md"),
-                   atomically: true, encoding: .utf8)
+            .write(
+                to: runs.appendingPathComponent("\(Self.prefix)-work-\(suffix).md"),
+                atomically: true, encoding: .utf8)
 
         #expect((LeadCoordination.all(root: dir)[Self.id]?.workers ?? []).isEmpty, Comment(rawValue: why))
     }
@@ -229,8 +245,9 @@ import Testing
         """.write(to: runs.appendingPathComponent("\(Self.prefix)-work-probe.md"), atomically: true, encoding: .utf8)
 
         let work = try #require(LeadCoordination.all(root: dir)[Self.id]?.workers.first)
-        #expect(work.paths == ["ok.swift", "ok/nested.swift"],
-                "only repo-relative paths that stay inside the project are claimed")
+        #expect(
+            work.paths == ["ok.swift", "ok/nested.swift"],
+            "only repo-relative paths that stay inside the project are claimed")
     }
 
     @Test func runsFolderLinkedOutsideIsNotRead() throws {
@@ -244,8 +261,9 @@ import Testing
         let root = dir.appendingPathComponent("coordination")
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         try fm.createSymbolicLink(at: root.appendingPathComponent("runs"), withDestinationURL: elsewhere)
-        let session = CodeSession(id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
-                                  taskIDs: ["auth"])
+        let session = CodeSession(
+            id: Self.id, title: "Engineering Lead", icon: "", line: "", agent: .claude,
+            taskIDs: ["auth"])
 
         #expect(LeadCoordination.all(root: root).isEmpty, "a runs folder that points elsewhere is not this project's")
         #expect(LeadCoordination.load(root: root, session: session) == nil)
@@ -260,8 +278,9 @@ import Testing
         try Data([0x2D, 0x2D, 0x2D, 0x0A, 0xFF, 0xFE, 0x00, 0xC3])
             .write(to: runs.appendingPathComponent("\(Self.prefix)-work-binary.md"))
 
-        #expect(LeadCoordination.all(root: dir)[Self.id]?.workers.map(\.id) == ["auth-qa"],
-                "an unreadable record is skipped without taking the rest of the folder with it")
+        #expect(
+            LeadCoordination.all(root: dir)[Self.id]?.workers.map(\.id) == ["auth-qa"],
+            "an unreadable record is skipped without taking the rest of the folder with it")
     }
 
     /// Writes to the end of a file the way an agent's transcript grows: open, seek, write.

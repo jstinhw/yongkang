@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// What the new-project prompt has to get right: an `@` tags something that is really
@@ -13,18 +14,21 @@ import Testing
         let root = dir.appendingPathComponent("mention")
         try fm.createDirectory(at: root.appendingPathComponent("designs/type"), withIntermediateDirectories: true)
         try fm.createDirectory(at: root.appendingPathComponent("cases"), withIntermediateDirectories: true)
-        for file in ["SPEC.md", ".hidden", "design-notes.md", "designs/logo.png", "designs/type/BODY.md",
-                     "cases-old.md", "cases/Alpha.md", "cases/alpha-two.md"] {
+        for file in [
+            "SPEC.md", ".hidden", "design-notes.md", "designs/logo.png", "designs/type/BODY.md",
+            "cases-old.md", "cases/Alpha.md", "cases/alpha-two.md",
+        ] {
             try Data().write(to: root.appendingPathComponent(file))
         }
         return root
     }
 
-    @Test(arguments: [
-        ("build @des", "des", ""),
-        ("build @des ", nil, "a finished tag is not still being typed"),
-        ("a@b.com", nil, "an email address is not a tag"),
-    ] as [(String, String?, String)])
+    @Test(
+        arguments: [
+            ("build @des", "des", ""),
+            ("build @des ", nil, "a finished tag is not still being typed"),
+            ("a@b.com", nil, "an email address is not a tag"),
+        ] as [(String, String?, String)])
     func queryIsTheTagBeingTyped(text: String, query: String?, why: String) {
         #expect(Mention.query(in: text) == query, Comment(rawValue: why))
     }
@@ -34,12 +38,14 @@ import Testing
         defer { try? FileManager.default.removeItem(at: dir) }
         let root = try makeMentionRoot(in: dir)
 
-        #expect(Mention.matches("", root: root)
-                    == ["cases/", "cases-old.md", "design-notes.md", "designs/", "SPEC.md"],
-                "folders keep their slash, dotfiles stay hidden")
+        #expect(
+            Mention.matches("", root: root)
+                == ["cases/", "cases-old.md", "design-notes.md", "designs/", "SPEC.md"],
+            "folders keep their slash, dotfiles stay hidden")
         #expect(Mention.matches("designs", root: root) == ["designs/"])
-        #expect(Mention.matches("designs/", root: root) == ["designs/logo.png", "designs/type/"],
-                "tagging a folder lists one level down inside it")
+        #expect(
+            Mention.matches("designs/", root: root) == ["designs/logo.png", "designs/type/"],
+            "tagging a folder lists one level down inside it")
         #expect(Mention.matches("nope", root: root).isEmpty)
     }
 
@@ -52,8 +58,9 @@ import Testing
         var tab = "build from @de"
         #expect(Mention.extend(&tab, root: root, absolute: false))
         #expect(tab == "build from @design", "two matches only agree this far")
-        #expect(Mention.extend(&tab, root: root, absolute: false),
-                "and Tab stays in the box rather than moving focus")
+        #expect(
+            Mention.extend(&tab, root: root, absolute: false),
+            "and Tab stays in the box rather than moving focus")
         #expect(tab == "build from @design", "with nothing left to add, nothing is picked")
         tab += "s"
         #expect(Mention.extend(&tab, root: root, absolute: false))
@@ -66,8 +73,9 @@ import Testing
         #expect(Mention.extend(&tab, root: root, absolute: false))
         #expect(tab == "build from @designs/type/", "Tab walks down a level at a time")
         #expect(Mention.extend(&tab, root: root, absolute: false))
-        #expect(tab == "build from @designs/type/BODY.md ",
-                "and closes the tag on the one file at the bottom")
+        #expect(
+            tab == "build from @designs/type/BODY.md ",
+            "and closes the tag on the one file at the bottom")
     }
 
     // A sibling that shares the whole folder name must not strand Tab on the folder.
@@ -106,8 +114,9 @@ import Testing
         #expect(!Mention.accept(&text, root: root, absolute: false), "and then gets out of the way")
         var absolute = "build from @SP"
         #expect(Mention.accept(&absolute, root: root, absolute: true))
-        #expect(absolute == "build from @\(root.path)/SPEC.md ",
-                "a folder that does not exist yet cannot be what its prompt's paths are relative to")
+        #expect(
+            absolute == "build from @\(root.path)/SPEC.md ",
+            "a folder that does not exist yet cannot be what its prompt's paths are relative to")
     }
 
     @Test func absoluteTagsDrillDown() throws {
@@ -120,9 +129,10 @@ import Testing
         #expect(absoluteTab == "build from @\(root.path)/designs/", "Tab writes the same paths")
         // The one that was broken: an absolute tag has to keep listing what is inside it,
         // not be re-rooted under the box's root and come back empty.
-        #expect(Mention.matches("\(root.path)/designs/", root: root)
-                    == ["\(root.path)/designs/logo.png", "\(root.path)/designs/type/"],
-                "a tag that is already a path of its own drills down from where it points")
+        #expect(
+            Mention.matches("\(root.path)/designs/", root: root)
+                == ["\(root.path)/designs/logo.png", "\(root.path)/designs/type/"],
+            "a tag that is already a path of its own drills down from where it points")
         #expect(Mention.extend(&absoluteTab, root: root, absolute: true))
         #expect(absoluteTab == "build from @\(root.path)/designs/", "two children, nothing agreed")
         absoluteTab += "t"
@@ -144,8 +154,9 @@ import Testing
         #expect(Mention.extend(&rooted, root: root, absolute: false))
         #expect(rooted == "build from @designs/")
         // String expansion only: nothing under the real home folder is read.
-        #expect(Mention.inserted("~/notes/", root: root, absolute: false) == NSHomeDirectory() + "/notes/",
-                "a tag written from home is expanded — the agent gets a path it can open")
+        #expect(
+            Mention.inserted("~/notes/", root: root, absolute: false) == NSHomeDirectory() + "/notes/",
+            "a tag written from home is expanded — the agent gets a path it can open")
     }
 
     @Test func parseFindsTheNamedFolder() throws {
@@ -160,10 +171,12 @@ import Testing
         let folder = try #require(ProjectLocation.parse("put it in \(root.path), please"))
         #expect(folder.parent.path == root.path, "an existing folder is where projects live")
         #expect(folder.name.isEmpty, "the name is still missing")
-        #expect(ProjectLocation.parse("read @\(root.path)/SPEC.md") == nil,
-                "a tag is a reference, not a destination")
-        #expect(ProjectLocation.parse("in \(root.path)/gone/todo") == nil,
-                "a parent that is not there is not a location")
+        #expect(
+            ProjectLocation.parse("read @\(root.path)/SPEC.md") == nil,
+            "a tag is a reference, not a destination")
+        #expect(
+            ProjectLocation.parse("in \(root.path)/gone/todo") == nil,
+            "a parent that is not there is not a location")
     }
 
     // A prompt that names no path still names the folder: the words that carry
@@ -184,8 +197,9 @@ import Testing
         defer { try? FileManager.default.removeItem(at: dir) }
         let root = try makeMentionRoot(in: dir)
 
-        #expect(ProjectLocation.vacant(in: root, named: "designs").lastPathComponent == "designs-2",
-                "a folder already sitting there is not written into")
+        #expect(
+            ProjectLocation.vacant(in: root, named: "designs").lastPathComponent == "designs-2",
+            "a folder already sitting there is not written into")
         #expect(ProjectLocation.vacant(in: root, named: "todo").lastPathComponent == "todo")
     }
 

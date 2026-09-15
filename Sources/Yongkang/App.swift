@@ -1,6 +1,6 @@
-import SwiftUI
 import AppKit
 import Combine
+import SwiftUI
 
 @main
 struct YongkangApp: App {
@@ -69,7 +69,8 @@ struct YongkangApp: App {
 
     init() {
         if let index = CommandLine.arguments.firstIndex(of: "--shots"),
-           let path = CommandLine.arguments[safe: index + 1] {
+            let path = CommandLine.arguments[safe: index + 1]
+        {
             DesignShots.run(into: URL(fileURLWithPath: path))
             exit(0)
         }
@@ -132,16 +133,22 @@ struct YongkangApp: App {
 
     private func attentionChanged(_ reason: String?, session: CodeSession, project: Project) {
         if reason != nil {
-            guard projects.contains(where: { $0.id == project.id && $0.sessions.contains(where: {
-                $0.id == session.id && !$0.exited
-            }) }) else { return }
+            guard
+                projects.contains(where: {
+                    $0.id == project.id
+                        && $0.sessions.contains(where: {
+                            $0.id == session.id && !$0.exited
+                        })
+                })
+            else { return }
         }
         guard attention[session.id] != reason else { return }
         attention[session.id] = reason
         if let reason {
             guard !CommandLine.arguments.contains("--attention-selftest") else { return }
-            AgentNotifications.shared.send(sessionID: session.id,
-                                             title: "\(project.name) · \(session.title)", reason: reason)
+            AgentNotifications.shared.send(
+                sessionID: session.id,
+                title: "\(project.name) · \(session.title)", reason: reason)
         } else {
             AgentNotifications.shared.clear(session.id)
         }
@@ -161,49 +168,58 @@ struct YongkangApp: App {
     private var terminals: some View {
         ForEach(projects) { project in
             ForEach(project.sessions) { session in
-                AgentTerminal(line: session.line, label: session.title,
-                              pending: pendingBinding(session),
-                              onExit: { markExited(session, in: project) },
-                              onAttention: { reason in
-                                  guard session.agent != nil else { return }
-                                  attentionChanged(reason, session: session, project: project)
-                              }, focused: isVisible(session), agent: session.agent,
-                              child: isVisible(session) ? selectedSubagent(in: project)?.subagent : nil,
-                              onChildNavigation: { message in
-                                  if childNavigation[session.id] != message { childNavigation[session.id] = message }
-                              })
-                    .padding(.leading, Theme.railWidth + (listHidden ? 0 : listWidth))
-                    .padding(.top, Theme.topBarHeight)
-                    .opacity(isVisible(session) ? 1 : 0)
-                    .allowsHitTesting(isVisible(session))
-                    .accessibilityHidden(!isVisible(session))
+                AgentTerminal(
+                    line: session.line, label: session.title,
+                    pending: pendingBinding(session),
+                    onExit: { markExited(session, in: project) },
+                    onAttention: { reason in
+                        guard session.agent != nil else { return }
+                        attentionChanged(reason, session: session, project: project)
+                    }, focused: isVisible(session), agent: session.agent,
+                    child: isVisible(session) ? selectedSubagent(in: project)?.subagent : nil,
+                    onChildNavigation: { message in
+                        if childNavigation[session.id] != message { childNavigation[session.id] = message }
+                    }
+                )
+                .padding(.leading, Theme.railWidth + (listHidden ? 0 : listWidth))
+                .padding(.top, Theme.topBarHeight)
+                .opacity(isVisible(session) ? 1 : 0)
+                .allowsHitTesting(isVisible(session))
+                .accessibilityHidden(!isVisible(session))
             }
         }
     }
 
     @ViewBuilder private var chrome: some View {
         if entered == nil {
-            ProjectsHome(projects: projects, enter: enter,
-                         create: { creatingProject = true }, add: openProject, close: close)
-                .sheet(isPresented: $creatingProject) {
-                    NewProjectForm(parent: projectsParent, create: createProject,
-                                   cancel: { creatingProject = false })
-                }
+            ProjectsHome(
+                projects: projects, enter: enter,
+                create: { creatingProject = true }, add: openProject, close: close
+            )
+            .sheet(isPresented: $creatingProject) {
+                NewProjectForm(
+                    parent: projectsParent, create: createProject,
+                    cancel: { creatingProject = false })
+            }
         } else if let project = enteredProject {
             HStack(spacing: 0) {
                 // Above the list column: the rail's hover labels hang past its own width.
-                Rail(section: $section, badges: badges(for: project), leave: leave,
-                     agentCount: project.onlineAgentCount,
-                     listHidden: listHidden, toggleList: { listHidden.toggle() })
-                    .zIndex(1)
+                Rail(
+                    section: $section, badges: badges(for: project), leave: leave,
+                    agentCount: project.onlineAgentCount,
+                    listHidden: listHidden, toggleList: { listHidden.toggle() }
+                )
+                .zIndex(1)
                 if !listHidden {
-                    ProjectList(section: section, project: project, width: listWidth,
-                                selection: $selection,
-                                showDone: showDone, changes: changes,
-                                assign: { assign($0, in: project) },
-                                closeSession: { close($0, in: project) },
-                                remove: { remove($0, in: project) })
-                        .overlay(alignment: .trailing) { listResizer }
+                    ProjectList(
+                        section: section, project: project, width: listWidth,
+                        selection: $selection,
+                        showDone: showDone, changes: changes,
+                        assign: { assign($0, in: project) },
+                        closeSession: { close($0, in: project) },
+                        remove: { remove($0, in: project) }
+                    )
+                    .overlay(alignment: .trailing) { listResizer }
                 }
                 VStack(spacing: 0) {
                     topBar(for: project)
@@ -216,8 +232,9 @@ struct YongkangApp: App {
                     directory: project.directory,
                     taken: project.team.map(\.name),
                     save: { member in
-                        do { try Team.write(member, root: project.notebookRoot) }
-                        catch { NSAlert(error: error).runModal() }
+                        do { try Team.write(member, root: project.notebookRoot) } catch {
+                            NSAlert(error: error).runModal()
+                        }
                         addingAgent = false
                         reload()
                     },
@@ -272,7 +289,10 @@ struct YongkangApp: App {
                 providerPicker
                 completedToggle
                 addMenu(for: project)
-                Button { section = .board; selection = Tag.board(project) } label: {
+                Button {
+                    section = .board
+                    selection = Tag.board(project)
+                } label: {
                     Label("Assign work", systemImage: "bolt")
                 }
                 .buttonStyle(.consolePrimary)
@@ -280,27 +300,35 @@ struct YongkangApp: App {
         case .board:
             let scoped = Tag.card(selection, in: project.cards)
             let demo = selectedBlock(in: project).flatMap { $0.isDemo ? $0 : nil }
-            TopBar(crumbs: demo == nil ? [project.name] : [project.name, "Board"],
-                   title: scoped?.title ?? demo?.title ?? "Board") {
+            TopBar(
+                crumbs: demo == nil ? [project.name] : [project.name, "Board"],
+                title: scoped?.title ?? demo?.title ?? "Board"
+            ) {
                 if let demo {
-                    NotebookStyle.pill(demo.waiting ? "demo · waiting on you" : "approved",
-                                       demo.waiting ? Theme.amber : Theme.green, live: demo.waiting)
+                    NotebookStyle.pill(
+                        demo.waiting ? "demo · waiting on you" : "approved",
+                        demo.waiting ? Theme.amber : Theme.green, live: demo.waiting)
                 }
                 if let scoped, scoped.kind == .project { boardProgress(scoped, in: project) }
                 completedToggle
                 addMenu(for: project)
-                Button { startProductReview(in: project) } label: {
+                Button {
+                    startProductReview(in: project)
+                } label: {
                     Label("Product review", systemImage: "sparkles")
                 }
                 .buttonStyle(.console)
             }
         case .agents:
             let watched = selectedAgent(in: project) ?? selectedSubagent(in: project)?.session
-            TopBar(crumbs: [project.name],
-                   title: selection == Tag.usage(project) ? "Usage"
-                        : selectedSubagent(in: project)?.subagent.description
+            TopBar(
+                crumbs: [project.name],
+                title: selection == Tag.usage(project)
+                    ? "Usage"
+                    : selectedSubagent(in: project)?.subagent.description
                         ?? watched?.title ?? selectedSession(in: project)?.title
-                        ?? selectedMember(in: project)?.name ?? "Agents") {
+                        ?? selectedMember(in: project)?.name ?? "Agents"
+            ) {
                 addMenu(for: project)
                 if let watched, selectedSubagent(in: project) == nil {
                     let panes = AgentPane.cases(lead: watched.isEngineeringLead)
@@ -311,7 +339,9 @@ struct YongkangApp: App {
                     .frame(width: panes.count == 3 ? 250 : 175)
                 }
                 if let found = selectedSubagent(in: project) {
-                    Button { selection = Tag.session(found.session) } label: {
+                    Button {
+                        selection = Tag.session(found.session)
+                    } label: {
                         Label("Parent session", systemImage: "terminal")
                     }
                     .buttonStyle(.console)
@@ -322,7 +352,9 @@ struct YongkangApp: App {
                 if let head {
                     Text(head).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
-                Button { refreshChanges(force: true) } label: {
+                Button {
+                    refreshChanges(force: true)
+                } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.console)
@@ -350,9 +382,12 @@ struct YongkangApp: App {
     }
 
     private var completedToggle: some View {
-        Button { showDone.toggle() } label: {
-            Label(showDone ? "Hide completed" : "Completed",
-                  systemImage: showDone ? "eye.slash" : "eye")
+        Button {
+            showDone.toggle()
+        } label: {
+            Label(
+                showDone ? "Hide completed" : "Completed",
+                systemImage: showDone ? "eye.slash" : "eye")
         }
         .buttonStyle(.consoleGhost)
     }
@@ -363,14 +398,22 @@ struct YongkangApp: App {
         if let empty = needsIntake {
             // An empty project has nothing to click, so it asks what it is instead.
             ProjectIntake(project: empty) { description in
-                addSession(agent, to: empty,
-                           prompt: NotebookFormat.onboardingPrompt(description: description),
-                           title: "Notebook Setup")
+                addSession(
+                    agent, to: empty,
+                    prompt: NotebookFormat.onboardingPrompt(description: description),
+                    title: "Notebook Setup")
             }
         } else if selection == Tag.overview(project) {
-            Overview(project: project, changes: changes, head: head,
-                     go: { section = $0; if let tag = $1 { selection = tag } },
-                     assign: { section = .board; selection = Tag.board(project) })
+            Overview(
+                project: project, changes: changes, head: head,
+                go: {
+                    section = $0
+                    if let tag = $1 { selection = tag }
+                },
+                assign: {
+                    section = .board
+                    selection = Tag.board(project)
+                })
         } else if selection == Tag.board(project) {
             boardView(for: project)
         } else if selection == Tag.usage(project) {
@@ -398,18 +441,26 @@ struct YongkangApp: App {
             )
             .id(card.id)
         } else if let card = scopedPageCard(in: project) {
-            NotebookEntryDetail(card: card, cards: project.cards,
-                                open: { url in selection = NotebookEntry.id(for: url) })
-                .id(card.id)
+            NotebookEntryDetail(
+                card: card, cards: project.cards,
+                open: { url in selection = NotebookEntry.id(for: url) }
+            )
+            .id(card.id)
         } else if let watched = selectedAgent(in: project) {
             switch AgentPane.of(selection, session: watched.id) {
             case .lanes:
                 EngineeringLeadBoard(
                     session: watched, cards: project.cards, blocks: project.blocks,
                     team: project.team,
-                    openTask: { section = .board; selection = Tag.task($0) },
+                    openTask: {
+                        section = .board
+                        selection = Tag.task($0)
+                    },
                     openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
-                    openBlock: { section = .blocks; selection = Tag.block($0) }
+                    openBlock: {
+                        section = .blocks
+                        selection = Tag.block($0)
+                    }
                 )
             case .session:
                 // The session's terminal is mounted underneath.
@@ -423,8 +474,14 @@ struct YongkangApp: App {
                     session: watched, cards: project.cards, blocks: project.blocks,
                     lines: agentTranscript,
                     source: Transcripts.url(of: watched, in: project.directory),
-                    openTask: { section = .board; selection = Tag.task($0) },
-                    openBlock: { section = .blocks; selection = Tag.block($0) },
+                    openTask: {
+                        section = .board
+                        selection = Tag.task($0)
+                    },
+                    openBlock: {
+                        section = .blocks
+                        selection = Tag.block($0)
+                    },
                     openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
                     send: { pendingInput[watched.id] = $0 }
                 )
@@ -460,34 +517,42 @@ struct YongkangApp: App {
                 waiting: waitingSession(for: block, in: project),
                 start: { startUnblock(block, in: project) },
                 revise: { openProposal(block, approve: false, in: project) },
-                resolve: { Blocks.resolve(block); reload() }
+                resolve: {
+                    Blocks.resolve(block)
+                    reload()
+                }
             )
             .id(block.id)
         } else if let task = reviewedTask(in: project) {
-            TaskReview(task: task, summary: ChangeSummary.of(project, changes: changes),
-                       directory: project.directory, cards: project.cards, team: project.team,
-                       branch: branch, head: head, draft: draft(for: task.id),
-                       openFile: { selection = Tag.review(project) + ":" + $0 },
-                       approve: { approve(task, message: $0, in: project) },
-                       requestChanges: { requestChanges(on: task, in: project) })
-                .id(task.id)
+            TaskReview(
+                task: task, summary: ChangeSummary.of(project, changes: changes),
+                directory: project.directory, cards: project.cards, team: project.team,
+                branch: branch, head: head, draft: draft(for: task.id),
+                openFile: { selection = Tag.review(project) + ":" + $0 },
+                approve: { approve(task, message: $0, in: project) },
+                requestChanges: { requestChanges(on: task, in: project) }
+            )
+            .id(task.id)
         } else if let path = reviewPath(project) {
             let summary = ChangeSummary.of(project, changes: changes)
             // A file a task's worker claimed is reviewed as part of that task: comments on
             // its lines join that task's feedback, and the bar is that task's decision.
             let owner = path.isEmpty ? nil : summary.tasks.first { $0.files.contains { $0.path == path } }
-            ChangeReview(project: project, changes: changes, head: head, branch: branch,
-                         path: path, summary: summary,
-                         select: { selection = Tag.review(project) + ":" + $0 },
-                         commit: { commit($0, in: project) },
-                         task: owner, draft: draft(for: owner?.id ?? ""),
-                         openTask: { selection = Tag.reviewTask(project, $0) },
-                         approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
-                         requestChanges: { if let owner { requestChanges(on: owner, in: project) } })
+            ChangeReview(
+                project: project, changes: changes, head: head, branch: branch,
+                path: path, summary: summary,
+                select: { selection = Tag.review(project) + ":" + $0 },
+                commit: { commit($0, in: project) },
+                task: owner, draft: draft(for: owner?.id ?? ""),
+                openTask: { selection = Tag.reviewTask(project, $0) },
+                approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
+                requestChanges: { if let owner { requestChanges(on: owner, in: project) } })
         } else if let step = previewStep(in: project) {
-            ProjectPreview(repo: step.repo, services: step.services,
-                           run: { runServices([step], in: project) })
-                .id(selection)
+            ProjectPreview(
+                repo: step.repo, services: step.services,
+                run: { runServices([step], in: project) }
+            )
+            .id(selection)
         } else if let entry = selectedEntry {
             NotebookEditor(entry: entry).id(entry.id)
         } else if selectedSession(in: project) != nil {
@@ -527,7 +592,8 @@ struct YongkangApp: App {
         Blocks.resolve(block)
         if let waiting = waitingSession(for: block, in: project) {
             let pass = revision.map { " Build \($0.label)." } ?? ""
-            pendingInput[waiting.id] = "The demo at \(block.slug) is approved.\(pass) "
+            pendingInput[waiting.id] =
+                "The demo at \(block.slug) is approved.\(pass) "
                 + "Mark the design task done and start the tasks waiting on it."
             section = .agents
             selection = Tag.session(waiting)
@@ -557,11 +623,13 @@ struct YongkangApp: App {
         case .agents:
             if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
                 && selectedSession(in: project) == nil && selectedMember(in: project) == nil
-                && selection != Tag.usage(project) {
+                && selection != Tag.usage(project)
+            {
                 // A lead first, then any agent — and a service runner only if that is all
                 // there is, on its own tag, because it has no transcript to open.
-                selection = (project.sessions.first { $0.isEngineeringLead }
-                             ?? project.sessions.first { $0.agent != nil })
+                selection =
+                    (project.sessions.first { $0.isEngineeringLead }
+                    ?? project.sessions.first { $0.agent != nil })
                     .map { Tag.session($0) }
                     ?? project.sessions.first.map { Tag.session($0) }
             }
@@ -571,8 +639,9 @@ struct YongkangApp: App {
             // the diff means anything.
             selection = firstReview(in: project)
         case .blocks:
-            selection = (project.blocks.first(where: \.waiting)
-                         ?? (showDone ? project.blocks.first : nil))
+            selection =
+                (project.blocks.first(where: \.waiting)
+                ?? (showDone ? project.blocks.first : nil))
                 .map { Tag.block($0) }
         }
     }
@@ -595,8 +664,10 @@ struct YongkangApp: App {
 
     /// The agents running this member's skill right now, wherever they were dispatched
     /// from — the way back from a standing agent into the work it is doing.
-    private func runningAgents(of member: TeamMember,
-                               in project: Project) -> [(session: CodeSession, subagent: SubagentStatus)] {
+    private func runningAgents(
+        of member: TeamMember,
+        in project: Project
+    ) -> [(session: CodeSession, subagent: SubagentStatus)] {
         project.sessions.flatMap { session in
             session.activeSubagents.filter { $0.member == member.name }
                 .map { (session: session, subagent: $0) }
@@ -689,7 +760,8 @@ struct YongkangApp: App {
             guard !tasks.isEmpty else { return }
             let alert = NSAlert()
             alert.messageText = "Nothing to assign"
-            alert.informativeText = "Every task here is already done, or already has an Engineering "
+            alert.informativeText =
+                "Every task here is already done, or already has an Engineering "
                 + "Lead on it — wait for that session to finish, or close it, before assigning again."
             alert.runModal()
             return
@@ -698,17 +770,19 @@ struct YongkangApp: App {
         if let lead = project.sessions.first(where: { $0.isEngineeringLead && !$0.exited }) {
             let leadAgent = lead.agent ?? .claude
             appendTaskIDs(batch.map(\.id), to: lead, in: project)
-            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(tasks: batch, sessionID: lead.id,
-                                                                         agent: leadAgent)
+            pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(
+                tasks: batch, sessionID: lead.id,
+                agent: leadAgent)
             selection = Tag.session(lead)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
         // session id can write it into any block it raises, and the answer comes back here.
         let id = UUID()
-        addSession(agent, id: id, to: project,
-                   prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
-                   title: "Engineering Lead", taskIDs: batch.map(\.id))
+        addSession(
+            agent, id: id, to: project,
+            prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
+            title: "Engineering Lead", taskIDs: batch.map(\.id))
     }
 
     private func addMenu(for project: Project) -> some View {
@@ -770,22 +844,25 @@ struct YongkangApp: App {
         guard !block.isProposal else {
             return openProposal(block, approve: block.proposalReady, in: project)
         }
-        addSession(agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
-                   title: "Unblock \(block.title)")
+        addSession(
+            agent, to: project, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
+            title: "Unblock \(block.title)")
         section = .agents
     }
 
     /// A proposal belongs to the Product conversation that shaped it. Opening it is only
     /// navigation; the ready proposal's explicit create action is the approval message.
     private func openProposal(_ block: UserBlock, approve: Bool, in project: Project) {
-        let running = block.session.flatMap { id in
-            project.sessions.first { $0.id == id && !$0.exited }
-        } ?? project.sessions.last { isProduct($0) && !$0.exited }
+        let running =
+            block.session.flatMap { id in
+                project.sessions.first { $0.id == id && !$0.exited }
+            } ?? project.sessions.last { isProduct($0) && !$0.exited }
         if let running {
             section = .agents
             selection = Tag.session(running)
             if approve {
-                pendingInput[running.id] = "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
+                pendingInput[running.id] =
+                    "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
             }
             return
         }
@@ -809,16 +886,19 @@ struct YongkangApp: App {
     // MARK: - Projects
 
     private func openProject() {
-        guard let path = pickDirectory(
-            message: "Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/."
-        ) else { return }
+        guard
+            let path = pickDirectory(
+                message: "Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/."
+            )
+        else { return }
         let directory = URL(fileURLWithPath: path)
         if let existing = projects.first(where: { $0.directory.path == directory.path }) {
             enter(existing)
             return
         }
-        let project = Project(directory: directory,
-                              entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+        let project = Project(
+            directory: directory,
+            entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         projects.append(project)
         persist()
         enter(project)
@@ -841,16 +921,18 @@ struct YongkangApp: App {
             enter(existing)
             return
         }
-        let project = Project(directory: directory,
-                              entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+        let project = Project(
+            directory: directory,
+            entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         projects.append(project)
         persist()
         enter(project)
         guard let started = enteredProject, !started.hasNotebook else { return }
         section = .agents
-        addSession(agent, to: started,
-                   prompt: NotebookFormat.onboardingPrompt(description: prompt),
-                   title: "Notebook Setup")
+        addSession(
+            agent, to: started,
+            prompt: NotebookFormat.onboardingPrompt(description: prompt),
+            title: "Notebook Setup")
     }
 
     /// Reopens last session's folders, dropping any that have since been moved away.
@@ -864,8 +946,9 @@ struct YongkangApp: App {
             .filter { FileManager.default.fileExists(atPath: $0) }
             .map { path in
                 let directory = URL(fileURLWithPath: path)
-                return Project(directory: directory,
-                               entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
+                return Project(
+                    directory: directory,
+                    entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
             }
         persist()
         reload()
@@ -883,8 +966,9 @@ struct YongkangApp: App {
             .appendingPathComponent("../../Tests/YongkangTests/Fixtures/codex/codex-0.154.0-trust-screen.ansi")
         try! FileManager.default.copyItem(at: capture, to: output)
         var project = Project(directory: directory, entries: NotebookLoader.load(root: root))
-        let session = CodeSession(title: "Engineering Lead", icon: "terminal",
-                                  line: "cat \(AgentCommand.quoted(output.path)); exec sleep 30", agent: .codex)
+        let session = CodeSession(
+            title: "Engineering Lead", icon: "terminal",
+            line: "cat \(AgentCommand.quoted(output.path)); exec sleep 30", agent: .codex)
         project.sessions = [session]
         projects = [project]
         entered = project.id
@@ -893,7 +977,8 @@ struct YongkangApp: App {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             precondition(attention[session.id] != nil, "PTY callback must reach the app's banner state")
             guard let host = NSApp.windows.first(where: { $0.isVisible })?.contentView,
-                  let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+                let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)
+            else {
                 preconditionFailure("attention selftest needs a rendered app window")
             }
             host.layoutSubtreeIfNeeded()
@@ -971,9 +1056,10 @@ struct YongkangApp: App {
             return
         }
         let id = UUID()
-        addSession(agent, id: id, to: project,
-                   prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
-                   title: "Product")
+        addSession(
+            agent, id: id, to: project,
+            prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
+            title: "Product")
     }
 
     /// Incubate mode: the app does not write the agent, a session does. It searches the
@@ -982,9 +1068,10 @@ struct YongkangApp: App {
     /// same way any other notebook entry an agent writes turns up.
     private func startIncubation(_ brief: String, in project: Project) {
         section = .agents
-        addSession(agent, to: project,
-                   prompt: NotebookFormat.incubatePrompt(brief: brief, agent: agent),
-                   title: "New Agent")
+        addSession(
+            agent, to: project,
+            prompt: NotebookFormat.incubatePrompt(brief: brief, agent: agent),
+            title: "New Agent")
     }
 
     private func isProduct(_ session: CodeSession) -> Bool {
@@ -992,19 +1079,27 @@ struct YongkangApp: App {
     }
 
     /// One row per repo actually on disk, deduped across every notebook project.
-    private func previewRows(for project: Project)
-        -> [(id: String, repo: String, directory: URL, services: [Service.Runnable])] {
+    private func previewRows(
+        for project: Project
+    )
+        -> [(id: String, repo: String, directory: URL, services: [Service.Runnable])]
+    {
         let steps = project.cards.filter { $0.kind == .project }
             .flatMap { Service.plan(for: $0, in: project.directory) }
         return Service.dedupedByDirectory(steps).map { step in
-            (id: Tag.preview(project, step.directory), repo: step.repo,
-             directory: step.directory, services: step.services)
+            (
+                id: Tag.preview(project, step.directory), repo: step.repo,
+                directory: step.directory, services: step.services
+            )
         }
     }
 
     /// The repo a preview tag points at, or nil if `selection` is not one.
-    private func previewStep(in project: Project)
-        -> (repo: String, directory: URL, services: [Service.Runnable])? {
+    private func previewStep(
+        in project: Project
+    )
+        -> (repo: String, directory: URL, services: [Service.Runnable])?
+    {
         guard let selection else { return nil }
         guard let row = previewRows(for: project).first(where: { $0.id == selection }) else { return nil }
         return (row.repo, row.directory, row.services)
@@ -1019,8 +1114,10 @@ struct YongkangApp: App {
             if entries != projects[index].entries { projects[index].entries = entries }
             // The project you are inside pays for reading frontmatter and transcripts; on
             // the fleet screen every project does, because that screen is what it costs.
-            guard projects[index].id == entered || entered == nil
-                    || projects[index].sessions.contains(where: { $0.agent != nil && !$0.exited }) else { continue }
+            guard
+                projects[index].id == entered || entered == nil
+                    || projects[index].sessions.contains(where: { $0.agent != nil && !$0.exited })
+            else { continue }
             let cards = NotebookIndex.load(root: projects[index].notebookRoot)
             if cards != projects[index].cards { projects[index].cards = cards }
             let blocks = Blocks.load(root: projects[index].notebookRoot)
@@ -1036,15 +1133,16 @@ struct YongkangApp: App {
                 deliverUnblocks(in: projects[index])
             }
             for sIndex in projects[index].sessions.indices
-                where projects[index].sessions[sIndex].agent != nil {
+            where projects[index].sessions[sIndex].agent != nil {
                 let session = projects[index].sessions[sIndex]
                 if !session.exited {
                     let subagents = subagents(of: session, in: projects[index])
                     if subagents != session.subagents { projects[index].sessions[sIndex].subagents = subagents }
                 }
                 guard !session.taskIDs.isEmpty else { continue }
-                let coordination = LeadCoordination.load(root: projects[index].notebookRoot,
-                                                         session: projects[index].sessions[sIndex])
+                let coordination = LeadCoordination.load(
+                    root: projects[index].notebookRoot,
+                    session: projects[index].sessions[sIndex])
                 if coordination != session.coordination {
                     projects[index].sessions[sIndex].coordination = coordination
                 }
@@ -1052,8 +1150,9 @@ struct YongkangApp: App {
             // Written from the poll rather than from the usage screen: what an agent spent
             // has to survive a run in which nobody opened that screen, and the transcripts
             // it is read from are no longer findable once the sessions are gone.
-            UsageLedger.record(AgentUsage.spends(in: projects[index]),
-                               root: projects[index].notebookRoot)
+            UsageLedger.record(
+                AgentUsage.spends(in: projects[index]),
+                root: projects[index].notebookRoot)
         }
         reloadAgentTranscript()
         refreshChanges()
@@ -1070,7 +1169,8 @@ struct YongkangApp: App {
         let seen = doneTasks
         if doneTasks != done { doneTasks = done }
         guard let seen, !done.subtracting(seen).isEmpty,
-              selectedSession(in: project) == nil else { return }
+            selectedSession(in: project) == nil
+        else { return }
         section = .review
         refreshChanges(force: true)
         selection = firstReview(in: project)
@@ -1091,8 +1191,9 @@ struct YongkangApp: App {
     }
 
     private func draft(for taskID: String) -> Binding<ReviewDraft> {
-        Binding(get: { reviewDrafts[taskID] ?? ReviewDraft() },
-                set: { reviewDrafts[taskID] = $0 == ReviewDraft() ? nil : $0 })
+        Binding(
+            get: { reviewDrafts[taskID] ?? ReviewDraft() },
+            set: { reviewDrafts[taskID] = $0 == ReviewDraft() ? nil : $0 })
     }
 
     /// Approving is committing: only this task's files and its records, then on to the
@@ -1124,9 +1225,10 @@ struct YongkangApp: App {
         reviewDrafts[task.id] = nil
         section = .agents
         let id = UUID()
-        addSession(agent, id: id, to: project,
-                   prompt: NotebookFormat.changeRequestPrompt(task: card, message: message, sessionID: id, agent: agent),
-                   title: "Engineering Lead", taskIDs: [task.id])
+        addSession(
+            agent, id: id, to: project,
+            prompt: NotebookFormat.changeRequestPrompt(task: card, message: message, sessionID: id, agent: agent),
+            title: "Engineering Lead", taskIDs: [task.id])
     }
 
     /// git is only asked while a screen that shows its answer is open, and then only every
@@ -1163,11 +1265,13 @@ struct YongkangApp: App {
         let found: [SubagentStatus]
         switch session.agent {
         case .codex:
-            found = CodexTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
-                                               taskIDs: session.taskIDs)
+            found = CodexTranscripts.subagents(
+                sessionID: session.id, projectDirectory: project.directory,
+                taskIDs: session.taskIDs)
         case .claude:
-            found = ClaudeTranscripts.subagents(sessionID: session.id, projectDirectory: project.directory,
-                                                taskIDs: session.taskIDs)
+            found = ClaudeTranscripts.subagents(
+                sessionID: session.id, projectDirectory: project.directory,
+                taskIDs: session.taskIDs)
         default:
             found = []
         }
@@ -1200,8 +1304,9 @@ struct YongkangApp: App {
     /// lead's own when its transcript pane is up.
     private func onScreenTranscript(in project: Project) -> (agent: AgentKind, url: URL)? {
         guard let watched = selectedAgent(in: project),
-              AgentPane.of(selection, session: watched.id) == .transcript,
-              let url = Transcripts.url(of: watched, in: project.directory) else { return nil }
+            AgentPane.of(selection, session: watched.id) == .transcript,
+            let url = Transcripts.url(of: watched, in: project.directory)
+        else { return nil }
         return (watched.agent ?? .claude, url)
     }
 
@@ -1210,25 +1315,33 @@ struct YongkangApp: App {
     /// `id` is generated up front so the same id names both the CLI's `--session-id` and
     /// this session's own row — that is what lets its transcript be found again later, and
     /// what a caller passes in when the prompt itself has to name the session.
-    private func addSession(_ agent: AgentKind, id: UUID = UUID(), to project: Project,
-                            prompt: String? = nil, title: String? = nil, taskIDs: [String] = []) {
-        addSession(id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
-                   line: AgentCommand.line(directory: project.directory.path,
-                                           agent: agent, prompt: prompt, sessionID: id,
-                                           brief: title?.hasPrefix("Engineering Lead") == true,
-                                           noCommit: title?.hasPrefix("Engineering Lead") == true),
-                   agent: agent, taskIDs: taskIDs)
+    private func addSession(
+        _ agent: AgentKind, id: UUID = UUID(), to project: Project,
+        prompt: String? = nil, title: String? = nil, taskIDs: [String] = []
+    ) {
+        addSession(
+            id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
+            line: AgentCommand.line(
+                directory: project.directory.path,
+                agent: agent, prompt: prompt, sessionID: id,
+                brief: title?.hasPrefix("Engineering Lead") == true,
+                noCommit: title?.hasPrefix("Engineering Lead") == true),
+            agent: agent, taskIDs: taskIDs)
     }
 
-    private func addSession(id: UUID = UUID(), to project: Project, title: String, icon: String, line: String,
-                            agent: AgentKind? = nil, taskIDs: [String] = []) {
+    private func addSession(
+        id: UUID = UUID(), to project: Project, title: String, icon: String, line: String,
+        agent: AgentKind? = nil, taskIDs: [String] = []
+    ) {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         // Second "Engineering Lead" becomes "Engineering Lead 2" — identical rows are
         // unusable, and several leads at once is a normal thing to want.
         let taken = projects[index].sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
-        projects[index].sessions.append(CodeSession(id: id, title: name, icon: icon, line: line,
-                                                    agent: agent, taskIDs: taskIDs))
+        projects[index].sessions.append(
+            CodeSession(
+                id: id, title: name, icon: icon, line: line,
+                agent: agent, taskIDs: taskIDs))
         // New sessions open their live CLI.
         selection = id.uuidString
     }
@@ -1248,12 +1361,16 @@ struct YongkangApp: App {
     /// A service already running is shown, not started again: a second `npm run dev`
     /// fights the first one for its port, and the loser exits — which is exactly what was
     /// pushing a "default to :3000" preview onto whatever port the collision left it on.
-    private func runServices(_ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
-                             in project: Project) {
+    private func runServices(
+        _ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
+        in project: Project
+    ) {
         let named = steps.flatMap { step in
             step.services.map { service in
-                (label: service.name == step.repo ? step.repo : "\(step.repo)/\(service.name)",
-                 directory: service.directory, command: service.command)
+                (
+                    label: service.name == step.repo ? step.repo : "\(step.repo)/\(service.name)",
+                    directory: service.directory, command: service.command
+                )
             }
         }
         section = .agents
@@ -1263,21 +1380,22 @@ struct YongkangApp: App {
                 selection = running.id.uuidString
                 continue
             }
-            addSession(to: project, title: title, icon: "play.circle",
-                       line: AgentCommand.line(directory: service.directory.path, run: service.command!))
+            addSession(
+                to: project, title: title, icon: "play.circle",
+                line: AgentCommand.line(directory: service.directory.path, run: service.command!))
         }
         let stuck = named.filter { $0.command == nil }
         guard !stuck.isEmpty else { return }
         let alert = NSAlert()
         alert.messageText = named.count == stuck.count ? "Nothing to run yet" : "Some services did not start"
         alert.informativeText = """
-        No start command found in: \(stuck.map(\.label).joined(separator: ", ")).
+            No start command found in: \(stuck.map(\.label).joined(separator: ", ")).
 
-        A service starts if it has a compose file, an npm dev/start script, Cargo.toml, \
-        go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
-        frontmatter to point at the folders that do, or split a repo that holds more than \
-        one app into `apps/` or `services/` subfolders so each is found on its own.
-        """
+            A service starts if it has a compose file, an npm dev/start script, Cargo.toml, \
+            go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
+            frontmatter to point at the folders that do, or split a repo that holds more than \
+            one app into `apps/` or `services/` subfolders so each is found on its own.
+            """
         alert.runModal()
     }
 
@@ -1286,7 +1404,8 @@ struct YongkangApp: App {
         attentionChanged(nil, session: session, project: project)
         projects[index].sessions.removeAll { $0.id == session.id }
         if AgentPane.of(selection, session: session.id) != nil
-            || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true {
+            || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true
+        {
             selection = nil
         }
     }
@@ -1299,14 +1418,16 @@ struct YongkangApp: App {
 
     private func markExited(_ session: CodeSession, in project: Project) {
         guard let pIndex = projects.firstIndex(where: { $0.id == project.id }),
-              let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id }) else { return }
+            let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id })
+        else { return }
         projects[pIndex].sessions[sIndex].exited = true
         attentionChanged(nil, session: session, project: project)
     }
 
     private func appendTaskIDs(_ ids: [String], to session: CodeSession, in project: Project) {
         guard let pIndex = projects.firstIndex(where: { $0.id == project.id }),
-              let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id }) else { return }
+            let sIndex = projects[pIndex].sessions.firstIndex(where: { $0.id == session.id })
+        else { return }
         projects[pIndex].sessions[sIndex].taskIDs += ids
     }
 
@@ -1316,10 +1437,13 @@ struct YongkangApp: App {
     private func notebookProject(in project: Project) -> String? {
         if let scope = Tag.scope(selection, "project") { return scope }
         if let id = Tag.scope(selection, "task"),
-           let owner = project.cards.first(where: { $0.id == id })?.project { return owner }
+            let owner = project.cards.first(where: { $0.id == id })?.project
+        {
+            return owner
+        }
         guard let selection,
-              selection.hasPrefix(NotebookEntry.id(for: project.directory)),
-              let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
+            selection.hasPrefix(NotebookEntry.id(for: project.directory)),
+            let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
         else { return nil }
         return selection[marker.upperBound...].split(separator: "/").first.map(String.init)
     }
@@ -1327,13 +1451,16 @@ struct YongkangApp: App {
     private func add(_ kind: EntryKind, to project: Project) {
         guard let title = askTitle(kind) else { return }
         do {
-            let file = try NotebookFormat.create(kind, title: title, in: project.notebookRoot,
-                                                 project: notebookProject(in: project),
-                                                 roadmap: notebookRoadmap(in: project),
-                                                 subject: notebookSubject(in: project))
+            let file = try NotebookFormat.create(
+                kind, title: title, in: project.notebookRoot,
+                project: notebookProject(in: project),
+                roadmap: notebookRoadmap(in: project),
+                subject: notebookSubject(in: project))
             reload()
-            let id = kind == .project ? file.deletingLastPathComponent().lastPathComponent
-                                      : file.deletingPathExtension().lastPathComponent
+            let id =
+                kind == .project
+                ? file.deletingLastPathComponent().lastPathComponent
+                : file.deletingPathExtension().lastPathComponent
             section = .board
             switch kind {
             case .project: selection = Tag.project(id)
@@ -1351,7 +1478,8 @@ struct YongkangApp: App {
         let tasks = NotebookFormat.owned(by: card, in: project.cards).count - 1
         let alert = NSAlert()
         alert.messageText = "Move \u{201C}\(card.title)\u{201D} to the Trash?"
-        alert.informativeText = card.kind == .project
+        alert.informativeText =
+            card.kind == .project
             ? "The project folder, its memory and its \(tasks) task\(tasks == 1 ? "" : "s") go with it. "
                 + "You can put them back from the Trash."
             : "You can put it back from the Trash."
@@ -1367,7 +1495,8 @@ struct YongkangApp: App {
         // Anything on screen that was inside what just went to the Trash has no page left.
         let gone = Set(NotebookFormat.owned(by: card, in: project.cards).map(\.path))
         if let shown = Tag.card(selection, in: project.cards),
-           gone.contains(where: { shown.url.path == $0 || shown.url.path.hasPrefix($0 + "/") }) {
+            gone.contains(where: { shown.url.path == $0 || shown.url.path.hasPrefix($0 + "/") })
+        {
             selection = Tag.board(project)
         }
         reload()
@@ -1375,7 +1504,8 @@ struct YongkangApp: App {
 
     private func notebookRoadmap(in project: Project) -> String? {
         if let id = Tag.scope(selection, "page"),
-           project.cards.contains(where: { $0.id == id && $0.kind == .roadmap }) {
+            project.cards.contains(where: { $0.id == id && $0.kind == .roadmap })
+        {
             return id
         }
         let roadmaps = project.cards.filter { $0.kind == .roadmap }
@@ -1384,7 +1514,10 @@ struct YongkangApp: App {
 
     private func notebookSubject(in project: Project) -> String? {
         if let id = Tag.scope(selection, "task") ?? Tag.scope(selection, "project")
-            ?? Tag.scope(selection, "page") { return id }
+            ?? Tag.scope(selection, "page")
+        {
+            return id
+        }
         return notebookProject(in: project)
     }
 }
@@ -1411,7 +1544,6 @@ private func askTitle(_ kind: EntryKind) -> String? {
     let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     return title.isEmpty ? nil : title
 }
-
 
 extension Array {
     subscript(safe index: Int) -> Element? {

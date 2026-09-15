@@ -47,11 +47,15 @@ enum UsageLedger {
     @discardableResult
     static func record(_ spends: [AgentSpend], root: URL) -> Bool {
         guard !spends.isEmpty else { return false }
-        var byID = Dictionary(read(root: root).agents.map { ($0.id, $0) },
-                              uniquingKeysWith: { first, _ in first })
+        var byID = Dictionary(
+            read(root: root).agents.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first })
         for spend in spends where !spend.samples.isEmpty {
-            var record = byID[spend.id] ?? Record(id: spend.id, name: spend.name, role: spend.role,
-                                                  provider: spend.provider.rawValue, hours: [])
+            var record =
+                byID[spend.id]
+                ?? Record(
+                    id: spend.id, name: spend.name, role: spend.role,
+                    provider: spend.provider.rawValue, hours: [])
             // A lead can be renamed and a subagent's label rewritten between runs; the
             // hours are the record, the name is only how it is shown.
             record.name = spend.name
@@ -70,11 +74,12 @@ enum UsageLedger {
     /// gone and there is nothing left for a click to open.
     static func load(root: URL) -> [AgentSpend] {
         read(root: root).agents.map { record in
-            AgentSpend(id: record.id, tag: "", name: record.name, role: record.role,
-                       provider: AgentKind(rawValue: record.provider) ?? .claude, running: false,
-                       samples: record.hours
-                        .map { UsageSample(at: $0.at, model: $0.model, tally: $0.tally) }
-                        .sorted { $0.at < $1.at })
+            AgentSpend(
+                id: record.id, tag: "", name: record.name, role: record.role,
+                provider: AgentKind(rawValue: record.provider) ?? .claude, running: false,
+                samples: record.hours
+                    .map { UsageSample(at: $0.at, model: $0.model, tally: $0.tally) }
+                    .sorted { $0.at < $1.at })
         }
     }
 
@@ -95,11 +100,13 @@ enum UsageLedger {
     private static func rollup(_ samples: [UsageSample]) -> [Hour] {
         var byKey: [String: Hour] = [:]
         for sample in samples {
-            let at = Date(timeIntervalSince1970:
-                            (sample.at.timeIntervalSince1970 / 3600).rounded(.down) * 3600)
+            let at = Date(timeIntervalSince1970: (sample.at.timeIntervalSince1970 / 3600).rounded(.down) * 3600)
             let key = "\(Int(at.timeIntervalSince1970))|\(sample.model)"
-            var hour = byKey[key] ?? Hour(at: at, model: sample.model,
-                                          input: 0, output: 0, cacheRead: 0, cacheWrite: 0)
+            var hour =
+                byKey[key]
+                ?? Hour(
+                    at: at, model: sample.model,
+                    input: 0, output: 0, cacheRead: 0, cacheWrite: 0)
             hour.input += sample.tally.input
             hour.output += sample.tally.output
             hour.cacheRead += sample.tally.cacheRead
@@ -126,7 +133,8 @@ enum UsageLedger {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(ledger),
-              (try? Data(contentsOf: url(root: root))) != data else { return false }
+            (try? Data(contentsOf: url(root: root))) != data
+        else { return false }
         try? data.write(to: url(root: root), options: .atomic)
         return true
     }

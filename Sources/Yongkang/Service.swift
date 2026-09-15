@@ -29,8 +29,9 @@ enum Service {
             return "docker compose up"
         }
         if let data = try? Data(contentsOf: directory.appendingPathComponent("package.json")),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let scripts = json["scripts"] as? [String: Any] {
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let scripts = json["scripts"] as? [String: Any]
+        {
             if let name = ["dev", "start", "serve"].first(where: { scripts[$0] != nil }) {
                 return "npm run \(name)"
             }
@@ -38,7 +39,10 @@ enum Service {
         if exists("Cargo.toml") { return "cargo run" }
         if exists("go.mod") { return "go run ." }
         if let makefile = try? String(contentsOf: directory.appendingPathComponent("Makefile"), encoding: .utf8),
-           let target = ["dev", "run", "serve"].first(where: { makefile.contains("\n\($0):") || makefile.hasPrefix("\($0):") }) {
+            let target = ["dev", "run", "serve"].first(where: {
+                makefile.contains("\n\($0):") || makefile.hasPrefix("\($0):")
+            })
+        {
             return "make \(target)"
         }
         return nil
@@ -62,9 +66,11 @@ enum Service {
         let fm = FileManager.default
         return ["apps", "services"].flatMap { group -> [Runnable] in
             let groupDir = directory.appendingPathComponent(group)
-            guard let children = try? fm.contentsOfDirectory(at: groupDir, includingPropertiesForKeys: [.isDirectoryKey])
+            guard
+                let children = try? fm.contentsOfDirectory(at: groupDir, includingPropertiesForKeys: [.isDirectoryKey])
             else { return [] }
-            return children
+            return
+                children
                 .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
                 .sorted { $0.lastPathComponent < $1.lastPathComponent }
                 .map { (name: $0.lastPathComponent, directory: $0, command: command(in: $0)) }
@@ -75,8 +81,11 @@ enum Service {
     // YAML parser. A compose file indented some other way falls back to the single command.
     private static func composeServiceNames(in directory: URL) -> [String] {
         let candidates = ["docker-compose.yml", "docker-compose.yaml", "compose.yaml"]
-        guard let file = candidates.first(where: { FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path) }),
-              let text = try? String(contentsOf: directory.appendingPathComponent(file), encoding: .utf8)
+        guard
+            let file = candidates.first(where: {
+                FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
+            }),
+            let text = try? String(contentsOf: directory.appendingPathComponent(file), encoding: .utf8)
         else { return [] }
 
         let lines = text.components(separatedBy: "\n")
@@ -97,7 +106,8 @@ enum Service {
     /// Every repo of a project, in the order they are listed, each with what runs under
     /// it. A project with no `repos:` is its own repo — the common case where the work
     /// lands in the folder the notebook lives in.
-    static func plan(for card: NotebookCard, in project: URL) -> [(repo: String, directory: URL, services: [Runnable])] {
+    static func plan(for card: NotebookCard, in project: URL) -> [(repo: String, directory: URL, services: [Runnable])]
+    {
         let repos = card.repos.isEmpty ? ["."] : card.repos
         return repos.map { repo in
             let directory = directory(repo, in: project)
@@ -110,8 +120,11 @@ enum Service {
     /// legitimately point at the same folder — a single app split across several project
     /// entries, or two that never filled in `repos:` and both fell back to the project
     /// root — and that must not read as several copies of the same app.
-    static func dedupedByDirectory(_ steps: [(repo: String, directory: URL, services: [Runnable])])
-        -> [(repo: String, directory: URL, services: [Runnable])] {
+    static func dedupedByDirectory(
+        _ steps: [(repo: String, directory: URL, services: [Runnable])]
+    )
+        -> [(repo: String, directory: URL, services: [Runnable])]
+    {
         var seen: Set<String> = []
         return steps.filter { seen.insert($0.directory.path).inserted }
     }

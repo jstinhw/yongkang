@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// `.serialized`: `AgentUsage.samples` keeps a process-global read cursor per file path
@@ -14,9 +15,10 @@ import Testing
     @Test func sessionFolderPercentEncodesTheProjectPath() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let grokFolder = GrokTranscripts.sessionFolder(sessionID: sid,
-                                                       projectDirectory: URL(fileURLWithPath: "/a/b c"),
-                                                       grokHome: tmp.appendingPathComponent(".grok"))
+        let grokFolder = GrokTranscripts.sessionFolder(
+            sessionID: sid,
+            projectDirectory: URL(fileURLWithPath: "/a/b c"),
+            grokHome: tmp.appendingPathComponent(".grok"))
         #expect(grokFolder.path.hasSuffix("/sessions/%2Fa%2Fb%20c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"))
     }
 
@@ -27,10 +29,14 @@ import Testing
         try fixture("grok/grok-chat-history.jsonl").write(to: grokLog, atomically: true, encoding: .utf8)
 
         let grokLines = GrokTranscripts.transcript(at: grokLog)
-        #expect(grokLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
-                "Grok reasoning is dropped while messages and tool work remain")
-        #expect(grokLines.map(\.text) == ["Do the thing", "read_file(target_file: README.md)",
-                                          "file contents", "Done"])
+        #expect(
+            grokLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
+            "Grok reasoning is dropped while messages and tool work remain")
+        #expect(
+            grokLines.map(\.text) == [
+                "Do the thing", "read_file(target_file: README.md)",
+                "file contents", "Done",
+            ])
     }
 
     @Test func usageDoesNotCountCacheReadsTwice() throws {
@@ -41,8 +47,9 @@ import Testing
 
         let grokSamples = AgentUsage.samples(at: grokUsage, .grok)
         try #require(grokSamples.count == 1 && grokSamples[0].model == "grok-4.6-build")
-        #expect(grokSamples[0].tally == TokenTally(input: 60, output: 20, cacheRead: 40, cacheWrite: 5),
-                "Grok cache reads are not counted twice")
+        #expect(
+            grokSamples[0].tally == TokenTally(input: 60, output: 20, cacheRead: 40, cacheWrite: 5),
+            "Grok cache reads are not counted twice")
     }
 
     // MARK: - Malformed input: Grok writes these files, not Yongkang.
@@ -58,16 +65,18 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let log = tmp.appendingPathComponent("chat_history.jsonl")
         try fixture(path).write(to: log, atomically: true, encoding: .utf8)
-        #expect(GrokTranscripts.transcript(at: log).map(\.label) == labels,
-                "a bad line is skipped on its own, without losing the lines around it")
+        #expect(
+            GrokTranscripts.transcript(at: log).map(\.label) == labels,
+            "a bad line is skipped on its own, without losing the lines around it")
     }
 
     @Test func chatHistoryCutMidCharacterKeepsItsCompleteLines() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let log = tmp.appendingPathComponent("chat_history.jsonl")
-        try (Data(try fixture("grok/grok-transcript-truncated-final-line.jsonl").utf8)
-             + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
+        try
+            (Data(try fixture("grok/grok-transcript-truncated-final-line.jsonl").utf8)
+            + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
         withKnownIssue("the whole file is decoded as strict UTF-8, so one half-written character empties it") {
             #expect(GrokTranscripts.transcript(at: log).map(\.label) == ["Task", "Result"])
         }
@@ -84,8 +93,9 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let usage = tmp.appendingPathComponent("updates.jsonl")
         try fixture(path).write(to: usage, atomically: true, encoding: .utf8)
-        #expect(AgentUsage.samples(at: usage, .grok).count == turns,
-                "only completed turns count, and a bad line costs nothing but itself")
+        #expect(
+            AgentUsage.samples(at: usage, .grok).count == turns,
+            "only completed turns count, and a bad line costs nothing but itself")
     }
 
     @Test func halfWrittenUsageLineIsReadOnceFinished() throws {
@@ -95,14 +105,16 @@ import Testing
         try fixture("grok/grok-updates-truncated-final-line.jsonl").write(to: usage, atomically: true, encoding: .utf8)
         #expect(AgentUsage.samples(at: usage, .grok).count == 1, "the half-written turn waits for its newline")
         try append(#"tTokens":30,"cachedReadTokens":200,"cacheCreationTokens":0}}}}"# + "\n", to: usage)
-        #expect(AgentUsage.samples(at: usage, .grok).count == 2,
-                "and is read on the next pass once the CLI finishes writing it")
+        #expect(
+            AgentUsage.samples(at: usage, .grok).count == 2,
+            "and is read on the next pass once the CLI finishes writing it")
     }
 }
 
 private func sessionFolder(in tmp: URL) throws -> URL {
-    let folder = GrokTranscripts.sessionFolder(sessionID: UUID(), projectDirectory: URL(fileURLWithPath: "/a/b c"),
-                                               grokHome: tmp.appendingPathComponent(".grok"))
+    let folder = GrokTranscripts.sessionFolder(
+        sessionID: UUID(), projectDirectory: URL(fileURLWithPath: "/a/b c"),
+        grokHome: tmp.appendingPathComponent(".grok"))
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     return folder
 }

@@ -29,28 +29,28 @@ struct BoardInspector: View {
     }
 
     @ViewBuilder private var content: some View {
-            if !demos.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Waiting on you", trailing: "\(demos.count)")
-                    ForEach(demos) { demo in waiting(demo) }
-                }
-            }
-
+        if !demos.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("The batch", trailing: batch.isEmpty ? nil : "\(batch.count)")
-                if batch.isEmpty {
-                    Text("Click a task to pick it. Anything it waits on comes along.")
-                        .font(Typo.text(12)).foregroundStyle(Theme.tx3)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    ForEach(Array(batch.enumerated()), id: \.element.id) { index, card in
-                        row(index: index, card: card)
-                    }
+                SectionLabel("Waiting on you", trailing: "\(demos.count)")
+                ForEach(demos) { demo in waiting(demo) }
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("The batch", trailing: batch.isEmpty ? nil : "\(batch.count)")
+            if batch.isEmpty {
+                Text("Click a task to pick it. Anything it waits on comes along.")
+                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(Array(batch.enumerated()), id: \.element.id) { index, card in
+                    row(index: index, card: card)
                 }
             }
+        }
 
-            if !batch.isEmpty { design }
-            if !inline { Spacer(minLength: 0) }
+        if !batch.isEmpty { design }
+        if !inline { Spacer(minLength: 0) }
     }
 
     private func waiting(_ demo: UserBlock) -> some View {
@@ -66,7 +66,9 @@ struct BoardInspector: View {
             Text(demo.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
-            Button { openDemo(demo) } label: {
+            Button {
+                openDemo(demo)
+            } label: {
                 Text("Open demo").frame(maxWidth: .infinity)
             }
             .buttonStyle(.consolePrimary)
@@ -105,15 +107,22 @@ struct BoardInspector: View {
                 RoleTile(role: "design", size: 20)
                 Spacer(minLength: 0)
             }
-            Text(designCount > 0
-                 ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the engineering tasks waiting on it can start."
-                 : "No design tasks in this batch, so it goes straight to the lead.")
-                .font(Typo.text(12)).foregroundStyle(Theme.tx2)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                designCount > 0
+                    ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the engineering tasks waiting on it can start."
+                    : "No design tasks in this batch, so it goes straight to the lead."
+            )
+            .font(Typo.text(12)).foregroundStyle(Theme.tx2)
+            .fixedSize(horizontal: false, vertical: true)
             if designCount > 0 {
                 VStack(alignment: .leading, spacing: 9) {
-                    step(1, "Product writes design as its own task, and the engineering tasks on that screen wait on it.")
-                    step(2, "The designer builds it onto the project's demo — one change at a time, so you review one at a time.")
+                    step(
+                        1, "Product writes design as its own task, and the engineering tasks on that screen wait on it."
+                    )
+                    step(
+                        2,
+                        "The designer builds it onto the project's demo — one change at a time, so you review one at a time."
+                    )
                     step(3, "You approve it, or say what to change. Only then do the engineers start.")
                 }
             }

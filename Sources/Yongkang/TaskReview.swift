@@ -24,7 +24,7 @@ struct TaskReview: View {
 
     private var checklist: [NotebookContent.ChecklistItem] {
         content.flatMap { $0.blocks }.flatMap { block -> [NotebookContent.ChecklistItem] in
-            if case let .checklist(items) = block { return items }
+            if case .checklist(let items) = block { return items }
             return []
         }
     }
@@ -71,7 +71,8 @@ struct TaskReview: View {
                 if task.done {
                     NotebookStyle.pill(task.commitPaths.isEmpty ? "Committed" : "Ready for your review", Theme.green)
                 } else {
-                    NotebookStyle.pill("With the agents · \(task.status.isEmpty ? "queued" : task.status)", Theme.accent)
+                    NotebookStyle.pill(
+                        "With the agents · \(task.status.isEmpty ? "queued" : task.status)", Theme.accent)
                 }
                 NotebookStyle.chip(task.id, mono: true)
                 Text("\(task.files.count) file\(task.files.count == 1 ? "" : "s")")
@@ -133,9 +134,12 @@ struct TaskReview: View {
                     }
                 }
             } else {
-                Text(task.done ? "No QA record was filed against this task — nobody but you has checked it."
-                               : "QA has not run yet.")
-                    .font(Typo.text(12)).foregroundStyle(task.done ? Theme.amber : Theme.tx3)
+                Text(
+                    task.done
+                        ? "No QA record was filed against this task — nobody but you has checked it."
+                        : "QA has not run yet."
+                )
+                .font(Typo.text(12)).foregroundStyle(task.done ? Theme.amber : Theme.tx3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,8 +175,10 @@ struct TaskReview: View {
     /// click away on the file's own page, where a line can be commented on.
     private var changesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionLabel("Changes by area", trailing: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
-                         + "+\(task.added) −\(task.removed)")
+            SectionLabel(
+                "Changes by area",
+                trailing: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
+                    + "+\(task.added) −\(task.removed)")
             if task.files.isEmpty {
                 Text("No uncommitted file is recorded against this task.")
                     .font(Typo.text(12)).foregroundStyle(Theme.tx3)
@@ -180,11 +186,14 @@ struct TaskReview: View {
             ForEach(grouped, id: \.area) { group in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Image(systemName: group.area.systemImage).font(.system(size: 12)).foregroundStyle(group.area.color)
+                        Image(systemName: group.area.systemImage).font(.system(size: 12)).foregroundStyle(
+                            group.area.color)
                         Text(group.area.rawValue).font(Typo.text(12.5, .medium)).foregroundStyle(Theme.tx)
                         Spacer(minLength: 8)
-                        Text("+\(group.files.reduce(0) { $0 + $1.added }) −\(group.files.reduce(0) { $0 + $1.removed })")
-                            .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                        Text(
+                            "+\(group.files.reduce(0) { $0 + $1.added }) −\(group.files.reduce(0) { $0 + $1.removed })"
+                        )
+                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
                     }
                     ForEach(group.files) { fileRow($0) }
                 }
@@ -201,7 +210,9 @@ struct TaskReview: View {
     private func fileRow(_ file: FileChange) -> some View {
         let comments = draft.comments.filter { $0.path == file.path }.count
         let owner = task.work.first { $0.paths.contains(file.path) }?.skill ?? ""
-        return Button { openFile(file.path) } label: {
+        return Button {
+            openFile(file.path)
+        } label: {
             HStack(spacing: 9) {
                 Image(systemName: file.untracked ? "doc.badge.plus" : "doc.text")
                     .font(.system(size: 11)).foregroundStyle(file.untracked ? Theme.green : Theme.tx3)
@@ -264,8 +275,10 @@ struct TaskReview: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface(padding: 15)
 
-            ForEach(task.files.compactMap { file in summary.sharing(file.path, besides: task).map { (file, $0) } },
-                    id: \.0.path) { file, other in
+            ForEach(
+                task.files.compactMap { file in summary.sharing(file.path, besides: task).map { (file, $0) } },
+                id: \.0.path
+            ) { file, other in
                 sharedWarning(file, other)
             }
             Spacer(minLength: 0)
@@ -277,8 +290,11 @@ struct TaskReview: View {
         HStack(spacing: 9) {
             if let latest {
                 NotebookStyle.statusRing(latest.state, progress: 0, size: 16)
-                Text(latest.state == "done" ? "QA passed" : latest.state == "failed" ? "QA sent it back" : "QA \(latest.state)")
-                    .font(Typo.text(13.5, .medium)).foregroundStyle(Theme.tx)
+                Text(
+                    latest.state == "done"
+                        ? "QA passed" : latest.state == "failed" ? "QA sent it back" : "QA \(latest.state)"
+                )
+                .font(Typo.text(13.5, .medium)).foregroundStyle(Theme.tx)
             } else {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(Theme.amber)
                 Text("No QA record").font(Typo.text(13.5, .medium)).foregroundStyle(Theme.amber)

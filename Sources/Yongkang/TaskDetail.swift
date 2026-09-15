@@ -26,7 +26,7 @@ struct TaskDetail: View {
     private var checklist: [NotebookContent.ChecklistItem] {
         content.flatMap { section in
             section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
-                if case let .checklist(items) = block { return items }
+                if case .checklist(let items) = block { return items }
                 return []
             }
         }
@@ -60,11 +60,14 @@ struct TaskDetail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .top, spacing: 12) {
-                NotebookStyle.statusRing(card.status,
-                                         progress: checklist.isEmpty ? 0
-                                            : Double(checklist.filter(\.done).count) / Double(checklist.count),
-                                         size: 24)
-                    .padding(.top, 3)
+                NotebookStyle.statusRing(
+                    card.status,
+                    progress: checklist.isEmpty
+                        ? 0
+                        : Double(checklist.filter(\.done).count) / Double(checklist.count),
+                    size: 24
+                )
+                .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(card.title).font(Typo.display(22))
                         .fixedSize(horizontal: false, vertical: true)
@@ -75,8 +78,12 @@ struct TaskDetail: View {
                     }
                 }
                 Spacer(minLength: 12)
-                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
-                    .buttonStyle(.consoleGhost)
+                Button {
+                    open(card.url)
+                } label: {
+                    Label("Edit file", systemImage: "pencil")
+                }
+                .buttonStyle(.consoleGhost)
             }
             graph
         }
@@ -100,8 +107,9 @@ struct TaskDetail: View {
             .padding(.horizontal, 9)
             .frame(height: 22)
             .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: 0x171C25)))
-            .overlay(RoundedRectangle(cornerRadius: 7)
-                .strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))
             if !blocks.isEmpty {
                 Image(systemName: "arrow.right").font(.system(size: 11)).foregroundStyle(Theme.tx4)
                 ForEach(blocks, id: \.self) { id in
@@ -119,12 +127,17 @@ struct TaskDetail: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Working on it", trailing: working.isEmpty ? nil : "\(working.count)")
                 if working.isEmpty {
-                    Text(locked ? "No agent is on it right now."
-                                : "Nobody yet — assign it to a lead.")
-                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text(
+                        locked
+                            ? "No agent is on it right now."
+                            : "Nobody yet — assign it to a lead."
+                    )
+                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
                 }
                 ForEach(working, id: \.1.id) { session, subagent in
-                    Button { check(session, subagent) } label: {
+                    Button {
+                        check(session, subagent)
+                    } label: {
                         HStack(spacing: 10) {
                             RoleTile(role: subagent.agentType)
                             VStack(alignment: .leading, spacing: 2) {
@@ -134,8 +147,9 @@ struct TaskDetail: View {
                                     .foregroundStyle(Theme.tx3).lineLimit(1)
                             }
                             Spacer(minLength: 6)
-                            NotebookStyle.pill(subagent.running ? "Running" : "Done",
-                                               subagent.running ? Theme.accent : Theme.green)
+                            NotebookStyle.pill(
+                                subagent.running ? "Running" : "Done",
+                                subagent.running ? Theme.accent : Theme.green)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .cardSurface(radius: 10, padding: 11)
@@ -158,10 +172,12 @@ struct TaskDetail: View {
 
             if !checklist.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Done when",
-                                 trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
-                    MeterBar(value: Double(checklist.filter(\.done).count) / Double(checklist.count),
-                             tint: Theme.green)
+                    SectionLabel(
+                        "Done when",
+                        trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
+                    MeterBar(
+                        value: Double(checklist.filter(\.done).count) / Double(checklist.count),
+                        tint: Theme.green)
                 }
             }
 
@@ -184,16 +200,22 @@ struct TaskDetail: View {
                 .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
             if locked {
-                Text(card.status == "done" ? "Done — nothing to assign."
-                                           : "An Engineering Lead already has this task.")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                Text(
+                    card.status == "done"
+                        ? "Done — nothing to assign."
+                        : "An Engineering Lead already has this task."
+                )
+                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
             } else if batch.count > 1 {
                 Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
                     .font(Typo.text(12)).foregroundStyle(Theme.tx3)
             }
-            Button { assign([card]) } label: {
-                Label("Assign to Engineering Lead",
-                      systemImage: "point.3.connected.trianglepath.dotted")
+            Button {
+                assign([card])
+            } label: {
+                Label(
+                    "Assign to Engineering Lead",
+                    systemImage: "point.3.connected.trianglepath.dotted")
             }
             .buttonStyle(.consolePrimary)
             .disabled(locked)

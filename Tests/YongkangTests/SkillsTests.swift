@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// Discovery reads `$HOME/.claude/skills`, `$HOME/.agents/skills` and the packaged skills as
@@ -7,8 +8,9 @@ import Testing
 /// themselves, so whatever the developer has installed at home cannot change the result.
 @Suite struct SkillsTests {
     private func writeSkill(_ folder: URL, _ name: String, described: String) throws {
-        try FileManager.default.createDirectory(at: folder.appendingPathComponent(name),
-                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: folder.appendingPathComponent(name),
+            withIntermediateDirectories: true)
         try "---\nname: \(name)\ndescription: \(described)\n---\n\nDo the thing."
             .write(to: folder.appendingPathComponent("\(name)/SKILL.md"), atomically: true, encoding: .utf8)
     }
@@ -17,34 +19,37 @@ import Testing
     // the flat frontmatter reader cannot see, and a body that stops at the frontmatter.
     @Test func skillPageReadsItsFrontmatter() {
         let skillText = """
-        ---
-        name: frontend-dev
-        description: Build the user-facing half of one Yongkang task.
-        allowed-tools:
-          - Read
-          - Write
-        model: opus
-        ---
+            ---
+            name: frontend-dev
+            description: Build the user-facing half of one Yongkang task.
+            allowed-tools:
+              - Read
+              - Write
+            model: opus
+            ---
 
-        You are the frontend engineer on one task:
+            You are the frontend engineer on one task:
 
-        - Read the task file first.
-        """
+            - Read the task file first.
+            """
         let skill = SkillDoc.parse(skillText, named: "whatever")
         #expect(skill.name == "frontend-dev", "the file names the skill, not the caller")
         #expect(skill.summary.hasPrefix("Build the user-facing half"))
         #expect(skill.tools == ["Read", "Write"], "a block list of tools is read, and stops before the next field")
-        #expect(skill.body.hasPrefix("You are the frontend engineer")
+        #expect(
+            skill.body.hasPrefix("You are the frontend engineer")
                 && skill.body.contains("- Read the task file first."),
-                "a bullet in the body is instructions, never another tool")
+            "a bullet in the body is instructions, never another tool")
     }
 
     @Test func skillWithoutFrontmatterOrWithAnInlineToolList() {
-        #expect(SkillDoc.parse("no frontmatter here", named: "qa-dev")
+        #expect(
+            SkillDoc.parse("no frontmatter here", named: "qa-dev")
                 == SkillDoc(name: "qa-dev", summary: "", tools: [], body: "no frontmatter here", url: nil),
-                "a skill file without frontmatter still reads as its instructions")
-        #expect(SkillDoc.parse("---\nallowed-tools: [Read, Bash]\n---\nGo.", named: "x").tools == ["Read", "Bash"],
-                "an inline tool list reads the same way")
+            "a skill file without frontmatter still reads as its instructions")
+        #expect(
+            SkillDoc.parse("---\nallowed-tools: [Read, Bash]\n---\nGo.", named: "x").tools == ["Read", "Bash"],
+            "an inline tool list reads the same way")
     }
 
     // Where a new agent's skills come from: the folders both providers read, project
@@ -57,18 +62,23 @@ import Testing
         try writeSkill(tmp.appendingPathComponent(".agents/skills"), "docs-dev", described: "Writes the docs.")
 
         let catalog = Skills.available(project: tmp)
-        #expect(catalog.contains { $0.name == "migrations-dev" && $0.summary == "Owns schema migrations." },
-                "a skill installed in the project is one the roster can hand out")
-        #expect(catalog.contains { $0.name == "docs-dev" },
-                "and so is one only Codex's folder holds — the form offers both providers' skills")
-        #expect(Skills.url("migrations-dev", project: tmp)?.path
+        #expect(
+            catalog.contains { $0.name == "migrations-dev" && $0.summary == "Owns schema migrations." },
+            "a skill installed in the project is one the roster can hand out")
+        #expect(
+            catalog.contains { $0.name == "docs-dev" },
+            "and so is one only Codex's folder holds — the form offers both providers' skills")
+        #expect(
+            Skills.url("migrations-dev", project: tmp)?.path
                 == projectSkills.appendingPathComponent("migrations-dev/SKILL.md").path,
-                "the project's own copy is the file its agents would actually load")
+            "the project's own copy is the file its agents would actually load")
         #expect(Skills.url("nothing-installed", project: tmp) == nil)
-        #expect(catalog.map(\.name) == catalog.map(\.name).sorted() && Set(catalog.map(\.name)).count == catalog.count,
-                "one row per name, in the order the picker draws them")
-        #expect(SkillDoc.load("migrations-dev", project: tmp).summary == "Owns schema migrations.",
-                "a member's page reads the installed skill, not just a packaged one")
+        #expect(
+            catalog.map(\.name) == catalog.map(\.name).sorted() && Set(catalog.map(\.name)).count == catalog.count,
+            "one row per name, in the order the picker draws them")
+        #expect(
+            SkillDoc.load("migrations-dev", project: tmp).summary == "Owns schema migrations.",
+            "a member's page reads the installed skill, not just a packaged one")
     }
 
     // A SKILL.md that calls itself something else is still only reachable at its folder.
@@ -82,9 +92,11 @@ import Testing
             .write(to: projectSkills.appendingPathComponent("_alias-dev/SKILL.md"), atomically: true, encoding: .utf8)
 
         let aliased = Skills.available(project: tmp)
-        #expect(aliased.contains { $0.name == "_alias-dev" }, "the folder names a skill in the picker, not its frontmatter")
-        #expect(Set(aliased.map(\.name)).count == aliased.count,
-                "so two skills can never collide into one row the lead cannot resolve")
+        #expect(
+            aliased.contains { $0.name == "_alias-dev" }, "the folder names a skill in the picker, not its frontmatter")
+        #expect(
+            Set(aliased.map(\.name)).count == aliased.count,
+            "so two skills can never collide into one row the lead cannot resolve")
     }
 
     // A repo is sometimes one skill, sometimes a folder of them, sometimes keeps them
@@ -94,19 +106,25 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let checkout = tmp.appendingPathComponent("checkout")
         try writeSkill(checkout.appendingPathComponent("skills"), "deep-dev", described: "Nested.")
-        try FileManager.default.createDirectory(at: checkout.appendingPathComponent(".git/skills/hidden-dev"),
-                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: checkout.appendingPathComponent(".git/skills/hidden-dev"),
+            withIntermediateDirectories: true)
         try "---\nname: hidden\n---\n"
-            .write(to: checkout.appendingPathComponent(".git/skills/hidden-dev/SKILL.md"), atomically: true, encoding: .utf8)
-        #expect(Skills.skillFolders(in: checkout).map(\.lastPathComponent) == ["deep-dev"],
-                "a skill under skills/ is found; anything inside a dot folder is not")
+            .write(
+                to: checkout.appendingPathComponent(".git/skills/hidden-dev/SKILL.md"), atomically: true,
+                encoding: .utf8)
+        #expect(
+            Skills.skillFolders(in: checkout).map(\.lastPathComponent) == ["deep-dev"],
+            "a skill under skills/ is found; anything inside a dot folder is not")
 
         try "---\nname: root-dev\ndescription: At the repo root.\n---\n\nDo the thing."
             .write(to: checkout.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
-        #expect(Skills.skillFolders(in: checkout).map(\.lastPathComponent) == [checkout.lastPathComponent],
-                "a repo that is itself one skill stops the search at its root")
-        #expect(Skills.installName(of: checkout) == "root-dev",
-                "and installs under the name its own frontmatter claims, not the repo's")
+        #expect(
+            Skills.skillFolders(in: checkout).map(\.lastPathComponent) == [checkout.lastPathComponent],
+            "a repo that is itself one skill stops the search at its root")
+        #expect(
+            Skills.installName(of: checkout) == "root-dev",
+            "and installs under the name its own frontmatter claims, not the repo's")
         #expect(Skills.repositoryName("git@github.com:owner/Team-Skills.git") == "team-skills")
     }
 
@@ -168,8 +186,9 @@ import Testing
         try writeSkill(projectSkills, "honest-dev", described: "Claims a path.")
         try "---\nname: ../../escape\n---\n\nGo."
             .write(to: projectSkills.appendingPathComponent("honest-dev/SKILL.md"), atomically: true, encoding: .utf8)
-        #expect(Skills.available(project: tmp).contains { $0.name == "honest-dev" },
-                "the picker lists it under its folder")
+        #expect(
+            Skills.available(project: tmp).contains { $0.name == "honest-dev" },
+            "the picker lists it under its folder")
         #expect(!Skills.available(project: tmp).contains { $0.name.contains("..") })
     }
 
@@ -189,10 +208,13 @@ import Testing
         let member = try #require(Team.member(at: file))
         #expect(member.skills == ["../../outside"], "the team file's skill name is read back verbatim")
 
-        withKnownIssue("Skills.url appends the name to each root unchecked, so `../../outside` reads <project>/outside/SKILL.md") {
+        withKnownIssue(
+            "Skills.url appends the name to each root unchecked, so `../../outside` reads <project>/outside/SKILL.md"
+        ) {
             #expect(Skills.url("../../outside", project: tmp) == nil)
-            #expect(SkillDoc.load(member.skills[0], project: tmp).url == nil,
-                    "a member's page must not load a SKILL.md from outside the skill folders")
+            #expect(
+                SkillDoc.load(member.skills[0], project: tmp).url == nil,
+                "a member's page must not load a SKILL.md from outside the skill folders")
         }
     }
 }

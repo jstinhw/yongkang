@@ -67,8 +67,10 @@ enum Blocks {
 
     /// Empty until something is actually blocked — the folder is not scaffolded.
     static func load(root: URL) -> [UserBlock] {
-        let files = (try? FileManager.default.contentsOfDirectory(at: Blocks.root(in: root),
-                                                                  includingPropertiesForKeys: nil)) ?? []
+        let files =
+            (try? FileManager.default.contentsOfDirectory(
+                at: Blocks.root(in: root),
+                includingPropertiesForKeys: nil)) ?? []
         return files.filter { $0.pathExtension == "md" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .compactMap(block(at:))
@@ -117,9 +119,11 @@ enum Blocks {
     /// lists — the label is whatever came first and the rest is the note.
     static func revisions(_ body: String) -> [DemoRevision] {
         let lines = body.components(separatedBy: "\n")
-        guard let start = lines.firstIndex(where: {
-            $0.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("## revisions")
-        }) else { return [] }
+        guard
+            let start = lines.firstIndex(where: {
+                $0.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("## revisions")
+            })
+        else { return [] }
 
         var found: [DemoRevision] = []
         for line in lines[(start + 1)...] {
@@ -143,7 +147,8 @@ enum Blocks {
     /// status line in the frontmatter, and nothing else in the file.
     static func resolve(_ block: UserBlock) {
         guard let text = try? String(contentsOf: block.url, encoding: .utf8),
-              let line = text.range(of: "\nstatus: \(block.status)") else { return }
+            let line = text.range(of: "\nstatus: \(block.status)")
+        else { return }
         let updated = text.replacingCharacters(in: line, with: "\nstatus: done")
         try? updated.write(to: block.url, atomically: true, encoding: .utf8)
     }

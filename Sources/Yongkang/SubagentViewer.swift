@@ -32,10 +32,11 @@ struct SubagentViewer: View {
     // MARK: - Header
 
     private var header: some View {
-        TranscriptHeader(role: subagent.agentType, title: subagent.displayName,
-                         subtitle: "\(subagent.agentType) · spawned by \(session.title)"
-                             + (task.map { " · on \($0.title)" } ?? ""),
-                         lines: lines, state: subagent.running ? .working : .done)
+        TranscriptHeader(
+            role: subagent.agentType, title: subagent.displayName,
+            subtitle: "\(subagent.agentType) · spawned by \(session.title)"
+                + (task.map { " · on \($0.title)" } ?? ""),
+            lines: lines, state: subagent.running ? .working : .done)
     }
 
     // MARK: - Inspector
@@ -45,7 +46,9 @@ struct SubagentViewer: View {
             if let task {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Task")
-                    Button { openTask(task.id) } label: {
+                    Button {
+                        openTask(task.id)
+                    } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(task.title).font(Typo.text(13)).foregroundStyle(Theme.tx)
                                 .multilineTextAlignment(.leading)
@@ -61,8 +64,9 @@ struct SubagentViewer: View {
                 }
                 if !checklist.isEmpty {
                     VStack(alignment: .leading, spacing: 9) {
-                        SectionLabel("Done when",
-                                     trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
+                        SectionLabel(
+                            "Done when",
+                            trailing: "\(checklist.filter(\.done).count) of \(checklist.count)")
                         ForEach(Array(checklist.enumerated()), id: \.offset) { _, item in
                             HStack(alignment: .top, spacing: 9) {
                                 Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
@@ -79,9 +83,11 @@ struct SubagentViewer: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionLabel("Task")
-                    Text("This agent's name matches no task in the batch — a review or "
-                         + "compaction agent, most likely.")
-                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text(
+                        "This agent's name matches no task in the batch — a review or "
+                            + "compaction agent, most likely."
+                    )
+                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
                 }
             }
             Spacer(minLength: 0)
@@ -175,8 +181,9 @@ struct TranscriptSource: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
-                .overlay(RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
             Button {
                 if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             } label: {

@@ -29,20 +29,23 @@ struct SessionTranscript: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                TranscriptHeader(role: session.isEngineeringLead ? "lead" : session.title,
-                                 title: session.title, subtitle: subtitle,
-                                 lines: lines, state: state)
+                TranscriptHeader(
+                    role: session.isEngineeringLead ? "lead" : session.title,
+                    title: session.title, subtitle: subtitle,
+                    lines: lines, state: state)
                 TranscriptTimeline(lines: lines)
                 composer
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Theme.bg)
             if session.isEngineeringLead {
-                LeadInspector(session: session, cards: cards, blocks: blocks,
-                              openTask: openTask, openBlock: openBlock)
+                LeadInspector(
+                    session: session, cards: cards, blocks: blocks,
+                    openTask: openTask, openBlock: openBlock)
             } else {
-                SessionInspector(session: session, blocks: blocks, source: source,
-                                 openBlock: openBlock, openSubagent: openSubagent)
+                SessionInspector(
+                    session: session, blocks: blocks, source: source,
+                    openBlock: openBlock, openSubagent: openSubagent)
             }
         }
     }
@@ -51,13 +54,15 @@ struct SessionTranscript: View {
     /// send to, so it says that instead.
     @ViewBuilder private var composer: some View {
         HStack(spacing: 9) {
-            TextField(session.exited ? "Session has exited" : "Reply to \(session.title)…",
-                      text: $reply)
-                .textFieldStyle(.plain)
-                .font(Typo.text(12.5))
-                .foregroundStyle(Theme.tx)
-                .onSubmit(dispatch)
-                .disabled(session.exited)
+            TextField(
+                session.exited ? "Session has exited" : "Reply to \(session.title)…",
+                text: $reply
+            )
+            .textFieldStyle(.plain)
+            .font(Typo.text(12.5))
+            .foregroundStyle(Theme.tx)
+            .onSubmit(dispatch)
+            .disabled(session.exited)
             Button(action: dispatch) {
                 Image(systemName: "arrow.up.circle.fill").font(.system(size: 17))
                     .foregroundStyle(canSend ? Theme.accent : Theme.tx4)
@@ -121,9 +126,10 @@ struct SessionInspector: View {
                     Text(session.agent?.displayName ?? "session")
                         .font(Typo.text(12.5)).foregroundStyle(Theme.tx)
                     Spacer(minLength: 0)
-                    NotebookStyle.pill(session.exited ? "exited" : "live",
-                                       session.exited ? Theme.tx3 : Theme.green,
-                                       live: !session.exited)
+                    NotebookStyle.pill(
+                        session.exited ? "exited" : "live",
+                        session.exited ? Theme.tx3 : Theme.green,
+                        live: !session.exited)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -133,7 +139,9 @@ struct SessionInspector: View {
                 VStack(alignment: .leading, spacing: 9) {
                     SectionLabel("Agents", trailing: "\(session.activeSubagents.count) running")
                     ForEach(session.subagents) { subagent in
-                        Button { openSubagent(subagent) } label: {
+                        Button {
+                            openSubagent(subagent)
+                        } label: {
                             HStack(spacing: 9) {
                                 RoleTile(role: subagent.agentType, size: 20)
                                 Text(subagent.displayName).font(Typo.text(11.5))
@@ -141,8 +149,9 @@ struct SessionInspector: View {
                                 Text(subagent.agentType).font(Typo.mono(9.5))
                                     .foregroundStyle(Theme.tx4).lineLimit(1)
                                 Spacer(minLength: 0)
-                                StateDot(color: subagent.running ? Theme.accent : Theme.green,
-                                         live: subagent.running)
+                                StateDot(
+                                    color: subagent.running ? Theme.accent : Theme.green,
+                                    live: subagent.running)
                             }
                             .contentShape(Rectangle())
                         }
@@ -155,7 +164,9 @@ struct SessionInspector: View {
                 VStack(alignment: .leading, spacing: 9) {
                     SectionLabel("Waiting on you")
                     ForEach(waiting) { block in
-                        Button { openBlock(block) } label: {
+                        Button {
+                            openBlock(block)
+                        } label: {
                             HStack(alignment: .top, spacing: 9) {
                                 Image(systemName: "hand.raised").font(.system(size: 12))
                                     .foregroundStyle(Theme.amber)

@@ -76,9 +76,11 @@ struct CodeSession: Identifiable, Equatable {
     /// Explicit, rather than the synthesized memberwise init, because `id` needs to be
     /// settable: the caller has to hand in the same UUID it passed Claude Code as
     /// `--session-id`, so this row's id is the key that finds that session's transcript.
-    init(id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
-         taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = [],
-         coordination: LeadCoordination? = nil) {
+    init(
+        id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
+        taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = [],
+        coordination: LeadCoordination? = nil
+    ) {
         self.id = id
         self.title = title
         self.icon = icon

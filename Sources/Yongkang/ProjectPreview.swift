@@ -23,8 +23,12 @@ struct ProjectPreview: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Button { run() } label: { Label("Run all services", systemImage: "play.fill") }
-                    .buttonStyle(.console)
+                Button {
+                    run()
+                } label: {
+                    Label("Run all services", systemImage: "play.fill")
+                }
+                .buttonStyle(.console)
                 Spacer()
                 if hasFrontend {
                     TextField("http://localhost:3000", text: $address, onCommit: load)
@@ -33,10 +37,13 @@ struct ProjectPreview: View {
                         .padding(.horizontal, 10)
                         .frame(width: 260, height: 30)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
-                        .overlay(RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Theme.line2, lineWidth: 1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(Theme.line2, lineWidth: 1))
                     Button("Go", action: load).buttonStyle(.console)
-                    Button { webView.reload() } label: {
+                    Button {
+                        webView.reload()
+                    } label: {
                         Label("Reload", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
                     }
                     .buttonStyle(.console)

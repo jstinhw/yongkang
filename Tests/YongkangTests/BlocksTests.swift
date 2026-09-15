@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 @Suite struct BlocksTests {
@@ -46,11 +47,13 @@ import Testing
         #expect(block.waiting && block.session == leadID && block.task == "wire-auth")
         #expect(block.link?.host == "github.com", "the page the user has to be on")
         #expect(block.body.contains("Generate the token"), "the checklist is what the user reads")
-        #expect(block.body.contains("Authenticate the GitHub MCP"),
-                "SRE's procedure rides along for the FDE to deliver one step at a time")
+        #expect(
+            block.body.contains("Authenticate the GitHub MCP"),
+            "SRE's procedure rides along for the FDE to deliver one step at a time")
         let guide = NotebookFormat.unblockPrompt(block: block, agent: .claude)
-        #expect(guide.contains("fde-dev") && guide.contains(".notebook/blocks/github-token.md"),
-                "the guiding session is the FDE skill, pointed at the file it flips to done")
+        #expect(
+            guide.contains("fde-dev") && guide.contains(".notebook/blocks/github-token.md"),
+            "the guiding session is the FDE skill, pointed at the file it flips to done")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }
@@ -65,10 +68,12 @@ import Testing
         Blocks.resolve(block)
         let cleared = try #require(Blocks.load(root: root).first { $0.id == block.id })
         #expect(!cleared.waiting, "resolving a block is one frontmatter edit")
-        #expect(cleared.title == block.title && cleared.action == block.action,
-                "and touches nothing else in the file")
-        #expect(NotebookFormat.unblockedMessage(block: cleared).contains(block.title),
-                "the waiting lead is told which block cleared")
+        #expect(
+            cleared.title == block.title && cleared.action == block.action,
+            "and touches nothing else in the file")
+        #expect(
+            NotebookFormat.unblockedMessage(block: cleared).contains(block.title),
+            "the waiting lead is told which block cleared")
     }
 
     // Anything in blocks/ has to reach the user, however badly its frontmatter is written:
@@ -98,8 +103,9 @@ import Testing
         #expect(block.session == nil, "a session that is not a UUID routes to the newest lead")
         #expect(block.link == nil, "only an http(s) link is ever opened")
         Blocks.resolve(block)
-        #expect(try #require(Blocks.load(root: root).first).waiting == false,
-                "a misspelt status line is still the line resolving rewrites")
+        #expect(
+            try #require(Blocks.load(root: root).first).waiting == false,
+            "a misspelt status line is still the line resolving rewrites")
     }
 
     // Today, resolving matches the literal `status:` line. A block that never had one

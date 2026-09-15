@@ -84,16 +84,21 @@ struct NewAgentForm: View {
 
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionLabel("Skills", trailing: picked.isEmpty ? "its system prompt"
-                                                                  : "\(picked.count) picked")
+                SectionLabel(
+                    "Skills",
+                    trailing: picked.isEmpty
+                        ? "its system prompt"
+                        : "\(picked.count) picked")
                 Spacer()
                 TextField("filter", text: $query)
                     .textFieldStyle(.roundedBorder).frame(width: 140)
             }
             if catalog.isEmpty {
-                Text("No skills installed. Fetch a repo below, or put one in "
-                     + ".claude/skills/ in this project.")
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                Text(
+                    "No skills installed. Fetch a repo below, or put one in "
+                        + ".claude/skills/ in this project."
+                )
+                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
@@ -142,10 +147,12 @@ struct NewAgentForm: View {
     }
 
     private func skillRow(_ doc: SkillDoc) -> some View {
-        Toggle(isOn: Binding(
-            get: { picked.contains(doc.name) },
-            set: { on in picked = on ? picked.union([doc.name]) : picked.subtracting([doc.name]) }
-        )) {
+        Toggle(
+            isOn: Binding(
+                get: { picked.contains(doc.name) },
+                set: { on in picked = on ? picked.union([doc.name]) : picked.subtracting([doc.name]) }
+            )
+        ) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(doc.name).font(Typo.mono(12)).foregroundStyle(Theme.tx2)
                 if !doc.summary.isEmpty {
@@ -162,11 +169,13 @@ struct NewAgentForm: View {
     @ViewBuilder private var incubation: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("Describe the agent")
-            Text("A session reads the skills you already have, fetches or writes what is "
-                 + "missing, and adds the agent to the roster. It appears here when that "
-                 + "session has written it.")
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                "A session reads the skills you already have, fetches or writes what is "
+                    + "missing, and adds the agent to the roster. It appears here when that "
+                    + "session has written it."
+            )
+            .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+            .fixedSize(horizontal: false, vertical: true)
             TextField("An agent that owns database migrations and…", text: $brief, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(5...12)
@@ -186,9 +195,11 @@ struct NewAgentForm: View {
         }
         // Roster order follows the catalog, not the order the boxes were ticked — the file
         // reads the same whichever way the user got there.
-        save(TeamMember(name: slug,
-                        skills: catalog.map(\.name).filter { picked.contains($0) },
-                        owns: owns.trimmingCharacters(in: .whitespaces)))
+        save(
+            TeamMember(
+                name: slug,
+                skills: catalog.map(\.name).filter { picked.contains($0) },
+                owns: owns.trimmingCharacters(in: .whitespaces)))
     }
 
     /// Clones the repo into the project's own skills folder and ticks what it brought, so

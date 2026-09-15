@@ -36,15 +36,18 @@ enum NotebookLoader {
     static func pageCount(_ entries: [NotebookEntry]) -> Int { pages(entries).count }
 
     /// Hide completed project/task rows and their children; folders and context pages stay.
-    static func display(_ entries: [NotebookEntry], cards: [NotebookCard],
-                        showDone: Bool) -> [NotebookEntry] {
+    static func display(
+        _ entries: [NotebookEntry], cards: [NotebookCard],
+        showDone: Bool
+    ) -> [NotebookEntry] {
         entries.compactMap { entry in
             let card = cards.first { NotebookEntry.id(for: $0.url) == NotebookEntry.id(for: entry.url) }
-            if !showDone, let card, (card.kind == .project || card.kind == .task), card.status == "done" {
+            if !showDone, let card, card.kind == .project || card.kind == .task, card.status == "done" {
                 return nil
             }
-            return NotebookEntry(id: entry.id, url: entry.url, title: entry.title, icon: entry.icon,
-                                 children: entry.children.map { display($0, cards: cards, showDone: showDone) })
+            return NotebookEntry(
+                id: entry.id, url: entry.url, title: entry.title, icon: entry.icon,
+                children: entry.children.map { display($0, cards: cards, showDone: showDone) })
         }
     }
 
@@ -63,22 +66,25 @@ enum NotebookLoader {
 
         guard isDirectory.boolValue else {
             guard url.pathExtension == "md" else { return nil }
-            return NotebookEntry(id: NotebookEntry.id(for: url), url: url,
-                                 title: url.deletingPathExtension().lastPathComponent,
-                                 icon: icon(for: url), children: nil)
+            return NotebookEntry(
+                id: NotebookEntry.id(for: url), url: url,
+                title: url.deletingPathExtension().lastPathComponent,
+                icon: icon(for: url), children: nil)
         }
 
         let contents = (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
-        let children = contents
+        let children =
+            contents
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .compactMap(node(at:))
         // A folder opens its own page when it has one, so projects/<id>/ selects project.md
         // and keeps only memory/ as a child row. `children == nil` means an actual file:
         // without it, projects/ adopts the rewritten url of the first project inside it.
         let page = children.first { $0.children == nil && $0.url.lastPathComponent == "project.md" }
-        return NotebookEntry(id: NotebookEntry.id(for: url), url: page?.url ?? url,
-                             title: url.lastPathComponent, icon: icon(for: url),
-                             children: children.filter { $0.id != page?.id })
+        return NotebookEntry(
+            id: NotebookEntry.id(for: url), url: page?.url ?? url,
+            title: url.lastPathComponent, icon: icon(for: url),
+            children: children.filter { $0.id != page?.id })
     }
 
     static func icon(forFolder folder: String) -> String {

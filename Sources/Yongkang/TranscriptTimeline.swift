@@ -133,9 +133,13 @@ struct TranscriptTimeline: View {
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x0E1116)))
-                    .overlay(RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(line.isError ? Theme.red.opacity(0.25)
-                                                   : Color(hex: 0x1E242F), lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                line.isError
+                                    ? Theme.red.opacity(0.25)
+                                    : Color(hex: 0x1E242F), lineWidth: 1)
+                    )
                     .textSelection(.enabled)
             }
         }
@@ -154,8 +158,9 @@ struct TranscriptTimeline: View {
                     .foregroundStyle(tint(item.kind))
                     .frame(width: 23, height: 23)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x12161E)))
-                    .overlay(RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Color(hex: 0x242B37), lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color(hex: 0x242B37), lineWidth: 1))
             default:
                 Circle().fill(tint(item.kind))
                     .frame(width: 6, height: 6)

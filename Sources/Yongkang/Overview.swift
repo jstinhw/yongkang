@@ -73,8 +73,10 @@ struct Overview: View {
                 }
                 .cardSurface()
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)],
-                          alignment: .leading, spacing: 12) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 240), spacing: 12)],
+                    alignment: .leading, spacing: 12
+                ) {
                     ForEach(workers, id: \.subagent.id) { worker in
                         workerCard(worker.session, worker.subagent)
                     }
@@ -86,7 +88,9 @@ struct Overview: View {
     private func workerCard(_ session: CodeSession, _ subagent: SubagentStatus) -> some View {
         let task = subagent.taskID.flatMap { id in project.cards.first { $0.id == id } }
         let bars = subagent.taskID.flatMap { checklists[$0] }
-        return Button { go(.agents, Tag.subagent(session, subagent)) } label: {
+        return Button {
+            go(.agents, Tag.subagent(session, subagent))
+        } label: {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 10) {
                     RoleTile(role: subagent.agentType, size: 26)
@@ -159,7 +163,9 @@ struct Overview: View {
                     .padding(.vertical, 8)
             }
             ForEach(recent, id: \.card.id) { item in
-                Button { go(.board, tag(for: item.card)) } label: {
+                Button {
+                    go(.board, tag(for: item.card))
+                } label: {
                     HStack(alignment: .top, spacing: 11) {
                         Text(Overview.ago(item.at))
                             .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
@@ -209,7 +215,9 @@ struct Overview: View {
                 .cardSurface(padding: 13)
             }
             ForEach(waiting) { block in
-                Button { go(.blocks, Tag.block(block)) } label: {
+                Button {
+                    go(.blocks, Tag.block(block))
+                } label: {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: block.isProposal ? "lightbulb" : "hand.raised")
                             .font(.system(size: 13))
@@ -217,15 +225,20 @@ struct Overview: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(block.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
                                 .lineLimit(2).multilineTextAlignment(.leading)
-                            Text(block.isProposal ? "product proposal"
-                                                  : "holds \(block.task ?? "an agent")")
-                                .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                            Text(
+                                block.isProposal
+                                    ? "product proposal"
+                                    : "holds \(block.task ?? "an agent")"
+                            )
+                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
                         }
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .cardSurface(radius: 10, padding: 12, border: Color(hex: 0x222937),
-                                 fill: Color(hex: 0x151A22))
+                    .cardSurface(
+                        radius: 10, padding: 12, border: Color(hex: 0x222937),
+                        fill: Color(hex: 0x151A22)
+                    )
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -241,14 +254,17 @@ struct Overview: View {
         let done = tasks.filter { $0.status == "done" }.count
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
-                NotebookStyle.statusRing(tasks.isEmpty ? "todo" : "active",
-                                         progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count),
-                                         size: 44)
+                NotebookStyle.statusRing(
+                    tasks.isEmpty ? "todo" : "active",
+                    progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count),
+                    size: 44)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(done) of \(tasks.count) tasks done").font(Typo.display(15))
-                    Text("\(workers.count) agent\(workers.count == 1 ? "" : "s") in flight · "
-                         + "\(project.assignedTaskIDs.count) assigned")
-                        .font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    Text(
+                        "\(workers.count) agent\(workers.count == 1 ? "" : "s") in flight · "
+                            + "\(project.assignedTaskIDs.count) assigned"
+                    )
+                    .font(Typo.text(11)).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
             }
@@ -257,7 +273,9 @@ struct Overview: View {
                 ForEach(projects) { card in
                     let own = tasks.filter { $0.project == card.id }
                     let ownDone = own.filter { $0.status == "done" }.count
-                    Button { go(.board, Tag.project(card.id)) } label: {
+                    Button {
+                        go(.board, Tag.project(card.id))
+                    } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2)
@@ -266,8 +284,9 @@ struct Overview: View {
                                 Text("\(ownDone)/\(own.count)").font(Typo.mono(10.5))
                                     .foregroundStyle(Theme.tx3)
                             }
-                            MeterBar(value: own.isEmpty ? 0 : Double(ownDone) / Double(own.count),
-                                     tint: NotebookStyle.color(of: card.status))
+                            MeterBar(
+                                value: own.isEmpty ? 0 : Double(ownDone) / Double(own.count),
+                                tint: NotebookStyle.color(of: card.status))
                         }
                         .padding(.vertical, 3)
                         .contentShape(Rectangle())
@@ -288,7 +307,9 @@ struct Overview: View {
         return VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Team").padding(.bottom, 6)
             ForEach(project.sessions.filter { $0.agent != nil }) { session in
-                Button { go(.agents, Tag.session(session)) } label: {
+                Button {
+                    go(.agents, Tag.session(session))
+                } label: {
                     HStack(spacing: 9) {
                         RoleTile(role: session.isEngineeringLead ? "lead" : session.title)
                         Text(session.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)

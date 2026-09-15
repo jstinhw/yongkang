@@ -6,18 +6,21 @@ enum GrokTranscripts {
         projectDirectory: URL,
         grokHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".grok")
     ) -> URL {
-        let allowed = CharacterSet(charactersIn:
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+        let allowed = CharacterSet(
+            charactersIn:
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
         let sessions = grokHome.appendingPathComponent("sessions", isDirectory: true)
-        let encoded = projectDirectory.path.addingPercentEncoding(withAllowedCharacters: allowed)
+        let encoded =
+            projectDirectory.path.addingPercentEncoding(withAllowedCharacters: allowed)
             ?? projectDirectory.path.replacingOccurrences(of: "/", with: "%2F")
         let direct = sessions.appendingPathComponent(encoded, isDirectory: true)
         guard !FileManager.default.fileExists(atPath: direct.path) else { return direct }
 
         // Grok shortens encoded paths beyond one filename's limit and leaves the original
         // cwd in the group, so only that uncommon case needs a directory scan.
-        return ((try? FileManager.default.contentsOfDirectory(
-            at: sessions, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? [])
+        return
+            ((try? FileManager.default.contentsOfDirectory(
+                at: sessions, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? [])
             .first {
                 let cwd = try? String(contentsOf: $0.appendingPathComponent(".cwd"), encoding: .utf8)
                 return cwd?.trimmingCharacters(in: .whitespacesAndNewlines) == projectDirectory.path
@@ -52,7 +55,7 @@ enum GrokTranscripts {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").flatMap { line -> [TranscriptLine] in
             guard let data = line.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else { return [] }
 
             switch object["type"] as? String {
@@ -83,7 +86,8 @@ enum GrokTranscripts {
             return ClaudeTranscripts.truncate(ClaudeTranscripts.describe(value))
         }
         guard let data = text.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) else {
+            let object = try? JSONSerialization.jsonObject(with: data)
+        else {
             return ClaudeTranscripts.truncate(text)
         }
         return ClaudeTranscripts.truncate(ClaudeTranscripts.describe(object))

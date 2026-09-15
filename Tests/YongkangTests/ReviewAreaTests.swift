@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// A file's area is worked out, not declared, and the message that sends a task back
@@ -24,17 +25,22 @@ import Testing
     }
 
     @Test func unknownLayoutFallsBackToTheOwningWorker() {
-        #expect(ReviewArea.of("Sources/Yongkang/App.swift", skill: "frontend-dev") == .frontend,
-                "a layout the rules do not know falls back to the worker who owned it")
+        #expect(
+            ReviewArea.of("Sources/Yongkang/App.swift", skill: "frontend-dev") == .frontend,
+            "a layout the rules do not know falls back to the worker who owned it")
     }
 
     @Test func sqlInTheChangeFlagsTheDatabase() {
-        let sql = [DiffLine(kind: .add, old: "", new: "12", text: "      `update todo_groups"),
-                   DiffLine(kind: .add, old: "", new: "13", text: "          set title = $1")]
-        #expect(ReviewArea.of("lib/task-groups.ts", skill: "backend-dev", diff: sql) == .database,
-                "SQL written into the change flags the database even with no migration folder")
-        #expect(!ReviewArea.touchesSQL([DiffLine(kind: .context, old: "1", new: "1", text: "select * from t")]),
-                "only changed lines count, not the context around them")
+        let sql = [
+            DiffLine(kind: .add, old: "", new: "12", text: "      `update todo_groups"),
+            DiffLine(kind: .add, old: "", new: "13", text: "          set title = $1"),
+        ]
+        #expect(
+            ReviewArea.of("lib/task-groups.ts", skill: "backend-dev", diff: sql) == .database,
+            "SQL written into the change flags the database even with no migration folder")
+        #expect(
+            !ReviewArea.touchesSQL([DiffLine(kind: .context, old: "1", new: "1", text: "select * from t")]),
+            "only changed lines count, not the context around them")
     }
 
     @Test func blankNoteIsNothingToSend() {
@@ -42,12 +48,17 @@ import Testing
     }
 
     @Test func changeRequestMessage() {
-        let draft = ReviewDraft(comments: [ReviewComment(path: "app/remove.tsx", line: "27",
-                                                         code: "  {pending}  ", text: "Ask first. ")],
-                                note: "   ")
+        let draft = ReviewDraft(
+            comments: [
+                ReviewComment(
+                    path: "app/remove.tsx", line: "27",
+                    code: "  {pending}  ", text: "Ask first. ")
+            ],
+            note: "   ")
         let message = draft.message(taskID: "manage-task-group", title: "Rename or remove a task group")
-        #expect(message.hasPrefix("Changes requested on manage-task-group"),
-                "the lead skill routes on this exact opening")
+        #expect(
+            message.hasPrefix("Changes requested on manage-task-group"),
+            "the lead skill routes on this exact opening")
         #expect(message.contains("- app/remove.tsx:27 — Ask first.\n  > {pending}"))
         #expect(message.contains("Do not commit."))
     }

@@ -53,19 +53,40 @@ enum ReviewArea: String, CaseIterable, Identifiable {
         if folders.contains(".notebook") { return .notebook }
         if !folders.isDisjoint(with: ["test", "tests", "__tests__", "spec", "specs", "e2e", "playwright", "cypress"])
             || [".test.", ".spec.", "_test.", "_spec."].contains(where: name.contains)
-            || stem.hasSuffix("test") || stem.hasSuffix("tests") { return .tests }
-        if !folders.isDisjoint(with: ["migrations", "migration", "migrate", "db", "database", "prisma", "drizzle", "supabase"])
+            || stem.hasSuffix("test") || stem.hasSuffix("tests")
+        {
+            return .tests
+        }
+        if !folders.isDisjoint(with: [
+            "migrations", "migration", "migrate", "db", "database", "prisma", "drizzle", "supabase",
+        ])
             || ["sql", "prisma"].contains(ext) || stem.contains("schema") || stem.contains("migration")
-            || touchesSQL(diff) { return .database }
-        if ["package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "package.swift", "package.resolved",
-            "dockerfile", "docker-compose.yml", "makefile", "vercel.json", "tsconfig.json", ".env.example"].contains(name)
+            || touchesSQL(diff)
+        {
+            return .database
+        }
+        if [
+            "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "package.swift", "package.resolved",
+            "dockerfile", "docker-compose.yml", "makefile", "vercel.json", "tsconfig.json", ".env.example",
+        ].contains(name)
             || !folders.isDisjoint(with: [".github", ".circleci", "deploy", "infra", "terraform", "k8s"])
-            || ["yml", "yaml", "toml", "sh"].contains(ext) || stem.hasSuffix(".config") { return .config }
-        if !folders.isDisjoint(with: ["api", "server", "routes", "controllers", "handlers", "services", "backend",
-                                      "functions", "graphql", "trpc", "endpoints"])
-            || ["actions", "route", "middleware"].contains(stem) { return .api }
+            || ["yml", "yaml", "toml", "sh"].contains(ext) || stem.hasSuffix(".config")
+        {
+            return .config
+        }
+        if !folders.isDisjoint(with: [
+            "api", "server", "routes", "controllers", "handlers", "services", "backend",
+            "functions", "graphql", "trpc", "endpoints",
+        ])
+            || ["actions", "route", "middleware"].contains(stem)
+        {
+            return .api
+        }
         if !folders.isDisjoint(with: ["components", "pages", "views", "ui", "styles", "screens", "frontend", "client"])
-            || ["tsx", "jsx", "vue", "svelte", "css", "scss", "html"].contains(ext) { return .frontend }
+            || ["tsx", "jsx", "vue", "svelte", "css", "scss", "html"].contains(ext)
+        {
+            return .frontend
+        }
 
         let owner = skill.lowercased()
         if owner.contains("frontend") || owner.contains("design") { return .frontend }
@@ -79,8 +100,10 @@ enum ReviewArea: String, CaseIterable, Identifiable {
     /// touches the database, and that is exactly the file a reviewer must not miss.
     static func touchesSQL(_ diff: [DiffLine]) -> Bool {
         let changed = diff.filter { $0.kind == .add || $0.kind == .remove }.map(\.text).joined(separator: "\n")
-        return changed.range(of: #"\b(select\b[^;]*?\bfrom|insert\s+into|update\s+[\w."`]+\s+set|delete\s+from|(create|alter|drop)\s+(table|index))\b"#,
-                             options: [.regularExpression, .caseInsensitive]) != nil
+        return changed.range(
+            of:
+                #"\b(select\b[^;]*?\bfrom|insert\s+into|update\s+[\w."`]+\s+set|delete\s+from|(create|alter|drop)\s+(table|index))\b"#,
+            options: [.regularExpression, .caseInsensitive]) != nil
     }
 }
 
@@ -111,12 +134,16 @@ struct ReviewDraft: Equatable {
         if !said.isEmpty { lines += ["", said] }
         if !comments.isEmpty { lines.append("") }
         for comment in comments {
-            lines.append("- \(comment.path):\(comment.line) — \(comment.text.trimmingCharacters(in: .whitespacesAndNewlines))")
+            lines.append(
+                "- \(comment.path):\(comment.line) — \(comment.text.trimmingCharacters(in: .whitespacesAndNewlines))")
             let code = comment.code.trimmingCharacters(in: .whitespaces)
             if !code.isEmpty { lines.append("  > \(code)") }
         }
-        lines += ["", "Quote these under ## Change request in the new attempt's Work file, send them to the "
-                  + "owner of each file, rerun QA, and mark the task done again. Do not commit."]
+        lines += [
+            "",
+            "Quote these under ## Change request in the new attempt's Work file, send them to the "
+                + "owner of each file, rerun QA, and mark the task done again. Do not commit.",
+        ]
         return lines.joined(separator: "\n")
     }
 }

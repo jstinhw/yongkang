@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// `@`-tagging for the prompt boxes. Type `@` and the folder is offered, so a prompt can
 /// point an agent at files and folders it has not been told about yet.
@@ -43,7 +43,8 @@ enum Mention {
         let (folder, typed, base) = lookup(query, root: root)
         let prefix = typed.lowercased()
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-        return names
+        return
+            names
             .filter { !$0.hasPrefix(".") && $0.lowercased().hasPrefix(prefix) }
             .sorted { $0.lowercased() < $1.lowercased() }
             .map { base + $0 + (isFolder(folder.appendingPathComponent($0)) ? "/" : "") }
@@ -100,8 +101,9 @@ enum Mention {
         let folder = all.first { $0.hasSuffix("/") && $0.dropLast().lowercased() == query.lowercased() }
         let deeper = shared.count > query.count ? shared : folder
         guard all.count == 1 || deeper != nil else { return true }
-        text = complete(text, with: inserted(deeper ?? shared, root: root, absolute: absolute),
-                        finished: all.count == 1)
+        text = complete(
+            text, with: inserted(deeper ?? shared, root: root, absolute: absolute),
+            finished: all.count == 1)
         return true
     }
 

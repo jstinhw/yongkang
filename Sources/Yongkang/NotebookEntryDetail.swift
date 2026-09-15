@@ -34,8 +34,9 @@ struct NotebookEntryDetail: View {
                     .foregroundStyle(Theme.tx3)
                     .frame(width: 30, height: 30)
                     .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
-                    .overlay(RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Theme.line2, lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(Theme.line2, lineWidth: 1))
                 VStack(alignment: .leading, spacing: 6) {
                     Text(card.title).font(Typo.display(21))
                         .fixedSize(horizontal: false, vertical: true)
@@ -45,8 +46,12 @@ struct NotebookEntryDetail: View {
                     }
                 }
                 Spacer(minLength: 12)
-                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
-                    .buttonStyle(.consoleGhost)
+                Button {
+                    open(card.url)
+                } label: {
+                    Label("Edit file", systemImage: "pencil")
+                }
+                .buttonStyle(.consoleGhost)
             }
             if !metadata.isEmpty {
                 Text(metadata.joined(separator: " · "))

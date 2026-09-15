@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// The console's whole visual vocabulary in one place: a cool near-black ground, one blue
 /// accent, and the notebook's own `status:` words as the only other colour. Every screen is
@@ -8,18 +8,18 @@ enum Theme {
 
     // MARK: - Ground
 
-    static let bg      = Color(hex: 0x0C0E12)   // window ground
-    static let rail    = Color(hex: 0x0A0C10)   // the icon rail, one step darker
-    static let panel   = Color(hex: 0x0E1116)   // list and inspector columns
-    static let card    = Color(hex: 0x141821)   // raised surface
-    static let raised  = Color(hex: 0x171C25)   // hover / selected surface
-    static let line    = Color(hex: 0x1C212B)   // column and bar separators
-    static let line2   = Color(hex: 0x212734)   // card borders
+    static let bg = Color(hex: 0x0C0E12)  // window ground
+    static let rail = Color(hex: 0x0A0C10)  // the icon rail, one step darker
+    static let panel = Color(hex: 0x0E1116)  // list and inspector columns
+    static let card = Color(hex: 0x141821)  // raised surface
+    static let raised = Color(hex: 0x171C25)  // hover / selected surface
+    static let line = Color(hex: 0x1C212B)  // column and bar separators
+    static let line2 = Color(hex: 0x212734)  // card borders
     static let hairline = Color(hex: 0x2A3240)  // selected outline
 
     // MARK: - Ink
 
-    static let tx  = Color(hex: 0xE7EBF1)
+    static let tx = Color(hex: 0xE7EBF1)
     static let tx2 = Color(hex: 0x98A3B2)
     static let tx3 = Color(hex: 0x626C7B)
     static let tx4 = Color(hex: 0x39424F)
@@ -29,11 +29,11 @@ enum Theme {
     // One accent; the rest are the notebook's status words. Same lightness and chroma,
     // different hue, so nothing shouts louder than anything else.
 
-    static let accent = Color(hex: 0x52A8FF)   // active — an agent is on it
-    static let green  = Color(hex: 0x45D8A4)   // done — QA passed
-    static let amber  = Color(hex: 0xF3B455)   // blocked — waiting on you
-    static let red    = Color(hex: 0xFF6F6F)   // failed — QA sent it back
-    static let violet = Color(hex: 0xA98CFF)   // wip — a lead already holds it
+    static let accent = Color(hex: 0x52A8FF)  // active — an agent is on it
+    static let green = Color(hex: 0x45D8A4)  // done — QA passed
+    static let amber = Color(hex: 0xF3B455)  // blocked — waiting on you
+    static let red = Color(hex: 0xFF6F6F)  // failed — QA sent it back
+    static let violet = Color(hex: 0xA98CFF)  // wip — a lead already holds it
 
     // MARK: - Metrics
 
@@ -46,11 +46,12 @@ enum Theme {
 
 extension Color {
     init(hex: UInt32) {
-        self.init(.sRGB,
-                  red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255,
-                  opacity: 1)
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: 1)
     }
 }
 
@@ -124,16 +125,19 @@ struct CardSurface: ViewModifier {
 }
 
 extension View {
-    func cardSurface(radius: CGFloat = 12, padding: CGFloat = 14,
-                     border: Color = Theme.line2, fill: Color = Theme.card) -> some View {
+    func cardSurface(
+        radius: CGFloat = 12, padding: CGFloat = 14,
+        border: Color = Theme.line2, fill: Color = Theme.card
+    ) -> some View {
         modifier(CardSurface(radius: radius, padding: padding, border: border, fill: fill))
     }
 
     /// The selected row treatment used by every list column.
     func rowSelection(_ on: Bool) -> some View {
         background(RoundedRectangle(cornerRadius: 9).fill(on ? Theme.raised : .clear))
-            .overlay(RoundedRectangle(cornerRadius: 9)
-                .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1))
     }
 }
 
@@ -149,11 +153,16 @@ struct ConsoleButtonStyle: ButtonStyle {
             .foregroundStyle(primary ? Theme.bg : (ghost ? Theme.tx2 : Color(hex: 0xC7D0DC)))
             .padding(.horizontal, 12)
             .frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: 8)
-                .fill(primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x171C25))))
-            .overlay(RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x262D3A)),
-                              lineWidth: 1))
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x171C25)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x262D3A)),
+                        lineWidth: 1)
+            )
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
@@ -176,8 +185,9 @@ struct RoleTile: View {
             .foregroundStyle(color)
             .frame(width: size, height: size)
             .background(RoundedRectangle(cornerRadius: size / 3).fill(color.opacity(0.14)))
-            .overlay(RoundedRectangle(cornerRadius: size / 3)
-                .strokeBorder(color.opacity(0.28), lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: size / 3)
+                    .strokeBorder(color.opacity(0.28), lineWidth: 1))
     }
 
     static func mark(_ role: String) -> String {

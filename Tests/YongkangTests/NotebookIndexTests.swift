@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 @Suite struct NotebookIndexTests {
@@ -98,7 +99,9 @@ import Testing
         #expect(card.id == "injected-close")
         #expect(card.kind == .task)
         #expect(card.title == "\"Ends early", "the unterminated quote is kept as written")
-        withKnownIssue("a `---` line inside a quoted title closes the frontmatter, dropping status, project and depends_on") {
+        withKnownIssue(
+            "a `---` line inside a quoted title closes the frontmatter, dropping status, project and depends_on"
+        ) {
             #expect(card.status == "blocked")
             #expect(card.project == "launch-beta")
             #expect(card.dependsOn == ["wire-auth"])

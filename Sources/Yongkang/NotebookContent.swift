@@ -69,7 +69,13 @@ enum NotebookContent {
             blocks.append(.code(code.joined(separator: "\n")))
             code = []
         }
-        func flushBlocks() { flushParagraph(); flushChecklist(); flushList(); flushNumbered(); flushCode() }
+        func flushBlocks() {
+            flushParagraph()
+            flushChecklist()
+            flushList()
+            flushNumbered()
+            flushCode()
+        }
         func flushSection() {
             flushBlocks()
             if !blocks.isEmpty { result.append(Section(heading: heading, blocks: blocks)) }
@@ -81,7 +87,12 @@ enum NotebookContent {
             let hashes = line.prefix { $0 == "#" }
 
             if fenced {
-                if line.hasPrefix("```") { fenced = false; flushCode() } else { code.append(raw) }
+                if line.hasPrefix("```") {
+                    fenced = false
+                    flushCode()
+                } else {
+                    code.append(raw)
+                }
                 continue
             }
             if line.hasPrefix("```") {
@@ -90,15 +101,20 @@ enum NotebookContent {
                 continue
             }
             if raw.hasPrefix("    "), paragraph.isEmpty, checklist.isEmpty,
-               list.isEmpty, numbered.isEmpty {
-                flushParagraph(); flushChecklist(); flushList(); flushNumbered()
+                list.isEmpty, numbered.isEmpty
+            {
+                flushParagraph()
+                flushChecklist()
+                flushList()
+                flushNumbered()
                 code.append(String(raw.dropFirst(4)))
                 continue
             }
             flushCode()
 
             if !hashes.isEmpty, line.count > hashes.count,
-               line[line.index(line.startIndex, offsetBy: hashes.count)] == " " {
+                line[line.index(line.startIndex, offsetBy: hashes.count)] == " "
+            {
                 let title = String(line.dropFirst(hashes.count + 1))
                 if hashes.count == 2 {
                     flushSection()
@@ -110,16 +126,24 @@ enum NotebookContent {
                     flushBlocks()
                 }
             } else if line.hasPrefix("- [x] ") || line.hasPrefix("- [X] ") {
-                flushParagraph(); flushList(); flushNumbered()
+                flushParagraph()
+                flushList()
+                flushNumbered()
                 checklist.append(ChecklistItem(text: String(line.dropFirst(6)), done: true))
             } else if line.hasPrefix("- [ ] ") {
-                flushParagraph(); flushList(); flushNumbered()
+                flushParagraph()
+                flushList()
+                flushNumbered()
                 checklist.append(ChecklistItem(text: String(line.dropFirst(6)), done: false))
             } else if line.hasPrefix("- ") {
-                flushParagraph(); flushChecklist(); flushNumbered()
+                flushParagraph()
+                flushChecklist()
+                flushNumbered()
                 list.append(String(line.dropFirst(2)))
             } else if let item = numberedItem(line) {
-                flushParagraph(); flushChecklist(); flushList()
+                flushParagraph()
+                flushChecklist()
+                flushList()
                 numbered.append(item)
             } else if line.isEmpty {
                 flushBlocks()
@@ -172,7 +196,10 @@ enum NotebookContent {
     }
 
     static func wikilinks(in text: String) -> [String] {
-        tokens(text).compactMap { if case .link(let id) = $0 { return id }; return nil }
+        tokens(text).compactMap {
+            if case .link(let id) = $0 { return id }
+            return nil
+        }
     }
 
     /// True when `text` is nothing but one or more `[[id]]` references — a plain

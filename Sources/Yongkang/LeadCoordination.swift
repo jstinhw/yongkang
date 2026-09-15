@@ -29,18 +29,22 @@ struct LeadCoordination: Equatable {
         let runs = notebook.appendingPathComponent("runs").resolvingSymlinksInPath().standardizedFileURL
         guard runs.deletingLastPathComponent().path == notebook.path else { return [:] }
         let prefix = only.map { $0.uuidString.lowercased() + "-" }
-        let files = ((try? FileManager.default.contentsOfDirectory(at: runs,
-                                                                 includingPropertiesForKeys: nil)) ?? [])
+        let files =
+            ((try? FileManager.default.contentsOfDirectory(
+                at: runs,
+                includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "md" && prefix.map($0.lastPathComponent.lowercased().hasPrefix) ?? true }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
         var plans: [UUID: LeadCoordination] = [:]
         var seen: Set<String> = []
         for file in files {
             guard file.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent().path == runs.path,
-                  let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                let text = try? String(contentsOf: file, encoding: .utf8)
+            else { continue }
             let fields = NotebookIndex.frontmatter(text)
             guard fields["kind"] == "run", let session = fields["session"].flatMap(UUID.init(uuidString:)),
-                  only == nil || only == session else { continue }
+                only == nil || only == session
+            else { continue }
             let name = file.lastPathComponent.lowercased()
             let own = session.uuidString.lowercased()
             if name == own + "-coordination.md" {
@@ -55,7 +59,8 @@ struct LeadCoordination: Equatable {
                 continue
             }
             guard let work = work(fields, text: text), name == own + "-work-" + work.id.lowercased() + ".md",
-                  seen.insert(own + work.id).inserted else { continue }
+                seen.insert(own + work.id).inserted
+            else { continue }
             plans[session, default: LeadCoordination()].workers.append(work)
         }
         return plans
@@ -68,7 +73,8 @@ struct LeadCoordination: Equatable {
         let state = fields["status"] ?? "queued"
         let dependencies = NotebookIndex.list(fields["depends_on"] ?? "[]")
         guard ["queued", "running", "blocked", "review", "done", "failed"].contains(state),
-              dependencies.allSatisfy(safeID) else { return nil }
+            dependencies.allSatisfy(safeID)
+        else { return nil }
         let started = AgentUsage.date(fields["started_at"])
         let finished = AgentUsage.date(fields["finished_at"]).flatMap { date -> Date? in
             if let started, date < started { return nil }
@@ -76,24 +82,25 @@ struct LeadCoordination: Equatable {
         }
         // What this worker owned, as it reported it. Anything that could point outside
         // the project is dropped rather than shown against the wrong file.
-        return LeadWork(id: id, taskID: taskID, title: nonempty(fields["title"]) ?? id,
-                        skill: fields["skill"] ?? "", model: fields["model"] ?? "",
-                        reason: fields["reason"] ?? "", dependsOn: dependencies,
-                        paths: NotebookIndex.list(fields["paths"] ?? "[]").compactMap(safePath),
-                        state: state,
-                        agentID: nonempty(fields["agent_id"]),
-                        estimatedTokens: count(fields["estimated_tokens"]),
-                        estimatedMinutes: minutes(fields["estimated_minutes"]),
-                        startedAt: started, finishedAt: finished,
-                        updatedAt: AgentUsage.date(fields["updated"]),
-                        actualTokens: count(fields["actual_tokens"]),
-                        contextTokens: count(fields["context_tokens"]),
-                        contextWindow: count(fields["context_window"], minimum: 1),
-                        contextSource: fields["context_source"] ?? "",
-                        checkpoint: fields["checkpoint"] ?? "",
-                        report: fields["report"] ?? "",
-                        result: section("Result", of: text),
-                        changeRequest: section("Change request", of: text))
+        return LeadWork(
+            id: id, taskID: taskID, title: nonempty(fields["title"]) ?? id,
+            skill: fields["skill"] ?? "", model: fields["model"] ?? "",
+            reason: fields["reason"] ?? "", dependsOn: dependencies,
+            paths: NotebookIndex.list(fields["paths"] ?? "[]").compactMap(safePath),
+            state: state,
+            agentID: nonempty(fields["agent_id"]),
+            estimatedTokens: count(fields["estimated_tokens"]),
+            estimatedMinutes: minutes(fields["estimated_minutes"]),
+            startedAt: started, finishedAt: finished,
+            updatedAt: AgentUsage.date(fields["updated"]),
+            actualTokens: count(fields["actual_tokens"]),
+            contextTokens: count(fields["context_tokens"]),
+            contextWindow: count(fields["context_window"], minimum: 1),
+            contextSource: fields["context_source"] ?? "",
+            checkpoint: fields["checkpoint"] ?? "",
+            report: fields["report"] ?? "",
+            result: section("Result", of: text),
+            changeRequest: section("Change request", of: text))
     }
 
     /// What the live session adds to a record: whether its subagent is still running, and
@@ -137,9 +144,11 @@ struct LeadCoordination: Equatable {
     }
 
     private static func safeID(_ text: String) -> Bool {
-        !text.isEmpty && text.unicodeScalars.allSatisfy {
-            CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_").contains($0)
-        }
+        !text.isEmpty
+            && text.unicodeScalars.allSatisfy {
+                CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_").contains(
+                    $0)
+            }
     }
 
     /// A repo-relative path and nothing else: no absolute paths, no `..`, no `~`. The
@@ -148,7 +157,8 @@ struct LeadCoordination: Equatable {
         var path = text.trimmingCharacters(in: .whitespaces)
         while path.hasPrefix("./") { path = String(path.dropFirst(2)) }
         guard !path.isEmpty, !path.hasPrefix("/"), !path.hasPrefix("~"),
-              !path.split(separator: "/").contains("..") else { return nil }
+            !path.split(separator: "/").contains("..")
+        else { return nil }
         return path
     }
 

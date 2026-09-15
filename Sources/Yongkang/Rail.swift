@@ -46,9 +46,11 @@ struct Rail: View {
 
     /// `hovering` is only ever passed by the shot renderer, which has no pointer of its own
     /// and would otherwise photograph a rail whose labels never appear.
-    init(section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
-         leave: @escaping () -> Void, agentCount: Int = 0, listHidden: Bool = false,
-         toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil) {
+    init(
+        section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
+        leave: @escaping () -> Void, agentCount: Int = 0, listHidden: Bool = false,
+        toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil
+    ) {
         _section = section
         self.badges = badges
         self.leave = leave
@@ -66,22 +68,27 @@ struct Rail: View {
                     .foregroundStyle(Theme.accent)
                     .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x141C28)))
-                    .overlay(RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .help("All projects (⌘[)")
             .padding(.bottom, 12)
 
             ForEach(ConsoleSection.allCases) { item in
-                Button { section = item } label: { icon(item) }
-                    .buttonStyle(.plain)
-                    .help(item == .agents ? "Agents · \(agentCount) online" : item.title)
-                    .accessibilityLabel(item == .agents ? "Agents, \(agentCount) online" : item.title)
-                    .onHover { inside in hovered = inside ? item : (hovered == item ? nil : hovered) }
-                    .overlay(alignment: .leading) {
-                        if hovered == item { flyout(item) }
-                    }
+                Button {
+                    section = item
+                } label: {
+                    icon(item)
+                }
+                .buttonStyle(.plain)
+                .help(item == .agents ? "Agents · \(agentCount) online" : item.title)
+                .accessibilityLabel(item == .agents ? "Agents, \(agentCount) online" : item.title)
+                .onHover { inside in hovered = inside ? item : (hovered == item ? nil : hovered) }
+                .overlay(alignment: .leading) {
+                    if hovered == item { flyout(item) }
+                }
             }
             Spacer(minLength: 8)
             Button(action: toggleList) {
@@ -111,8 +118,10 @@ struct Rail: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
-            .overlay(RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.hairline, lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Theme.hairline, lineWidth: 1)
+            )
             .shadow(color: .black.opacity(0.45), radius: 10, y: 2)
             // Its own width, then pushed clear of the rail from the tab's leading edge —
             // pinning the far edge instead would slide a long name back over the icons.
@@ -133,8 +142,10 @@ struct Rail: View {
                 .foregroundStyle(on ? Theme.tx : Theme.tx3)
                 .frame(width: 40, height: 38)
                 .background(RoundedRectangle(cornerRadius: 9).fill(on ? Color(hex: 0x161C26) : .clear))
-                .overlay(RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1)
+                )
                 .overlay(alignment: .topTrailing) {
                     if item == .agents {
                         Text("\(agentCount)").font(Typo.mono(9, .semibold))

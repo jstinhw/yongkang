@@ -14,19 +14,22 @@ struct ProjectIntake: View {
             Spacer(minLength: 0)
             Text("What is \(project.name) for?")
                 .font(Typo.display(24))
-            Text("""
-                 Describe the project: the goal, what you are building and for whom, the \
-                 features, the constraints, what is out of scope. The agent fills the gaps \
-                 with a few multiple-choice questions, then writes the notebook without \
-                 waiting for approval — read it on the board and tell it what to change.
-                 """)
-                .font(Typo.text(13))
-                .foregroundStyle(Theme.tx2)
-                .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                """
+                Describe the project: the goal, what you are building and for whom, the \
+                features, the constraints, what is out of scope. The agent fills the gaps \
+                with a few multiple-choice questions, then writes the notebook without \
+                waiting for approval — read it on the board and tell it what to change.
+                """
+            )
+            .font(Typo.text(13))
+            .foregroundStyle(Theme.tx2)
+            .lineSpacing(3)
+            .fixedSize(horizontal: false, vertical: true)
 
-            PromptField(placeholder: "This project is…", root: project.directory,
-                        text: $text, submit: send)
+            PromptField(
+                placeholder: "This project is…", root: project.directory,
+                text: $text, submit: send)
 
             HStack {
                 Text("@ tags a file or folder · Tab completes it · ↑↓ picks · Return to start")

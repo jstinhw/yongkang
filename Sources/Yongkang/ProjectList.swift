@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// The column beside the rail: whatever its current section is a list of. One column per
 /// section rather than one tree holding everything at once — the old sidebar made you read
@@ -50,8 +50,9 @@ struct ProjectList: View {
                 .foregroundStyle(Theme.accent)
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(0.12)))
-                .overlay(RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Theme.accent.opacity(0.28), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Theme.accent.opacity(0.28), lineWidth: 1))
             VStack(alignment: .leading, spacing: 1) {
                 Text(project.name).font(Typo.display(13.5)).foregroundStyle(Theme.tx)
                 Text(project.directory.path)
@@ -79,9 +80,14 @@ struct ProjectList: View {
 
     private var footNote: String? {
         switch section {
-        case .board: return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
-        case .agents: return "Select any agent or subagent to view its live session transcript. Completed agents stay available here."
-        case .blocks: return "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
+        case .board:
+            return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
+        case .agents:
+            return
+                "Select any agent or subagent to view its live session transcript. Completed agents stay available here."
+        case .blocks:
+            return
+                "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
         case .review: return "Nothing is committed until you approve it here. No agent commits, pushes or opens a PR."
         default: return nil
         }
@@ -97,7 +103,9 @@ struct ProjectList: View {
     }
 
     private func row<Content: View>(_ tag: String, @ViewBuilder content: () -> Content) -> some View {
-        Button { selection = tag } label: {
+        Button {
+            selection = tag
+        } label: {
             content()
                 .padding(.horizontal, 11)
                 .padding(.vertical, 8)
@@ -203,9 +211,10 @@ struct ProjectList: View {
             cardRow(card, tag: Tag.project(card.id))
                 .contextMenu {
                     Button("Assign all tasks to Engineering Lead") { assign(tasks) }
-                        .disabled(tasks.allSatisfy {
-                            $0.status == "done" || project.assignedTaskIDs.contains($0.id)
-                        })
+                        .disabled(
+                            tasks.allSatisfy {
+                                $0.status == "done" || project.assignedTaskIDs.contains($0.id)
+                            })
                     menu(for: card)
                 }
         }
@@ -235,8 +244,10 @@ struct ProjectList: View {
     /// A project is busy while any of its tasks is out with a lead.
     private func isBusy(_ card: NotebookCard) -> Bool {
         guard card.kind == .project else { return project.assignedTaskIDs.contains(card.id) }
-        return project.cards.contains { $0.kind == .task && $0.project == card.id
-            && project.assignedTaskIDs.contains($0.id) }
+        return project.cards.contains {
+            $0.kind == .task && $0.project == card.id
+                && project.assignedTaskIDs.contains($0.id)
+        }
     }
 
     /// The project the board is scoped to: whatever is selected, or the project a selected
@@ -246,16 +257,22 @@ struct ProjectList: View {
             return project.cards.first { $0.id == id && $0.kind == .project }
         }
         if let id = Tag.scope(selection, "task"),
-           let task = project.cards.first(where: { $0.id == id }), let owner = task.project {
+            let task = project.cards.first(where: { $0.id == id }), let owner = task.project
+        {
             return project.cards.first { $0.id == owner && $0.kind == .project }
         }
         return visible(project.cards.filter { $0.kind == .project }).first
     }
 
     private func visible(_ cards: [NotebookCard]) -> [NotebookCard] {
-        NotebookIndex.ordered(showDone ? cards
-            : cards.filter { $0.kind == .project ? !NotebookIndex.isFinished($0, in: project.cards)
-                                                 : $0.status != "done" })
+        NotebookIndex.ordered(
+            showDone
+                ? cards
+                : cards.filter {
+                    $0.kind == .project
+                        ? !NotebookIndex.isFinished($0, in: project.cards)
+                        : $0.status != "done"
+                })
     }
 
     // MARK: - Agents
@@ -335,15 +352,18 @@ struct ProjectList: View {
                 }
                 Spacer(minLength: 6)
                 if !session.subagents.isEmpty {
-                    Button { toggle(session) } label: {
+                    Button {
+                        toggle(session)
+                    } label: {
                         Image(systemName: collapsed.contains(session.id) ? "chevron.right" : "chevron.down")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(Theme.tx3)
                     }
                     .buttonStyle(.borderless)
                 }
-                StateDot(color: session.exited ? Theme.tx4 : (running > 0 ? Theme.accent : Theme.green),
-                         live: running > 0)
+                StateDot(
+                    color: session.exited ? Theme.tx4 : (running > 0 ? Theme.accent : Theme.green),
+                    live: running > 0)
             }
         }
     }
@@ -358,8 +378,7 @@ struct ProjectList: View {
     }
 
     private func toggle(_ session: CodeSession) {
-        if collapsed.contains(session.id) { collapsed.remove(session.id) }
-        else { collapsed.insert(session.id) }
+        if collapsed.contains(session.id) { collapsed.remove(session.id) } else { collapsed.insert(session.id) }
     }
 
     private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
@@ -396,8 +415,10 @@ struct ProjectList: View {
         group("Waiting for you", "\(waiting.count)")
         if waiting.isEmpty { empty("Nothing waiting for review") }
         ForEach(waiting) { task in
-            reviewRow(task, detail: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
-                      + (task.reviews.isEmpty ? "no QA record" : "QA passed"))
+            reviewRow(
+                task,
+                detail: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
+                    + (task.reviews.isEmpty ? "no QA record" : "QA passed"))
         }
         if !flight.isEmpty {
             group("With the agents", "\(flight.count)")
@@ -413,9 +434,12 @@ struct ProjectList: View {
                     .foregroundStyle(summary.unclaimed.isEmpty ? Theme.tx3 : Theme.amber)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("All changes").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
-                    Text(summary.unclaimed.isEmpty ? "\(changes.count) files"
-                         : "\(summary.unclaimed.count) not claimed by a task")
-                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    Text(
+                        summary.unclaimed.isEmpty
+                            ? "\(changes.count) files"
+                            : "\(summary.unclaimed.count) not claimed by a task"
+                    )
+                    .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
             }
@@ -460,14 +484,20 @@ struct ProjectList: View {
     private func blockRow(_ block: UserBlock) -> some View {
         row(Tag.block(block)) {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: block.waiting
-                      ? (block.isProposal ? "lightbulb"
-                         : block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
-                      : "checkmark.circle")
-                    .font(.system(size: 13))
-                    .foregroundStyle(block.waiting ? (block.isProposal ? Theme.violet : Theme.amber)
-                                                   : Theme.green)
-                    .padding(.top, 1)
+                Image(
+                    systemName: block.waiting
+                        ? (block.isProposal
+                            ? "lightbulb"
+                            : block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
+                        : "checkmark.circle"
+                )
+                .font(.system(size: 13))
+                .foregroundStyle(
+                    block.waiting
+                        ? (block.isProposal ? Theme.violet : Theme.amber)
+                        : Theme.green
+                )
+                .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(block.title).font(Typo.text(12.5))
                         .foregroundStyle(selection == Tag.block(block) ? Theme.tx : Theme.tx2)
@@ -501,14 +531,20 @@ struct NotebookKindCount {
     let count: Int
 
     static func all(in cards: [NotebookCard]) -> [NotebookKindCount] {
-        [NotebookKindCount(label: "Roadmap", icon: "map",
-                           count: cards.filter { $0.kind == .roadmap }.count),
-         NotebookKindCount(label: "Projects", icon: "shippingbox",
-                           count: cards.filter { $0.kind == .project }.count),
-         NotebookKindCount(label: "Tasks", icon: "checkmark.circle",
-                           count: cards.filter { $0.kind == .task }.count),
-         NotebookKindCount(label: "Memory", icon: "brain",
-                           count: cards.filter { $0.kind == .memory }.count)]
+        [
+            NotebookKindCount(
+                label: "Roadmap", icon: "map",
+                count: cards.filter { $0.kind == .roadmap }.count),
+            NotebookKindCount(
+                label: "Projects", icon: "shippingbox",
+                count: cards.filter { $0.kind == .project }.count),
+            NotebookKindCount(
+                label: "Tasks", icon: "checkmark.circle",
+                count: cards.filter { $0.kind == .task }.count),
+            NotebookKindCount(
+                label: "Memory", icon: "brain",
+                count: cards.filter { $0.kind == .memory }.count),
+        ]
     }
 }
 

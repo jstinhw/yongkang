@@ -25,16 +25,22 @@ enum Team {
     static let defaults: [TeamMember] = [
         // Two skills, in the order they run: Allen settles what a screen looks like and
         // the user approves it, then Allen builds it.
-        TeamMember(name: "Allen", skills: ["designer", "frontend-dev"],
-                   owns: "Screens, components, styling, client state — anything the user sees, designed before it is built"),
-        TeamMember(name: "Ben", skills: ["backend-dev"],
-                   owns: "Endpoints, schemas, migrations, jobs, server-side auth — anything behind an API"),
-        TeamMember(name: "Chris", skills: ["sre-dev"],
-                   owns: "Deploying, hosting, CI, DNS, env vars, secrets, monitoring — anything needing an off-machine account"),
-        TeamMember(name: "David", skills: ["qa-dev"],
-                   owns: "Verifying finished work against its \u{201C}Done when\u{201D} list"),
-        TeamMember(name: "Eric", skills: ["fde-dev"],
-                   owns: "Walking the user through a gate — started from Blocks, never dispatched by the lead"),
+        TeamMember(
+            name: "Allen", skills: ["designer", "frontend-dev"],
+            owns: "Screens, components, styling, client state — anything the user sees, designed before it is built"),
+        TeamMember(
+            name: "Ben", skills: ["backend-dev"],
+            owns: "Endpoints, schemas, migrations, jobs, server-side auth — anything behind an API"),
+        TeamMember(
+            name: "Chris", skills: ["sre-dev"],
+            owns: "Deploying, hosting, CI, DNS, env vars, secrets, monitoring — anything needing an off-machine account"
+        ),
+        TeamMember(
+            name: "David", skills: ["qa-dev"],
+            owns: "Verifying finished work against its \u{201C}Done when\u{201D} list"),
+        TeamMember(
+            name: "Eric", skills: ["fde-dev"],
+            owns: "Walking the user through a gate — started from Blocks, never dispatched by the lead"),
     ]
 
     static func directory(in notebookRoot: URL) -> URL {
@@ -76,10 +82,12 @@ enum Team {
         let fields = NotebookIndex.frontmatter(text)
         let skills = NotebookIndex.list(fields["skills"] ?? "")
         guard !skills.isEmpty else { return nil }
-        let name = fields["name"].flatMap { $0.isEmpty ? nil : $0 }
+        let name =
+            fields["name"].flatMap { $0.isEmpty ? nil : $0 }
             ?? url.deletingPathExtension().lastPathComponent
-        return TeamMember(name: name, skills: skills, owns: fields["owns"] ?? "",
-                          notes: NotebookIndex.body(text))
+        return TeamMember(
+            name: name, skills: skills, owns: fields["owns"] ?? "",
+            notes: NotebookIndex.body(text))
     }
 
     /// Writes the shipped roster to `.notebook/team/` once. A folder that already exists —
@@ -98,15 +106,18 @@ enum Team {
         try FileManager.default.createDirectory(at: directory(in: root), withIntermediateDirectories: true)
         let skills = "[" + member.skills.joined(separator: ", ") + "]"
         let front = "---\nname: \(member.name)\nskills: \(skills)\nowns: \(yaml(member.owns))\n---"
-        let body = member.notes.isEmpty
+        let body =
+            member.notes.isEmpty
             ? "The skill\(member.skills.count == 1 ? " is" : "s are") the job — put standing notes for this agent here.\n"
             : member.notes + "\n"
-        try (front + "\n\n" + body).write(to: file(for: member.name, root: root),
-                                          atomically: true, encoding: .utf8)
+        try (front + "\n\n" + body).write(
+            to: file(for: member.name, root: root),
+            atomically: true, encoding: .utf8)
     }
 
     private static func yaml(_ value: String) -> String {
-        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\")
-                    .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        "\""
+            + value.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// `.serialized`: `CodexTranscripts` keeps process-global caches (`metaCache` by path,
@@ -13,37 +14,47 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
 
-        let codexAgents = CodexTranscripts.subagents(sessionID: fleet.session, projectDirectory: tmp,
-                                                     taskIDs: ["edit-todo"], codexHome: fleet.home)
-        #expect(codexAgents.map(\.description) == ["edit_todo_frontend", "edit_todo_qa"],
-                "every descendant of this session's thread is affiliated with the lead")
-        #expect(codexAgents.allSatisfy { $0.taskID == "edit-todo" },
-                "descendants stay linked by the task in their names")
+        let codexAgents = CodexTranscripts.subagents(
+            sessionID: fleet.session, projectDirectory: tmp,
+            taskIDs: ["edit-todo"], codexHome: fleet.home)
+        #expect(
+            codexAgents.map(\.description) == ["edit_todo_frontend", "edit_todo_qa"],
+            "every descendant of this session's thread is affiliated with the lead")
+        #expect(
+            codexAgents.allSatisfy { $0.taskID == "edit-todo" },
+            "descendants stay linked by the task in their names")
         #expect(codexAgents.first?.agentType == "Hilbert", "no role recorded falls back to the nickname")
         #expect(codexAgents.last?.agentType == "qa-dev", "a recorded descendant role is kept")
-        #expect(codexAgents.allSatisfy { $0.running },"started descendants remain running until complete")
+        #expect(codexAgents.allSatisfy { $0.running }, "started descendants remain running until complete")
     }
 
     @Test func sessionWhoseThreadIsNotOnDiskReadsEmpty() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
-        #expect(CodexTranscripts.subagents(sessionID: UUID(), projectDirectory: tmp,
-                                           codexHome: fleet.home).isEmpty,
-                "a session whose thread is not on disk reads as empty, not a crash")
+        #expect(
+            CodexTranscripts.subagents(
+                sessionID: UUID(), projectDirectory: tmp,
+                codexHome: fleet.home
+            ).isEmpty,
+            "a session whose thread is not on disk reads as empty, not a crash")
     }
 
     @Test func leadIsWatchedThroughItsOwnRollout() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
-        #expect(CodexTranscripts.transcriptURL(sessionID: fleet.session, projectDirectory: tmp,
-                                               codexHome: fleet.home)?.lastPathComponent
+        #expect(
+            CodexTranscripts.transcriptURL(
+                sessionID: fleet.session, projectDirectory: tmp,
+                codexHome: fleet.home)?.lastPathComponent
                 == "rollout-lead.jsonl",
-                "a Codex lead is watched through its own rollout, not one it spawned")
-        #expect(CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp,
-                                               codexHome: fleet.home) == nil,
-                "a thread not on disk yet has no transcript to read, rather than the wrong one")
+            "a Codex lead is watched through its own rollout, not one it spawned")
+        #expect(
+            CodexTranscripts.transcriptURL(
+                sessionID: UUID(), projectDirectory: tmp,
+                codexHome: fleet.home) == nil,
+            "a thread not on disk yet has no transcript to read, rather than the wrong one")
     }
 
     @Test func lastMarkerWrittenWins() throws {
@@ -68,29 +79,36 @@ import Testing
         ].joined(separator: "\n").write(to: secondRollout, atomically: true, encoding: .utf8)
 
         _ = CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp, codexHome: fleet.home)
-        #expect(CodexTranscripts.transcriptURL(sessionID: secondSession, projectDirectory: tmp,
-                                               codexHome: fleet.home)?.standardizedFileURL
+        #expect(
+            CodexTranscripts.transcriptURL(
+                sessionID: secondSession, projectDirectory: tmp,
+                codexHome: fleet.home)?.standardizedFileURL
                 == secondRollout.standardizedFileURL,
-                "concurrent sessions resolve independently, even beyond the old prompt window")
+            "concurrent sessions resolve independently, even beyond the old prompt window")
     }
 
     @Test func onlineAgentsCountTheLeadAndRunningDescendants() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let fleet = try makeFleet(in: tmp)
-        let codexAgents = CodexTranscripts.subagents(sessionID: fleet.session, projectDirectory: tmp,
-                                                     taskIDs: ["edit-todo"], codexHome: fleet.home)
+        let codexAgents = CodexTranscripts.subagents(
+            sessionID: fleet.session, projectDirectory: tmp,
+            taskIDs: ["edit-todo"], codexHome: fleet.home)
         var project = Project(directory: tmp)
-        project.sessions = [CodeSession(title: "Lead", icon: "", line: "", agent: .codex,
-                                        subagents: codexAgents),
-                            CodeSession(title: "Server", icon: "", line: "")]
+        project.sessions = [
+            CodeSession(
+                title: "Lead", icon: "", line: "", agent: .codex,
+                subagents: codexAgents),
+            CodeSession(title: "Server", icon: "", line: ""),
+        ]
         #expect(project.onlineAgentCount == 3, "count the lead and every running descendant, excluding services")
     }
 
     @Test func transcriptDropsReasoningAndDuplicateEvents() throws {
         let codexLines = try childTranscript()
-        #expect(codexLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
-                "reasoning and the duplicate event_msg lines are dropped")
+        #expect(
+            codexLines.map(\.label) == ["Task", "Tool", "Result", "Reply"],
+            "reasoning and the duplicate event_msg lines are dropped")
         #expect(codexLines.map(\.text) == ["Message Type: NEW_TASK", "exec(ls)", "one file", "Done"])
     }
 
@@ -117,16 +135,18 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let log = tmp.appendingPathComponent("rollout.jsonl")
         try fixture(path).write(to: log, atomically: true, encoding: .utf8)
-        #expect(CodexTranscripts.transcript(at: log).map(\.label) == labels,
-                "a bad line is skipped on its own, without losing the lines around it")
+        #expect(
+            CodexTranscripts.transcript(at: log).map(\.label) == labels,
+            "a bad line is skipped on its own, without losing the lines around it")
     }
 
     @Test func transcriptCutMidCharacterKeepsItsCompleteLines() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let log = tmp.appendingPathComponent("rollout.jsonl")
-        try (Data(try fixture("codex/codex-transcript-truncated-final-line.jsonl").utf8)
-             + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
+        try
+            (Data(try fixture("codex/codex-transcript-truncated-final-line.jsonl").utf8)
+            + Data("\u{2014}".utf8.dropLast(1))).write(to: log)
         withKnownIssue("the whole file is decoded as strict UTF-8, so one half-written character empties it") {
             #expect(CodexTranscripts.transcript(at: log).map(\.label) == ["Task", "Tool"])
         }
@@ -146,12 +166,15 @@ import Testing
         CodexTranscripts.launched = .distantPast
 
         try String(full.prefix(40)).write(to: lead, atomically: true, encoding: .utf8)
-        #expect(CodexTranscripts.transcriptURL(sessionID: session, projectDirectory: tmp, codexHome: home) == nil,
-                "a half-written session_meta line reads as no lead, not a crash")
+        #expect(
+            CodexTranscripts.transcriptURL(sessionID: session, projectDirectory: tmp, codexHome: home) == nil,
+            "a half-written session_meta line reads as no lead, not a crash")
         try full.write(to: lead, atomically: true, encoding: .utf8)
-        #expect(CodexTranscripts.transcriptURL(sessionID: session, projectDirectory: tmp,
-                                               codexHome: home)?.lastPathComponent == "rollout-lead.jsonl",
-                "the completed rollout resolves on the next scan")
+        #expect(
+            CodexTranscripts.transcriptURL(
+                sessionID: session, projectDirectory: tmp,
+                codexHome: home)?.lastPathComponent == "rollout-lead.jsonl",
+            "the completed rollout resolves on the next scan")
     }
 }
 
@@ -176,14 +199,18 @@ private func makeFleet(in project: URL) throws -> CodexFleet {
         try text.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
-    _ = try rollout("rollout-lead.jsonl",
-                    rolloutFixture("codex/codex-rollout-lead.jsonl", cwd: project, session: session))
-    _ = try rollout("rollout-other.jsonl",
-                    #"{"type":"session_meta","payload":{"id":"thread-other","cwd":"\#(project.path)","source":"cli"}}"#)
-    let child = try rollout("rollout-child.jsonl",
-                            rolloutFixture("codex/codex-rollout-child.jsonl", cwd: project, session: session))
-    _ = try rollout("rollout-grandchild.jsonl",
-                    rolloutFixture("codex/codex-rollout-grandchild.jsonl", cwd: project, session: session))
+    _ = try rollout(
+        "rollout-lead.jsonl",
+        rolloutFixture("codex/codex-rollout-lead.jsonl", cwd: project, session: session))
+    _ = try rollout(
+        "rollout-other.jsonl",
+        #"{"type":"session_meta","payload":{"id":"thread-other","cwd":"\#(project.path)","source":"cli"}}"#)
+    let child = try rollout(
+        "rollout-child.jsonl",
+        rolloutFixture("codex/codex-rollout-child.jsonl", cwd: project, session: session))
+    _ = try rollout(
+        "rollout-grandchild.jsonl",
+        rolloutFixture("codex/codex-rollout-grandchild.jsonl", cwd: project, session: session))
     // Only rollouts modified since launch are scanned; the fixtures were written just now.
     CodexTranscripts.launched = .distantPast
     return CodexFleet(home: codexHome, day: day, session: session, child: child)
@@ -200,8 +227,9 @@ private func rolloutFixture(_ path: String, cwd: URL, session: UUID) throws -> S
 
 /// The child's turn ends: Codex appends `task_complete` after its `task_started`.
 private func completeChild(_ fleet: CodexFleet) throws {
-    try ((try String(contentsOf: fleet.child, encoding: .utf8))
-         + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#)
+    try
+        ((try String(contentsOf: fleet.child, encoding: .utf8))
+        + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#)
         .write(to: fleet.child, atomically: true, encoding: .utf8)
 }
 
@@ -211,8 +239,9 @@ private func childTranscript() throws -> [TranscriptLine] {
     let tmp = try makeTemporaryDirectory()
     defer { try? FileManager.default.removeItem(at: tmp) }
     let child = tmp.appendingPathComponent("rollout-child.jsonl")
-    try (rolloutFixture("codex/codex-rollout-child.jsonl", cwd: tmp, session: UUID())
-         + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#)
+    try
+        (rolloutFixture("codex/codex-rollout-child.jsonl", cwd: tmp, session: UUID())
+        + "\n" + #"{"type":"event_msg","payload":{"type":"task_complete"}}"#)
         .write(to: child, atomically: true, encoding: .utf8)
     return CodexTranscripts.transcript(at: child)
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 // A proposal shares the folder, the list and the button — it differs in who the
@@ -26,11 +27,13 @@ import Testing
         let root = try blocksRoot(in: tmp)
 
         let proposal = try #require(Blocks.load(root: root).first { $0.isProposal })
-        #expect(proposal.waiting && proposal.session == leadID && !proposal.proposalReady,
-                "a discussion notification links back to its Product transcript")
+        #expect(
+            proposal.waiting && proposal.session == leadID && !proposal.proposalReady,
+            "a discussion notification links back to its Product transcript")
         let approval = NotebookFormat.unblockPrompt(block: proposal, agent: .claude)
-        #expect(approval.contains("product") && approval.contains(".notebook/blocks/add-checkout.md"),
-                "a proposal can be resumed by product, not an engineer")
+        #expect(
+            approval.contains("product") && approval.contains(".notebook/blocks/add-checkout.md"),
+            "a proposal can be resumed by product, not an engineer")
     }
 
     @Test func onlyAFinalizedProposalIsReady() throws {
@@ -52,7 +55,8 @@ import Testing
         let root = try blocksRoot(in: tmp)
 
         let block = try #require(Blocks.load(root: root).first { $0.slug == "github-token" })
-        #expect(!block.isProposal && NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("fde-dev"),
-                "a gate still reaches the forward-deployed engineer")
+        #expect(
+            !block.isProposal && NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("fde-dev"),
+            "a gate still reaches the forward-deployed engineer")
     }
 }

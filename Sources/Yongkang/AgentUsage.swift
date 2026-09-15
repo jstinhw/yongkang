@@ -16,16 +16,18 @@ struct TokenTally: Equatable {
     var cacheRate: Double { total == 0 ? 0 : Double(cacheRead) / Double(total) }
 
     static func + (lhs: TokenTally, rhs: TokenTally) -> TokenTally {
-        TokenTally(input: lhs.input + rhs.input, output: lhs.output + rhs.output,
-                   cacheRead: lhs.cacheRead + rhs.cacheRead, cacheWrite: lhs.cacheWrite + rhs.cacheWrite)
+        TokenTally(
+            input: lhs.input + rhs.input, output: lhs.output + rhs.output,
+            cacheRead: lhs.cacheRead + rhs.cacheRead, cacheWrite: lhs.cacheWrite + rhs.cacheWrite)
     }
 
     /// Clamped at zero per bucket: a provider that resets its running total must read as
     /// no spend, never as negative spend that would cancel out real work beside it.
     static func - (lhs: TokenTally, rhs: TokenTally) -> TokenTally {
-        TokenTally(input: max(0, lhs.input - rhs.input), output: max(0, lhs.output - rhs.output),
-                   cacheRead: max(0, lhs.cacheRead - rhs.cacheRead),
-                   cacheWrite: max(0, lhs.cacheWrite - rhs.cacheWrite))
+        TokenTally(
+            input: max(0, lhs.input - rhs.input), output: max(0, lhs.output - rhs.output),
+            cacheRead: max(0, lhs.cacheRead - rhs.cacheRead),
+            cacheWrite: max(0, lhs.cacheWrite - rhs.cacheWrite))
     }
 }
 
@@ -53,7 +55,9 @@ struct AgentSpend: Identifiable {
     }
 
     func models(since: Date?) -> [String: TokenTally] {
-        samples(since: since).reduce(into: [:]) { $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally }
+        samples(since: since).reduce(into: [:]) {
+            $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally
+        }
     }
 
     func tally(since: Date?) -> TokenTally {
@@ -173,21 +177,24 @@ enum AgentUsage {
         project.sessions.flatMap { session -> [AgentSpend] in
             let provider = session.agent ?? .claude
             let own = Transcripts.url(of: session, in: project.directory).map { url in
-                AgentSpend(id: session.id.uuidString, tag: Tag.session(session),
-                           name: session.title, role: role(of: session),
-                           provider: provider, running: !session.exited,
-                           samples: samples(at: Transcripts.usageURL(of: session, in: project.directory) ?? url,
-                                            provider))
+                AgentSpend(
+                    id: session.id.uuidString, tag: Tag.session(session),
+                    name: session.title, role: role(of: session),
+                    provider: provider, running: !session.exited,
+                    samples: samples(
+                        at: Transcripts.usageURL(of: session, in: project.directory) ?? url,
+                        provider))
             }
             let spawned = session.subagents.map { subagent in
                 // Scoped to its session: a provider's agent id is unique within the session
                 // that spawned it and not beyond, so two sessions can hold the same one —
                 // which would collide as a list key here and as a ledger row on disk.
-                AgentSpend(id: "\(session.id.uuidString):\(subagent.id)",
-                           tag: Tag.subagent(session, subagent),
-                           name: subagent.description, role: subagent.agentType,
-                           provider: provider, running: subagent.running,
-                           samples: samples(at: subagent.transcriptURL, provider))
+                AgentSpend(
+                    id: "\(session.id.uuidString):\(subagent.id)",
+                    tag: Tag.subagent(session, subagent),
+                    name: subagent.description, role: subagent.agentType,
+                    provider: provider, running: subagent.running,
+                    samples: samples(at: subagent.transcriptURL, provider))
             }
             return ([own].compactMap { $0 } + spawned).filter { !$0.samples.isEmpty }
         }
@@ -195,8 +202,10 @@ enum AgentUsage {
 
     /// Sums a keyed slice of the spends — by role, by provider — as one call, because
     /// those panels are the same fold over a different key.
-    static func group<Key: Hashable>(_ spends: [AgentSpend], since: Date?,
-                                     by key: (AgentSpend) -> Key) -> [(key: Key, tally: TokenTally)] {
+    static func group<Key: Hashable>(
+        _ spends: [AgentSpend], since: Date?,
+        by key: (AgentSpend) -> Key
+    ) -> [(key: Key, tally: TokenTally)] {
         Dictionary(grouping: spends, by: key)
             .map { (key: $0.key, tally: $0.value.map { $0.tally(since: since) }.reduce(TokenTally(), +)) }
             .filter { $0.tally.total > 0 }
@@ -205,7 +214,9 @@ enum AgentUsage {
 
     static func byModel(_ spends: [AgentSpend], since: Date?) -> [(key: String, tally: TokenTally)] {
         spends.flatMap { $0.samples(since: since) }
-            .reduce(into: [String: TokenTally]()) { $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally }
+            .reduce(into: [String: TokenTally]()) {
+                $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally
+            }
             .map { (key: $0.key, tally: $0.value) }
             .filter { $0.tally.total > 0 }
             .sorted { $0.tally.total > $1.tally.total }
@@ -214,8 +225,10 @@ enum AgentUsage {
     /// The histogram: the range sliced into equal buckets, each holding what every model
     /// spent inside it. Samples outside the range fall outside the bucket index and are
     /// dropped here rather than filtered first.
-    static func histogram(_ samples: [UsageSample], range: UsageRange,
-                          now: Date = Date()) -> [UsageBucket] {
+    static func histogram(
+        _ samples: [UsageSample], range: UsageRange,
+        now: Date = Date()
+    ) -> [UsageBucket] {
         let start: Date
         switch range {
         case .all:
@@ -239,8 +252,9 @@ enum AgentUsage {
             columns[index][sample.model, default: 0] += sample.tally.total
         }
         return columns.enumerated().map {
-            UsageBucket(id: $0.offset, start: start.addingTimeInterval(width * Double($0.offset)),
-                        byModel: $0.element)
+            UsageBucket(
+                id: $0.offset, start: start.addingTimeInterval(width * Double($0.offset)),
+                byModel: $0.element)
         }
     }
 
@@ -288,14 +302,17 @@ enum AgentUsage {
     /// cost, so the file is already a ledger of deltas — one line, one sample.
     private static func claudeSample(_ line: String) -> UsageSample? {
         guard line.contains("\"usage\""), let object = json(line),
-              let at = date(object["timestamp"] as? String),
-              let message = object["message"] as? [String: Any],
-              let usage = message["usage"] as? [String: Any] else { return nil }
+            let at = date(object["timestamp"] as? String),
+            let message = object["message"] as? [String: Any],
+            let usage = message["usage"] as? [String: Any]
+        else { return nil }
         func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
-        let tally = TokenTally(input: count("input_tokens"), output: count("output_tokens"),
-                               cacheRead: count("cache_read_input_tokens"),
-                               cacheWrite: count("cache_creation_input_tokens"))
-        return tally.total == 0 ? nil
+        let tally = TokenTally(
+            input: count("input_tokens"), output: count("output_tokens"),
+            cacheRead: count("cache_read_input_tokens"),
+            cacheWrite: count("cache_creation_input_tokens"))
+        return tally.total == 0
+            ? nil
             : UsageSample(at: at, model: message["model"] as? String ?? "unknown", tally: tally)
     }
 
@@ -312,16 +329,18 @@ enum AgentUsage {
             return nil
         }
         guard payload["type"] as? String == "token_count",
-              let at = date(object["timestamp"] as? String),
-              let info = payload["info"] as? [String: Any],
-              let usage = info["total_token_usage"] as? [String: Any] else { return nil }
+            let at = date(object["timestamp"] as? String),
+            let info = payload["info"] as? [String: Any],
+            let usage = info["total_token_usage"] as? [String: Any]
+        else { return nil }
         func count(_ key: String) -> Int { (usage[key] as? NSNumber)?.intValue ?? 0 }
         // `input_tokens` is the whole prompt, cached part included, so the cached half is
         // subtracted out rather than counted twice.
         let cached = count("cached_input_tokens")
-        let total = TokenTally(input: max(0, count("input_tokens") - cached),
-                               output: count("output_tokens"), cacheRead: cached,
-                               cacheWrite: count("cache_write_input_tokens"))
+        let total = TokenTally(
+            input: max(0, count("input_tokens") - cached),
+            output: count("output_tokens"), cacheRead: cached,
+            cacheWrite: count("cache_write_input_tokens"))
         let delta = total - cursor.running
         cursor.running = total
         return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
@@ -332,20 +351,21 @@ enum AgentUsage {
     /// tally, the same way Codex's running total is handled above.
     private static func grokSamples(_ line: String) -> [UsageSample] {
         guard let object = json(line),
-              let timestamp = (object["timestamp"] as? NSNumber)?.doubleValue,
-              let params = object["params"] as? [String: Any],
-              let update = params["update"] as? [String: Any],
-              update["sessionUpdate"] as? String == "turn_completed",
-              let usage = update["usage"] as? [String: Any]
+            let timestamp = (object["timestamp"] as? NSNumber)?.doubleValue,
+            let params = object["params"] as? [String: Any],
+            let update = params["update"] as? [String: Any],
+            update["sessionUpdate"] as? String == "turn_completed",
+            let usage = update["usage"] as? [String: Any]
         else { return [] }
         let at = Date(timeIntervalSince1970: timestamp > 10_000_000_000 ? timestamp / 1000 : timestamp)
 
         func sample(_ model: String, _ value: [String: Any]) -> UsageSample? {
             func count(_ key: String) -> Int { (value[key] as? NSNumber)?.intValue ?? 0 }
             let cached = count("cachedReadTokens")
-            let tally = TokenTally(input: max(0, count("inputTokens") - cached),
-                                   output: count("outputTokens"), cacheRead: cached,
-                                   cacheWrite: count("cacheCreationTokens"))
+            let tally = TokenTally(
+                input: max(0, count("inputTokens") - cached),
+                output: count("outputTokens"), cacheRead: cached,
+                cacheWrite: count("cacheCreationTokens"))
             return tally.total == 0 ? nil : UsageSample(at: at, model: model, tally: tally)
         }
 
@@ -384,12 +404,14 @@ enum AgentUsage {
         configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
     ) -> ProviderQuota? {
         guard let data = try? Data(contentsOf: configURL),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let cached = root["cachedUsageUtilization"] as? [String: Any],
-              let utilization = cached["utilization"] as? [String: Any] else { return nil }
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let cached = root["cachedUsageUtilization"] as? [String: Any],
+            let utilization = cached["utilization"] as? [String: Any]
+        else { return nil }
 
-        var quota = ProviderQuota(provider: .claude,
-                                  plan: (root["oauthAccount"] as? [String: Any])?["organizationType"] as? String)
+        var quota = ProviderQuota(
+            provider: .claude,
+            plan: (root["oauthAccount"] as? [String: Any])?["organizationType"] as? String)
         if let ms = (cached["fetchedAtMs"] as? NSNumber)?.doubleValue {
             quota.asOf = Date(timeIntervalSince1970: ms / 1000)
         }
@@ -401,13 +423,16 @@ enum AgentUsage {
         ]
         quota.windows = named.compactMap { key, name in
             guard let window = utilization[key] as? [String: Any],
-                  let percent = (window["utilization"] as? NSNumber)?.doubleValue else { return nil }
-            return PlanWindow(id: key, name: name, percent: percent,
-                              resetsAt: date(window["resets_at"] as? String))
+                let percent = (window["utilization"] as? NSNumber)?.doubleValue
+            else { return nil }
+            return PlanWindow(
+                id: key, name: name, percent: percent,
+                resetsAt: date(window["resets_at"] as? String))
         }
         if let spend = utilization["spend"] as? [String: Any],
-           let used = money(spend["used"] as? [String: Any] ?? [:]),
-           let limit = money(spend["limit"] as? [String: Any] ?? [:]) {
+            let used = money(spend["used"] as? [String: Any] ?? [:]),
+            let limit = money(spend["limit"] as? [String: Any] ?? [:])
+        {
             quota.credits = ("Extra usage", String(format: "$%.2f of $%.2f", used, limit))
         }
         return quota
@@ -432,9 +457,11 @@ enum AgentUsage {
         codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
     ) -> ProviderQuota? {
         let root = codexHome.appendingPathComponent("sessions")
-        guard let walk = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]) else { return nil }
+        guard
+            let walk = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles])
+        else { return nil }
         let newest = walk.compactMap { $0 as? URL }
             .filter { $0.pathExtension == "jsonl" }
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
@@ -447,18 +474,24 @@ enum AgentUsage {
             quota.windows = [("primary", "Session · 5h"), ("secondary", "Weekly")]
                 .compactMap { key, name -> PlanWindow? in
                     guard let window = limits[key] as? [String: Any],
-                          let percent = (window["used_percent"] as? NSNumber)?.doubleValue else { return nil }
+                        let percent = (window["used_percent"] as? NSNumber)?.doubleValue
+                    else { return nil }
                     let resets = (window["resets_at"] as? NSNumber)?.doubleValue
-                    return PlanWindow(id: key, name: name, percent: percent,
-                                      resetsAt: resets.map { Date(timeIntervalSince1970: $0) })
+                    return PlanWindow(
+                        id: key, name: name, percent: percent,
+                        resetsAt: resets.map { Date(timeIntervalSince1970: $0) })
                 }
             // Only when the account actually has credits: a zero balance on an account
             // that never bought any is not a fact worth a row.
             if let credits = limits["credits"] as? [String: Any],
-               credits["has_credits"] as? Bool == true {
-                quota.credits = ("Credits left",
-                                 credits["unlimited"] as? Bool == true ? "unlimited"
-                                     : "$\(credits["balance"] as? String ?? "0")")
+                credits["has_credits"] as? Bool == true
+            {
+                quota.credits = (
+                    "Credits left",
+                    credits["unlimited"] as? Bool == true
+                        ? "unlimited"
+                        : "$\(credits["balance"] as? String ?? "0")"
+                )
             }
             return quota
         }
@@ -547,7 +580,9 @@ enum AgentUsage {
         return models.reduce(into: [:]) { palette, model in
             let step = depth[family(model), default: 0]
             depth[family(model)] = step + 1
-            palette[model] = step == 0 ? modelTint(model)
+            palette[model] =
+                step == 0
+                ? modelTint(model)
                 : modelTint(model).opacity(1 - 0.32 * Double(min(step, 2)))
         }
     }

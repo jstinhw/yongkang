@@ -41,7 +41,9 @@ struct WorkReport: View {
             if let openFile, !work.paths.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(work.paths, id: \.self) { path in
-                        Button { openFile(path) } label: {
+                        Button {
+                            openFile(path)
+                        } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "doc.text").font(.system(size: 10))
                                 Text(path).font(Typo.mono(10.5)).lineLimit(1).truncationMode(.head)
@@ -89,12 +91,15 @@ struct FeedbackCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Feedback for the agents",
-                         trailing: draft.comments.isEmpty ? nil : "\(draft.comments.count) on lines")
+            SectionLabel(
+                "Feedback for the agents",
+                trailing: draft.comments.isEmpty ? nil : "\(draft.comments.count) on lines")
             ForEach(draft.comments) { comment in
                 HStack(alignment: .top, spacing: 9) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Button { openFile(comment.path) } label: {
+                        Button {
+                            openFile(comment.path)
+                        } label: {
                             Text("\(comment.path):\(comment.line)").font(Typo.mono(10.5)).foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
@@ -102,7 +107,9 @@ struct FeedbackCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
-                    Button { draft.comments.removeAll { $0.id == comment.id } } label: {
+                    Button {
+                        draft.comments.removeAll { $0.id == comment.id }
+                    } label: {
                         Image(systemName: "xmark").font(.system(size: 10))
                     }
                     .buttonStyle(.consoleGhost)
@@ -163,8 +170,9 @@ struct TaskReviewBar: View {
                 approveButton.buttonStyle(.console)
                     .help("Commits without sending your feedback, which is then discarded")
                 Button(action: requestChanges) {
-                    Label("Request changes · \(draft.comments.count + (draft.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 : 1))",
-                          systemImage: "text.bubble")
+                    Label(
+                        "Request changes · \(draft.comments.count + (draft.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0 : 1))",
+                        systemImage: "text.bubble")
                 }
                 .buttonStyle(.consolePrimary)
             }
@@ -181,7 +189,8 @@ struct TaskReviewBar: View {
         } label: {
             Label("Approve and commit", systemImage: "checkmark.seal")
         }
-        .disabled(!task.done || task.commitPaths.isEmpty
-                  || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .disabled(
+            !task.done || task.commitPaths.isEmpty
+                || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 }

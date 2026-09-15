@@ -47,8 +47,10 @@ enum Skills {
             // the folder is the name an agent asks for, and a SKILL.md claiming another
             // skill's name would put a row in the picker that resolves to that other one.
             .map { folder in
-                SkillDoc.load(at: folder.appendingPathComponent("SKILL.md"),
-                              named: folder.lastPathComponent).named(folder.lastPathComponent)
+                SkillDoc.load(
+                    at: folder.appendingPathComponent("SKILL.md"),
+                    named: folder.lastPathComponent
+                ).named(folder.lastPathComponent)
             }
             .sorted { $0.name < $1.name }
     }
@@ -71,8 +73,10 @@ enum Skills {
         let fm = FileManager.default
         if fm.fileExists(atPath: checkout.appendingPathComponent("SKILL.md").path) { return [checkout] }
         guard depth > 0 else { return [] }
-        let children = ((try? fm.contentsOfDirectory(at: checkout,
-                                                     includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
+        let children =
+            ((try? fm.contentsOfDirectory(
+                at: checkout,
+                includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
             .filter { !$0.lastPathComponent.hasPrefix(".") }
             .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
@@ -137,7 +141,8 @@ enum Skills {
         try? fm.createDirectory(at: mirror, withIntermediateDirectories: true)
         let link = mirror.appendingPathComponent(name)
         guard (try? link.checkResourceIsReachable()) != true,
-              (try? fm.destinationOfSymbolicLink(atPath: link.path)) == nil else { return }
+            (try? fm.destinationOfSymbolicLink(atPath: link.path)) == nil
+        else { return }
         try? fm.createSymbolicLink(atPath: link.path, withDestinationPath: "../../\(folders[0])/\(name)")
     }
 

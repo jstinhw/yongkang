@@ -37,8 +37,10 @@ struct NotebookContentView: View {
     /// carries information the task list does not, so it stays.
     private func isRedundantList(_ block: NotebookContent.Block) -> Bool {
         guard case .list(let items) = block, !items.isEmpty else { return false }
-        return items.allSatisfy { NotebookContent.isPureLinks($0)
-            && NotebookContent.wikilinks(in: $0).allSatisfy(redundant.contains) }
+        return items.allSatisfy {
+            NotebookContent.isPureLinks($0)
+                && NotebookContent.wikilinks(in: $0).allSatisfy(redundant.contains)
+        }
     }
 
     @ViewBuilder
@@ -106,7 +108,8 @@ struct NotebookContentView: View {
                 return acc + Text(LocalizedStringKey(s))
             case .link(let id):
                 let card = cards.first { $0.id == id }
-                return acc + Text(card?.title ?? id)
+                return acc
+                    + Text(card?.title ?? id)
                     .foregroundColor(card == nil ? Theme.amber : Theme.accent)
                     .fontWeight(.medium)
             }

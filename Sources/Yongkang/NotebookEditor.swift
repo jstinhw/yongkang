@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// Raw Markdown editing. Deliberately not a rendered preview: the agents in the
 /// other sessions edit these same files, and frontmatter is the part you check.
@@ -35,8 +35,10 @@ struct NotebookEditor: View {
                 Spacer(minLength: 12)
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([entry.url])
-                } label: { Label("Reveal", systemImage: "folder") }
-                    .buttonStyle(.console)
+                } label: {
+                    Label("Reveal", systemImage: "folder")
+                }
+                .buttonStyle(.console)
                 Button(action: save) { Label("Save", systemImage: "arrow.down.doc") }
                     .buttonStyle(.consolePrimary)
                     .keyboardShortcut("s")
@@ -63,7 +65,8 @@ struct NotebookEditor: View {
                 let alert = NSAlert()
                 alert.alertStyle = .warning
                 alert.messageText = "This page changed while you were editing"
-                alert.informativeText = "Your text is still here and was not saved. Copy it, then reopen the page to merge the agent's changes."
+                alert.informativeText =
+                    "Your text is still here and was not saved. Copy it, then reopen the page to merge the agent's changes."
                 alert.runModal()
                 return
             }

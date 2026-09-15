@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftTerm
+import SwiftUI
 
 enum AgentKind: String, CaseIterable, Identifiable {
     case claude
@@ -38,16 +38,16 @@ enum AgentKind: String, CaseIterable, Identifiable {
             return skillInvocation(name, arguments: arguments)
         }
         return """
-        Follow the bundled `\(name)` skill below. Treat `<arguments>` as `$ARGUMENTS`.
+            Follow the bundled `\(name)` skill below. Treat `<arguments>` as `$ARGUMENTS`.
 
-        <skill>
-        \(instructions)
-        </skill>
+            <skill>
+            \(instructions)
+            </skill>
 
-        <arguments>
-        \(arguments)
-        </arguments>
-        """
+            <arguments>
+            \(arguments)
+            </arguments>
+            """
     }
 }
 
@@ -65,7 +65,8 @@ enum BundledSkills {
     /// The packaged copy of one skill.
     static func url(_ name: String) -> URL? {
         guard let file = root?.appendingPathComponent("\(name)/SKILL.md"),
-              FileManager.default.fileExists(atPath: file.path) else { return nil }
+            FileManager.default.fileExists(atPath: file.path)
+        else { return nil }
         return file
     }
 
@@ -85,14 +86,18 @@ enum AgentCommand {
     /// Claude Code and Grok accept `--session-id`; Codex gets a marker in its prompt so
     /// its rollout can be found later. Agy has neither and starts prompted sessions with
     /// `--prompt-interactive`.
-    static func line(directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
-                     brief: Bool = false, noCommit: Bool = false) -> String {
+    static func line(
+        directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
+        brief: Bool = false, noCommit: Bool = false
+    ) -> String {
         let briefFlag = agent == .claude && brief ? "--brief " : ""
-        let sessionFlag = agent == .claude || agent == .grok
+        let sessionFlag =
+            agent == .claude || agent == .grok
             ? sessionID.map { "--session-id \($0.uuidString.lowercased()) " } ?? "" : ""
         let command = "\(agent.command) \(briefFlag)\(noCommit ? denyCommits(agent) : "")\(sessionFlag)"
             .trimmingCharacters(in: .whitespaces)
-        let opening = agent == .codex
+        let opening =
+            agent == .codex
             ? prompt.flatMap { text in sessionID.map { "\(text)\n\n\(marker($0))" } } ?? prompt
             : prompt
         let promptFlag = agent == .agy && opening != nil ? " --prompt-interactive" : ""
@@ -182,8 +187,9 @@ struct AgentTerminal: NSViewRepresentable {
             }
         }
         if focused {
-            context.coordinator.navigate(to: child, agent: agent, view: view,
-                                         report: onChildNavigation)
+            context.coordinator.navigate(
+                to: child, agent: agent, view: view,
+                report: onChildNavigation)
         } else {
             context.coordinator.navigation?.invalidate()
         }
@@ -191,8 +197,10 @@ struct AgentTerminal: NSViewRepresentable {
         // becoming visible alongside `pending` being set triggers it from two directions
         // at once) — clearing `pending` is deferred to avoid mutating state mid-update, so
         // without this guard a fast second call would still see it set and send it twice.
-        guard let text = pending, context.coordinator.canSendPending, !view.hasDraft, view.process.running, view.attentionReason == nil,
-              !context.coordinator.sending else { return }
+        guard let text = pending, context.coordinator.canSendPending, !view.hasDraft, view.process.running,
+            view.attentionReason == nil,
+            !context.coordinator.sending
+        else { return }
         context.coordinator.sending = true
         // ponytail: bracketed paste so embedded newlines land as one message instead of
         // submitting early, then a real Enter to send it — exactly what a paste followed
@@ -224,8 +232,10 @@ struct AgentTerminal: NSViewRepresentable {
         private var childID: String?
         var canSendPending = true
 
-        func navigate(to child: SubagentStatus?, agent: AgentKind?, view: AttentionTerminalView,
-                      report: @escaping (String?) -> Void) {
+        func navigate(
+            to child: SubagentStatus?, agent: AgentKind?, view: AttentionTerminalView,
+            report: @escaping (String?) -> Void
+        ) {
             guard childID != child?.id else { return }
             guard !view.hasDraft else {
                 DispatchQueue.main.async { report("Submit or clear the CLI draft before switching agents.") }
@@ -242,7 +252,10 @@ struct AgentTerminal: NSViewRepresentable {
             }
             // Claude's child view is an overlay; Codex switches the active conversation.
             if wasChild && agent == .claude { view.process.send(data: [27][...]) }
-            guard child != nil || agent == .codex else { canSendPending = true; return }
+            guard child != nil || agent == .codex else {
+                canSendPending = true
+                return
+            }
             let command = agent == .codex ? "/subagents" : "/tasks"
             let target = child.map { [$0.id, $0.description] } ?? ["Main [default]"]
             view.onUserInput = { [weak self] in
@@ -255,7 +268,10 @@ struct AgentTerminal: NSViewRepresentable {
             // ponytail: CLI picker navigation uses rendered labels. If the CLI changes its
             // layout or truncates the identity, leave the picker open for manual selection.
             navigation = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak view] timer in
-                guard let self, let view else { timer.invalidate(); return }
+                guard let self, let view else {
+                    timer.invalidate()
+                    return
+                }
                 ticks += 1
                 guard view.process.running, ticks < 80 else {
                     timer.invalidate()
@@ -271,7 +287,8 @@ struct AgentTerminal: NSViewRepresentable {
                 guard let row = ChildAgentPicker.selectedRow(in: screen, agent: agent!) else {
                     // Claude skips the picker when there is only one background task.
                     if agent == .claude, let child,
-                       screen.contains(child.id), screen.lowercased().contains("esc") {
+                        screen.contains(child.id), screen.lowercased().contains("esc")
+                    {
                         timer.invalidate()
                         report(nil)
                     }
@@ -300,7 +317,8 @@ struct AgentTerminal: NSViewRepresentable {
 
         func processTerminated(source: TerminalView, exitCode: Int32?) {
             let code = exitCode.map(String.init) ?? "?"
-            source.feed(text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
+            source.feed(
+                text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
             onExit()
         }
 
@@ -315,7 +333,8 @@ enum ChildAgentPicker {
     static func selectedRow(in screen: String, agent: AgentKind) -> String? {
         let text = screen.replacingOccurrences(of: "\0", with: " ")
         let lower = text.lowercased()
-        let picker = agent == .claude
+        let picker =
+            agent == .claude
             ? lower.contains("background") && lower.contains("enter") && lower.contains("view")
             : lower.contains("agent") && lower.contains("enter")
                 && (lower.contains("select") || lower.contains("confirm"))
@@ -327,8 +346,10 @@ enum ChildAgentPicker {
 
     static func matches(_ row: String, identities: [String]) -> Bool {
         identities.contains { identity in
-            !identity.isEmpty && row.range(of: "(?<![\\w-])" + NSRegularExpression.escapedPattern(for: identity)
-                + "(?![\\w-])", options: .regularExpression) != nil
+            !identity.isEmpty
+                && row.range(
+                    of: "(?<![\\w-])" + NSRegularExpression.escapedPattern(for: identity)
+                        + "(?![\\w-])", options: .regularExpression) != nil
         }
     }
 }

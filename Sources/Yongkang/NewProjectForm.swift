@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// Where a folder named in a prompt would go: `~/code/todo` is a folder to create inside
 /// an existing `~/code`, `~/code` on its own is where projects live and the name is still
@@ -19,7 +19,8 @@ enum ProjectLocation {
             }
             let parent = url.deletingLastPathComponent()
             guard fm.fileExists(atPath: parent.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue else { continue }
+                isDirectory.boolValue
+            else { continue }
             return (parent, url.lastPathComponent)
         }
         return nil
@@ -27,9 +28,11 @@ enum ProjectLocation {
 
     /// Words that name nothing — every second prompt opens with them, and a folder called
     /// `build-a-tool-that` is worse than one called `weather-cli`.
-    private static let filler: Set<String> = ["a", "an", "the", "and", "build", "create",
-                                              "for", "it", "make", "of", "project", "that",
-                                              "then", "to", "which", "with"]
+    private static let filler: Set<String> = [
+        "a", "an", "the", "and", "build", "create",
+        "for", "it", "make", "of", "project", "that",
+        "then", "to", "which", "with",
+    ]
 
     /// A folder name for a prompt that named no path: the first few words that carry
     /// meaning. Tags and paths are left out — the agent's own references are not a name.
@@ -95,8 +98,9 @@ struct NewProjectForm: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel("Describe it", trailing: "an agent builds it")
-                PromptField(placeholder: "A CLI that…", root: root, absolute: true,
-                            text: $text, submit: submit)
+                PromptField(
+                    placeholder: "A CLI that…", root: root, absolute: true,
+                    text: $text, submit: submit)
                 Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
                     .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
                 // Not a question, an answer: where this one is about to land.
@@ -138,8 +142,11 @@ struct NewProjectForm: View {
         let found = ProjectLocation.parse(text)
         if let found, !found.name.isEmpty { return (found.parent, found.name) }
         let base = found?.parent ?? parent
-        return (base, ProjectLocation.vacant(in: base, named: ProjectLocation.suggest(prompt))
-                          .lastPathComponent)
+        return (
+            base,
+            ProjectLocation.vacant(in: base, named: ProjectLocation.suggest(prompt))
+                .lastPathComponent
+        )
     }
 
     private func abbreviated(_ url: URL) -> String {

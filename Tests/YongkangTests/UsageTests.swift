@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// The usage screen reads token counts out of the same transcripts the console
@@ -61,8 +62,9 @@ import Testing
 
         // A half-written last line is left for the next pass rather than parsed as garbage.
         try append(String(lines[3].prefix(40)), to: claude)
-        #expect(AgentUsage.samples(at: claude, .claude).count == 3,
-                "a partial line is not counted until its newline lands")
+        #expect(
+            AgentUsage.samples(at: claude, .claude).count == 3,
+            "a partial line is not counted until its newline lands")
     }
 
     // Windowing is what the range picker does: the same samples, narrowed by time.
@@ -74,8 +76,9 @@ import Testing
         #expect(spend.tally(since: nil).total == 403, "all time is every sample")
         #expect(spend.samples(since: at("12:40")).count == 1, "and a window is only what fits")
         #expect(spend.models(since: at("12:40")).keys.first == "claude-haiku-4-5-20251001")
-        #expect(spend.topModel(since: nil) == "claude-opus-5",
-                "the model on a row is the one that spent most in the window")
+        #expect(
+            spend.topModel(since: nil) == "claude-opus-5",
+            "the model on a row is the one that spent most in the window")
     }
 
     @Test func codexRunningTotalsBecomeSteps() throws {
@@ -103,19 +106,22 @@ import Testing
 
         let hour = AgentUsage.histogram(noonish, range: .hour, now: at("13:00"))
         try #require(hour.count == UsageRange.hour.buckets)
-        #expect(hour.map(\.total).reduce(0, +) == noonish.map(\.tally.total).reduce(0, +),
-                "every sample inside the range lands in exactly one bucket")
+        #expect(
+            hour.map(\.total).reduce(0, +) == noonish.map(\.tally.total).reduce(0, +),
+            "every sample inside the range lands in exactly one bucket")
         #expect(hour[0].byModel["claude-opus-5"] == 135, "and lands in the right one")
         #expect(hour[6].byModel["claude-opus-5"] == 135)
         #expect(hour[9].byModel["claude-haiku-4-5-20251001"] == 133)
         let stale = AgentUsage.histogram(noonish, range: .hour, now: at("18:00"))
         #expect(stale.map(\.total).reduce(0, +) == 0, "and nothing older than the range shows at all")
         // A sample landing on the window's own edge belongs in the last bucket, not nowhere.
-        let edge = AgentUsage.histogram([UsageSample(at: at("13:00"), model: "m", tally: grown[0].tally)],
-                                        range: .hour, now: at("13:00"))
+        let edge = AgentUsage.histogram(
+            [UsageSample(at: at("13:00"), model: "m", tally: grown[0].tally)],
+            range: .hour, now: at("13:00"))
         #expect(edge.last?.total == 135)
-        #expect(AgentUsage.histogram([], range: .all, now: noon).isEmpty,
-                "an all-time view of nothing draws no bars rather than dividing by zero")
+        #expect(
+            AgentUsage.histogram([], range: .all, now: noon).isEmpty,
+            "an all-time view of nothing draws no bars rather than dividing by zero")
     }
 
     // The ledger is what makes the numbers outlive the app: sessions are not restored
@@ -127,12 +133,14 @@ import Testing
         let spend = leadSpend(try grownSamples(in: dir).samples)
         let notebook = dir.appendingPathComponent(".notebook")
 
-        #expect(!UsageLedger.record([spend], root: notebook),
-                "a project with no notebook is not given one just to file usage in")
+        #expect(
+            !UsageLedger.record([spend], root: notebook),
+            "a project with no notebook is not given one just to file usage in")
         try FileManager.default.createDirectory(at: notebook, withIntermediateDirectories: true)
         #expect(UsageLedger.record([spend], root: notebook))
-        #expect(!UsageLedger.record([spend], root: notebook),
-                "and an unchanged ledger is not rewritten, because the poll calls this")
+        #expect(
+            !UsageLedger.record([spend], root: notebook),
+            "and an unchanged ledger is not rewritten, because the poll calls this")
     }
 
     @Test func ledgerRemembersSpendByTheHour() throws {
@@ -147,14 +155,16 @@ import Testing
         #expect(remembered[0].id == spend.id)
         #expect(remembered[0].name == "Lead")
         #expect(remembered[0].role == "lead")
-        #expect(remembered[0].tally(since: nil).total == spend.tally(since: nil).total,
-                "what an agent spent survives the run that read it")
+        #expect(
+            remembered[0].tally(since: nil).total == spend.tally(since: nil).total,
+            "what an agent spent survives the run that read it")
         #expect(remembered[0].tag.isEmpty, "but its session is gone, so nothing opens")
         // 12:00 and 12:30 are one opus hour; 12:45 is a haiku hour of its own.
         #expect(remembered[0].samples.count == 2, "kept by the hour, not by the turn")
-        #expect(remembered[0].samples.allSatisfy {
-            $0.at.timeIntervalSince1970.truncatingRemainder(dividingBy: 3_600) == 0
-        }, "and filed on the hour mark")
+        #expect(
+            remembered[0].samples.allSatisfy {
+                $0.at.timeIntervalSince1970.truncatingRemainder(dividingBy: 3_600) == 0
+            }, "and filed on the hour mark")
     }
 
     // Usage only accumulates, so a re-read that comes back short — a truncated or
@@ -167,11 +177,13 @@ import Testing
         let notebook = try makeNotebook(in: dir)
         UsageLedger.record([spend], root: notebook)
 
-        let truncated = AgentSpend(id: spend.id, tag: "t", name: "Lead", role: "lead",
-                                   provider: .claude, running: false, samples: [grown[0]])
+        let truncated = AgentSpend(
+            id: spend.id, tag: "t", name: "Lead", role: "lead",
+            provider: .claude, running: false, samples: [grown[0]])
         UsageLedger.record([truncated], root: notebook)
-        #expect(UsageLedger.load(root: notebook).first?.tally(since: nil).total
-                    == spend.tally(since: nil).total, "a short re-read keeps the fuller record")
+        #expect(
+            UsageLedger.load(root: notebook).first?.tally(since: nil).total
+                == spend.tally(since: nil).total, "a short re-read keeps the fuller record")
     }
 
     // A provider's agent id is only unique inside the session that spawned it, so the
@@ -185,14 +197,17 @@ import Testing
         defer { try? FileManager.default.removeItem(at: dir) }
         let claude = try grownSamples(in: dir).transcript
 
-        let shared = SubagentStatus(id: "a3a603000d158ff03", description: "qa", agentType: "qa-dev",
-                                    running: false, transcriptURL: claude)
+        let shared = SubagentStatus(
+            id: "a3a603000d158ff03", description: "qa", agentType: "qa-dev",
+            running: false, transcriptURL: claude)
         var twin = Project(directory: dir, entries: [])
         twin.sessions = [
-            CodeSession(id: UUID(), title: "Engineering Lead", icon: "s", line: "claude",
-                        agent: .claude, subagents: [shared]),
-            CodeSession(id: UUID(), title: "Engineering Lead 2", icon: "s", line: "claude",
-                        agent: .claude, subagents: [shared]),
+            CodeSession(
+                id: UUID(), title: "Engineering Lead", icon: "s", line: "claude",
+                agent: .claude, subagents: [shared]),
+            CodeSession(
+                id: UUID(), title: "Engineering Lead 2", icon: "s", line: "claude",
+                agent: .claude, subagents: [shared]),
         ]
         let ids = AgentUsage.spends(in: twin).map(\.id)
         #expect(ids.count == 2, "both leads' copies of the agent have spend to show")
@@ -206,8 +221,9 @@ import Testing
         let notebook = try makeNotebook(in: dir)
         UsageLedger.record([leadSpend(try grownSamples(in: dir).samples)], root: notebook)
 
-        let other = AgentSpend(id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
-                               provider: .codex, running: false, samples: try rolloutSamples(in: dir))
+        let other = AgentSpend(
+            id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
+            provider: .codex, running: false, samples: try rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         let both = UsageLedger.load(root: notebook)
         #expect(both.count == 2, "and each agent keeps its own provider")
@@ -239,14 +255,18 @@ import Testing
         let notebook = try makeNotebook(in: dir)
         let damaged = try damageLedger(damage, in: notebook, samples: try grownSamples(in: dir).samples)
 
-        let other = AgentSpend(id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
-                               provider: .codex, running: false, samples: try rolloutSamples(in: dir))
+        let other = AgentSpend(
+            id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
+            provider: .codex, running: false, samples: try rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         // Compared as text so a failure shows what the file became, not a byte dump.
         let after = try String(contentsOf: UsageLedger.url(root: notebook), encoding: .utf8)
-        withKnownIssue("UsageLedger.record treats an unreadable usage.json as empty and replaces it, so the hours it held are lost") {
-            #expect(after == String(decoding: damaged, as: UTF8.self),
-                    "a ledger that cannot be read is left for a person to recover, not written over")
+        withKnownIssue(
+            "UsageLedger.record treats an unreadable usage.json as empty and replaces it, so the hours it held are lost"
+        ) {
+            #expect(
+                after == String(decoding: damaged, as: UTF8.self),
+                "a ledger that cannot be read is left for a person to recover, not written over")
         }
     }
 
@@ -255,10 +275,11 @@ import Testing
         UsageLedger.record([leadSpend(samples)], root: notebook)
         let url = UsageLedger.url(root: notebook)
         let written = try Data(contentsOf: url)
-        let damaged = switch damage {
-        case .truncated: written.prefix(written.count / 2)
-        case .notJSON: Data("not a ledger\n".utf8)
-        }
+        let damaged =
+            switch damage {
+            case .truncated: written.prefix(written.count / 2)
+            case .notJSON: Data("not a ledger\n".utf8)
+            }
         try damaged.write(to: url)
         return damaged
     }
@@ -303,14 +324,16 @@ import Testing
     @Test func paletteShadesVersionsOfOneFamily() {
         let shades = AgentUsage.palette(for: ["claude-opus-5", "claude-opus-4-7", "claude-sonnet-5"])
         #expect(shades["claude-opus-5"] != shades["claude-opus-4-7"])
-        #expect(shades["claude-opus-5"] == AgentUsage.modelTint("claude-opus-5"),
-                "and the biggest spender in a family keeps the family's own colour")
+        #expect(
+            shades["claude-opus-5"] == AgentUsage.modelTint("claude-opus-5"),
+            "and the biggest spender in a family keeps the family's own colour")
     }
 
     @Test func untilAWindowResets() {
         #expect(AgentUsage.until(noon.addingTimeInterval(8_100), now: noon) == "2h 15m")
-        #expect(AgentUsage.until(noon.addingTimeInterval(-60), now: noon) == nil,
-                "a window that already rolled over says nothing rather than a negative")
+        #expect(
+            AgentUsage.until(noon.addingTimeInterval(-60), now: noon) == nil,
+            "a window that already rolled over says nothing rather than a negative")
     }
 
     /// Writes to the end of a file the way an agent's transcript grows: open, seek, write.

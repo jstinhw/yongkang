@@ -1,6 +1,6 @@
 import AppKit
-import UserNotifications
 import SwiftTerm
+import UserNotifications
 
 /// Read the rendered screen: escape sequences and split PTY writes are already handled
 /// by SwiftTerm. Require the question and its controls, not a mention in ordinary output.
@@ -11,11 +11,13 @@ enum AgentPrompt {
         let text = screen.lowercased().split(whereSeparator: { $0.isWhitespace || $0 == "\0" })
             .joined(separator: " ")
         if text.contains("do you trust the contents of this directory?")
-            && text.contains("yes, continue") && text.contains("no, quit") {
+            && text.contains("yes, continue") && text.contains("no, quit")
+        {
             return "Codex needs you to decide whether to trust this directory."
         }
         if text.contains("do you trust the files in this folder?")
-            && text.contains("yes") && text.contains("trust") {
+            && text.contains("yes") && text.contains("trust")
+        {
             return "Claude Code needs you to decide whether to trust this folder."
         }
         return nil
@@ -107,17 +109,22 @@ final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
         center.removeDeliveredNotifications(withIdentifiers: [sessionID.uuidString])
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
         completionHandler([.banner, .sound])
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-           let id = response.notification.request.content.userInfo["sessionID"] as? String {
+            let id = response.notification.request.content.userInfo["sessionID"] as? String
+        {
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: Self.openSession, object: id)
             }

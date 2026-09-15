@@ -63,19 +63,23 @@ struct ChangeSummary: Equatable {
                 }
                 // The records this task's workers wrote go in with its code, so the commit
                 // carries the reason for itself. A path git does not list is left out.
-                let records = ([card.url] + plans(of: project).flatMap { session, plan in
-                    plan.workers.filter { $0.taskID == card.id }.map {
-                        project.notebookRoot.appendingPathComponent("runs")
-                            .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
-                    }
-                }).compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
-                return SummaryTask(id: card.id, title: card.title, status: card.status, url: card.url,
-                                   work: workers, files: files, records: records)
+                let records =
+                    ([card.url]
+                    + plans(of: project).flatMap { session, plan in
+                        plan.workers.filter { $0.taskID == card.id }.map {
+                            project.notebookRoot.appendingPathComponent("runs")
+                                .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
+                        }
+                    }).compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
+                return SummaryTask(
+                    id: card.id, title: card.title, status: card.status, url: card.url,
+                    work: workers, files: files, records: records)
             }
-        return ChangeSummary(tasks: tasks.filter(\.done) + tasks.filter { !$0.done },
-                             strategies: strategies,
-                             unclaimed: changes.filter { !claimed.contains($0.path) },
-                             peak: max(1, changes.map { $0.added + $0.removed }.max() ?? 1))
+        return ChangeSummary(
+            tasks: tasks.filter(\.done) + tasks.filter { !$0.done },
+            strategies: strategies,
+            unclaimed: changes.filter { !claimed.contains($0.path) },
+            peak: max(1, changes.map { $0.added + $0.removed }.max() ?? 1))
     }
 
     /// Finished tasks whose work is still uncommitted — what is waiting on the user.
@@ -203,8 +207,12 @@ struct ChangeSummaryPane: View {
         return VStack(alignment: .leading, spacing: 8) {
             SectionLabel(label, trailing: trailing)
             ForEach(ranked.prefix(8)) { file in
-                Button { select(file.path) } label: { bar(file, peak: summary.peak) }
-                    .buttonStyle(.plain)
+                Button {
+                    select(file.path)
+                } label: {
+                    bar(file, peak: summary.peak)
+                }
+                .buttonStyle(.plain)
             }
             if ranked.count > 8 {
                 Text("+\(ranked.count - 8) more file\(ranked.count == 9 ? "" : "s") in the list")
@@ -250,16 +258,19 @@ struct ChangeSummaryPane: View {
             }
             if !task.work.isEmpty { pipeline(task) }
             if task.files.isEmpty {
-                Text(task.work.contains { !$0.paths.isEmpty }
-                     ? "The files this task reported are not in the working tree — already "
-                     + "committed, or renamed since."
-                     : "No files are recorded against this task, so its diff cannot be told "
-                     + "apart from the rest.")
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(
+                    task.work.contains { !$0.paths.isEmpty }
+                        ? "The files this task reported are not in the working tree — already "
+                            + "committed, or renamed since."
+                        : "No files are recorded against this task, so its diff cannot be told "
+                            + "apart from the rest."
+                )
+                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                .fixedSize(horizontal: false, vertical: true)
             } else {
-                shape(task.files, label: "What it changed",
-                      trailing: "+\(task.added) −\(task.removed)")
+                shape(
+                    task.files, label: "What it changed",
+                    trailing: "+\(task.added) −\(task.removed)")
             }
             // Positional ids: two leads that ran the same task in turn can file the same
             // work id twice, and a summary must not drop the second one.
@@ -290,8 +301,9 @@ struct ChangeSummaryPane: View {
                     RoleTile(role: work.skill, size: 18)
                     Text(work.skill.isEmpty ? work.id : work.skill)
                         .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
-                    StateDot(color: NotebookStyle.color(of: work.state),
-                             live: work.runtimeRunning == true)
+                    StateDot(
+                        color: NotebookStyle.color(of: work.state),
+                        live: work.runtimeRunning == true)
                 }
                 .padding(.horizontal, 8)
                 .frame(height: 26)
@@ -333,8 +345,9 @@ struct ChangeSummaryPane: View {
                     .foregroundStyle(Theme.amber)
                 Text("Not claimed by a task").font(Typo.text(14, .medium)).foregroundStyle(Theme.tx)
                 Spacer(minLength: 8)
-                NotebookStyle.pill("\(summary.unclaimed.count) file"
-                                   + (summary.unclaimed.count == 1 ? "" : "s"), Theme.amber)
+                NotebookStyle.pill(
+                    "\(summary.unclaimed.count) file"
+                        + (summary.unclaimed.count == 1 ? "" : "s"), Theme.amber)
             }
             shape(summary.unclaimed, label: "In the commit anyway")
         }
@@ -361,11 +374,13 @@ struct ChangeSummaryPane: View {
     }
 
     private var unrecorded: some View {
-        Text("No agent batch is recorded against this working tree — these changes were "
-             + "made outside the console. The diff and the commit bar still work.")
-            .font(Typo.text(12)).foregroundStyle(Theme.tx3)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface(padding: 15)
+        Text(
+            "No agent batch is recorded against this working tree — these changes were "
+                + "made outside the console. The diff and the commit bar still work."
+        )
+        .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(padding: 15)
     }
 }

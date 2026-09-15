@@ -36,11 +36,16 @@ enum TranscriptSteps {
             // Results with no call in front of them are the tail of a run that has already
             // been summarised — a skill's "Launching skill: qa-dev", most often. There is
             // nothing to say about them, so they do not get a line of their own.
-            guard !calls.isEmpty else { return run = [] }
-            steps.append(TranscriptStep(id: steps.count, kind: .work,
-                                        text: summary(of: calls.map(\.text)),
-                                        detail: run,
-                                        errors: run.filter(\.isError).count))
+            guard !calls.isEmpty else {
+                run = []
+                return
+            }
+            steps.append(
+                TranscriptStep(
+                    id: steps.count, kind: .work,
+                    text: summary(of: calls.map(\.text)),
+                    detail: run,
+                    errors: run.filter(\.isError).count))
             run = []
         }
 
@@ -64,8 +69,10 @@ enum TranscriptSteps {
                 // A skill is the agent picking up a role — the one tool call that says
                 // something about the work rather than being the work.
                 flushRun()
-                steps.append(TranscriptStep(id: steps.count, kind: .skill,
-                                            text: skillName(line.text)))
+                steps.append(
+                    TranscriptStep(
+                        id: steps.count, kind: .skill,
+                        text: skillName(line.text)))
             default:
                 run.append(line)
             }
@@ -104,13 +111,18 @@ enum TranscriptSteps {
         }
         guard !phrases.isEmpty else { return "Worked" }
         return phrases.enumerated()
-            .map { $0.offset == 0 ? $0.element.prefix(1).uppercased() + $0.element.dropFirst()
-                                  : $0.element }
+            .map {
+                $0.offset == 0
+                    ? $0.element.prefix(1).uppercased() + $0.element.dropFirst()
+                    : $0.element
+            }
             .joined(separator: ", ")
     }
 
-    private static let order = ["search", "read", "list", "edit", "write", "run",
-                                "fetch", "spawn", "note", "other"]
+    private static let order = [
+        "search", "read", "list", "edit", "write", "run",
+        "fetch", "spawn", "note", "other",
+    ]
 
     private static func verb(for tool: String) -> String {
         switch tool {
@@ -154,13 +166,16 @@ enum TranscriptSteps {
     /// one names the agent after its task.
     static func skillName(_ call: String) -> String {
         guard let open = call.firstIndex(of: "("), let close = call.lastIndex(of: ")"),
-              open < close else { return call }
+            open < close
+        else { return call }
         let fields = call[call.index(after: open)..<close].components(separatedBy: ", ")
             .map { field -> (key: String, value: String) in
                 let parts = field.split(separator: ":", maxSplits: 1)
                 guard parts.count == 2 else { return ("", field.trimmingCharacters(in: .whitespaces)) }
-                return (parts[0].trimmingCharacters(in: .whitespaces),
-                        parts[1].trimmingCharacters(in: .whitespaces))
+                return (
+                    parts[0].trimmingCharacters(in: .whitespaces),
+                    parts[1].trimmingCharacters(in: .whitespaces)
+                )
             }
         let named = fields.first { ["skill", "command", "name"].contains($0.key) }
         let name = (named ?? fields.first)?.value ?? ""

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 @Suite struct ProjectListTests {
@@ -15,13 +16,15 @@ import Testing
 
     private func sample(in tmp: URL) throws -> Sample {
         let root = NotebookFormat.root(in: tmp)
-        let project = try NotebookFormat.create(.project, title: "Launch Beta", in: root,
-                                                project: nil, roadmap: "ship-beta")
+        let project = try NotebookFormat.create(
+            .project, title: "Launch Beta", in: root,
+            project: nil, roadmap: "ship-beta")
         _ = try NotebookFormat.create(.memory, title: "Chose SQLite", in: root, project: "launch-beta")
         let first = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "launch-beta")
         _ = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "launch-beta")
-        let run = try NotebookFormat.create(.run, title: "Auth partially wired", in: root,
-                                            project: "launch-beta", subject: "wire-auth")
+        let run = try NotebookFormat.create(
+            .run, title: "Auth partially wired", in: root,
+            project: "launch-beta", subject: "wire-auth")
         try fixture("notebook/c-tricky-task.md")
             .write(to: root.appendingPathComponent("tasks/tricky.md"), atomically: true, encoding: .utf8)
         try "just notes\n".write(to: root.appendingPathComponent("roadmap/bare.md"), atomically: true, encoding: .utf8)
@@ -40,10 +43,12 @@ import Testing
         let tricky = try #require(notebook.cards.first { $0.id == "tricky" })
 
         let owned = Set(NotebookFormat.owned(by: launch, in: notebook.cards).map(resolved))
-        #expect(owned.contains(resolved(notebook.project.deletingLastPathComponent())),
-                "a project is its folder, not just project.md")
-        #expect(owned.contains(resolved(notebook.firstTask)) && owned.contains(resolved(tricky.url)),
-                "a project's tasks go with it")
+        #expect(
+            owned.contains(resolved(notebook.project.deletingLastPathComponent())),
+            "a project is its folder, not just project.md")
+        #expect(
+            owned.contains(resolved(notebook.firstTask)) && owned.contains(resolved(tricky.url)),
+            "a project's tasks go with it")
         #expect(!owned.contains(resolved(notebook.run)), "run history is not the project's to delete")
         #expect(NotebookFormat.owned(by: tricky, in: notebook.cards) == [tricky.url], "a task is one file")
     }
@@ -60,8 +65,9 @@ import Testing
         let left = NotebookIndex.load(root: notebook.root)
         // Run history is an append-only log of what agents did, and is not navigable, so
         // it stays behind; every page a user can still open goes.
-        #expect(!left.contains { $0.id == "launch-beta" || ($0.kind != .run && $0.project == "launch-beta") },
-                "a page is left filed under a removed project")
+        #expect(
+            !left.contains { $0.id == "launch-beta" || ($0.kind != .run && $0.project == "launch-beta") },
+            "a page is left filed under a removed project")
         #expect(left.contains { $0.id == "bare" }, "and the rest of the notebook stays")
     }
 

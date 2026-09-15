@@ -77,8 +77,10 @@ struct ChangeReview: View {
                 .padding(.horizontal, 10)
                 .frame(height: 30)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
-                .overlay(RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Theme.line2, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Theme.line2, lineWidth: 1)
+                )
                 .onSubmit(runCommit)
             if !failure.isEmpty {
                 Text(failure).font(Typo.mono(10.5)).foregroundStyle(Theme.red)
@@ -88,8 +90,9 @@ struct ChangeReview: View {
                 Label("Commit all changes", systemImage: "checkmark.seal")
             }
             .buttonStyle(.consolePrimary)
-            .disabled(changes.isEmpty
-                      || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(
+                changes.isEmpty
+                    || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 
@@ -98,7 +101,10 @@ struct ChangeReview: View {
         failure = commit(message) ?? ""
         // A committed message left in the box is one Return away from a second, empty
         // commit — so a success clears it and the next batch fills it in again.
-        if failure.isEmpty { message = ""; suggested = "" }
+        if failure.isEmpty {
+            message = ""
+            suggested = ""
+        }
     }
 
     // MARK: - Diff
@@ -106,7 +112,9 @@ struct ChangeReview: View {
     private func fileHeader(_ change: FileChange) -> some View {
         HStack(spacing: 10) {
             if let task {
-                Button { openTask(task.id) } label: {
+                Button {
+                    openTask(task.id)
+                } label: {
                     Label(task.title, systemImage: "chevron.left").lineLimit(1)
                 }
                 .buttonStyle(.consoleGhost)
@@ -143,9 +151,12 @@ struct ChangeReview: View {
     private var empty: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.seal").font(.system(size: 24)).foregroundStyle(Theme.tx4)
-            Text(changes.isEmpty ? "Nothing changed since the last commit."
-                                 : "This file is no longer changed — committed, or reverted.")
-                .font(Typo.text(13)).foregroundStyle(Theme.tx3)
+            Text(
+                changes.isEmpty
+                    ? "Nothing changed since the last commit."
+                    : "This file is no longer changed — committed, or reverted."
+            )
+            .font(Typo.text(13)).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -183,7 +194,9 @@ struct ChangeReview: View {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionLabel("Your comments", trailing: "\(draft.wrappedValue.comments.count)")
                     ForEach(draft.wrappedValue.comments) { saved in
-                        Button { select(saved.path) } label: {
+                        Button {
+                            select(saved.path)
+                        } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\(saved.path):\(saved.line)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                                     .lineLimit(1).truncationMode(.head)
@@ -203,7 +216,9 @@ struct ChangeReview: View {
             VStack(alignment: .leading, spacing: 9) {
                 SectionLabel(task == nil ? "By file" : "This task's files")
                 ForEach(task?.files ?? changes) { file in
-                    Button { select(file.path) } label: {
+                    Button {
+                        select(file.path)
+                    } label: {
                         HStack(spacing: 8) {
                             Text(file.name).font(Typo.mono(10.5))
                                 .foregroundStyle(file.path == path ? Theme.tx : Theme.tx2)
@@ -220,14 +235,20 @@ struct ChangeReview: View {
 
             Spacer(minLength: 0)
 
-            Text(task == nil ? "No agent commits, pushes or opens a PR — committing here is your approval."
-                             : "Click a line to comment on it. Nothing is sent until you request changes.")
-                .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineSpacing(2)
+            Text(
+                task == nil
+                    ? "No agent commits, pushes or opens a PR — committing here is your approval."
+                    : "Click a line to comment on it. Nothing is sent until you request changes."
+            )
+            .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineSpacing(2)
         }
     }
 
     private func load() {
-        guard let change else { return lines = [] }
+        guard let change else {
+            lines = []
+            return
+        }
         lines = GitChanges.diff(of: change, in: project.directory)
     }
 }

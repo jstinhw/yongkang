@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// Every project at once — the way in. Leaving a project lands back here; clicking one
 /// enters it. A card says only what you would want before choosing: how far the work has
@@ -30,30 +30,38 @@ struct ProjectsHome: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     hero
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16)],
-                              alignment: .leading, spacing: 16) {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 260), spacing: 16)],
+                        alignment: .leading, spacing: 16
+                    ) {
                         ForEach(projects) { project in
-                            Button { enter(project) } label: { card(project) }
-                                .buttonStyle(.plain)
-                                .overlay(alignment: .topTrailing) {
-                                    // Centred on the progress ring, and never overhanging
-                                    // the card: a badge outside the frame is outside what
-                                    // the pointer is tracked over, so half of it would
-                                    // draw but not click.
-                                    if hovered == project.id {
-                                        removeTile(project).padding(20)
-                                    }
+                            Button {
+                                enter(project)
+                            } label: {
+                                card(project)
+                            }
+                            .buttonStyle(.plain)
+                            .overlay(alignment: .topTrailing) {
+                                // Centred on the progress ring, and never overhanging
+                                // the card: a badge outside the frame is outside what
+                                // the pointer is tracked over, so half of it would
+                                // draw but not click.
+                                if hovered == project.id {
+                                    removeTile(project).padding(20)
                                 }
-                                .onHover { inside in
-                                    hovered = inside ? project.id
-                                                     : (hovered == project.id ? nil : hovered)
+                            }
+                            .onHover { inside in
+                                hovered =
+                                    inside
+                                    ? project.id
+                                    : (hovered == project.id ? nil : hovered)
+                            }
+                            .contextMenu {
+                                Button("Reveal in Finder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([project.directory])
                                 }
-                                .contextMenu {
-                                    Button("Reveal in Finder") {
-                                        NSWorkspace.shared.activateFileViewerSelecting([project.directory])
-                                    }
-                                    Button("Remove from Fleet") { close(project) }
-                                }
+                                Button("Remove from Fleet") { close(project) }
+                            }
                         }
                         newProjectTile
                         openFolderTile
@@ -73,8 +81,9 @@ struct ProjectsHome: View {
                 .foregroundStyle(Theme.accent)
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x141C28)))
-                .overlay(RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
             Text("Yongkang").font(Typo.display(14)).tracking(0.3)
             Spacer(minLength: 12)
         }
@@ -89,8 +98,9 @@ struct ProjectsHome: View {
             HStack(spacing: 18) {
                 strip(Theme.accent, "\(running) agent\(running == 1 ? "" : "s") online", live: running > 0)
                 strip(Theme.amber, "\(waiting) waiting on you", live: false)
-                strip(Theme.green, "\(projects.count) project\(projects.count == 1 ? "" : "s") open",
-                      live: false)
+                strip(
+                    Theme.green, "\(projects.count) project\(projects.count == 1 ? "" : "s") open",
+                    live: false)
             }
         }
         .padding(.top, 30)
@@ -117,14 +127,16 @@ struct ProjectsHome: View {
                         .lineLimit(1).truncationMode(.head)
                 }
                 Spacer(minLength: 8)
-                NotebookStyle.statusRing(done == tasks.count && !tasks.isEmpty ? "done" : "active",
-                                         progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count),
-                                         size: 30)
+                NotebookStyle.statusRing(
+                    done == tasks.count && !tasks.isEmpty ? "done" : "active",
+                    progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count),
+                    size: 30)
             }
             HStack(spacing: 6) {
                 // Four tiles is what fits beside the badge; the rest become a count, which
                 // is all a card needs to say before you have even opened the project.
-                let roles = agents.map { $0.isEngineeringLead ? "lead" : $0.title }
+                let roles =
+                    agents.map { $0.isEngineeringLead ? "lead" : $0.title }
                     + agents.flatMap(\.activeSubagents).map(\.agentType)
                 ForEach(Array(roles.prefix(4).enumerated()), id: \.offset) { _, role in
                     RoleTile(role: role, size: 22)
@@ -166,8 +178,10 @@ struct ProjectsHome: View {
             .keyboardShortcut("o")
     }
 
-    private func tile(_ symbol: String, _ title: String, _ note: String,
-                      action: @escaping () -> Void) -> some View {
+    private func tile(
+        _ symbol: String, _ title: String, _ note: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 9) {
                 Image(systemName: symbol).font(.system(size: 20))
@@ -176,8 +190,9 @@ struct ProjectsHome: View {
             }
             .foregroundStyle(Theme.tx3)
             .frame(maxWidth: .infinity, minHeight: 152)
-            .background(RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color(hex: 0x262D3A), style: StrokeStyle(lineWidth: 1, dash: [4])))
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(hex: 0x262D3A), style: StrokeStyle(lineWidth: 1, dash: [4])))
         }
         .buttonStyle(.plain)
     }
@@ -186,7 +201,9 @@ struct ProjectsHome: View {
     /// notebook and anything an agent left there are untouched, and ⌘O opens it again.
     /// That is why it asks nothing first — there is nothing to lose by pressing it.
     private func removeTile(_ project: Project) -> some View {
-        Button { close(project) } label: {
+        Button {
+            close(project)
+        } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(Theme.tx2)
@@ -201,7 +218,8 @@ struct ProjectsHome: View {
     private func summary(_ project: Project) -> String {
         guard project.hasNotebook else { return "no notebook yet" }
         let sessions = project.sessions.filter { !$0.exited }.count
-        return sessions == 0 ? "\(project.pageCount) pages"
-                             : "\(sessions) session\(sessions == 1 ? "" : "s") live"
+        return sessions == 0
+            ? "\(project.pageCount) pages"
+            : "\(sessions) session\(sessions == 1 ? "" : "s") live"
     }
 }

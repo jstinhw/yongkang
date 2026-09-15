@@ -29,8 +29,9 @@ struct EngineeringLeadBoard: View {
                         plan
                         if geometry.size.width < 950 {
                             DisclosureGroup("Check-ins & memory") {
-                                LeadInspector(session: session, cards: cards, blocks: blocks,
-                                              openTask: openTask, openBlock: openBlock, inline: true)
+                                LeadInspector(
+                                    session: session, cards: cards, blocks: blocks,
+                                    openTask: openTask, openBlock: openBlock, inline: true)
                             }
                             .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
                         }
@@ -48,8 +49,9 @@ struct EngineeringLeadBoard: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 if geometry.size.width >= 950 {
-                    LeadInspector(session: session, cards: cards, blocks: blocks,
-                                  openTask: openTask, openBlock: openBlock)
+                    LeadInspector(
+                        session: session, cards: cards, blocks: blocks,
+                        openTask: openTask, openBlock: openBlock)
                 }
             }
         }
@@ -66,10 +68,13 @@ struct EngineeringLeadBoard: View {
                     Text("Updated \(AgentUsage.ago(updated))").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                 }
             }
-            Text(session.coordination?.strategy.nonEmpty
-                 ?? (taskIDs.isEmpty ? "Assign tasks from the board. The lead will size the work, choose specialists and run independent subtasks together."
-                     : "Waiting for the lead’s plan. Existing workers and their transcripts remain available below."))
-                .font(Typo.text(12)).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
+            Text(
+                session.coordination?.strategy.nonEmpty
+                    ?? (taskIDs.isEmpty
+                        ? "Assign tasks from the board. The lead will size the work, choose specialists and run independent subtasks together."
+                        : "Waiting for the lead’s plan. Existing workers and their transcripts remain available below.")
+            )
+            .font(Typo.text(12)).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
             if !taskIDs.isEmpty {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 24) { planMetrics }
@@ -77,7 +82,8 @@ struct EngineeringLeadBoard: View {
                 }
                 Divider().overlay(Theme.line)
                 HStack(spacing: 7) {
-                    ForEach(Array(["Plan", "Parallel work", "Report back", "QA", "Accept"].enumerated()), id: \.offset) { index, label in
+                    ForEach(Array(["Plan", "Parallel work", "Report back", "QA", "Accept"].enumerated()), id: \.offset)
+                    { index, label in
                         if index > 0 {
                             Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(Theme.tx3)
                         }
@@ -92,10 +98,14 @@ struct EngineeringLeadBoard: View {
 
     @ViewBuilder private var planMetrics: some View {
         summaryMetric("Scope", "\(taskIDs.count) tasks · \(workers.count) planned subtasks")
-        summaryMetric("Parallel", "\(session.activeSubagents.count) running"
-                      + (session.coordination?.parallelLimit.map { " / \($0) slots" } ?? ""))
-        summaryMetric("Estimate", "\(LeadDisplay.tokens(session.coordination?.estimatedTokens)) tokens · "
-                      + LeadDisplay.minutes(session.coordination?.estimatedMinutes))
+        summaryMetric(
+            "Parallel",
+            "\(session.activeSubagents.count) running"
+                + (session.coordination?.parallelLimit.map { " / \($0) slots" } ?? ""))
+        summaryMetric(
+            "Estimate",
+            "\(LeadDisplay.tokens(session.coordination?.estimatedTokens)) tokens · "
+                + LeadDisplay.minutes(session.coordination?.estimatedMinutes))
     }
 
     private func summaryMetric(_ title: String, _ value: String) -> some View {
@@ -115,7 +125,9 @@ struct EngineeringLeadBoard: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Button { openTask(taskID) } label: {
+                    Button {
+                        openTask(taskID)
+                    } label: {
                         Text(card?.title ?? taskID).font(Typo.display(14)).foregroundStyle(Theme.tx)
                             .multilineTextAlignment(.leading)
                     }
@@ -123,21 +135,28 @@ struct EngineeringLeadBoard: View {
                     Text(taskID).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
-                NotebookStyle.pill(card?.status == "done" ? "QA passed" : waiting.isEmpty ? card?.status.capitalized ?? "Planned" : "Blocked",
-                                   card?.status == "done" ? Theme.green : waiting.isEmpty ? Theme.accent : Theme.amber)
+                NotebookStyle.pill(
+                    card?.status == "done"
+                        ? "QA passed" : waiting.isEmpty ? card?.status.capitalized ?? "Planned" : "Blocked",
+                    card?.status == "done" ? Theme.green : waiting.isEmpty ? Theme.accent : Theme.amber)
             }
             if let dependencies = card?.dependsOn, !dependencies.isEmpty {
                 dependencyLine(dependencies, prefix: "Task follows")
             }
             Rectangle().fill(Theme.line).frame(height: 1)
             if assigned.isEmpty && remaining.isEmpty {
-                Text(card?.status == "done" ? "Accepted. No worker records available." : "Awaiting dispatch after dependencies clear.")
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).padding(.vertical, 5)
+                Text(
+                    card?.status == "done"
+                        ? "Accepted. No worker records available." : "Awaiting dispatch after dependencies clear."
+                )
+                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).padding(.vertical, 5)
             }
             ForEach(assigned) { worker($0) }
             ForEach(remaining) { legacyWorker($0) }
             ForEach(waiting) { block in
-                Button { openBlock(block) } label: {
+                Button {
+                    openBlock(block)
+                } label: {
                     Label(block.title, systemImage: "hand.raised.fill")
                         .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
@@ -158,15 +177,20 @@ struct EngineeringLeadBoard: View {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(work.title.nonEmpty ?? work.id).font(Typo.display(12)).foregroundStyle(Theme.tx)
-                        Text("\(work.skill.nonEmpty ?? "Skill pending") · \(work.measuredModel ?? work.model.nonEmpty ?? "Model unreported")")
-                            .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Text(
+                            "\(work.skill.nonEmpty ?? "Skill pending") · \(work.measuredModel ?? work.model.nonEmpty ?? "Model unreported")"
+                        )
+                        .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
-                    NotebookStyle.pill(LeadDisplay.state(work), LeadDisplay.tint(work),
-                                       live: work.state == "running" && work.runtimeRunning != false)
+                    NotebookStyle.pill(
+                        LeadDisplay.state(work), LeadDisplay.tint(work),
+                        live: work.state == "running" && work.runtimeRunning != false)
                     if let agent {
-                        Button { openSubagent(agent) } label: {
+                        Button {
+                            openSubagent(agent)
+                        } label: {
                             Image(systemName: "arrow.up.right").font(.system(size: 10))
                         }
                         .buttonStyle(.plain).foregroundStyle(Theme.tx2)
@@ -176,8 +200,12 @@ struct EngineeringLeadBoard: View {
                 }
                 if !work.dependsOn.isEmpty { dependencyLine(work.dependsOn, prefix: "After") }
                 HStack(spacing: 12) {
-                    Text("\(LeadDisplay.tokens(work.usedTokens)) \(work.usedTokens == nil ? "used" : work.tokenSource.lowercased()) / \(LeadDisplay.tokens(work.estimatedTokens)) est. tokens")
-                    Text("\(LeadDisplay.minutes(work.elapsedMinutes())) elapsed / \(LeadDisplay.minutes(work.estimatedMinutes)) est.")
+                    Text(
+                        "\(LeadDisplay.tokens(work.usedTokens)) \(work.usedTokens == nil ? "used" : work.tokenSource.lowercased()) / \(LeadDisplay.tokens(work.estimatedTokens)) est. tokens"
+                    )
+                    Text(
+                        "\(LeadDisplay.minutes(work.elapsedMinutes())) elapsed / \(LeadDisplay.minutes(work.estimatedMinutes)) est."
+                    )
                 }
                 .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -185,7 +213,9 @@ struct EngineeringLeadBoard: View {
                     Label(work.report, systemImage: "arrow.turn.down.left")
                         .font(Typo.text(11)).foregroundStyle(Theme.tx2).lineLimit(2)
                 }
-                DisclosureGroup("Why this assignment · check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")") {
+                DisclosureGroup(
+                    "Why this assignment · check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")"
+                ) {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(work.reason.nonEmpty ?? "Selection rationale not recorded.")
                         if !work.report.isEmpty { Text("Report: \(work.report)") }
@@ -207,7 +237,9 @@ struct EngineeringLeadBoard: View {
     }
 
     private func legacyWorker(_ agent: SubagentStatus) -> some View {
-        Button { openSubagent(agent) } label: {
+        Button {
+            openSubagent(agent)
+        } label: {
             HStack(spacing: 10) {
                 RoleTile(role: agent.agentType)
                 VStack(alignment: .leading, spacing: 3) {
@@ -216,8 +248,9 @@ struct EngineeringLeadBoard: View {
                     Text("Plan, estimates and check-in unavailable").font(Typo.text(10)).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
-                NotebookStyle.pill(agent.running ? "Running" : "Returned",
-                                   agent.running ? Theme.accent : Theme.violet, live: agent.running)
+                NotebookStyle.pill(
+                    agent.running ? "Running" : "Returned",
+                    agent.running ? Theme.accent : Theme.violet, live: agent.running)
                 Image(systemName: "arrow.up.right").font(.system(size: 10)).foregroundStyle(Theme.tx3)
             }
             .contentShape(Rectangle()).padding(.vertical, 5)
@@ -270,8 +303,11 @@ struct LeadInspector: View {
         return VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Acceptance")
-                Text("\(done) / \(session.taskIDs.count) tasks passed QA").font(Typo.display(15)).foregroundStyle(Theme.tx)
-                MeterBar(value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green)
+                Text("\(done) / \(session.taskIDs.count) tasks passed QA").font(Typo.display(15)).foregroundStyle(
+                    Theme.tx)
+                MeterBar(
+                    value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green
+                )
                 Text("A returned worker still needs independent QA before its task is accepted.")
                     .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
             }
@@ -279,7 +315,9 @@ struct LeadInspector: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Needs attention", trailing: "\(waiting.count)")
                     ForEach(waiting) { block in
-                        Button { openBlock(block) } label: {
+                        Button {
+                            openBlock(block)
+                        } label: {
                             Label(block.title, systemImage: "hand.raised")
                                 .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
                                 .multilineTextAlignment(.leading).contentShape(Rectangle())
@@ -296,13 +334,17 @@ struct LeadInspector: View {
                     }
                     ForEach(coordination.workers) { context($0) }
                     if coordination.workers.isEmpty { unavailableContext }
-                } else { unavailableContext }
+                } else {
+                    unavailableContext
+                }
             }
             if !session.taskIDs.isEmpty {
                 DisclosureGroup("Assigned tasks") {
                     VStack(alignment: .leading, spacing: 9) {
                         ForEach(session.taskIDs, id: \.self) { id in
-                            Button { openTask(id) } label: {
+                            Button {
+                                openTask(id)
+                            } label: {
                                 Text(cards.first { $0.id == id }?.title ?? id)
                                     .font(Typo.text(11)).foregroundStyle(Theme.tx2)
                                     .multilineTextAlignment(.leading)
@@ -316,8 +358,10 @@ struct LeadInspector: View {
     }
 
     private var unavailableContext: some View {
-        Text("Check-ins, context usage and checkpoints appear when the lead records them. Unknown limits stay unreported.")
-            .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+        Text(
+            "Check-ins, context usage and checkpoints appear when the lead records them. Unknown limits stay unreported."
+        )
+        .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
     }
 
     private func context(_ work: LeadWork) -> some View {
@@ -385,6 +429,6 @@ private enum LeadDisplay {
     }
 }
 
-private extension String {
-    var nonEmpty: String? { isEmpty ? nil : self }
+extension String {
+    fileprivate var nonEmpty: String? { isEmpty ? nil : self }
 }

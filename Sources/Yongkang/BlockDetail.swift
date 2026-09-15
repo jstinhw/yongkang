@@ -48,24 +48,28 @@ struct BlockDetail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: block.waiting
-                      ? (block.isProposal ? "lightbulb.fill" : "hand.raised.fill")
-                      : "checkmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(tint)
-                    .frame(width: 34, height: 34)
-                    .background(RoundedRectangle(cornerRadius: 11).fill(tint.opacity(0.12)))
-                    .overlay(RoundedRectangle(cornerRadius: 11)
+                Image(
+                    systemName: block.waiting
+                        ? (block.isProposal ? "lightbulb.fill" : "hand.raised.fill")
+                        : "checkmark.circle.fill"
+                )
+                .font(.system(size: 16))
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(RoundedRectangle(cornerRadius: 11).fill(tint.opacity(0.12)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11)
                         .strokeBorder(tint.opacity(0.3), lineWidth: 1))
                 VStack(alignment: .leading, spacing: 6) {
                     Text(block.title).font(Typo.display(21))
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
-                        NotebookStyle.pill(block.waiting
-                                           ? (block.isProposal
-                                              ? (block.proposalReady ? "ready to create" : "needs your input")
-                                              : "waiting on you")
-                                           : "done", tint)
+                        NotebookStyle.pill(
+                            block.waiting
+                                ? (block.isProposal
+                                    ? (block.proposalReady ? "ready to create" : "needs your input")
+                                    : "waiting on you")
+                                : "done", tint)
                         Text(subtitle).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
                     }
                 }
@@ -79,7 +83,9 @@ struct BlockDetail: View {
 
     private var subtitle: String {
         if block.isProposal {
-            let lead = !block.waiting ? "Built out"
+            let lead =
+                !block.waiting
+                ? "Built out"
                 : block.proposalReady ? "Product plan is ready" : "Product is waiting in its transcript"
             return parent.map { "\(lead) — advances \($0.title)" } ?? lead
         }
@@ -135,8 +141,9 @@ struct BlockDetail: View {
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
-                        .overlay(RoundedRectangle(cornerRadius: 9)
-                            .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -154,8 +161,9 @@ struct BlockDetail: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Theme.red.opacity(0.05)))
-                .overlay(RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Theme.red.opacity(0.18), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Theme.red.opacity(0.18), lineWidth: 1))
             }
         }
     }

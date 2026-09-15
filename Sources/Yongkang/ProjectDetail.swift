@@ -44,10 +44,12 @@ struct ProjectDetail: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
                     if !content.isEmpty {
-                        NotebookContentView(sections: content, cards: cards,
-                                            redundant: Set(allTasks.map(\.id)))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .cardSurface(padding: 16)
+                        NotebookContentView(
+                            sections: content, cards: cards,
+                            redundant: Set(allTasks.map(\.id))
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cardSurface(padding: 16)
                     }
                     repos
                     taskList
@@ -66,10 +68,12 @@ struct ProjectDetail: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .top, spacing: 12) {
-                NotebookStyle.statusRing(card.status,
-                                         progress: allTasks.isEmpty ? 0 : Double(done) / Double(allTasks.count),
-                                         size: 26)
-                    .padding(.top, 3)
+                NotebookStyle.statusRing(
+                    card.status,
+                    progress: allTasks.isEmpty ? 0 : Double(done) / Double(allTasks.count),
+                    size: 26
+                )
+                .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(card.title).font(Typo.display(22))
                         .fixedSize(horizontal: false, vertical: true)
@@ -84,17 +88,27 @@ struct ProjectDetail: View {
                     }
                 }
                 Spacer(minLength: 12)
-                Button { open(card.url) } label: { Label("Edit file", systemImage: "pencil") }
-                    .buttonStyle(.consoleGhost)
-                Button { run(card) } label: { Label("Run", systemImage: "play.fill") }
-                    .buttonStyle(.console)
-                    .help("Run this project's services")
+                Button {
+                    open(card.url)
+                } label: {
+                    Label("Edit file", systemImage: "pencil")
+                }
+                .buttonStyle(.consoleGhost)
+                Button {
+                    run(card)
+                } label: {
+                    Label("Run", systemImage: "play.fill")
+                }
+                .buttonStyle(.console)
+                .help("Run this project's services")
             }
             if !allTasks.isEmpty {
                 HStack(spacing: 10) {
-                    MeterBar(value: Double(done) / Double(allTasks.count),
-                             tint: NotebookStyle.color(of: card.status))
-                        .frame(width: 180)
+                    MeterBar(
+                        value: Double(done) / Double(allTasks.count),
+                        tint: NotebookStyle.color(of: card.status)
+                    )
+                    .frame(width: 180)
                     Text("\(done) of \(allTasks.count) done")
                         .font(Typo.mono(11.5)).foregroundStyle(Theme.tx2)
                 }
@@ -123,8 +137,9 @@ struct ProjectDetail: View {
                         Text(step.repo).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
                         Text(missing ? "not created yet" : summary(step.services))
                             .font(Typo.text(11))
-                            .foregroundStyle(missing || step.services.allSatisfy { $0.command == nil }
-                                             ? Theme.amber : Theme.tx3)
+                            .foregroundStyle(
+                                missing || step.services.allSatisfy { $0.command == nil }
+                                    ? Theme.amber : Theme.tx3)
                     }
                 }
             }
@@ -144,9 +159,12 @@ struct ProjectDetail: View {
         VStack(alignment: .leading, spacing: 16) {
             SectionLabel("Tasks", trailing: "\(tasks.count)")
             if tasks.isEmpty {
-                Text(allTasks.isEmpty ? "This project has no tasks yet."
-                                      : "All tasks are complete. Use Completed to view them.")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                Text(
+                    allTasks.isEmpty
+                        ? "This project has no tasks yet."
+                        : "All tasks are complete. Use Completed to view them."
+                )
+                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
             } else {
                 ForEach(["active", "blocked", "todo", "done"], id: \.self) { group($0) }
             }
@@ -167,8 +185,9 @@ struct ProjectDetail: View {
                     ForEach(rows) { row($0) }
                 }
                 .background(RoundedRectangle(cornerRadius: 11).fill(Theme.card))
-                .overlay(RoundedRectangle(cornerRadius: 11)
-                    .strokeBorder(Theme.line2, lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11)
+                        .strokeBorder(Theme.line2, lineWidth: 1))
             }
         }
     }
@@ -188,7 +207,9 @@ struct ProjectDetail: View {
             .buttonStyle(.plain)
             .disabled(locked)
 
-            Button { openTask(task) } label: {
+            Button {
+                openTask(task)
+            } label: {
                 HStack(spacing: 8) {
                     Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
                     if assigned.contains(task.id) { NotebookStyle.pill("wip") }
@@ -233,9 +254,12 @@ struct ProjectDetail: View {
             Button("Clear") { picked.removeAll() }
                 .buttonStyle(.consoleGhost)
                 .disabled(picked.isEmpty)
-            Button { assign(batch) } label: {
-                Label("Assign to Engineering Lead",
-                      systemImage: "point.3.connected.trianglepath.dotted")
+            Button {
+                assign(batch)
+            } label: {
+                Label(
+                    "Assign to Engineering Lead",
+                    systemImage: "point.3.connected.trianglepath.dotted")
             }
             .buttonStyle(.consolePrimary)
             .disabled(batch.isEmpty)

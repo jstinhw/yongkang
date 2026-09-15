@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Yongkang
 
 /// Serialized because the attention check is a work item on the process-wide main queue, and
@@ -69,7 +70,12 @@ struct AttentionPromptTests {
         let view = makeView()
         var notified = false
         view.onAttention = { notified = $0 != nil }
-        view.startProcess(executable: "/bin/sh", args: ["-c", #"printf '%s\r\n' 'Do you trust the contents of this directory?' '1. Yes, continue' '2. No, quit'; while :; do printf '\033[?25h'; sleep 0.05; done"#])
+        view.startProcess(
+            executable: "/bin/sh",
+            args: [
+                "-c",
+                #"printf '%s\r\n' 'Do you trust the contents of this directory?' '1. Yes, continue' '2. No, quit'; while :; do printf '\033[?25h'; sleep 0.05; done"#,
+            ])
         defer { view.terminate() }
         // ponytail: polls up to 5 s where the self-test slept a fixed 1 s, so a machine busy
         // with parallel tests doesn't flake. Raise the ceiling if a slow CI still misses it.

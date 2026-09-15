@@ -41,12 +41,18 @@ enum GitChanges {
             guard parts.count == 3 else { continue }
             counts[parts[2]] = (Int(parts[0]) ?? 0, Int(parts[1]) ?? 0)
         }
-        let tracked = counts.map { FileChange(path: $0.key, added: $0.value.0,
-                                              removed: $0.value.1, untracked: false) }
+        let tracked = counts.map {
+            FileChange(
+                path: $0.key, added: $0.value.0,
+                removed: $0.value.1, untracked: false)
+        }
         let untracked = run(["ls-files", "--others", "--exclude-standard"], in: directory)
             .split(separator: "\n")
-            .map { FileChange(path: String($0), added: lineCount(String($0), in: directory),
-                              removed: 0, untracked: true) }
+            .map {
+                FileChange(
+                    path: String($0), added: lineCount(String($0), in: directory),
+                    removed: 0, untracked: true)
+            }
         return (tracked + untracked).sorted { $0.path < $1.path }
     }
 
@@ -56,7 +62,8 @@ enum GitChanges {
         guard !change.untracked else { return newFileLines(change, in: directory) }
         let text = run(["diff", "--unified=3", "HEAD", "--", change.path], in: directory)
         var lines: [DiffLine] = []
-        var old = 0, new = 0
+        var old = 0
+        var new = 0
         for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = String(raw)
             if line.hasPrefix("@@") {
@@ -71,9 +78,12 @@ enum GitChanges {
                 lines.append(DiffLine(kind: .remove, old: "\(old)", new: "", text: String(line.dropFirst())))
                 old += 1
             } else if line.hasPrefix(" ") {
-                lines.append(DiffLine(kind: .context, old: "\(old)", new: "\(new)",
-                                      text: String(line.dropFirst())))
-                old += 1; new += 1
+                lines.append(
+                    DiffLine(
+                        kind: .context, old: "\(old)", new: "\(new)",
+                        text: String(line.dropFirst())))
+                old += 1
+                new += 1
             }
         }
         return lines
@@ -106,7 +116,8 @@ enum GitChanges {
         guard !text.isEmpty else { return "A commit needs a message." }
         guard paths?.isEmpty != true else { return "This task has no changed files left to commit." }
         guard isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
-        let steps = paths.map { [["add", "--"] + $0, ["commit", "--message", text, "--"] + $0] }
+        let steps =
+            paths.map { [["add", "--"] + $0, ["commit", "--message", text, "--"] + $0] }
             ?? [["add", "--all"], ["commit", "--message", text]]
         for arguments in steps {
             let result = execute(arguments, in: directory)

@@ -47,9 +47,10 @@ enum CodexTranscripts {
         let parents = Dictionary(entries.map { ($0.1.threadID, $0.1) }, uniquingKeysWith: { first, _ in first })
         return entries.compactMap { url, meta -> SubagentStatus? in
             guard meta.isSubagent, isDescendant(meta, of: thread, in: parents) else { return nil }
-            return SubagentStatus(id: meta.threadID, description: meta.label, agentType: meta.role,
-                                  running: isRunning(url), transcriptURL: url,
-                                  taskID: Subagents.taskID(in: meta.label, from: taskIDs))
+            return SubagentStatus(
+                id: meta.threadID, description: meta.label, agentType: meta.role,
+                running: isRunning(url), transcriptURL: url,
+                taskID: Subagents.taskID(in: meta.label, from: taskIDs))
         }.sorted { $0.description < $1.description }
     }
 
@@ -81,7 +82,8 @@ enum CodexTranscripts {
         let needle = sessionID.uuidString.lowercased()
         for url in rollouts {
             guard let meta = meta(at: url), !meta.isSubagent,
-                  meta.cwd == projectDirectory.path, grew(url, for: sessionID), quotes(needle, in: url) else { continue }
+                meta.cwd == projectDirectory.path, grew(url, for: sessionID), quotes(needle, in: url)
+            else { continue }
             threadCache[sessionID] = meta.threadID
             return meta.threadID
         }
@@ -118,8 +120,11 @@ enum CodexTranscripts {
     private static func rollouts(in codexHome: URL) -> [URL] {
         let root = codexHome.appendingPathComponent("sessions")
         let keys: [URLResourceKey] = [.creationDateKey, .contentModificationDateKey]
-        guard let walk = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys,
-                                                        options: [.skipsHiddenFiles]) else { return [] }
+        guard
+            let walk = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles])
+        else { return [] }
         return walk.compactMap { $0 as? URL }
             .filter { $0.pathExtension == "jsonl" }
             .filter { url in
@@ -137,22 +142,25 @@ enum CodexTranscripts {
         // carries, and reading a fixed window keeps a multi-megabyte rollout cheap.
         let head = String(decoding: (try? handle.read(upToCount: 256_000)) ?? Data(), as: UTF8.self)
         guard let line = head.split(separator: "\n", maxSplits: 1).first,
-              let object = json(String(line)), let payload = object["payload"] as? [String: Any],
-              let threadID = payload["id"] as? String ?? payload["session_id"] as? String,
-              let cwd = payload["cwd"] as? String else { return nil }
+            let object = json(String(line)), let payload = object["payload"] as? [String: Any],
+            let threadID = payload["id"] as? String ?? payload["session_id"] as? String,
+            let cwd = payload["cwd"] as? String
+        else { return nil }
         // `source` is a plain string for a session the user started and a nested object for
         // a spawned one — only the `thread_spawn` shape is a subagent with a task name on it.
-        let spawn = ((payload["source"] as? [String: Any])?["subagent"] as? [String: Any])?["thread_spawn"]
+        let spawn =
+            ((payload["source"] as? [String: Any])?["subagent"] as? [String: Any])?["thread_spawn"]
             as? [String: Any]
         let path = spawn?["agent_path"] as? String
         let nickname = spawn?["agent_nickname"] as? String
-        let meta = Meta(threadID: threadID,
-                        parentThreadID: spawn?["parent_thread_id"] as? String
-                            ?? payload["parent_thread_id"] as? String,
-                        label: path.map { URL(fileURLWithPath: $0).lastPathComponent }
-                            ?? nickname ?? String(threadID.prefix(8)),
-                        role: spawn?["agent_role"] as? String ?? nickname ?? "subagent",
-                        cwd: cwd, isSubagent: spawn != nil)
+        let meta = Meta(
+            threadID: threadID,
+            parentThreadID: spawn?["parent_thread_id"] as? String
+                ?? payload["parent_thread_id"] as? String,
+            label: path.map { URL(fileURLWithPath: $0).lastPathComponent }
+                ?? nickname ?? String(threadID.prefix(8)),
+            role: spawn?["agent_role"] as? String ?? nickname ?? "subagent",
+            cwd: cwd, isSubagent: spawn != nil)
         metaCache[url.path] = meta
         return meta
     }
@@ -180,7 +188,8 @@ enum CodexTranscripts {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").compactMap { line -> TranscriptLine? in
             guard let object = json(String(line)), object["type"] as? String == "response_item",
-                  let payload = object["payload"] as? [String: Any] else { return nil }
+                let payload = object["payload"] as? [String: Any]
+            else { return nil }
             return transcriptLine(from: payload)
         }
     }
@@ -196,8 +205,9 @@ enum CodexTranscripts {
             // ponytail: a Codex subagent forks its parent's turns, so its opening user
             // message is the lead's whole prompt. Truncated, because the viewer is for
             // watching this subagent work, not for re-reading the batch it came from.
-            return TranscriptLine(label: role == "assistant" ? "Reply" : "Task",
-                                  text: role == "assistant" ? text : ClaudeTranscripts.truncate(text))
+            return TranscriptLine(
+                label: role == "assistant" ? "Reply" : "Task",
+                text: role == "assistant" ? text : ClaudeTranscripts.truncate(text))
         case "agent_message":
             // The lead's dispatch. Its payload is encrypted, so what shows is the envelope:
             // the task name it was spawned under and who sent it.
@@ -209,8 +219,9 @@ enum CodexTranscripts {
                 ClaudeTranscripts.describe(payload["arguments"] ?? payload["input"]))
             return TranscriptLine(label: "Tool", text: input.isEmpty ? name : "\(name)(\(input))")
         case "function_call_output", "custom_tool_call_output":
-            return TranscriptLine(label: "Result",
-                                  text: ClaudeTranscripts.truncate(ClaudeTranscripts.resultText(payload["output"])))
+            return TranscriptLine(
+                label: "Result",
+                text: ClaudeTranscripts.truncate(ClaudeTranscripts.resultText(payload["output"])))
         default:
             return nil
         }

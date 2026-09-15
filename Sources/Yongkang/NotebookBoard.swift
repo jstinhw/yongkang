@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// The build order, one column per project, read downwards. A task sits under everything
 /// it waits on, so position *is* the dependency and no card has to spell it out.
@@ -46,8 +46,9 @@ struct NotebookBoard: View {
                         board(narrow: narrow)
                     }
                     if !narrow {
-                        BoardInspector(demos: demos, cards: cards, batch: batch,
-                                       picked: Set(picked.map(\.id)), openDemo: openDemo)
+                        BoardInspector(
+                            demos: demos, cards: cards, batch: batch,
+                            picked: Set(picked.map(\.id)), openDemo: openDemo)
                     }
                 }
                 assignBar
@@ -64,9 +65,10 @@ struct NotebookBoard: View {
             VStack(alignment: .leading, spacing: 18) {
                 if narrow {
                     DisclosureGroup("The batch, and what is waiting on you") {
-                        BoardInspector(demos: demos, cards: cards, batch: batch,
-                                       picked: Set(picked.map(\.id)), openDemo: openDemo,
-                                       inline: true)
+                        BoardInspector(
+                            demos: demos, cards: cards, batch: batch,
+                            picked: Set(picked.map(\.id)), openDemo: openDemo,
+                            inline: true)
                     }
                     .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
                 }
@@ -122,8 +124,9 @@ struct NotebookBoard: View {
     private func chain(id: String, title: String, tasks: [NotebookCard]) -> Chain {
         let done = tasks.filter { $0.status == "done" }.count
         let shown = NotebookIndex.ordered(NotebookIndex.visible(tasks, showDone: showDone))
-        return Chain(id: id, title: title, done: done, total: tasks.count,
-                     rows: shown.map { Row(card: $0, lane: lane(of: $0), demo: demo(for: $0)) })
+        return Chain(
+            id: id, title: title, done: done, total: tasks.count,
+            rows: shown.map { Row(card: $0, lane: lane(of: $0), demo: demo(for: $0)) })
     }
 
     /// What a card gets to say about itself. Only the first four are worth a full card;
@@ -204,7 +207,9 @@ struct NotebookBoard: View {
         case .done:
             finished(row.card).contextMenu { menu }
         case .later:
-            Button { selected = NotebookBoard.picking(row.card, from: selected) } label: {
+            Button {
+                selected = NotebookBoard.picking(row.card, from: selected)
+            } label: {
                 queued(row.card, inBatch: inBatch)
             }
             .buttonStyle(.plain)
@@ -215,7 +220,9 @@ struct NotebookBoard: View {
             if assigned.contains(row.card.id) {
                 card(row, inBatch: inBatch).opacity(0.6).contextMenu { menu }
             } else {
-                Button { selected = NotebookBoard.picking(row.card, from: selected) } label: {
+                Button {
+                    selected = NotebookBoard.picking(row.card, from: selected)
+                } label: {
                     card(row, inBatch: inBatch)
                 }
                 .buttonStyle(.plain)
@@ -250,9 +257,11 @@ struct NotebookBoard: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 9).fill(inBatch ? Theme.card : .clear))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(
-            isPicked ? Theme.accent : (inBatch ? Theme.accent.opacity(0.35) : .clear),
-            lineWidth: isPicked ? 1.5 : 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9).strokeBorder(
+                isPicked ? Theme.accent : (inBatch ? Theme.accent.opacity(0.35) : .clear),
+                lineWidth: isPicked ? 1.5 : 1)
+        )
         .opacity(selected.isEmpty || inBatch ? 1 : 0.4)
         .contentShape(RoundedRectangle(cornerRadius: 9))
     }
@@ -264,9 +273,11 @@ struct NotebookBoard: View {
         let inBatch = inBatch.contains(card.id)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 9) {
-                NotebookStyle.statusRing(row.lane.status, progress: row.lane == .active ? 0.55 : 0,
-                                         size: 16)
-                    .padding(.top, 1)
+                NotebookStyle.statusRing(
+                    row.lane.status, progress: row.lane == .active ? 0.55 : 0,
+                    size: 16
+                )
+                .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(card.title)
                         .font(Typo.text(12.5))
@@ -276,7 +287,9 @@ struct NotebookBoard: View {
                     Text(card.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 4)
-                Button { openCard(card) } label: {
+                Button {
+                    openCard(card)
+                } label: {
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Theme.tx3)
@@ -304,10 +317,15 @@ struct NotebookBoard: View {
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 11).fill(Theme.card))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(
-            isPicked ? Theme.accent : (row.lane == .demo ? Theme.amber.opacity(0.32)
-                                       : (inBatch ? Theme.accent.opacity(0.35) : Theme.line2)),
-            lineWidth: isPicked ? 1.5 : 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: 11).strokeBorder(
+                isPicked
+                    ? Theme.accent
+                    : (row.lane == .demo
+                        ? Theme.amber.opacity(0.32)
+                        : (inBatch ? Theme.accent.opacity(0.35) : Theme.line2)),
+                lineWidth: isPicked ? 1.5 : 1)
+        )
         .shadow(color: isPicked ? Theme.accent.opacity(0.25) : .clear, radius: 12, y: 4)
         .opacity(selected.isEmpty || inBatch ? 1 : 0.32)
         .contentShape(RoundedRectangle(cornerRadius: 11))
@@ -323,16 +341,22 @@ struct NotebookBoard: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider().overlay(Theme.line2)
             HStack(alignment: .top, spacing: 10) {
-                Text(demo.action.isEmpty
-                     ? "A demo is waiting. Nothing that depends on it starts until you have looked at it."
-                     : demo.action)
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
+                Text(
+                    demo.action.isEmpty
+                        ? "A demo is waiting. Nothing that depends on it starts until you have looked at it."
+                        : demo.action
+                )
+                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
-            Button { openDemo(demo) } label: { Text("See demo") }
-                .buttonStyle(.console)
+            Button {
+                openDemo(demo)
+            } label: {
+                Text("See demo")
+            }
+            .buttonStyle(.console)
         }
         .padding(.top, 12)
     }
@@ -378,11 +402,18 @@ struct NotebookBoard: View {
                 .disabled(selected.isEmpty)
             // Never disabled and never about the picks: this one asks what should be on the
             // board at all, which is the question an empty or stalled board most needs.
-            Button { review() } label: { Label("Product review", systemImage: "sparkles") }
-                .buttonStyle(.console)
-            Button { assign(batch) } label: {
-                Label(designCount > 0 ? "Assign — design first" : "Assign to Engineering Lead",
-                      systemImage: "point.3.connected.trianglepath.dotted")
+            Button {
+                review()
+            } label: {
+                Label("Product review", systemImage: "sparkles")
+            }
+            .buttonStyle(.console)
+            Button {
+                assign(batch)
+            } label: {
+                Label(
+                    designCount > 0 ? "Assign — design first" : "Assign to Engineering Lead",
+                    systemImage: "point.3.connected.trianglepath.dotted")
             }
             .buttonStyle(.consolePrimary)
             .disabled(batch.isEmpty)
@@ -393,11 +424,18 @@ struct NotebookBoard: View {
         VStack(spacing: 10) {
             Image(systemName: "square.stack.3d.up.slash").font(.system(size: 22))
                 .foregroundStyle(Theme.tx4)
-            Text(cards.contains { $0.kind == .task } ? "Every task here is done."
-                                                     : "No tasks yet — Product writes them.")
-                .font(Typo.text(13)).foregroundStyle(Theme.tx3)
-            Button { review() } label: { Label("Product review", systemImage: "sparkles") }
-                .buttonStyle(.console)
+            Text(
+                cards.contains { $0.kind == .task }
+                    ? "Every task here is done."
+                    : "No tasks yet — Product writes them."
+            )
+            .font(Typo.text(13)).foregroundStyle(Theme.tx3)
+            Button {
+                review()
+            } label: {
+                Label("Product review", systemImage: "sparkles")
+            }
+            .buttonStyle(.console)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DotGrid())
@@ -465,8 +503,9 @@ struct DotGrid: View {
             while y < size.height {
                 var x: CGFloat = 0
                 while x < size.width {
-                    context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 1.5, height: 1.5)),
-                                 with: .color(dot))
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: x, y: y, width: 1.5, height: 1.5)),
+                        with: .color(dot))
                     x += step
                 }
                 y += step

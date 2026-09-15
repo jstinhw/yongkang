@@ -90,7 +90,7 @@ enum NotebookIndex {
     static func body(_ text: String) -> String {
         let lines = text.components(separatedBy: "\n")
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---",
-              let close = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" })
+            let close = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" })
         else { return text }
         return lines[(close + 1)...].joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -104,7 +104,8 @@ enum NotebookIndex {
 
     private static func unquoted(_ value: String) -> String {
         guard value.count >= 2, let first = value.first, first == "\"" || first == "'",
-              value.last == first else { return value }
+            value.last == first
+        else { return value }
         return String(value.dropFirst().dropLast())
             .replacingOccurrences(of: "\\\"", with: "\"")
             .replacingOccurrences(of: "\\\\", with: "\\")
@@ -117,8 +118,10 @@ enum NotebookIndex {
     /// Lead session out of the batch, whether it was picked directly or would otherwise
     /// be pulled in as a blocker. A task already `done` is dropped the same way — there is
     /// nothing left to assign it to do.
-    static func withBlockers(_ picked: [NotebookCard], in cards: [NotebookCard],
-                             excluding assigned: Set<String> = []) -> [NotebookCard] {
+    static func withBlockers(
+        _ picked: [NotebookCard], in cards: [NotebookCard],
+        excluding assigned: Set<String> = []
+    ) -> [NotebookCard] {
         let byID = Dictionary(cards.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         // Keep task and unknown ids as written, but turn an unfinished project into the
@@ -150,11 +153,12 @@ enum NotebookIndex {
         func normalized(_ card: NotebookCard) -> NotebookCard {
             let dependencies = concrete(card.dependsOn)
             guard dependencies != card.dependsOn else { return card }
-            return NotebookCard(id: card.id, url: card.url, kind: card.kind, title: card.title,
-                                status: card.status, project: card.project, dependsOn: dependencies,
-                                repos: card.repos, roadmap: card.roadmap, subject: card.subject,
-                                memoryType: card.memoryType, result: card.result,
-                                designer: card.designer)
+            return NotebookCard(
+                id: card.id, url: card.url, kind: card.kind, title: card.title,
+                status: card.status, project: card.project, dependsOn: dependencies,
+                repos: card.repos, roadmap: card.roadmap, subject: card.subject,
+                memoryType: card.memoryType, result: card.result,
+                designer: card.designer)
         }
 
         let eligible = picked.filter { $0.status != "done" && !assigned.contains($0.id) }
@@ -164,7 +168,8 @@ enum NotebookIndex {
         while let card = queue.popLast() {
             for id in concrete(card.dependsOn) {
                 guard !chosen.contains(id), !assigned.contains(id), let blocker = byID[id],
-                      blocker.kind == .task, blocker.status != "done" else { continue }
+                    blocker.kind == .task, blocker.status != "done"
+                else { continue }
                 chosen.insert(id)
                 queue.append(blocker)
             }
@@ -215,7 +220,7 @@ extension NotebookIndex {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return NotebookContent.sections(body(text)).flatMap { section in
             section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
-                if case let .checklist(items) = block { return items }
+                if case .checklist(let items) = block { return items }
                 return []
             }
         }
