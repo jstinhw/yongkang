@@ -12,7 +12,7 @@ enum AlertItem {
     /// A title to type. `create` gets what was typed when the user picks Create.
     case title(String, create: @MainActor @Sendable (String) -> Void)
 
-    static func error(_ error: Error) -> AlertItem {
+    static func error(_ error: any Error) -> AlertItem {
         let error = error as NSError
         return .message(error.localizedDescription, detail: error.localizedRecoverySuggestion ?? "")
     }

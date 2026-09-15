@@ -3,7 +3,13 @@ import PackageDescription
 
 // Swift 6 mode turns data races into compile errors. Core went first because it is the half
 // with the actors and the I/O; the SwiftUI targets followed.
-let v6: [SwiftSetting] = [.swiftLanguageMode(.v6)]
+//
+// `ExistentialAny` costs almost nothing here — a handful of `any Error` — and makes the one
+// place that really does box a protocol, `any AgentProvider`, say so.
+let v6: [SwiftSetting] = [
+    .swiftLanguageMode(.v6),
+    .enableUpcomingFeature("ExistentialAny"),
+]
 
 let package = Package(
     name: "Yongkang",

@@ -63,7 +63,7 @@ package enum AsyncProcess {
         /// Pipes not yet at EOF, plus one for the process until it exits. The result is only
         /// complete once all of them are done: a child can exit with output still in the pipe.
         private var pending: Int
-        private var continuation: CheckedContinuation<Output, Error>?
+        private var continuation: CheckedContinuation<Output, any Error>?
         private var launched = false
         private var cancelled = false
 
@@ -74,7 +74,7 @@ package enum AsyncProcess {
             pending = pipes.count + 1
         }
 
-        func start(_ continuation: CheckedContinuation<Output, Error>) {
+        func start(_ continuation: CheckedContinuation<Output, any Error>) {
             lock.withLock { self.continuation = continuation }
             // Drained while the child runs, not after: a pipe holds about 64 KB, and a child
             // that fills it blocks until someone reads, so reading only after exit deadlocks
@@ -122,10 +122,10 @@ package enum AsyncProcess {
         }
 
         private func finishIfDone() {
-            let finished: (CheckedContinuation<Output, Error>, Result<Output, Error>)? = lock.withLock {
+            let finished: (CheckedContinuation<Output, any Error>, Result<Output, any Error>)? = lock.withLock {
                 guard pending == 0, let continuation else { return nil }
                 self.continuation = nil
-                let result: Result<Output, Error> =
+                let result: Result<Output, any Error> =
                     cancelled
                     ? .failure(CancellationError())
                     : .success(

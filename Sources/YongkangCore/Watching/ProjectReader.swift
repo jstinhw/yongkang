@@ -74,7 +74,7 @@ package actor ProjectReader {
 
     /// The lines of the one agent on screen. Reading and parsing a whole transcript is the
     /// most expensive thing the window asks for, so it happens here and arrives as a value.
-    package func transcript(of provider: AgentProvider, at url: URL) -> [TranscriptLine] {
+    package func transcript(of provider: any AgentProvider, at url: URL) -> [TranscriptLine] {
         provider.transcript(at: url)
     }
 
