@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"Do the thing"}}
+{"type":"summary","summary":"Did the thing","leafUuid":"u1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"server_tool_use","name":"web_search"},{"type":"text","text":"Here is the answer"}]}}

@@ -1,0 +1,3 @@
+{"type":"user","content":[{"type":"text","text":"Do the thing"}]}
+Error: stream interrupted, retrying
+{"type":"assistant","content":"Done","model_id":"grok-4.6-build","tool_calls":[]}

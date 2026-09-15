@@ -1,0 +1,2 @@
+{"timestamp":1788784944,"params":{"update":{"sessionUpdate":"turn_completed","usage":{"inputTokens":100,"outputTokens":20,"cachedReadTokens":40,"cacheCreationTokens":5,"modelUsage":{"grok-4.6-build":{"inputTokens":100,"outputTokens":20,"cachedReadTokens":40,"cacheCreationTokens":5}}}}}}
+{"timestamp":1788785000,"params":{"update":{"sessionUpdate":"turn_completed","usage":{"inputTokens":300,"outpu

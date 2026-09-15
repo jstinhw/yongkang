@@ -1,0 +1,2 @@
+{"message":{"role":"assistant","content":[{"type":"tool_use","id":"nested-call","name":"Agent"}]}}
+{"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"nested-call","content":"Done"}]}}
