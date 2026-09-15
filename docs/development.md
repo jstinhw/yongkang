@@ -299,10 +299,10 @@ but not the ones that end in `default:`. To find every provider branch, run
      to the transcript and usage files.
    - Optional: a quota reader like `claudeQuota` or `codexQuota`, added to the list in
      `UsageBoard.load()` (`YongkangUI/Features/Usage/UsageBoard.swift`).
-5. **`YongkangUI/App/YongkangApp.swift`**
-   - `reloadAgentTranscript()`: call the new reader.
-   - `subagents(of:in:)`: only if the CLI's subagents can be read from disk. Otherwise the
-     `default: []` branch covers it.
+5. **`YongkangUI/Model/` and `YongkangUI/App/YongkangApp.swift`**
+   - `AppModel.reloadAgentTranscript()`: call the new reader.
+   - `ProjectModel.subagents(of:)`: only if the CLI's subagents can be read from disk.
+     Otherwise the `default: []` branch covers it.
    - `providerPicker`: widen its frame for the extra segment.
 6. **`YongkangUI/Terminal/AgentAttention.swift`**, `AgentPrompt.reason`: the CLI's trust or
    consent question, so the **Action required** bar appears. `fb13f1e` skipped this step, so
