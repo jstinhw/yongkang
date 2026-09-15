@@ -1,6 +1,6 @@
 import Foundation
 
-package enum EntryKind: String, CaseIterable {
+package enum EntryKind: String, CaseIterable, Sendable {
     case roadmap, project, task, memory, run
 
     package var displayName: String { rawValue.capitalized }

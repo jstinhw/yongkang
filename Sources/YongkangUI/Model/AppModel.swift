@@ -259,8 +259,12 @@ import YongkangCore
 
     // MARK: - Reloading
 
-    /// The poll: every project's notebook, then the transcript on screen and git.
-    func reload() {
+    /// The poll: every project's notebook, then the transcript on screen and git. Every read
+    /// it starts belongs to a `ProjectReader`, so this returns before any of them land.
+    func reload() { Task { await reloadNow() } }
+
+    /// The same poll, awaited — what the tests and anything that needs what it found call.
+    func reloadNow() async {
         ticks += 1
         for project in projects {
             // The project you are inside pays for reading frontmatter and transcripts; on
@@ -269,7 +273,7 @@ import YongkangCore
             let deep =
                 inside || entered == nil
                 || project.sessions.contains(where: { $0.agent != nil && !$0.exited })
-            project.reloadNotebook(frontmatter: deep, records: inside)
+            await project.reloadNotebook(frontmatter: deep, records: inside)
             guard deep else { continue }
             if inside {
                 showFinishedWork(in: project)
@@ -349,13 +353,15 @@ import YongkangCore
             agentTranscript = []
             return
         }
-        // The provider looks for the file off the main thread, and by the time it answers the
-        // window may be showing another agent.
+        // The provider looks for the file off the main thread and the reader parses it there,
+        // and by the time they answer the window may be showing another agent.
         let asked = selection
         Task {
             let url = await provider.transcriptURL(session: watched.id, project: project.directory)
             guard selection == asked else { return }
-            let fresh = url.map { provider.transcript(at: $0) } ?? []
+            var fresh: [TranscriptLine] = []
+            if let url { fresh = await project.reader.transcript(of: provider, at: url) }
+            guard selection == asked else { return }
             guard url != transcriptSource || fresh.count != agentTranscript.count else { return }
             transcriptSource = url
             agentTranscript = fresh

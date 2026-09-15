@@ -72,7 +72,10 @@ package enum UsageLedger {
     /// beside the live ones. Their samples are hour marks rather than turns, which is all
     /// the file keeps — and they carry no route, because the session that produced them is
     /// gone and there is nothing left for a click to open.
-    package static func load(root: URL) -> [AgentSpend] {
+    ///
+    /// `async` for the file it opens: nothing isolates this, so it runs off whichever actor
+    /// asked rather than reading `usage.json` on the window's thread.
+    package static func load(root: URL) async -> [AgentSpend] {
         read(root: root).agents.map { record in
             AgentSpend(
                 id: record.id, route: nil, name: record.name, role: record.role,

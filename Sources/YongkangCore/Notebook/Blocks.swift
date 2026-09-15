@@ -7,7 +7,7 @@ import Foundation
 /// this folder, and the answer travels the same way back — the session that clears the
 /// block sets `status: done` in the file, and the app types the news into whichever
 /// session was waiting. Nothing here holds a secret; only what is now configured.
-package struct UserBlock: Identifiable, Equatable {
+package struct UserBlock: Identifiable, Equatable, Sendable {
     /// The file path, so selection survives the reload — same rule as `NotebookEntry`.
     package let id: String
     package let url: URL
@@ -89,7 +89,7 @@ package struct UserBlock: Identifiable, Equatable {
 /// One pass of a demo. `url` is whatever the designer left running or published for that
 /// pass; without one the revision is still listed — the note is the record — but only the
 /// passes that kept a URL can be opened again.
-package struct DemoRevision: Identifiable, Equatable {
+package struct DemoRevision: Identifiable, Equatable, Sendable {
     package let id: Int
     package let label: String
     package let note: String

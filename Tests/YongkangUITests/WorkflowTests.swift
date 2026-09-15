@@ -9,13 +9,13 @@ import Testing
 /// is involved; a session here is a row with a command line nobody runs.
 @Suite @MainActor struct WorkflowTests {
     /// A project in `tmp` whose notebook holds a task per title, read the way the poll reads it.
-    private func project(tasks titles: [String], in tmp: URL) throws -> ProjectModel {
+    private func project(tasks titles: [String], in tmp: URL) async throws -> ProjectModel {
         let directory = tmp.appendingPathComponent("app")
         for title in titles {
             _ = try NotebookFormat.create(.task, title: title, in: NotebookFormat.root(in: directory), project: nil)
         }
         let project = ProjectModel(directory: directory)
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         return project
     }
 
@@ -42,15 +42,15 @@ import Testing
 
     // MARK: - Assign
 
-    @Test func assigningWithNoLeadStartsOneOnTheBatchAndItsBlockers() throws {
+    @Test func assigningWithNoLeadStartsOneOnTheBatchAndItsBlockers() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: ["Wire auth", "Ship it"], in: tmp)
+        let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
         let shipIt = try card("ship-it", in: project)
         let text = try String(contentsOf: shipIt.url, encoding: .utf8)
             .replacingOccurrences(of: "depends_on: []", with: "depends_on: [wire-auth]")
         try text.write(to: shipIt.url, atomically: true, encoding: .utf8)
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
 
         let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .codex))
         let lead = try #require(project.sessions.first)
@@ -60,10 +60,10 @@ import Testing
         #expect(lead.line.contains(lead.id.uuidString.lowercased()), "the prompt names the session it starts")
     }
 
-    @Test func assigningToARunningLeadQueuesAFollowUpAndRoutesToItsSession() throws {
+    @Test func assigningToARunningLeadQueuesAFollowUpAndRoutesToItsSession() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: ["Wire auth", "Ship it"], in: tmp)
+        let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
         let lead = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
 
         let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .claude))
@@ -80,10 +80,10 @@ import Testing
 
     // MARK: - Product
 
-    @Test func aSecondProductRequestIsTypedIntoTheRunningProductSession() throws {
+    @Test func aSecondProductRequestIsTypedIntoTheRunningProductSession() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
 
         let review = project.startProductReview(agent: .claude)
         let product = try #require(project.sessions.first)
@@ -105,10 +105,10 @@ import Testing
         #expect(fresh == Destination(section: .agents, route: .session(second.id)))
     }
 
-    @Test func incubatingStartsASessionOnTheBrief() throws {
+    @Test func incubatingStartsASessionOnTheBrief() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
 
         let destination = project.startIncubation("A copy editor for the docs", agent: .claude)
         let session = try #require(project.sessions.first)
@@ -118,10 +118,10 @@ import Testing
 
     // MARK: - Blocks
 
-    @Test func unblockingAGateStartsItsOwnSessionAndAProposalGoesBackToProduct() throws {
+    @Test func unblockingAGateStartsItsOwnSessionAndAProposalGoesBackToProduct() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
 
         let gate = try block("github-token", try fixture("notebook/c-block-token.md"), in: project)
         let started = project.startUnblock(gate, agent: .claude)
@@ -139,10 +139,10 @@ import Testing
         #expect(reopened == Destination(section: .agents, route: .session(product.id)))
     }
 
-    @Test func approvingAReadyProposalIsTypedIntoTheProductSessionThatShapedIt() throws {
+    @Test func approvingAReadyProposalIsTypedIntoTheProductSessionThatShapedIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
         let proposal = try block("add-checkout", try fixture("notebook/c-proposal-add-checkout.md"), in: project)
         let shaped = running("Product", in: project, id: try #require(proposal.session))
         let newer = running("Product", in: project)
@@ -181,10 +181,10 @@ import Testing
             """, in: project)
     }
 
-    @Test func approvingADemoClearsItsBlockAndTellsTheDesignerWhichRevisionWon() throws {
+    @Test func approvingADemoClearsItsBlockAndTellsTheDesignerWhichRevisionWon() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
         let designer = running("Engineering Lead", in: project)
         let demo = try demo(madeBy: designer, in: project)
 
@@ -197,10 +197,10 @@ import Testing
             "and counts as delivered, so the poll doesn't tell the designer Unblocked on top")
     }
 
-    @Test func revisingADemoOpensTheSessionThatMadeIt() throws {
+    @Test func revisingADemoOpensTheSessionThatMadeIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
         let designer = running("Engineering Lead", in: project)
         let demo = try demo(madeBy: designer, in: project)
 
@@ -227,7 +227,7 @@ import Testing
     @Test func approvingATaskCommitsOnlyItsFilesAndRoutesToTheNextOneWaiting() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: ["Wire auth", "Ship it"], in: tmp)
+        let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
         try await repository(project.directory)
         for task in ["wire-auth", "ship-it"] {
             let url = try card(task, in: project).url
@@ -237,7 +237,7 @@ import Testing
             let file = project.directory.appendingPathComponent("\(task).txt")
             try "\(task)\n".write(to: file, atomically: true, encoding: .utf8)
         }
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         _ = running("Engineering Lead", in: project, taskIDs: ["wire-auth", "ship-it"])
         project.sessions[0].coordination = LeadCoordination(
             workers: ["wire-auth", "ship-it"].map { LeadWork(id: $0, taskID: $0, paths: ["\($0).txt"], state: "done") })
@@ -260,10 +260,10 @@ import Testing
             "only the approved task's files went in, as the repo read after the commit shows")
     }
 
-    @Test func sendingATaskBackGoesToTheLeadThatHoldsItOrStartsOne() throws {
+    @Test func sendingATaskBackGoesToTheLeadThatHoldsItOrStartsOne() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: ["Wire auth"], in: tmp)
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
         let task = SummaryTask(id: "wire-auth", title: "Wire auth", status: "done")
         let other = running("Engineering Lead", in: project, taskIDs: ["ship-it"])
         let holder = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
@@ -295,7 +295,7 @@ import Testing
     @Test func committingTheWorkingTreeRoutesBackToTheReview() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: ["Wire auth"], in: tmp)
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
         try await repository(project.directory)
 
         #expect(try await project.commit("Add the notebook") == .review(file: nil))
@@ -306,10 +306,10 @@ import Testing
 
     // MARK: - Services
 
-    @Test func runningServicesStartsEachOnceAndNamesWhatHasNothingToRun() throws {
+    @Test func runningServicesStartsEachOnceAndNamesWhatHasNothingToRun() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try project(tasks: [], in: tmp)
+        let project = try await project(tasks: [], in: tmp)
         let (web, api) = (tmp.appendingPathComponent("web"), tmp.appendingPathComponent("api"))
         let steps: [(repo: String, directory: URL, services: [Service.Runnable])] = [
             (repo: "web", directory: web, services: [(name: "web", directory: web, command: "npm run dev")]),
@@ -343,21 +343,21 @@ import Testing
     // MARK: - Notebook
 
     /// A project with a `launch` project holding the `wire-auth` task, and a loose `other` task.
-    private func launch(in tmp: URL) throws -> ProjectModel {
+    private func launch(in tmp: URL) async throws -> ProjectModel {
         let directory = tmp.appendingPathComponent("app")
         let root = NotebookFormat.root(in: directory)
         _ = try NotebookFormat.create(.project, title: "Launch", in: root, project: nil)
         _ = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "launch")
         _ = try NotebookFormat.create(.task, title: "Other", in: root, project: nil)
         let project = ProjectModel(directory: directory)
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         return project
     }
 
-    @Test func addingAnEntryFilesItUnderTheSelectionAndOpensItsPage() throws {
+    @Test func addingAnEntryFilesItUnderTheSelectionAndOpensItsPage() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try launch(in: tmp)
+        let project = try await launch(in: tmp)
         #expect(project.notebookProject(for: .task("wire-auth")) == "launch", "a task sits in its own project")
         #expect(project.notebookProject(for: .board) == nil)
 
@@ -373,7 +373,7 @@ import Testing
             try project.add(.memory, title: "Loose note", selection: .board)
         }
 
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         #expect(try card("ship-it", in: project).project == "launch")
         let page = try card(try #require(memory.route?.cardID), in: project)
         #expect(memory == Destination(section: .board, route: .page(page.id)))
@@ -382,10 +382,10 @@ import Testing
             "memory added on a task lands in the task's project, about that task")
     }
 
-    @Test func removingAProjectTakesItsTasksAndLeavesAPageThatWentWithIt() throws {
+    @Test func removingAProjectTakesItsTasksAndLeavesAPageThatWentWithIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try launch(in: tmp)
+        let project = try await launch(in: tmp)
         let model = AppModel()
         model.selection = .task("wire-auth")
         let (other, launch) = (try card("other", in: project), try card("launch", in: project))
@@ -401,10 +401,10 @@ import Testing
         // An agent files another task under the project while the user is being asked, and the
         // poll reads it.
         _ = try NotebookFormat.create(.task, title: "Late", in: project.notebookRoot, project: "launch")
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         try answer(model)
         #expect(model.selection == .board, "the task on screen went with its project")
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         #expect(
             project.snapshot.cards.map(\.id) == ["late"],
             "what goes is what the user confirmed: a task filed since is left for them to see")
@@ -422,10 +422,10 @@ import Testing
         }
     }
 
-    @Test func whatTheUserHasToReadOrAnswerIsTheModelsAlert() throws {
+    @Test func whatTheUserHasToReadOrAnswerIsTheModelsAlert() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try launch(in: tmp)
+        let project = try await launch(in: tmp)
         let model = AppModel()
 
         model.assign([], in: project, agent: .claude)
@@ -444,7 +444,7 @@ import Testing
         #expect(model.alert?.title == "New Memory")
         model.selection = .board  // The poll moves on while the user types.
         try answer(model, typing: "  Token lifetimes ")
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         let memory = try #require(project.snapshot.cards.first { $0.kind == .memory })
         #expect(
             memory.title == "Token lifetimes" && memory.project == "launch",

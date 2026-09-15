@@ -149,7 +149,7 @@ import Testing
         let notebook = try makeNotebook(in: dir)
         UsageLedger.record([spend], root: notebook)
 
-        let remembered = UsageLedger.load(root: notebook)
+        let remembered = await UsageLedger.load(root: notebook)
         try #require(remembered.count == 1)
         #expect(remembered[0].id == spend.id)
         #expect(remembered[0].name == "Lead")
@@ -181,7 +181,7 @@ import Testing
             provider: .claude, running: false, samples: [grown[0]])
         UsageLedger.record([truncated], root: notebook)
         #expect(
-            UsageLedger.load(root: notebook).first?.tally(since: nil).total
+            await UsageLedger.load(root: notebook).first?.tally(since: nil).total
                 == spend.tally(since: nil).total, "a short re-read keeps the fuller record")
     }
 
@@ -224,7 +224,7 @@ import Testing
             id: "codex-1", route: nil, name: "Backend", role: "backend-dev",
             provider: .codex, running: false, samples: try await rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
-        let both = UsageLedger.load(root: notebook)
+        let both = await UsageLedger.load(root: notebook)
         #expect(both.count == 2, "and each agent keeps its own provider")
         #expect(both.contains { $0.provider == .codex }, "and each agent keeps its own provider")
     }
@@ -243,7 +243,7 @@ import Testing
         let notebook = try makeNotebook(in: dir)
         let damaged = try damageLedger(damage, in: notebook, samples: try await grownSamples(in: dir).samples)
 
-        #expect(UsageLedger.load(root: notebook).isEmpty, "an unreadable ledger reads as no rows, not a crash")
+        #expect(await UsageLedger.load(root: notebook).isEmpty, "an unreadable ledger reads as no rows, not a crash")
         #expect(try Data(contentsOf: UsageLedger.url(root: notebook)) == damaged, "and reading it changes nothing")
     }
 
@@ -293,19 +293,19 @@ import Testing
 
     // Plan limits come out of Claude Code's own config cache, which is not an API —
     // a shape it does not recognise has to read as "nothing to show", never as a crash.
-    @Test func claudeQuotaFromTheConfigCache() throws {
+    @Test func claudeQuotaFromTheConfigCache() async throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let config = dir.appendingPathComponent("claude.json")
         try fixture("usage/claude-config-cached-usage.json").write(to: config, atomically: true, encoding: .utf8)
 
-        let quota = try #require(AgentUsage.claudeQuota(configURL: config))
+        let quota = try #require(await AgentUsage.claudeQuota(configURL: config))
         #expect(quota.plan == "claude_pro")
         try #require(quota.windows.map(\.percent) == [42, 3], "a null window is skipped, not zeroed")
         #expect(quota.windows[0].resetsAt != nil, "the ISO shape with fractional seconds parses")
         #expect(quota.windows[1].resetsAt != nil, "and the one without")
         #expect(quota.credits?.value == "$2.50 of $100.00")
-        #expect(AgentUsage.claudeQuota(configURL: dir.appendingPathComponent("nope.json")) == nil)
+        #expect(await AgentUsage.claudeQuota(configURL: dir.appendingPathComponent("nope.json")) == nil)
     }
 
     @Test(arguments: [(999, "999"), (1_500, "1.5K"), (45_000, "45K"), (2_400_000, "2.4M")])

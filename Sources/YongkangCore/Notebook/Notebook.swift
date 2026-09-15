@@ -2,7 +2,7 @@ import Foundation
 
 /// One row in the notebook sidebar. `id` is the file path so selection and
 /// disclosure survive the periodic reload after an agent writes a file.
-package struct NotebookEntry: Identifiable, Equatable {
+package struct NotebookEntry: Identifiable, Equatable, Sendable {
     package let id: String
     package let url: URL
     let title: String

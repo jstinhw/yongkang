@@ -8,7 +8,7 @@ import Foundation
 /// agent writes a file, so every case carries only an ID that reload keeps: a card id, a
 /// session UUID, a file path, a roster name. None carries the project's own id, because a
 /// selection only ever means something inside the entered project, and entering one resets it.
-package enum Route: Hashable {
+package enum Route: Hashable, Sendable {
     case overview, board
     /// The project-wide usage screen, which belongs to no single agent.
     case usage
@@ -61,7 +61,7 @@ package enum Route: Hashable {
 }
 
 /// The available agent panes. Transcript remains implemented but is hidden for now.
-package enum AgentPane: String, CaseIterable, Identifiable {
+package enum AgentPane: String, CaseIterable, Identifiable, Sendable {
     case transcript = "Transcript"
     case lanes = "Agents"
     case session = "Session"

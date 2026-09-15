@@ -2,7 +2,7 @@ import Foundation
 
 /// One subagent an agent session has spawned, read off its own transcript on disk —
 /// Claude Code's `subagents/` folder or Codex's rollout tree, whichever this session is.
-package struct SubagentStatus: Identifiable, Equatable {
+package struct SubagentStatus: Identifiable, Equatable, Sendable {
     package let id: String
     package let description: String
     package let agentType: String
@@ -63,7 +63,7 @@ struct SubagentTaskGroup: Identifiable {
 /// One human-readable line pulled out of a subagent's transcript: the task it was given,
 /// each tool it called, that tool's result, and its replies. Everything else in the file —
 /// thinking blocks, bookkeeping fields — is left out rather than guessed at.
-package struct TranscriptLine: Identifiable {
+package struct TranscriptLine: Identifiable, Sendable {
     package let id = UUID()
     package let label: String
     package let text: String

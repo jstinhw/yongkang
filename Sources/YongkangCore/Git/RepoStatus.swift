@@ -2,7 +2,7 @@ import Foundation
 
 /// What git said about a project's working tree at the last read: the changes under review
 /// and the commit and branch they sit on. Replaced whole, like `NotebookSnapshot`.
-package struct RepoStatus: Equatable {
+package struct RepoStatus: Equatable, Sendable {
     package let changes: [FileChange]
     package let head: String?
     package let branch: String?

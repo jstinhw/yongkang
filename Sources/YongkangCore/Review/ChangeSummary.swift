@@ -7,7 +7,7 @@ import Foundation
 /// Nothing here is written for this screen. It is the lead's own run records, read the way
 /// a person reads them before a commit — so a summary can never claim work the notebook
 /// does not show.
-package struct ChangeSummary: Equatable {
+package struct ChangeSummary: Equatable, Sendable {
     package var tasks: [SummaryTask] = []
     /// One line per lead: how it chose to split the batch. The only design decision the
     /// app can quote rather than infer.
@@ -19,6 +19,18 @@ package struct ChangeSummary: Equatable {
     /// The longest bar on the screen, so a file's bar means the same thing under every
     /// task rather than being rescaled per card.
     package var peak: Int = 1
+
+    /// Spelled out because the empty summary — what a project holds before anything has
+    /// been read — is built from another target.
+    package init(
+        tasks: [SummaryTask] = [], strategies: [String] = [],
+        unclaimed: [FileChange] = [], peak: Int = 1
+    ) {
+        self.tasks = tasks
+        self.strategies = strategies
+        self.unclaimed = unclaimed
+        self.peak = peak
+    }
 
     package var finished: [SummaryTask] { tasks.filter(\.done) }
     package var isEmpty: Bool { tasks.isEmpty && strategies.isEmpty }
@@ -115,7 +127,7 @@ package struct ChangeSummary: Equatable {
 }
 
 /// One task in the summary, with the specialists that built it and the ones that reviewed it.
-package struct SummaryTask: Identifiable, Equatable {
+package struct SummaryTask: Identifiable, Equatable, Sendable {
     package let id: String
     package var title: String
     package var status: String

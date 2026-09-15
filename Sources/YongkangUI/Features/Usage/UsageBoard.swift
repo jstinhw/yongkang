@@ -15,6 +15,8 @@ package struct UsageBoard: View {
     @State private var quotas: [ProviderQuota] = []
     /// The sessions' own usage files as the last load found them, watched by `signature`.
     @State private var sources: [URL] = []
+    /// What the files this screen reads looked like at the last check. See `watch`.
+    @State private var signature = ""
     /// How far back every panel below the plan limits is counting. 24 hours by default:
     /// a day is the span a person actually remembers working, and all time on a machine
     /// that has been running agents for months answers a different question.
@@ -72,12 +74,26 @@ package struct UsageBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg)
+        .task { await watch() }
         .task(id: signature) { await load() }
     }
 
     /// Re-read when an agent appears, finishes, or writes — the sizes of the files this
     /// screen reads are what change as work happens, and a byte more is a token more.
-    private var signature: String {
+    ///
+    /// Checked on the console's own two-second beat rather than in `body`: those sizes are
+    /// `stat` calls, and a render is not the place to touch the disk. Nothing else drives a
+    /// re-read, so a session appearing is seen on the same beat.
+    @MainActor private func watch() async {
+        while !Task.isCancelled {
+            let fresh = await Self.signature(of: project, sources: sources)
+            if fresh != signature { signature = fresh }
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+
+    /// Nothing isolates this, so the `stat`s run off the main actor.
+    private static func signature(of project: Project, sources: [URL]) async -> String {
         let ledger =
             (try? UsageLedger.url(root: project.notebookRoot)
                 .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -100,10 +116,12 @@ package struct UsageBoard: View {
         // in every earlier run, whose sessions died with the app that started them.
         let live = await AgentUsage.spends(in: project)
         let running = Set(live.map(\.id))
+        let remembered = await UsageLedger.load(root: project.notebookRoot)
+        let limits = [await AgentUsage.claudeQuota(), await AgentUsage.codexQuota()].compactMap { $0 }
         now = Date()
         sources = urls
-        spends = live + UsageLedger.load(root: project.notebookRoot).filter { !running.contains($0.id) }
-        quotas = [AgentUsage.claudeQuota(), AgentUsage.codexQuota()].compactMap { $0 }
+        spends = live + remembered.filter { !running.contains($0.id) }
+        quotas = limits
     }
 
     // MARK: - Over time

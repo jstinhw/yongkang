@@ -2,7 +2,7 @@ import Foundation
 
 /// A project is a folder. Its agents run there, its notebook lives in `.notebook/`
 /// inside it, and both are only ever reachable through the project.
-package struct Project: Identifiable, Equatable {
+package struct Project: Identifiable, Equatable, Sendable {
     /// Minted by the caller that keeps the project, so every value built from it has the
     /// same identity: hover, lists and the entered project all key on it.
     package let id: UUID
@@ -73,7 +73,7 @@ package enum OpenProjects {
 
 /// A terminal in the sidebar. It holds the shell line rather than an agent, because a
 /// running service is the same thing to the window: a PTY in a directory.
-package struct CodeSession: Identifiable, Equatable {
+package struct CodeSession: Identifiable, Equatable, Sendable {
     package let id: UUID
     package let title: String
     package let icon: String

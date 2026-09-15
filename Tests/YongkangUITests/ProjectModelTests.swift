@@ -16,48 +16,54 @@ import Testing
     }
 
     /// Whether `change` writes anything `read` reads. Observation calls back synchronously on
-    /// the first such write, so there is nothing to wait for.
-    private func invalidates(_ read: @autoclosure () -> Any, by change: () throws -> Void) rethrows -> Bool {
+    /// the first such write, so there is nothing to wait for beyond the read itself.
+    private func invalidates(
+        _ read: @autoclosure () -> Any, by change: () async throws -> Void
+    ) async rethrows
+        -> Bool
+    {
         final class Flag: @unchecked Sendable { var fired = false }
         let flag = Flag()
         _ = withObservationTracking(read) { flag.fired = true }
-        try change()
+        try await change()
         return flag.fired
     }
 
-    @Test func reloadingAnUnchangedNotebookKeepsItsSnapshot() throws {
+    @Test func reloadingAnUnchangedNotebookKeepsItsSnapshot() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = ProjectModel(directory: try notebook("app", in: tmp))
-        project.reloadNotebook(frontmatter: true, records: true)
+        await project.reloadNotebook(frontmatter: true, records: true)
         #expect(project.snapshot.cards.contains { $0.id == "wire-auth" })
 
-        let untouched = invalidates(project.snapshot) {
-            project.reloadNotebook(frontmatter: true, records: true)
+        let untouched = await invalidates(project.snapshot) {
+            await project.reloadNotebook(frontmatter: true, records: true)
         }
         #expect(!untouched, "a notebook nobody wrote to leaves the snapshot in place")
 
-        let written = try invalidates(project.snapshot) {
+        let written = try await invalidates(project.snapshot) {
             _ = try NotebookFormat.create(.task, title: "Ship it", in: project.notebookRoot, project: nil)
-            project.reloadNotebook(frontmatter: true, records: true)
+            await project.reloadNotebook(frontmatter: true, records: true)
         }
         #expect(written, "and a new page replaces it, so the check above can fail")
     }
 
-    @Test func aPollThatChangesOneProjectLeavesTheOtherAlone() throws {
+    @Test func aPollThatChangesOneProjectLeavesTheOtherAlone() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let app = AppModel()
         let first = app.open(try notebook("first", in: tmp))
         let second = app.open(try notebook("second", in: tmp))
         // The fleet screen, where the poll reads every project in full.
-        app.reload()
+        await app.reloadNow()
 
         var secondChanged = false
-        let firstChanged = try invalidates((first.snapshot, first.sessions, first.repo, first.reviewDrafts)) {
-            secondChanged = try invalidates(second.snapshot) {
+        let firstChanged = try await invalidates(
+            (first.snapshot, first.sessions, first.repo, first.reviewDrafts, first.summary)
+        ) {
+            secondChanged = try await invalidates(second.snapshot) {
                 _ = try NotebookFormat.create(.task, title: "Ship it", in: second.notebookRoot, project: nil)
-                app.reload()
+                await app.reloadNow()
             }
         }
         #expect(secondChanged, "the poll picked up the new task")

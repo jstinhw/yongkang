@@ -3,7 +3,7 @@ import Foundation
 /// What one project's `.notebook/` said at the last read, as one immutable value. The poll
 /// reads a fresh one and the project keeps it only when it differs, so a notebook nobody
 /// wrote to leaves every screen that reads it alone.
-package struct NotebookSnapshot: Equatable {
+package struct NotebookSnapshot: Equatable, Sendable {
     package let entries: [NotebookEntry]
     /// Frontmatter for the board, read only while you are inside the project.
     package let cards: [NotebookCard]

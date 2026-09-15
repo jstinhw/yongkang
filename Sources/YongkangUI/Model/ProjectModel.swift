@@ -29,6 +29,10 @@ import YongkangCore
     /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
     /// the workflow tests.
     private let terminals: TerminalRegistry?
+    /// Every read this project makes, off the main actor. See `ProjectReader`.
+    @ObservationIgnored let reader: ProjectReader
+    /// The poll's read of the notebook, while it is still going.
+    @ObservationIgnored private var notebookRead: Task<Void, Never>?
     /// The poll's read of what the sessions spawned and spent, while it is still going.
     @ObservationIgnored private var sessionsRead: Task<Void, Never>?
 
@@ -43,6 +47,8 @@ import YongkangCore
             snapshot ?? NotebookSnapshot(entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         self.sessions = sessions
         self.terminals = terminals
+        self.reader = ProjectReader(directory: directory)
+        resummarize()
     }
 
     /// The project as the one value the screens and Core's readers take. Reading it observes
@@ -58,9 +64,15 @@ import YongkangCore
     var hasNotebook: Bool { value.hasNotebook }
     var assignedTaskIDs: Set<String> { value.assignedTaskIDs }
 
-    // ponytail: derived on every read, as `ChangeSummary.of` was at each of its call sites.
-    // Store it when the snapshot, sessions or repo change if a profile ever shows the cost.
-    var summary: ChangeSummary { ChangeSummary.of(value, changes: repo.changes) }
+    /// What the agents just finished, derived from the notebook, the sessions and git —
+    /// never in a view body. Re-derived here whenever one of those three changes, which is
+    /// the only time it can differ, and published only when it does.
+    private(set) var summary = ChangeSummary()
+
+    private func resummarize() {
+        let fresh = ChangeSummary.of(value, changes: repo.changes)
+        if fresh != summary { summary = fresh }
+    }
 
     /// The task page to land on: the first one waiting for approval, or the whole working
     /// tree when nothing is.
@@ -70,52 +82,62 @@ import YongkangCore
 
     // MARK: - Reloading
 
+    /// The notebook read again by this project's reader, and published only if it differs.
     /// See `NotebookSnapshot.reread` for what `frontmatter` and `records` add.
-    func reloadNotebook(frontmatter: Bool, records: Bool) {
-        let fresh = snapshot.reread(root: notebookRoot, frontmatter: frontmatter, records: records)
-        if fresh != snapshot { snapshot = fresh }
+    ///
+    /// A poll that lands while the last read is still going joins it rather than starting a
+    /// second read of the same files beside it, so the reads can never pile up behind a slow
+    /// disk. Returns once `snapshot` holds that read.
+    func reloadNotebook(frontmatter: Bool, records: Bool) async {
+        if let notebookRead { return await notebookRead.value }
+        let read = Task { [snapshot, reader] in
+            guard let fresh = await reader.notebook(after: snapshot, frontmatter: frontmatter, records: records)
+            else { return }
+            self.snapshot = fresh
+            self.resummarize()
+        }
+        notebookRead = read
+        await read.value
+        notebookRead = nil
     }
 
-    /// What each agent session has spawned and recorded since the last poll. The providers
-    /// read their files off the main thread, so this starts that read and returns. A poll that
-    /// lands while the last read is still going starts nothing, rather than a second read of
-    /// the same files beside it.
+    /// What each agent session has spawned and recorded since the last poll. The reader reads
+    /// the files off the main actor, so this starts that read and returns. A poll that lands
+    /// while the last read is still going starts nothing, rather than a second read of the
+    /// same files beside it.
     func reloadSessions() {
         guard sessionsRead == nil else { return }
-        sessionsRead = Task {
-            await readSessions()
-            sessionsRead = nil
+        sessionsRead = Task { [value, reader] in
+            let reads = await reader.sessions(of: value)
+            self.apply(reads)
+            self.sessionsRead = nil
         }
     }
 
-    private func readSessions() async {
-        // By id rather than index: a session can be closed, or another added, while a
-        // provider reads.
-        for id in sessions.filter({ $0.agent != nil }).map(\.id) {
-            if let session = sessions.first(where: { $0.id == id }), !session.exited {
-                let subagents = await subagents(of: session)
-                if let index = sessions.firstIndex(where: { $0.id == id }), subagents != sessions[index].subagents {
-                    sessions[index].subagents = subagents
-                }
+    /// What one poll found, written back by session id rather than by index: a session can be
+    /// closed, or another added, while the providers read.
+    private func apply(_ reads: [SessionRead]) {
+        var changed = false
+        for read in reads {
+            guard let index = sessions.firstIndex(where: { $0.id == read.id }) else { continue }
+            if let subagents = read.subagents, subagents != sessions[index].subagents {
+                sessions[index].subagents = subagents
+                changed = true
             }
-            guard let session = sessions.first(where: { $0.id == id }), !session.taskIDs.isEmpty else { continue }
-            let coordination = await LeadCoordination.load(root: notebookRoot, session: session)
-            if let index = sessions.firstIndex(where: { $0.id == id }), coordination != sessions[index].coordination {
-                sessions[index].coordination = coordination
+            if read.readRecords, read.coordination != sessions[index].coordination {
+                sessions[index].coordination = read.coordination
+                changed = true
             }
         }
-        // Written from the poll rather than from the usage screen: what an agent spent
-        // has to survive a run in which nobody opened that screen, and the transcripts
-        // it is read from are no longer findable once the sessions are gone.
-        UsageLedger.record(await AgentUsage.spends(in: value), root: notebookRoot)
+        if changed { resummarize() }
     }
 
     /// Reads git off the main thread and publishes what it found, if it differs. Returns once
     /// `repo` holds this read, or a newer one. `countingLines` is for a screen that shows
     /// untracked files' line counts; see `RepoStatus.read`.
     func refreshRepo(countingLines: Bool = true) async {
-        await refreshRepo { [directory, repo, hasNotebook] in
-            await Self.readRepo(in: directory, after: repo, countingLines: countingLines, initializing: hasNotebook)
+        await refreshRepo { [repo, hasNotebook, reader] in
+            await reader.repo(after: repo, countingLines: countingLines, initializing: hasNotebook)
         }
     }
 
@@ -135,31 +157,9 @@ import YongkangCore
         let fresh = await read()
         guard request > repoShown, !Task.isCancelled else { return }
         repoShown = request
-        if fresh != repo { repo = fresh }
-    }
-
-    nonisolated private static func readRepo(
-        in directory: URL, after previous: RepoStatus, countingLines: Bool, initializing: Bool
-    ) async -> RepoStatus {
-        if let status = await RepoStatus.read(in: directory, after: previous, countingLines: countingLines) {
-            return status
-        }
-        // A project the agents work in needs a repository: without one there is no diff to
-        // review and nowhere for an approval to commit. Created, never committed to.
-        guard initializing, await GitClient.initialize(in: directory) == nil else { return RepoStatus() }
-        return await RepoStatus.read(in: directory, countingLines: countingLines) ?? RepoStatus()
-    }
-
-    /// Each provider writes its subagents somewhere else — Claude Code beside the parent
-    /// session, Codex as sibling rollouts pointing back at it — so the session's own agent
-    /// reads them. A service terminal has none.
-    private func subagents(of session: CodeSession) async -> [SubagentStatus] {
-        let found =
-            await session.agent?.provider.subagents(session: session.id, project: directory, taskIDs: session.taskIDs)
-            ?? []
-        // Named here rather than in either reader: the roster is project state, and the
-        // screens downstream should never each have to look a running agent up themselves.
-        return found.map { $0.named(in: snapshot.team) }
+        guard fresh != repo else { return }
+        repo = fresh
+        resummarize()
     }
 
     // MARK: - Sessions
@@ -193,12 +193,14 @@ import YongkangCore
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         let session = CodeSession(id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
         sessions.append(session)
+        resummarize()
         terminals?.start(session)
     }
 
     /// Ends the session's process along with its row: a closed session has no one to stop it later.
     func removeSession(_ id: UUID) {
         sessions.removeAll { $0.id == id }
+        resummarize()
         terminals?.terminate(id)
     }
 
@@ -206,12 +208,14 @@ import YongkangCore
     func markExited(_ id: UUID) -> Bool {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return false }
         sessions[index].exited = true
+        resummarize()
         return true
     }
 
     func appendTaskIDs(_ ids: [String], to id: UUID) {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[index].taskIDs += ids
+        resummarize()
     }
 
     /// The session this block is holding up. A block names its own session, so the answer

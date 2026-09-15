@@ -1,7 +1,7 @@
 import Foundation
 
 /// One file an agent touched, as git sees it.
-package struct FileChange: Identifiable, Equatable {
+package struct FileChange: Identifiable, Equatable, Sendable {
     package var id: String { path }
     package let path: String
     package let added: Int

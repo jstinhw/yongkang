@@ -74,8 +74,12 @@ extension AppModel {
             guard let self, !title.isEmpty else { return }
             do {
                 let destination = try project.add(kind, title: title, selection: selection)
-                self.reload()
-                self.go(to: destination)
+                // Awaited, not the fire-and-forget poll: the new page has no card until the
+                // notebook is read again, and `destination` is that card.
+                Task {
+                    await self.reloadNow()
+                    self.go(to: destination)
+                }
             } catch {
                 self.alert = .error(error)
             }

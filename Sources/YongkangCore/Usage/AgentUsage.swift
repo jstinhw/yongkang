@@ -3,7 +3,7 @@ import Foundation
 /// Tokens spent, in the four buckets the supported providers report. Cache reads are kept apart
 /// from fresh input on purpose: they are the bulk of an agent's traffic and priced
 /// nothing like it, so folding them together makes every agent look identical.
-package struct TokenTally: Equatable {
+package struct TokenTally: Equatable, Sendable {
     package var input = 0
     package var output = 0
     package var cacheRead = 0
@@ -40,7 +40,7 @@ package struct TokenTally: Equatable {
 /// One agent — a session, or a subagent it spawned — and what it has spent, per model.
 /// A session and its subagents are separate rows: the lead's own spend is its planning,
 /// and the specialists' is the work, and the two are worth telling apart.
-package struct AgentSpend: Identifiable {
+package struct AgentSpend: Identifiable, Sendable {
     package let id: String
     /// The route that opens this agent, so a row in the usage screen goes straight to the
     /// session it is describing. Nil when there is nothing left to open.
@@ -80,7 +80,7 @@ package struct AgentSpend: Identifiable {
 
 /// One turn's spend and when it happened. Each supported CLI stamps every record it writes, which
 /// is what makes a window and a histogram possible at all.
-package struct UsageSample {
+package struct UsageSample: Sendable {
     let at: Date
     let model: String
     let tally: TokenTally
@@ -137,7 +137,7 @@ package struct UsageBucket: Identifiable {
 
 /// One rate-limit window a provider reports — the 5-hour session and the weekly bar both
 /// CLIs draw, plus whatever per-model windows the plan carries.
-package struct PlanWindow: Identifiable {
+package struct PlanWindow: Identifiable, Sendable {
     package let id: String
     package let name: String
     /// 0–100, as both providers report it.
@@ -148,7 +148,7 @@ package struct PlanWindow: Identifiable {
 /// What one coding tool says about the plan behind it. Read from that tool's own cache on
 /// disk — neither exposes an API for this, so an unread field just leaves the card empty
 /// rather than breaking anything.
-package struct ProviderQuota {
+package struct ProviderQuota: Sendable {
     package let provider: AgentKind
     package var plan: String?
     package var windows: [PlanWindow] = []
@@ -280,7 +280,7 @@ package enum AgentUsage {
     /// leaves a bar out instead of failing.
     package static func claudeQuota(
         configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
-    ) -> ProviderQuota? {
+    ) async -> ProviderQuota? {
         guard let data = try? Data(contentsOf: configURL),
             let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let cached = root["cachedUsageUtilization"] as? [String: Any],
@@ -333,7 +333,7 @@ package enum AgentUsage {
     /// `token_count` event, so the newest rollout that carries one is the current answer.
     package static func codexQuota(
         codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
-    ) -> ProviderQuota? {
+    ) async -> ProviderQuota? {
         let root = codexHome.appendingPathComponent("sessions")
         guard
             let walk = FileManager.default.enumerator(

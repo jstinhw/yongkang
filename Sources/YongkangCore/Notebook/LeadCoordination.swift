@@ -1,7 +1,7 @@
 import Foundation
 
 /// The lead's current plan, written beside its run records and refreshed by the app poll.
-package struct LeadCoordination: Equatable {
+package struct LeadCoordination: Equatable, Sendable {
     package var strategy = ""
     package var parallelLimit: Int? = nil
     package var estimatedTokens: Int? = nil
@@ -198,7 +198,7 @@ package struct LeadCoordination: Equatable {
 }
 
 /// A planned unit stays visible after its subagent returns; only the lead records QA-done.
-package struct LeadWork: Identifiable, Equatable {
+package struct LeadWork: Identifiable, Equatable, Sendable {
     package var id: String
     package var taskID = ""
     package var title = ""

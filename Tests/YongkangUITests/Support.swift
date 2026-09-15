@@ -21,8 +21,9 @@ func fixture(_ path: String) throws -> String {
 /// nested pump never runs the PTY reads queued behind it.
 ///
 /// ponytail: a generous bound, not a timing claim. Other suites run on the main actor in
-/// parallel and still read notebooks there, so the PTY reads can queue for a while. git no
-/// longer holds it (PR 4.1); tighten this once the notebook reads move off it too (PR 4.2).
+/// parallel, and a PTY read can queue behind whatever they are doing there. Neither git
+/// (PR 4.1) nor the notebook reads (PR 4.2) hold it any more; tighten it if a run ever
+/// shows how much slack is really left.
 @MainActor
 func eventually(within seconds: Double = 15, _ condition: () -> Bool) async throws -> Bool {
     let deadline = Date().addingTimeInterval(seconds)

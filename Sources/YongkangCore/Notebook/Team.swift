@@ -8,7 +8,7 @@ import Foundation
 /// (which only Claude Code reads) — the lead routes by these files whether it is Claude
 /// Code or Codex, and hands each skill to the specialist the same way a top-level session
 /// gets one.
-package struct TeamMember: Identifiable, Equatable {
+package struct TeamMember: Identifiable, Equatable, Sendable {
     package var name: String
     package var skills: [String]
     package var owns: String

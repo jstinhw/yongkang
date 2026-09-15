@@ -2,7 +2,7 @@ import Foundation
 
 /// One notebook entry with its frontmatter read. The sidebar shows slugs; the board
 /// needs the parts that describe relationships.
-package struct NotebookCard: Identifiable, Equatable {
+package struct NotebookCard: Identifiable, Equatable, Sendable {
     package let id: String
     package let url: URL
     package let kind: EntryKind
