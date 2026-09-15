@@ -5,7 +5,7 @@ import YongkangCore
 extension RootView {
     // The workflows are `ProjectModel` methods that return where to go, and `AppModel.go(to:)`
     // goes there; the ones that can end in a question set `model.alert`. What stays in the view
-    // is what needs `@AppStorage` or a window: the alert, and the folder picker.
+    // is what needs `@AppStorage`, and showing the alert and the folder picker.
 
     // MARK: - Alert
 
@@ -36,13 +36,15 @@ extension RootView {
 
     // MARK: - Projects
 
-    func openProject() {
-        guard
-            let path = pickDirectory(
-                message: "Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/."
-            )
-        else { return }
-        let directory = URL(fileURLWithPath: path)
+    /// The folder picked in the Fleet page's "Open a folder you have" panel.
+    func openProject(_ picked: Result<URL, Error>) {
+        let directory: URL
+        do {
+            directory = try picked.get()
+        } catch {
+            model.alert = .error(error)
+            return
+        }
         if let existing = model.project(at: directory) {
             model.enter(existing)
             return
@@ -103,13 +105,4 @@ extension RootView {
             return error.reason
         }
     }
-}
-
-func pickDirectory(message: String) -> String? {
-    let panel = NSOpenPanel()
-    panel.canChooseDirectories = true
-    panel.canChooseFiles = false
-    panel.allowsMultipleSelection = false
-    panel.message = message
-    return panel.runModal() == .OK ? panel.url?.path : nil
 }

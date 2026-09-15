@@ -25,6 +25,8 @@ struct RootView: View {
     /// The new-project sheet, opened from the Fleet page's own tile: a prompt, which is
     /// also what says where its folder goes.
     @State var creatingProject = false
+    /// The Fleet page's other tile: a folder that already exists, picked in a panel.
+    @State private var pickingFolder = false
     /// What the title prompt's field holds while `model.alert` asks for one.
     @State var typedTitle = ""
 
@@ -78,9 +80,11 @@ struct RootView: View {
             ProjectsHome(
                 projects: model.projects.map(\.value),
                 enter: { if let project = model.project($0.id) { model.enter(project) } },
-                create: { creatingProject = true }, add: openProject,
+                create: { creatingProject = true }, add: { pickingFolder = true },
                 close: { if let project = model.project($0.id) { close(project) } }
             )
+            .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder], onCompletion: openProject)
+            .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
             .sheet(isPresented: $creatingProject) {
                 NewProjectForm(
                     parent: projectsParent, create: createProject,

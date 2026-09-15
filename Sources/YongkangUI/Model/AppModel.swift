@@ -8,7 +8,7 @@ import YongkangCore
 @MainActor @Observable final class AppModel {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
     // claude scan the home folder and trip every TCC prompt (iCloud Drive, Music,
-    // Documents) at launch. An NSOpenPanel choice carries intent, so macOS grants it.
+    // Documents) at launch. A folder picked in the open panel carries intent, so macOS grants it.
     private(set) var projects: [ProjectModel] = []
     /// nil = the all-projects screen; otherwise the project you are inside.
     private(set) var entered: ProjectModel?
