@@ -1,0 +1,4 @@
+#!/bin/sh
+# Nothing reaches the remote without `make check`. Enabled per clone with
+# `git config core.hooksPath .githooks`; skip once with `git push --no-verify`.
+exec make check

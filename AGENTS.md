@@ -12,14 +12,18 @@ with captured CLI output under `Fixtures/<provider>/`.
 ## Commands
 
 ```sh
-swift build                           # build
-swift test                            # test
+make check                            # format lint + build + test: the definition of done
+make format                           # fix what the lint step complains about
+swift test --filter <Suite>           # one suite while you work
 swift run Yongkang --shots <dir>      # render every screen offscreen to <dir>/*.png
 ./make-app.sh && open .build/Yongkang.app   # release build, bundled skills, signed app
 ```
 
+- `make check` also runs as a `pre-push` hook (`git config core.hooksPath .githooks`, once
+  per clone).
 - `--shots` is how you see a UI or structural change without launching the app. Render
-  into two folders, one before your change and one after, and compare them.
+  into two folders, one before your change and one after, and compare them. `review.png`,
+  `handover.png` and `usage.png` read live git or the clock, so they differ on every commit.
 - `make-app.sh` runs `pkill -x Yongkang` first. That quits the user's running app and every
   agent session inside it, so don't run it unless you've been asked to.
 - Only the app bundle carries the packaged role skills (`Contents/Resources/skills`).
@@ -29,9 +33,8 @@ swift run Yongkang --shots <dir>      # render every screen offscreen to <dir>/*
 
 A handoff needs all of these:
 
-1. `swift build` succeeds.
-2. `swift test` passes. A `withKnownIssue` is a recorded bug, not a pass to copy.
-3. For any UI or structural change, you rendered shots before and after and compared them.
+1. `make check` passes. A `withKnownIssue` is a recorded bug, not a pass to copy.
+2. For any UI or structural change, you rendered shots before and after and compared them.
    Say what changed on screen, or that nothing did.
 
 ## Rules
