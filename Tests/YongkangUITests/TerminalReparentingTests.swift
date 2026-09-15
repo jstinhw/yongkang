@@ -92,7 +92,11 @@ struct TerminalReparentingTests {
 
     /// Suspends between checks instead of pumping `RunLoop.main`: the test is itself a
     /// main-queue job, so a nested pump never runs the PTY reads queued behind it.
-    private func eventually(within seconds: Double = 5, _ condition: () -> Bool) async throws -> Bool {
+    ///
+    /// ponytail: a generous bound, not a timing claim. Other suites run on the main actor in
+    /// parallel (WorkflowTests' git calls hold it for seconds), so the PTY reads can queue for
+    /// a while. Tighten it once git runs off the main thread (plan PR 4.1/4.2).
+    private func eventually(within seconds: Double = 15, _ condition: () -> Bool) async throws -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while !condition() {
             guard Date() < deadline else { return false }
@@ -115,9 +119,9 @@ struct TerminalReparentingTests {
         view.removeFromSuperview()
         #expect(view.window == nil)
         let atDetach = lastTick(view)
-        try await Task.sleep(for: .seconds(1))
+        #expect(
+            try await eventually { lastTick(view) >= atDetach + 5 }, "output keeps reaching the buffer while detached")
         #expect(isAlive(view), "leaving the window must not stop the process")
-        #expect(lastTick(view) >= atDetach + 5, "output keeps reaching the buffer while detached")
 
         attach(view, to: large)
         #expect(lines(view).contains("tick \(atDetach + 5)"), "re-attaching shows what arrived meanwhile")
@@ -250,9 +254,8 @@ struct TerminalReparentingTests {
 
         try await show(.none)
         let atRemoval = lastTick(view)
-        try await Task.sleep(for: .milliseconds(500))
+        #expect(try await eventually { lastTick(view) > atRemoval })
         #expect(isAlive(view), "dismantling the host must not stop the process")
-        #expect(lastTick(view) > atRemoval)
 
         try await show(.small)
         #expect(terminal.rows < largeGrid.rows && terminal.cols < largeGrid.cols)
