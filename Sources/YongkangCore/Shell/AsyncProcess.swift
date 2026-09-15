@@ -52,6 +52,9 @@ package enum AsyncProcess {
 
     /// One launch's state, shared by the pipe readers, the termination handler and the
     /// cancellation handler, which all run on threads of their own.
+    ///
+    /// @unchecked: `lock` guards every stored property below it — Foundation hands these
+    /// callbacks to us on its own threads, so there is no actor to isolate them to.
     private final class Run: @unchecked Sendable {
         private let lock = NSLock()
         private let process: Process

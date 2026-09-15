@@ -92,8 +92,10 @@ package struct UsageBoard: View {
         }
     }
 
-    /// Nothing isolates this, so the `stat`s run off the main actor.
-    private static func signature(of project: Project, sources: [URL]) async -> String {
+    /// `nonisolated` so the `stat`s run off the main actor. Conforming to `View` puts the
+    /// whole type on the main actor, this included, and then the two-second beat would be
+    /// touching the disk from the one place 4.2 took the disk out of.
+    nonisolated private static func signature(of project: Project, sources: [URL]) async -> String {
         let ledger =
             (try? UsageLedger.url(root: project.notebookRoot)
                 .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0

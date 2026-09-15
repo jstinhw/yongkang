@@ -328,11 +328,13 @@ package struct DesignDemo: View {
 /// One web view per address, kept for the life of the app. Rebuilding a `WKWebView` every
 /// time SwiftUI re-runs `body` — which the 2-second notebook poll guarantees — reloads the
 /// page under the user and loses their scroll position on every tick.
-enum DemoPages {
+/// The cache is main-actor state because a `WKWebView` is: the views are only ever made,
+/// looked up and dropped while a pane's `body` runs.
+@MainActor enum DemoPages {
     private static var views: [URL: WKWebView] = [:]
     private static var order: [URL] = []
 
-    @MainActor static func view(for url: URL) -> WKWebView {
+    static func view(for url: URL) -> WKWebView {
         if let existing = views[url] { return existing }
         let view = WKWebView()
         // Otherwise a page that has not loaded — or a dev server that is not running —

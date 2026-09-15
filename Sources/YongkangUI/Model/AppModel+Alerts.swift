@@ -8,9 +8,9 @@ enum AlertItem {
     /// Only an OK button.
     case message(String, detail: String = "")
     /// `perform` runs when the user picks `action`; Cancel does nothing.
-    case confirm(String, detail: String, action: String, perform: () -> Void)
+    case confirm(String, detail: String, action: String, perform: @MainActor @Sendable () -> Void)
     /// A title to type. `create` gets what was typed when the user picks Create.
-    case title(String, create: (String) -> Void)
+    case title(String, create: @MainActor @Sendable (String) -> Void)
 
     static func error(_ error: Error) -> AlertItem {
         let error = error as NSError

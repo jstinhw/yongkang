@@ -24,22 +24,22 @@ import YongkangCore
 
     @ObservationIgnored private var entries: [UUID: Entry] = [:]
     private let shell: [String]
-    @ObservationIgnored private var keyMonitor: Any?
+
+    /// One monitor for every terminal in the app: whichever has the keyboard notes what was
+    /// typed, so a queued message waits for the user's draft, and a key press stops steering
+    /// its CLI. It reaches the terminal through the responder chain and holds no registry
+    /// state, so it is installed on the first registry and never removed — a registry that
+    /// goes away takes nothing with it, and a second one does not double every key press.
+    private static let keyMonitor: Any? = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        (event.window?.firstResponder as? AttentionTerminalView)?.recordInput(event)
+        return event
+    }
 
     /// ponytail: an interactive login shell by default, because a GUI app inherits a bare PATH
     /// and agent CLIs commonly live in ~/.local/bin or nvm paths exported from .zshrc.
     init(shell: [String] = ["/bin/zsh", "-ilc"]) {
         self.shell = shell
-        // One monitor for every terminal: whichever has the keyboard notes what was typed, so a
-        // queued message waits for the user's draft, and a key press stops steering its CLI.
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            (event.window?.firstResponder as? AttentionTerminalView)?.recordInput(event)
-            return event
-        }
-    }
-
-    deinit {
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        _ = Self.keyMonitor
     }
 
     /// The terminal a session runs in, for its pane to borrow. Nil once it is terminated.
@@ -224,7 +224,7 @@ import YongkangCore
 
 /// One session's terminal and what the registry remembers about it. It is also the terminal's
 /// `processDelegate`, which the view holds only weakly.
-private final class Entry: LocalProcessTerminalViewDelegate {
+@MainActor private final class Entry: LocalProcessTerminalViewDelegate {
     let view: AttentionTerminalView
     /// Named in the exit notice, so a dead process says which one it was.
     let label: String
@@ -245,17 +245,24 @@ private final class Entry: LocalProcessTerminalViewDelegate {
         self.agent = agent
     }
 
-    func processTerminated(source: TerminalView, exitCode: Int32?) {
-        exited = true
-        let code = exitCode.map(String.init) ?? "?"
-        source.feed(
-            text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
-        onExit()
+    // SwiftTerm's protocol is not actor-isolated, so the conformance has to be `nonisolated`.
+    // `LocalProcess` posts to the queue it was given, and `LocalProcessTerminalView` gives it
+    // none, which means `DispatchQueue.main` — the main actor's own executor. `assumeIsolated`
+    // states that, and trips loudly if SwiftTerm ever stops honouring it.
+
+    nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
+        MainActor.assumeIsolated {
+            exited = true
+            let code = exitCode.map(String.init) ?? "?"
+            source.feed(
+                text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
+            onExit()
+        }
     }
 
-    func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
-    func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
-    func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
+    nonisolated func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
+    nonisolated func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
+    nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
 }
 
 /// Only send selection keys inside a recognized CLI picker, never into a chat prompt.

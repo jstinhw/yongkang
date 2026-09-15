@@ -240,6 +240,9 @@ enum DesignShots {
     /// run from inside an async main-actor job, the run loop `write` spins never starts the
     /// screens' `.task`s, and a pane that loads in one is drawn empty.
     private static func readRepo(_ repo: URL) -> RepoStatus {
+        // @unchecked: the semaphore is the handoff. The task writes `status` before it
+        // signals and this thread reads it only after the wait returns, so the two never
+        // touch the box at the same time.
         final class Answer: @unchecked Sendable { var status = RepoStatus() }
         let answer = Answer()
         let done = DispatchSemaphore(value: 0)
@@ -279,7 +282,7 @@ enum DesignShots {
 
     /// The same four columns every screen is drawn inside, so a shot shows the real thing
     /// rather than a pane floating on its own.
-    private static func console<Content: View>(
+    @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
         hovering: ConsoleSection? = nil,

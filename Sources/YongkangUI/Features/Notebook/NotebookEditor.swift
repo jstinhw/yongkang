@@ -77,7 +77,7 @@ struct NotebookEditor: View {
 
     /// Writes `text` to `url` unless the file no longer holds `loaded`: an agent edited the page
     /// while it was open, and saving would overwrite that. Nil when it was saved.
-    static func save(_ text: String, over loaded: String, to url: URL) -> AlertItem? {
+    nonisolated static func save(_ text: String, over loaded: String, to url: URL) -> AlertItem? {
         do {
             guard try String(contentsOf: url, encoding: .utf8) == loaded else {
                 return .message(

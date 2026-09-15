@@ -57,7 +57,9 @@ final class AttentionTerminalView: LocalProcessTerminalView {
     }
 }
 
-final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
+/// Main-actor state: it reads `NSApp`, and what it remembers is the questions the window is
+/// showing, which only the main actor changes.
+@MainActor final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
     static let shared = AgentNotifications()
     static let openSession = Notification.Name("Yongkang.openAttentionSession")
     private var active: [UUID: String] = [:]
@@ -70,18 +72,24 @@ final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
         guard Bundle.main.bundleIdentifier != nil else { return }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
+        // The permission callback arrives on whatever thread UserNotifications picks, so it
+        // captures only the values it needs and comes back to the main actor to post.
         center.requestAuthorization(options: [.alert, .sound]) { allowed, _ in
             guard allowed else { return }
-            DispatchQueue.main.async {
-                guard self.active[sessionID] == reason else { return }
-                let content = UNMutableNotificationContent()
-                content.title = "\(title) — action required"
-                content.body = reason + " Open this notification to answer in the session."
-                content.sound = .default
-                content.userInfo = ["sessionID": sessionID.uuidString]
-                center.add(UNNotificationRequest(identifier: sessionID.uuidString, content: content, trigger: nil))
-            }
+            Task { @MainActor in Self.shared.post(sessionID: sessionID, title: title, reason: reason) }
         }
+    }
+
+    /// Posts the banner, unless the question was answered while permission was being asked for.
+    private func post(sessionID: UUID, title: String, reason: String) {
+        guard active[sessionID] == reason else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "\(title) — action required"
+        content.body = reason + " Open this notification to answer in the session."
+        content.sound = .default
+        content.userInfo = ["sessionID": sessionID.uuidString]
+        UNUserNotificationCenter.current()
+            .add(UNNotificationRequest(identifier: sessionID.uuidString, content: content, trigger: nil))
     }
 
     func clear(_ sessionID: UUID) {
@@ -92,7 +100,10 @@ final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
         center.removeDeliveredNotifications(withIdentifiers: [sessionID.uuidString])
     }
 
-    func userNotificationCenter(
+    // UserNotifications makes no promise about the thread it calls its delegate on, so both
+    // stay off the actor and hop for the part that touches the window.
+
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -100,7 +111,7 @@ final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
         completionHandler([.banner, .sound])
     }
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
@@ -108,7 +119,7 @@ final class AgentNotifications: NSObject, UNUserNotificationCenterDelegate {
         if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
             let id = response.notification.request.content.userInfo["sessionID"] as? String
         {
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 NotificationCenter.default.post(name: Self.openSession, object: id)
             }
         }

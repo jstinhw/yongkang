@@ -22,6 +22,9 @@ import Testing
     ) async rethrows
         -> Bool
     {
+        // @unchecked: Observation calls the willSet handler synchronously, on whichever
+        // actor wrote — here always the main one, since everything under test is
+        // `@MainActor`. Nothing else ever touches the flag.
         final class Flag: @unchecked Sendable { var fired = false }
         let flag = Flag()
         _ = withObservationTracking(read) { flag.fired = true }
@@ -139,6 +142,8 @@ import Testing
         try #require(warm.snapshot.cards.count == 401, "400 tasks and the project they are filed under")
 
         // The same read again, from a cold snapshot, started off the main actor.
+        // @unchecked: the semaphore is the handoff. The task writes `cards` before it
+        // signals and this test reads it only once the signal has arrived.
         final class Answer: @unchecked Sendable { var cards = -1 }
         let answer = Answer()
         let done = DispatchSemaphore(value: 0)
@@ -156,8 +161,13 @@ import Testing
         let start = Date()
         while Date().timeIntervalSince(start) < held {}
         let reading = Int(cost * 1000)
+        // `wait` is unavailable in an async context because blocking the cooperative pool
+        // can deadlock it. A zero timeout blocks nothing — it asks whether the read has
+        // already finished, which is the whole claim — so the ask sits in a synchronous
+        // function where the compiler can see that it never waits.
+        func finished() -> Bool { done.wait(timeout: .now()) == .success }
         #expect(
-            done.wait(timeout: .now()) == .success && answer.cards == 401,
+            finished() && answer.cards == 401,
             """
             the notebook was read while the main actor was busy for \(Int(held * 1000))ms, \
             so none of it ran there (the read alone costs \(reading)ms)

@@ -169,7 +169,10 @@ package struct NotebookBoard: View {
     /// Ready means nothing it waits on is still outstanding. An id that resolves to
     /// nothing is not treated as a blocker — the amber unknown-id warning on the card is
     /// what says that, and a typo must not silently freeze the rest of the chain.
-    static func isReady(_ card: NotebookCard, in cards: [NotebookCard]) -> Bool {
+    ///
+    /// `nonisolated` because it is a rule about cards, not about the view: `View` would
+    /// otherwise put it on the main actor, and anything asking from elsewhere would trap.
+    nonisolated static func isReady(_ card: NotebookCard, in cards: [NotebookCard]) -> Bool {
         card.dependsOn.allSatisfy { id in
             guard let blocker = cards.first(where: { $0.id == id }) else { return true }
             return blocker.kind == .project
@@ -396,7 +399,7 @@ package struct NotebookBoard: View {
 
     /// Picking is a plain toggle: the board holds one kind of card now, and every one of
     /// them is a candidate for the same batch.
-    static func picking(_ card: NotebookCard, from selected: Set<String>) -> Set<String> {
+    nonisolated static func picking(_ card: NotebookCard, from selected: Set<String>) -> Set<String> {
         selected.symmetricDifference([card.id])
     }
 
