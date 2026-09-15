@@ -112,10 +112,22 @@ import Testing
             "clicking it again takes it out")
     }
 
-    @Test @MainActor func editorConflict() {
-        #expect(!NotebookEditor.hasConflict(loaded: "same", disk: "same"))
+    @Test @MainActor func editorConflict() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let page = tmp.appendingPathComponent("page.md")
+        try "agent".write(to: page, atomically: true, encoding: .utf8)
+
         #expect(
-            NotebookEditor.hasConflict(loaded: "mine", disk: "agent"),
+            NotebookEditor.save("mine", over: "loaded before the agent", to: page)?.title
+                == "This page changed while you were editing")
+        #expect(
+            try String(contentsOf: page, encoding: .utf8) == "agent",
             "an agent edit must not be overwritten by a stale editor")
+        #expect(NotebookEditor.save("mine", over: "agent", to: page) == nil)
+        #expect(try String(contentsOf: page, encoding: .utf8) == "mine")
+        #expect(
+            NotebookEditor.save("mine", over: "", to: tmp.appendingPathComponent("gone.md")) != nil,
+            "a page that can't be read says why rather than saving")
     }
 }

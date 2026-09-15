@@ -25,11 +25,18 @@ struct RootView: View {
     /// The new-project sheet, opened from the Fleet page's own tile: a prompt, which is
     /// also what says where its folder goes.
     @State var creatingProject = false
+    /// What the title prompt's field holds while `model.alert` asks for one.
+    @State var typedTitle = ""
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             Theme.bg.ignoresSafeArea()
             chrome
+        }
+        .alert(model.alert?.title ?? "", isPresented: alertShown, presenting: model.alert) { item in
+            alertActions(item)
+        } message: { item in
+            Text(item.detail)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { attentionNotices }
         .onReceive(NotificationCenter.default.publisher(for: AgentNotifications.openSession)) { note in
@@ -93,9 +100,9 @@ struct RootView: View {
                         section: model.section, project: project.value, width: listWidth,
                         selection: $model.selection,
                         showDone: model.showDone, changes: project.repo.changes,
-                        assign: { assign($0, in: project) },
+                        assign: { model.assign($0, in: project, agent: agent) },
                         closeSession: { model.close($0, in: project) },
-                        remove: { remove($0, in: project) }
+                        remove: { model.remove($0, in: project) }
                     )
                     .overlay(alignment: .trailing) { listResizer }
                 }
@@ -111,7 +118,7 @@ struct RootView: View {
                     taken: project.snapshot.team.map(\.name),
                     save: { member in
                         do { try Team.write(member, root: project.notebookRoot) } catch {
-                            NSAlert(error: error).runModal()
+                            model.alert = .error(error)
                         }
                         addingAgent = false
                         model.reload()

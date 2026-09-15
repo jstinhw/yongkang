@@ -32,8 +32,8 @@ extension RootView {
                 card: card, cards: project.snapshot.cards, directory: project.directory,
                 assigned: project.assignedTaskIDs, showDone: model.showDone,
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
-                assign: { tasks in assign(tasks, in: project) },
-                run: { card in runServices(card, in: project) },
+                assign: { tasks in model.assign(tasks, in: project, agent: agent) },
+                run: { card in model.runServices(Service.plan(for: card, in: project.directory), in: project) },
                 openTask: { task in model.selection = .task(task.id) }
             )
             .id(card.id)
@@ -42,7 +42,7 @@ extension RootView {
                 card: card, cards: project.snapshot.cards, assigned: project.assignedTaskIDs,
                 working: workers(on: card.id, in: project),
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
-                assign: { tasks in assign(tasks, in: project) },
+                assign: { tasks in model.assign(tasks, in: project, agent: agent) },
                 check: { session, subagent in
                     model.section = .agents
                     model.selection = .subagent(session: session.id, id: subagent.id)
@@ -154,11 +154,11 @@ extension RootView {
         } else if let step = previewStep(in: project) {
             ProjectPreview(
                 repo: step.repo, services: step.services,
-                run: { runServices([step], in: project) }
+                run: { model.runServices([step], in: project) }
             )
             .id(model.selection)
         } else if let entry = selectedEntry {
-            NotebookEditor(entry: entry).id(entry.id)
+            NotebookEditor(entry: entry, alert: $model.alert).id(entry.id)
         } else if let session = model.selectedSession(in: project) {
             // A service runner: its terminal is all it has.
             terminal(for: session)
@@ -196,11 +196,11 @@ extension RootView {
             blocks: project.snapshot.blocks,
             assigned: project.assignedTaskIDs,
             showDone: model.showDone,
-            assign: { tasks in assign(tasks, in: project) },
+            assign: { tasks in model.assign(tasks, in: project, agent: agent) },
             review: { model.go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
             openDemo: { demo in model.selection = .block(demo.id) },
-            remove: { card in remove(card, in: project) }
+            remove: { card in model.remove(card, in: project) }
         )
     }
 

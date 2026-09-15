@@ -19,6 +19,8 @@ import YongkangCore
     var selection: Route?
     /// Completed notebook work is historical noise until the user asks for it.
     var showDone = false
+    /// What the window is telling or asking the user, until they answer it.
+    var alert: AlertItem?
     private(set) var attention: [UUID: String] = [:]
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.

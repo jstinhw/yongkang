@@ -128,10 +128,10 @@ extension RootView {
                     .disabled(!project.hasNotebook)
             }
             Section("Notebook") {
-                Button("Roadmap Entry…", systemImage: "map") { add(.roadmap, to: project) }
-                Button("Project…", systemImage: "shippingbox") { add(.project, to: project) }
-                Button("Task…", systemImage: "checkmark.circle") { add(.task, to: project) }
-                Button("Memory…", systemImage: "brain") { add(.memory, to: project) }
+                Button("Roadmap Entry…", systemImage: "map") { model.add(.roadmap, to: project) }
+                Button("Project…", systemImage: "shippingbox") { model.add(.project, to: project) }
+                Button("Task…", systemImage: "checkmark.circle") { model.add(.task, to: project) }
+                Button("Memory…", systemImage: "brain") { model.add(.memory, to: project) }
                     .disabled(project.notebookProject(for: model.selection) == nil)
             }
             Divider()

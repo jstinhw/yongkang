@@ -398,20 +398,75 @@ import Testing
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try launch(in: tmp)
-        let asked = project.snapshot.cards
+        let model = AppModel()
+        model.selection = .task("wire-auth")
         let (other, launch) = (try card("other", in: project), try card("launch", in: project))
-        // An agent files another task under the project while the user is being asked.
-        _ = try NotebookFormat.create(.task, title: "Late", in: project.notebookRoot, project: "launch")
 
-        #expect(
-            try project.remove(other, from: asked, selection: .task("wire-auth"), trash: false) == nil,
-            "the page on screen is still there, so the selection stays")
-        #expect(
-            try project.remove(launch, from: asked, selection: .task("wire-auth"), trash: false) == .board,
-            "the task on screen went with its project")
+        model.remove(other, in: project, trash: false)
+        #expect(model.alert?.detail == "You can put it back from the Trash.")
+        try answer(model)
+        #expect(model.selection == .task("wire-auth"), "the page on screen is still there, so the selection stays")
+
+        model.remove(launch, in: project, trash: false)
+        #expect(model.alert?.title == "Move \u{201C}Launch\u{201D} to the Trash?")
+        #expect(model.alert?.detail.hasPrefix("The project folder, its memory and its 1 task go with it.") == true)
+        // An agent files another task under the project while the user is being asked, and the
+        // poll reads it.
+        _ = try NotebookFormat.create(.task, title: "Late", in: project.notebookRoot, project: "launch")
+        project.reloadNotebook(frontmatter: true, records: true)
+        try answer(model)
+        #expect(model.selection == .board, "the task on screen went with its project")
         project.reloadNotebook(frontmatter: true, records: true)
         #expect(
             project.snapshot.cards.map(\.id) == ["late"],
             "what goes is what the user confirmed: a task filed since is left for them to see")
+    }
+
+    // MARK: - Alerts
+
+    /// Picks what the alert's main button would: the action of a confirmation, or Create with
+    /// `typed` in a title prompt.
+    private func answer(_ model: AppModel, typing typed: String = "") throws {
+        switch try #require(model.alert, "a question was asked") {
+        case .confirm(_, _, _, let perform): perform()
+        case .title(_, let create): create(typed)
+        case .message(let title, _): Issue.record("\(title) has nothing to answer")
+        }
+    }
+
+    @Test func whatTheUserHasToReadOrAnswerIsTheModelsAlert() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try launch(in: tmp)
+        let model = AppModel()
+
+        model.assign([], in: project, agent: .claude)
+        #expect(model.alert == nil, "no tasks picked is nothing to explain")
+        _ = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
+        model.assign([try card("wire-auth", in: project)], in: project, agent: .claude)
+        #expect(model.alert?.title == "Nothing to assign")
+
+        model.runServices(
+            [(repo: "docs", directory: tmp, services: [(name: "docs", directory: tmp, command: nil)])], in: project)
+        #expect(model.alert?.title == "Nothing to run yet")
+        #expect(model.alert?.detail.hasPrefix("No start command found in: docs.") == true)
+
+        model.selection = .task("wire-auth")
+        model.add(.memory, to: project)
+        #expect(model.alert?.title == "New Memory")
+        model.selection = .board  // The poll moves on while the user types.
+        try answer(model, typing: "  Token lifetimes ")
+        project.reloadNotebook(frontmatter: true, records: true)
+        let memory = try #require(project.snapshot.cards.first { $0.kind == .memory })
+        #expect(
+            memory.title == "Token lifetimes" && memory.project == "launch",
+            "filed under what was selected when the user asked")
+        #expect(model.selection == .page(memory.id))
+
+        model.add(.memory, to: project)
+        try answer(model, typing: "Loose note")
+        #expect(
+            model.alert?.title == NotebookError.missingProject.localizedDescription,
+            "a failure is the next alert, not a modal")
     }
 }

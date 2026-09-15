@@ -3,23 +3,35 @@ import SwiftUI
 import YongkangCore
 
 extension RootView {
-    // MARK: - Workflows
-
     // The workflows are `ProjectModel` methods that return where to go, and `AppModel.go(to:)`
-    // goes there. What stays in the view is the prompts and alerts that need a window.
+    // goes there; the ones that can end in a question set `model.alert`. What stays in the view
+    // is what needs `@AppStorage` or a window: the alert, and the folder picker.
 
-    func assign(_ tasks: [NotebookCard], in project: ProjectModel) {
-        guard let destination = project.assign(tasks, agent: agent) else {
-            guard !tasks.isEmpty else { return }
-            let alert = NSAlert()
-            alert.messageText = "Nothing to assign"
-            alert.informativeText =
-                "Every task here is already done, or already has an Engineering "
-                + "Lead on it — wait for that session to finish, or close it, before assigning again."
-            alert.runModal()
-            return
+    // MARK: - Alert
+
+    /// The buttons for `model.alert`. An answer's work runs on the next turn of the main queue,
+    /// after the alert has cleared `model.alert`, so an error it raises is shown rather than
+    /// cleared along with the question.
+    @ViewBuilder func alertActions(_ item: AlertItem) -> some View {
+        switch item {
+        case .message:
+            Button("OK") {}
+        case .confirm(_, _, let action, let perform):
+            Button(action, role: .destructive) { DispatchQueue.main.async(execute: perform) }
+            Button("Cancel", role: .cancel) {}
+        case .title(_, let create):
+            TextField("Title", text: $typedTitle)
+            Button("Create") {
+                let title = typedTitle
+                typedTitle = ""
+                DispatchQueue.main.async { create(title) }
+            }
+            Button("Cancel", role: .cancel) { typedTitle = "" }
         }
-        model.go(to: destination)
+    }
+
+    var alertShown: Binding<Bool> {
+        Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })
     }
 
     // MARK: - Projects
@@ -91,73 +103,6 @@ extension RootView {
             return error.reason
         }
     }
-
-    // MARK: - Services
-
-    /// Every service in a project's repos, started at once — the board's "run the whole
-    /// project" action.
-    func runServices(_ card: NotebookCard, in project: ProjectModel) {
-        runServices(Service.plan(for: card, in: project.directory), in: project)
-    }
-
-    func runServices(
-        _ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
-        in project: ProjectModel
-    ) {
-        let run = project.runServices(steps)
-        model.go(to: run.destination)
-        guard !run.unstarted.isEmpty else { return }
-        let alert = NSAlert()
-        // No route means no service was started or shown: none of them had a command.
-        alert.messageText = run.destination.route == nil ? "Nothing to run yet" : "Some services did not start"
-        alert.informativeText = """
-            No start command found in: \(run.unstarted.joined(separator: ", ")).
-
-            A service starts if it has a compose file, an npm dev/start script, Cargo.toml, \
-            go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
-            frontmatter to point at the folders that do, or split a repo that holds more than \
-            one app into `apps/` or `services/` subfolders so each is found on its own.
-            """
-        alert.runModal()
-    }
-
-    // MARK: - Notebook entries
-
-    func add(_ kind: EntryKind, to project: ProjectModel) {
-        guard let title = askTitle(kind) else { return }
-        do {
-            let destination = try project.add(kind, title: title, selection: model.selection)
-            model.reload()
-            model.go(to: destination)
-        } catch {
-            NSAlert(error: error).runModal()
-        }
-    }
-
-    func remove(_ card: NotebookCard, in project: ProjectModel) {
-        // The board the user asked from: the poll keeps running under the alert below.
-        let cards = project.snapshot.cards
-        let tasks = NotebookFormat.owned(by: card, in: cards).count - 1
-        let alert = NSAlert()
-        alert.messageText = "Move \u{201C}\(card.title)\u{201D} to the Trash?"
-        alert.informativeText =
-            card.kind == .project
-            ? "The project folder, its memory and its \(tasks) task\(tasks == 1 ? "" : "s") go with it. "
-                + "You can put them back from the Trash."
-            : "You can put it back from the Trash."
-        alert.addButton(withTitle: "Move to Trash")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        do {
-            if let route = try project.remove(card, from: cards, selection: model.selection) {
-                model.selection = route
-            }
-        } catch {
-            NSAlert(error: error).runModal()
-            return
-        }
-        model.reload()
-    }
 }
 
 func pickDirectory(message: String) -> String? {
@@ -167,18 +112,4 @@ func pickDirectory(message: String) -> String? {
     panel.allowsMultipleSelection = false
     panel.message = message
     return panel.runModal() == .OK ? panel.url?.path : nil
-}
-
-private func askTitle(_ kind: EntryKind) -> String? {
-    let alert = NSAlert()
-    alert.messageText = "New \(kind.displayName)"
-    alert.addButton(withTitle: "Create")
-    alert.addButton(withTitle: "Cancel")
-    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-    field.placeholderString = "Title"
-    alert.accessoryView = field
-    alert.window.initialFirstResponder = field
-    guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-    let title = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    return title.isEmpty ? nil : title
 }

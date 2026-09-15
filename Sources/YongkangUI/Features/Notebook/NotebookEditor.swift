@@ -6,6 +6,9 @@ import YongkangCore
 /// other sessions edit these same files, and frontmatter is the part you check.
 struct NotebookEditor: View {
     let entry: NotebookEntry
+    /// The window's alert rather than the editor's own: leaving the page saves it, and a save
+    /// that fails then has no editor left to show why.
+    @Binding var alert: AlertItem?
 
     @State private var text = ""
     @State private var loaded = ""
@@ -60,23 +63,27 @@ struct NotebookEditor: View {
 
     private func save() {
         guard isPage, text != loaded else { return }
-        do {
-            let disk = try String(contentsOf: entry.url, encoding: .utf8)
-            guard !Self.hasConflict(loaded: loaded, disk: disk) else {
-                let alert = NSAlert()
-                alert.alertStyle = .warning
-                alert.messageText = "This page changed while you were editing"
-                alert.informativeText =
-                    "Your text is still here and was not saved. Copy it, then reopen the page to merge the agent's changes."
-                alert.runModal()
-                return
-            }
-            try text.write(to: entry.url, atomically: true, encoding: .utf8)
+        if let problem = Self.save(text, over: loaded, to: entry.url) {
+            alert = problem
+        } else {
             loaded = text
-        } catch {
-            NSAlert(error: error).runModal()
         }
     }
 
-    static func hasConflict(loaded: String, disk: String) -> Bool { loaded != disk }
+    /// Writes `text` to `url` unless the file no longer holds `loaded`: an agent edited the page
+    /// while it was open, and saving would overwrite that. Nil when it was saved.
+    static func save(_ text: String, over loaded: String, to url: URL) -> AlertItem? {
+        do {
+            guard try String(contentsOf: url, encoding: .utf8) == loaded else {
+                return .message(
+                    "This page changed while you were editing",
+                    detail: "Your text is still here and was not saved. "
+                        + "Copy it, then reopen the page to merge the agent's changes.")
+            }
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            return nil
+        } catch {
+            return .error(error)
+        }
+    }
 }

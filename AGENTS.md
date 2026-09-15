@@ -15,7 +15,8 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
   `Services/`, `Skills/`, `Shell/`, `Prompts/`, `Usage/`.
 - **`Sources/YongkangUI/`**: SwiftUI, AppKit and SwiftTerm. `Model/` (`AppModel` and one
   `ProjectModel` per open project, the `@Observable` state every screen reads, with the
-  workflows in `ProjectModel+<concern>.swift` returning where the window goes), `App/`
+  workflows in `ProjectModel+<concern>.swift` returning where the window goes, and anything
+  that has to ask or tell the user set as `AppModel.alert` rather than run modally), `App/`
   (`YongkangApp`, `RootView`, the rail and the list column), `Terminal/`, `DesignSystem/`,
   and `Features/<screen>/`.
 - **`App/`**: the thin Xcode shell that builds `Yongkang.app` (bundle ID `ai.yongkang.Yongkang`).
