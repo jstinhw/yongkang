@@ -5,18 +5,18 @@ import YongkangCore
 extension RootView {
     // MARK: - Assigning
 
-    /// Blockers come along whichever way the tasks were picked — expanding here means the
-    /// list and the board cannot disagree about what a batch is. Also the one place that
-    /// excludes work a still-open lead session already has, so a task never goes to two
-    /// leads at once.
-    ///
-    /// A lead that is still running is talked to, not duplicated: the new batch is typed
-    /// into its own terminal as a follow-up message, the same as telling a person who is
-    /// already working "also pick these up" rather than hiring a second lead.
+    /// Where a workflow said to go. `input` only ever goes to the session `route` opens.
+    func go(to destination: Destination?) {
+        guard let destination else { return }
+        model.section = destination.section
+        if let route = destination.route { model.selection = route }
+        if let input = destination.input, case .session(let id, _)? = destination.route {
+            model.pendingInput[id] = input
+        }
+    }
+
     func assign(_ tasks: [NotebookCard], in project: ProjectModel) {
-        let batch = NotebookIndex.withBlockers(
-            tasks, in: project.snapshot.cards, excluding: project.assignedTaskIDs)
-        guard !batch.isEmpty else {
+        guard let destination = project.assign(tasks, agent: agent) else {
             guard !tasks.isEmpty else { return }
             let alert = NSAlert()
             alert.messageText = "Nothing to assign"
@@ -26,23 +26,7 @@ extension RootView {
             alert.runModal()
             return
         }
-        model.section = .agents
-        if let lead = project.sessions.first(where: { $0.isEngineeringLead && !$0.exited }) {
-            let leadAgent = lead.agent ?? .claude
-            project.appendTaskIDs(batch.map(\.id), to: lead.id)
-            model.pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(
-                tasks: batch, sessionID: lead.id,
-                agent: leadAgent)
-            model.selection = .session(lead.id)
-            return
-        }
-        // The id is minted here so the prompt can carry it: a lead that knows its own
-        // session id can write it into any block it raises, and the answer comes back here.
-        let id = UUID()
-        addSession(
-            agent, id: id, to: project,
-            prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
-            title: "Engineering Lead", taskIDs: batch.map(\.id))
+        go(to: destination)
     }
 
     // MARK: - Blocks
@@ -225,21 +209,11 @@ extension RootView {
 
     // MARK: - Sessions
 
-    /// `id` is generated up front so the same id names both the CLI's `--session-id` and
-    /// this session's own row — that is what lets its transcript be found again later, and
-    /// what a caller passes in when the prompt itself has to name the session.
     func addSession(
         _ agent: AgentKind, id: UUID = UUID(), to project: ProjectModel,
         prompt: String? = nil, title: String? = nil, taskIDs: [String] = []
     ) {
-        addSession(
-            id: id, to: project, title: title ?? agent.displayName, icon: agent.systemImage,
-            line: AgentCommand.line(
-                directory: project.directory.path,
-                agent: agent, prompt: prompt, sessionID: id,
-                brief: title?.hasPrefix("Engineering Lead") == true,
-                noCommit: title?.hasPrefix("Engineering Lead") == true),
-            agent: agent, taskIDs: taskIDs)
+        model.selection = project.addSession(agent, id: id, prompt: prompt, title: title, taskIDs: taskIDs)
     }
 
     func addSession(

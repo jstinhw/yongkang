@@ -114,6 +114,25 @@ import YongkangCore
 
     // MARK: - Sessions
 
+    /// `id` is generated up front so the same id names both the CLI's `--session-id` and
+    /// this session's own row — that is what lets its transcript be found again later, and
+    /// what a caller passes in when the prompt itself has to name the session.
+    ///
+    /// Returns the new session's terminal, because a new session opens on its live CLI.
+    func addSession(
+        _ agent: AgentKind, id: UUID = UUID(), prompt: String? = nil, title: String? = nil, taskIDs: [String] = []
+    ) -> Route {
+        addSession(
+            id: id, title: title ?? agent.displayName, icon: agent.systemImage,
+            line: AgentCommand.line(
+                directory: directory.path,
+                agent: agent, prompt: prompt, sessionID: id,
+                brief: title?.hasPrefix("Engineering Lead") == true,
+                noCommit: title?.hasPrefix("Engineering Lead") == true),
+            agent: agent, taskIDs: taskIDs)
+        return .session(id)
+    }
+
     func addSession(
         id: UUID, title: String, icon: String, line: String,
         agent: AgentKind? = nil, taskIDs: [String] = []
@@ -155,4 +174,15 @@ import YongkangCore
         }
         return sessions.last { $0.isEngineeringLead && !$0.exited }
     }
+}
+
+/// Where a workflow leaves the window, for the view to apply. A workflow decides where to go
+/// but doesn't go there itself, so it can be tested with no window, and `section` and
+/// `selection` are written in one place.
+struct Destination: Equatable {
+    var section: ConsoleSection
+    /// Nil leaves the selection as it was.
+    var route: Route?
+    /// A follow-up for the session `route` opens, typed into its terminal like any other.
+    var input: String?
 }
