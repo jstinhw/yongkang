@@ -82,48 +82,23 @@ extension RootView {
 
     // MARK: - Review
 
-    /// Approving is committing: only this task's files and its records, then on to the
-    /// next task waiting. Nothing is sent to the lead — it already marked the task done.
+    /// The failure is shown under the button rather than in an alert, so it comes back as text.
     func approve(_ task: SummaryTask, message: String, in project: ProjectModel) -> String? {
-        let failure = GitChanges.commit(message: message, paths: task.commitPaths, in: project.directory)
-        model.refreshChanges(force: true)
-        guard failure == nil else { return failure }
-        project.reviewDrafts[task.id] = nil
-        model.selection = project.firstReview
-        return nil
-    }
-
-    /// Sending a task back goes to the lead that holds it, typed into its terminal like any
-    /// follow-up; with no lead running, a fresh one starts with the task and the comments.
-    func requestChanges(on task: SummaryTask, in project: ProjectModel) {
-        guard let draft = project.reviewDrafts[task.id], !draft.isEmpty else { return }
-        let message = draft.message(taskID: task.id, title: task.title)
-        let leads = project.sessions.filter { $0.isEngineeringLead && !$0.exited }
-        if let lead = leads.first(where: { $0.taskIDs.contains(task.id) }) ?? leads.first {
-            if !lead.taskIDs.contains(task.id) { project.appendTaskIDs([task.id], to: lead.id) }
-            project.reviewDrafts[task.id] = nil
-            model.section = .agents
-            model.pendingInput[lead.id] = message
-            model.selection = .session(lead.id)
-            return
+        do {
+            model.selection = try project.approve(task, message: message)
+            return nil
+        } catch {
+            return error.reason
         }
-        guard let card = project.snapshot.cards.first(where: { $0.id == task.id }) else { return }
-        project.reviewDrafts[task.id] = nil
-        model.section = .agents
-        let id = UUID()
-        addSession(
-            agent, id: id, to: project,
-            prompt: NotebookFormat.changeRequestPrompt(task: card, message: message, sessionID: id, agent: agent),
-            title: "Engineering Lead", taskIDs: [task.id])
     }
 
-    /// The review screen's one write to the repo. Staging and committing is all it does —
-    /// no push, no merge, no branch — and only because the user pressed the button.
     func commit(_ message: String, in project: ProjectModel) -> String? {
-        let failure = GitChanges.commit(message: message, in: project.directory)
-        if failure == nil { model.selection = .review(file: nil) }
-        model.refreshChanges(force: true)
-        return failure
+        do {
+            model.selection = try project.commit(message)
+            return nil
+        } catch {
+            return error.reason
+        }
     }
 
     // MARK: - Sessions

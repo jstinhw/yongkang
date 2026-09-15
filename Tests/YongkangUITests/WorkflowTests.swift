@@ -205,4 +205,111 @@ import Testing
         _ = project.markExited(designer)
         #expect(project.openDesigner(demo) == nil, "with nobody waiting on it there is no one to tell")
     }
+
+    // MARK: - Review
+
+    // The model runs git on the main thread, as the app does, and each call that reads the
+    // repo is several git processes. These tests yield between those calls: the terminal
+    // tests running beside them read their PTY output on the main thread, and a few seconds
+    // of git in one stretch runs them past their bound.
+
+    /// Makes `directory` a repository with a committer, off the main thread.
+    nonisolated private func repository(_ directory: URL) async throws {
+        for arguments in [
+            ["init", "--quiet"], ["config", "user.email", "workflow@example.com"], ["config", "user.name", "Workflow"],
+        ] {
+            let git = Process()
+            git.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            git.arguments = ["git"] + arguments
+            git.environment = GitChanges.environment
+            git.currentDirectoryURL = directory
+            git.standardOutput = FileHandle.nullDevice
+            git.standardError = FileHandle.nullDevice
+            try git.run()
+            git.waitUntilExit()
+            try #require(git.terminationStatus == 0, "git \(arguments.joined(separator: " ")) failed")
+        }
+    }
+
+    @Test func approvingATaskCommitsOnlyItsFilesAndRoutesToTheNextOneWaiting() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try project(tasks: ["Wire auth", "Ship it"], in: tmp)
+        try await repository(project.directory)
+        for task in ["wire-auth", "ship-it"] {
+            let url = try card(task, in: project).url
+            let done = try String(contentsOf: url, encoding: .utf8)
+                .replacingOccurrences(of: "status: todo", with: "status: done")
+            try done.write(to: url, atomically: true, encoding: .utf8)
+            let file = project.directory.appendingPathComponent("\(task).txt")
+            try "\(task)\n".write(to: file, atomically: true, encoding: .utf8)
+        }
+        project.reloadNotebook(frontmatter: true, records: true)
+        _ = running("Engineering Lead", in: project, taskIDs: ["wire-auth", "ship-it"])
+        project.sessions[0].coordination = LeadCoordination(
+            workers: ["wire-auth", "ship-it"].map { LeadWork(id: $0, taskID: $0, paths: ["\($0).txt"], state: "done") })
+        project.refreshRepo()
+        try #require(project.summary.waiting.count == 2, "both tasks are done and waiting on the user")
+        let (first, next) = (project.summary.waiting[0], project.summary.waiting[1])
+        project.reviewDrafts[first.id] = ReviewDraft(note: "Looks right")
+        project.reviewDrafts[next.id] = ReviewDraft(note: "Not yet")
+        await Task.yield()
+
+        #expect(throws: CommitFailure.self, "a blank message is git's refusal, not a route") {
+            try project.approve(next, message: "  ")
+        }
+        #expect(project.reviewDrafts[next.id] != nil, "and a refused approval keeps what the user wrote")
+        await Task.yield()
+
+        #expect(try project.approve(first, message: "Approve \(first.title)") == .reviewTask(next.id))
+        #expect(project.reviewDrafts[first.id] == nil)
+        let left = project.repo.changes.map(\.path)
+        #expect(
+            !left.contains("\(first.id).txt") && left.contains("\(next.id).txt"),
+            "only the approved task's files went in, as the repo read after the commit shows")
+    }
+
+    @Test func sendingATaskBackGoesToTheLeadThatHoldsItOrStartsOne() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try project(tasks: ["Wire auth"], in: tmp)
+        let task = SummaryTask(id: "wire-auth", title: "Wire auth", status: "done")
+        let other = running("Engineering Lead", in: project, taskIDs: ["ship-it"])
+        let holder = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
+        #expect(project.requestChanges(on: task, agent: .claude) == nil, "nothing written, nothing to send")
+
+        let draft = ReviewDraft(note: "Handle an expired token")
+        let message = draft.message(taskID: task.id, title: task.title)
+        project.reviewDrafts[task.id] = draft
+        #expect(
+            project.requestChanges(on: task, agent: .claude)
+                == Destination(section: .agents, route: .session(holder), input: message),
+            "the comments go to the lead holding the task, not the first one running")
+        #expect(project.reviewDrafts[task.id] == nil, "a draft that was sent is gone")
+
+        _ = project.markExited(holder)
+        project.reviewDrafts[task.id] = draft
+        #expect(project.requestChanges(on: task, agent: .claude)?.route == .session(other))
+        #expect(project.sessions[0].taskIDs == ["ship-it", "wire-auth"], "a lead that takes it over now holds it")
+
+        _ = project.markExited(other)
+        project.reviewDrafts[task.id] = draft
+        let fresh = try #require(project.requestChanges(on: task, agent: .codex))
+        let started = try #require(project.sessions.last)
+        #expect(started.isEngineeringLead && started.agent == .codex && started.taskIDs == [task.id])
+        #expect(started.line.contains("Handle an expired token"), "a fresh lead starts with the comments")
+        #expect(fresh == Destination(section: .agents, route: .session(started.id)))
+    }
+
+    @Test func committingTheWorkingTreeRoutesBackToTheReview() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try project(tasks: ["Wire auth"], in: tmp)
+        try await repository(project.directory)
+
+        #expect(try project.commit("Add the notebook") == .review(file: nil))
+        #expect(
+            project.repo.changes.isEmpty && project.repo.head?.hasSuffix("Add the notebook") == true,
+            "the new notebook went in, and the repo was read again after")
+    }
 }

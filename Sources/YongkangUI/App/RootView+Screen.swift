@@ -144,7 +144,7 @@ extension RootView {
                 branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
                 openFile: { model.selection = .review(file: $0) },
                 approve: { approve(task, message: $0, in: project) },
-                requestChanges: { requestChanges(on: task, in: project) }
+                requestChanges: { go(to: project.requestChanges(on: task, agent: agent)) }
             )
             .id(task.id)
         } else if let path = reviewPath {
@@ -161,7 +161,7 @@ extension RootView {
                 task: owner, draft: draft(for: owner?.id ?? "", in: project),
                 openTask: { model.selection = .reviewTask($0) },
                 approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
-                requestChanges: { if let owner { requestChanges(on: owner, in: project) } })
+                requestChanges: { if let owner { go(to: project.requestChanges(on: owner, agent: agent)) } })
         } else if let step = previewStep(in: project) {
             ProjectPreview(
                 repo: step.repo, services: step.services,
