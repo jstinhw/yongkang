@@ -139,47 +139,17 @@ extension RootView {
 
     // MARK: - Notebook entries
 
-    /// The `.notebook/projects/<id>` the selection sits in — memory has to land in one.
-    func notebookProject(in project: ProjectModel) -> String? {
-        if case .project(let scope) = model.selection { return scope }
-        if case .task(let id) = model.selection,
-            let owner = project.snapshot.cards.first(where: { $0.id == id })?.project
-        {
-            return owner
-        }
-        guard case .entry(let path) = model.selection,
-            path.hasPrefix(NotebookEntry.id(for: project.directory)),
-            let marker = path.range(of: "/\(NotebookFormat.folderName)/projects/")
-        else { return nil }
-        return path[marker.upperBound...].split(separator: "/").first.map(String.init)
-    }
-
     func add(_ kind: EntryKind, to project: ProjectModel) {
         guard let title = askTitle(kind) else { return }
         do {
-            let file = try NotebookFormat.create(
-                kind, title: title, in: project.notebookRoot,
-                project: notebookProject(in: project),
-                roadmap: notebookRoadmap(in: project),
-                subject: notebookSubject(in: project))
+            let destination = try project.add(kind, title: title, selection: model.selection)
             model.reload()
-            let id =
-                kind == .project
-                ? file.deletingLastPathComponent().lastPathComponent
-                : file.deletingPathExtension().lastPathComponent
-            model.section = .board
-            switch kind {
-            case .project: model.selection = .project(id)
-            case .task: model.selection = .task(id)
-            case .roadmap, .memory, .run: model.selection = .page(id)
-            }
+            go(to: destination)
         } catch {
             NSAlert(error: error).runModal()
         }
     }
 
-    /// Removing a notebook entry. A project takes its tasks with it — a task filed under
-    /// an id that no longer exists shows up nowhere and would never be worked.
     func remove(_ card: NotebookCard, in project: ProjectModel) {
         // The board the user asked from: the poll keeps running under the alert below.
         let cards = project.snapshot.cards
@@ -195,33 +165,14 @@ extension RootView {
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
-            try NotebookFormat.remove(card, in: cards)
+            if let route = try project.remove(card, from: cards, selection: model.selection) {
+                model.selection = route
+            }
         } catch {
             NSAlert(error: error).runModal()
             return
         }
-        // Anything on screen that was inside what just went to the Trash has no page left.
-        let gone = Set(NotebookFormat.owned(by: card, in: cards).map(\.path))
-        if let shown = model.selection?.card(in: cards),
-            gone.contains(where: { shown.url.path == $0 || shown.url.path.hasPrefix($0 + "/") })
-        {
-            model.selection = .board
-        }
         model.reload()
-    }
-
-    private func notebookRoadmap(in project: ProjectModel) -> String? {
-        if case .page(let id) = model.selection,
-            project.snapshot.cards.contains(where: { $0.id == id && $0.kind == .roadmap })
-        {
-            return id
-        }
-        let roadmaps = project.snapshot.cards.filter { $0.kind == .roadmap }
-        return roadmaps.count == 1 ? roadmaps[0].id : nil
-    }
-
-    private func notebookSubject(in project: ProjectModel) -> String? {
-        model.selection?.cardID ?? notebookProject(in: project)
     }
 }
 

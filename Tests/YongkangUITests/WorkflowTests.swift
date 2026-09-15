@@ -348,4 +348,67 @@ import Testing
         ])
         #expect(nothing.destination == Destination(section: .agents) && nothing.unstarted == ["docs"])
     }
+
+    // MARK: - Notebook
+
+    /// A project with a `launch` project holding the `wire-auth` task, and a loose `other` task.
+    private func launch(in tmp: URL) throws -> ProjectModel {
+        let directory = tmp.appendingPathComponent("app")
+        let root = NotebookFormat.root(in: directory)
+        _ = try NotebookFormat.create(.project, title: "Launch", in: root, project: nil)
+        _ = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: "launch")
+        _ = try NotebookFormat.create(.task, title: "Other", in: root, project: nil)
+        let project = ProjectModel(directory: directory)
+        project.reloadNotebook(frontmatter: true, records: true)
+        return project
+    }
+
+    @Test func addingAnEntryFilesItUnderTheSelectionAndOpensItsPage() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try launch(in: tmp)
+        #expect(project.notebookProject(for: .task("wire-auth")) == "launch", "a task sits in its own project")
+        #expect(project.notebookProject(for: .board) == nil)
+
+        #expect(
+            try project.add(.task, title: "Ship it", selection: .project("launch"))
+                == Destination(section: .board, route: .task("ship-it")))
+        let memory = try project.add(.memory, title: "Token lifetimes", selection: .task("wire-auth"))
+        #expect(
+            try project.add(.project, title: "Checkout", selection: nil)
+                == Destination(section: .board, route: .project("checkout")),
+            "a project opens by its folder's name")
+        #expect(throws: NotebookError.self, "memory with no project to sit in is refused") {
+            try project.add(.memory, title: "Loose note", selection: .board)
+        }
+
+        project.reloadNotebook(frontmatter: true, records: true)
+        #expect(try card("ship-it", in: project).project == "launch")
+        let page = try card(try #require(memory.route?.cardID), in: project)
+        #expect(memory == Destination(section: .board, route: .page(page.id)))
+        #expect(
+            page.kind == .memory && page.project == "launch" && page.subject == "wire-auth",
+            "memory added on a task lands in the task's project, about that task")
+    }
+
+    @Test func removingAProjectTakesItsTasksAndLeavesAPageThatWentWithIt() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try launch(in: tmp)
+        let asked = project.snapshot.cards
+        let (other, launch) = (try card("other", in: project), try card("launch", in: project))
+        // An agent files another task under the project while the user is being asked.
+        _ = try NotebookFormat.create(.task, title: "Late", in: project.notebookRoot, project: "launch")
+
+        #expect(
+            try project.remove(other, from: asked, selection: .task("wire-auth"), trash: false) == nil,
+            "the page on screen is still there, so the selection stays")
+        #expect(
+            try project.remove(launch, from: asked, selection: .task("wire-auth"), trash: false) == .board,
+            "the task on screen went with its project")
+        project.reloadNotebook(frontmatter: true, records: true)
+        #expect(
+            project.snapshot.cards.map(\.id) == ["late"],
+            "what goes is what the user confirmed: a task filed since is left for them to see")
+    }
 }

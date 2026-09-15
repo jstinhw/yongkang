@@ -132,7 +132,7 @@ extension RootView {
                 Button("Project…", systemImage: "shippingbox") { add(.project, to: project) }
                 Button("Task…", systemImage: "checkmark.circle") { add(.task, to: project) }
                 Button("Memory…", systemImage: "brain") { add(.memory, to: project) }
-                    .disabled(notebookProject(in: project) == nil)
+                    .disabled(project.notebookProject(for: model.selection) == nil)
             }
             Divider()
             Button("Describe New Feature…", systemImage: "text.bubble") {
