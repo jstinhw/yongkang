@@ -126,11 +126,14 @@ import YongkangCore
     /// it is newer than the one on screen, so a slow early read never overwrites a later one.
     /// A newest-only rule would do that too, but a poll that keeps starting reads faster than
     /// git answers would then never show any.
+    ///
+    /// A cancelled read is dropped too: its git was terminated, and what came back is an
+    /// empty tree, not the repo.
     func refreshRepo(_ read: () async -> RepoStatus) async {
         repoReads += 1
         let request = repoReads
         let fresh = await read()
-        guard request > repoShown else { return }
+        guard request > repoShown, !Task.isCancelled else { return }
         repoShown = request
         if fresh != repo { repo = fresh }
     }

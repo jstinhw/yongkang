@@ -85,6 +85,24 @@ import Testing
         #expect(project.repo == newer, "and the earlier one, answering last, is dropped")
     }
 
+    /// A cancelled read's git is terminated, and what it returns is an empty tree.
+    @Test func aCancelledRepoReadIsNotShown() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = ProjectModel(directory: try notebook("app", in: tmp))
+        let shown = RepoStatus(changes: [FileChange(path: "a.txt", added: 1, removed: 0, untracked: true)])
+        await project.refreshRepo { shown }
+
+        let (reads, read) = AsyncStream.makeStream(of: CheckedContinuation<RepoStatus, Never>.self)
+        let cancelled = Task { await project.refreshRepo { await withCheckedContinuation { read.yield($0) } } }
+        var started = reads.makeAsyncIterator()
+        let terminated = try #require(await started.next())
+        cancelled.cancel()
+        terminated.resume(returning: RepoStatus())
+        await cancelled.value
+        #expect(project.repo == shown)
+    }
+
     // `@AppStorage("openProjects")` is a string in defaults; relaunching reads it back.
     @Test func openProjectsRoundTripThroughDefaults() throws {
         let tmp = try makeTemporaryDirectory()
