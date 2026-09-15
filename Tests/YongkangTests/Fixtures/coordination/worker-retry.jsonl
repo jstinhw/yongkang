@@ -1,0 +1,2 @@
+{"type":"assistant","timestamp":"2026-09-07T12:02:00Z","message":{"model":"observed-model","usage":{"input_tokens":20,"output_tokens":10}}}
+{"type":"assistant","timestamp":"2026-09-07T12:03:00Z","message":{"model":"observed-model","usage":{"input_tokens":40,"output_tokens":20}}}
