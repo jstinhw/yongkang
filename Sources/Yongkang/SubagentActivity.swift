@@ -2,23 +2,41 @@ import Foundation
 
 /// One subagent an agent session has spawned, read off its own transcript on disk —
 /// Claude Code's `subagents/` folder or Codex's rollout tree, whichever this session is.
-struct SubagentStatus: Identifiable, Equatable {
-    let id: String
-    let description: String
-    let agentType: String
-    let running: Bool
-    let transcriptURL: URL
+package struct SubagentStatus: Identifiable, Equatable {
+    package let id: String
+    package let description: String
+    package let agentType: String
+    package let running: Bool
+    package let transcriptURL: URL
     /// The task this subagent was dispatched for, matched off its own label. Nil when the
     /// label names no task in the batch — a compaction or review subagent, or a lead that
     /// ignored the naming rule.
-    var taskID: String? = nil
+    package var taskID: String? = nil
     /// The roster name of the team member whose skill this subagent runs, filled in when
     /// the session is read. Nil when the label names nobody on the team — a compaction or
     /// review agent, or a skill no team member owns.
-    var member: String? = nil
+    package var member: String? = nil
+
+    package init(
+        id: String,
+        description: String,
+        agentType: String,
+        running: Bool,
+        transcriptURL: URL,
+        taskID: String? = nil,
+        member: String? = nil
+    ) {
+        self.id = id
+        self.description = description
+        self.agentType = agentType
+        self.running = running
+        self.transcriptURL = transcriptURL
+        self.taskID = taskID
+        self.member = member
+    }
 
     /// What to call it on screen: the person on the team, else the skill it runs.
-    var displayName: String { member ?? agentType }
+    package var displayName: String { member ?? agentType }
 
     /// The same subagent, told who on the team it is. Neither provider can do this: the
     /// roster is the project's, and a CLI knows only the label it was spawned under.
@@ -26,7 +44,7 @@ struct SubagentStatus: Identifiable, Equatable {
     /// The skill comes back with the name, and replaces whatever the provider called this
     /// thread — Codex nicknames a spawned thread ("Dewey", "Dirac"), and a nickname colours
     /// no tile, groups under nobody, and outlives the run in the ledger.
-    func named(in team: [TeamMember]) -> SubagentStatus {
+    package func named(in team: [TeamMember]) -> SubagentStatus {
         guard let found = Team.running("\(description) \(agentType)", in: team) else { return self }
         return SubagentStatus(
             id: id, description: description, agentType: found.skill,
@@ -45,13 +63,20 @@ struct SubagentTaskGroup: Identifiable {
 /// One human-readable line pulled out of a subagent's transcript: the task it was given,
 /// each tool it called, that tool's result, and its replies. Everything else in the file —
 /// thinking blocks, bookkeeping fields — is left out rather than guessed at.
-struct TranscriptLine: Identifiable {
-    let id = UUID()
-    let label: String
-    let text: String
+package struct TranscriptLine: Identifiable {
+    package let id = UUID()
+    package let label: String
+    package let text: String
     /// Set on a tool result the provider marked as failed — the one thing a collapsed run
     /// of work still has to be able to say out loud.
-    var isError = false
+    package var isError = false
+
+    package init(label: String, text: String, isError: Bool = false) {
+        self.label = label
+        self.text = text
+        self.isError = isError
+    }
+
 }
 
 /// What both providers share: neither CLI records which notebook task a subagent is for,

@@ -9,7 +9,7 @@ import SwiftUI
 ///
 /// A lead keeps the batch beside it, because a lead is watched for its whole batch rather
 /// than for itself; every other session gets what it spawned and what it is holding.
-struct SessionTranscript: View {
+package struct SessionTranscript: View {
     let session: CodeSession
     let cards: [NotebookCard]
     let blocks: [UserBlock]
@@ -24,9 +24,31 @@ struct SessionTranscript: View {
 
     @State private var reply = ""
 
+    package init(
+        session: CodeSession,
+        cards: [NotebookCard],
+        blocks: [UserBlock],
+        lines: [TranscriptLine],
+        source: URL?,
+        openTask: @escaping (String) -> Void,
+        openBlock: @escaping (UserBlock) -> Void,
+        openSubagent: @escaping (SubagentStatus) -> Void,
+        send: @escaping (String) -> Void
+    ) {
+        self.session = session
+        self.cards = cards
+        self.blocks = blocks
+        self.lines = lines
+        self.source = source
+        self.openTask = openTask
+        self.openBlock = openBlock
+        self.openSubagent = openSubagent
+        self.send = send
+    }
+
     private var state: AgentState { AgentState.of(lines: lines, exited: session.exited) }
 
-    var body: some View {
+    package var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 TranscriptHeader(

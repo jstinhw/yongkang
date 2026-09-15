@@ -10,7 +10,7 @@ import Foundation
 /// this row's thread. Its subagents are then every rollout whose parent chain reaches that
 /// thread — read off disk instead of over the daemon socket, because the app already polls
 /// files and a socket would be a second channel.
-enum CodexTranscripts {
+package enum CodexTranscripts {
     /// One rollout's opening `session_meta` line, which never changes once written.
     private struct Meta {
         let threadID: String
@@ -37,7 +37,7 @@ enum CodexTranscripts {
     /// A `var` so the self-test can wind it back over the fixtures it just wrote.
     static var launched = Date().addingTimeInterval(-300)
 
-    static func subagents(
+    package static func subagents(
         sessionID: UUID, projectDirectory: URL, taskIDs: [String] = [],
         codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
     ) -> [SubagentStatus] {
@@ -184,7 +184,7 @@ enum CodexTranscripts {
     /// The same four labels `ClaudeTranscripts` produces, off Codex's own line shapes.
     /// Only `response_item` lines are read: the `event_msg` lines beside them repeat the
     /// same assistant text, and everything else in the file is bookkeeping.
-    static func transcript(at url: URL) -> [TranscriptLine] {
+    package static func transcript(at url: URL) -> [TranscriptLine] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").compactMap { line -> TranscriptLine? in
             guard let object = json(String(line)), object["type"] as? String == "response_item",

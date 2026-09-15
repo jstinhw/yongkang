@@ -3,7 +3,7 @@ import SwiftUI
 /// What the project is doing right now, in one screen: who is working, what is waiting on
 /// you, what changed on disk, and how far the work has got. Everything here is read from
 /// the notebook, the transcripts and git — the app keeps no state of its own to drift.
-struct Overview: View {
+package struct Overview: View {
     let project: Project
     let changes: [FileChange]
     let head: String?
@@ -16,11 +16,25 @@ struct Overview: View {
     @State private var lastWrote: [String: Date] = [:]
     @State private var recent: [(card: NotebookCard, at: Date)] = []
 
+    package init(
+        project: Project,
+        changes: [FileChange],
+        head: String?,
+        go: @escaping (ConsoleSection, String?) -> Void,
+        assign: @escaping () -> Void
+    ) {
+        self.project = project
+        self.changes = changes
+        self.head = head
+        self.go = go
+        self.assign = assign
+    }
+
     private var workers: [(session: CodeSession, subagent: SubagentStatus)] {
         project.sessions.flatMap { session in session.activeSubagents.map { (session, $0) } }
     }
 
-    var body: some View {
+    package var body: some View {
         ScrollView {
             columns
         }

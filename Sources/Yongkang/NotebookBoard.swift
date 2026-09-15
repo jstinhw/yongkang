@@ -13,7 +13,7 @@ import SwiftUI
 /// full cards only at the live edge of each chain — what is being designed, what is
 /// waiting on you, what an agent is on, what could start next — and one line each for
 /// work that is finished or still queued behind something.
-struct NotebookBoard: View {
+package struct NotebookBoard: View {
     let cards: [NotebookCard]
     /// Open demos, which is how a task says a designer is waiting on the user.
     let blocks: [UserBlock]
@@ -32,7 +32,29 @@ struct NotebookBoard: View {
 
     @State private var selected: Set<String> = []
 
-    var body: some View {
+    package init(
+        cards: [NotebookCard],
+        blocks: [UserBlock],
+        assigned: Set<String>,
+        showDone: Bool,
+        assign: @escaping ([NotebookCard]) -> Void,
+        review: @escaping () -> Void,
+        openCard: @escaping (NotebookCard) -> Void,
+        openDemo: @escaping (UserBlock) -> Void,
+        remove: @escaping (NotebookCard) -> Void
+    ) {
+        self.cards = cards
+        self.blocks = blocks
+        self.assigned = assigned
+        self.showDone = showDone
+        self.assign = assign
+        self.review = review
+        self.openCard = openCard
+        self.openDemo = openDemo
+        self.remove = remove
+    }
+
+    package var body: some View {
         GeometryReader { geometry in
             // Below this the window cannot carry a fourth column: the inspector folds into
             // the board rather than squeezing the chains into a strip. Same threshold the

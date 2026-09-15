@@ -2,46 +2,76 @@ import Foundation
 
 /// One notebook entry with its frontmatter read. The sidebar shows slugs; the board
 /// needs the parts that describe relationships.
-struct NotebookCard: Identifiable, Equatable {
-    let id: String
-    let url: URL
-    let kind: EntryKind
-    let title: String
-    let status: String
-    let project: String?
-    let dependsOn: [String]
+package struct NotebookCard: Identifiable, Equatable {
+    package let id: String
+    package let url: URL
+    package let kind: EntryKind
+    package let title: String
+    package let status: String
+    package let project: String?
+    package let dependsOn: [String]
     /// Projects only: the folders this work lands in, so the board can say what it touches
     /// and the run button knows what to start. Empty means the project folder itself.
     var repos: [String] = []
-    var roadmap: String? = nil
-    var subject: String? = nil
-    var memoryType: String = ""
-    var result: String = ""
+    package var roadmap: String? = nil
+    package var subject: String? = nil
+    package var memoryType: String = ""
+    package var result: String = ""
     /// Tasks only: the roster member designing this task. Non-empty is the whole rule for
     /// "this is a design task" — the one the engineering tasks on its screen wait on. The
     /// app never infers it from the title, the repo or the wording of the criteria,
     /// because a guess that is wrong either stalls plumbing behind a demo or lets a screen
     /// be built before anyone saw it.
-    var designer: String = ""
+    package var designer: String = ""
 
-    var isDesignWork: Bool { !designer.isEmpty }
+    package init(
+        id: String,
+        url: URL,
+        kind: EntryKind,
+        title: String,
+        status: String,
+        project: String?,
+        dependsOn: [String],
+        repos: [String] = [],
+        roadmap: String? = nil,
+        subject: String? = nil,
+        memoryType: String = "",
+        result: String = "",
+        designer: String = ""
+    ) {
+        self.id = id
+        self.url = url
+        self.kind = kind
+        self.title = title
+        self.status = status
+        self.project = project
+        self.dependsOn = dependsOn
+        self.repos = repos
+        self.roadmap = roadmap
+        self.subject = subject
+        self.memoryType = memoryType
+        self.result = result
+        self.designer = designer
+    }
+
+    package var isDesignWork: Bool { !designer.isEmpty }
 }
 
-enum NotebookIndex {
-    static func visible(_ cards: [NotebookCard], showDone: Bool) -> [NotebookCard] {
+package enum NotebookIndex {
+    package static func visible(_ cards: [NotebookCard], showDone: Bool) -> [NotebookCard] {
         showDone ? cards : cards.filter { $0.status != "done" }
     }
 
     /// A project is finished when its own status says so, or when every task filed under
     /// it is done — the engineering lead sets each task's status as QA passes it and
     /// nothing ever goes back to write the project's, so the last task is the signal.
-    static func isFinished(_ project: NotebookCard, in cards: [NotebookCard]) -> Bool {
+    package static func isFinished(_ project: NotebookCard, in cards: [NotebookCard]) -> Bool {
         if project.status == "done" { return true }
         let tasks = cards.filter { $0.kind == .task && $0.project == project.id }
         return !tasks.isEmpty && tasks.allSatisfy { $0.status == "done" }
     }
 
-    static func load(root: URL) -> [NotebookCard] {
+    package static func load(root: URL) -> [NotebookCard] {
         NotebookLoader.pages(NotebookLoader.loadAll(root: root)).compactMap(card(at:))
     }
 
@@ -87,7 +117,7 @@ enum NotebookIndex {
 
     /// A page's Markdown after its frontmatter block — what a project's detail page
     /// actually shows, as opposed to the raw file `NotebookEditor` edits.
-    static func body(_ text: String) -> String {
+    package static func body(_ text: String) -> String {
         let lines = text.components(separatedBy: "\n")
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---",
             let close = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" })
@@ -118,7 +148,7 @@ enum NotebookIndex {
     /// Lead session out of the batch, whether it was picked directly or would otherwise
     /// be pulled in as a blocker. A task already `done` is dropped the same way — there is
     /// nothing left to assign it to do.
-    static func withBlockers(
+    package static func withBlockers(
         _ picked: [NotebookCard], in cards: [NotebookCard],
         excluding assigned: Set<String> = []
     ) -> [NotebookCard] {
@@ -177,7 +207,7 @@ enum NotebookIndex {
         return ordered(cards.filter { chosen.contains($0.id) }.map(normalized))
     }
 
-    static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
+    package static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
         waves(subset).flatMap { $0 }
     }
 
@@ -216,7 +246,7 @@ enum NotebookIndex {
 extension NotebookIndex {
     /// The "Done when" boxes on a page, wherever they sit in it. This is the only progress
     /// a task actually records, so it is what the console draws — nothing is inferred.
-    static func checklist(at url: URL) -> [NotebookContent.ChecklistItem] {
+    package static func checklist(at url: URL) -> [NotebookContent.ChecklistItem] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return NotebookContent.sections(body(text)).flatMap { section in
             section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in

@@ -3,18 +3,25 @@ import Foundation
 /// Tokens spent, in the four buckets the supported providers report. Cache reads are kept apart
 /// from fresh input on purpose: they are the bulk of an agent's traffic and priced
 /// nothing like it, so folding them together makes every agent look identical.
-struct TokenTally: Equatable {
-    var input = 0
-    var output = 0
-    var cacheRead = 0
-    var cacheWrite = 0
+package struct TokenTally: Equatable {
+    package var input = 0
+    package var output = 0
+    package var cacheRead = 0
+    package var cacheWrite = 0
 
-    var total: Int { input + output + cacheRead + cacheWrite }
+    package init(input: Int = 0, output: Int = 0, cacheRead: Int = 0, cacheWrite: Int = 0) {
+        self.input = input
+        self.output = output
+        self.cacheRead = cacheRead
+        self.cacheWrite = cacheWrite
+    }
+
+    package var total: Int { input + output + cacheRead + cacheWrite }
     /// What the context was already holding — the number that says whether an agent is
     /// re-reading its own history or actually doing new work.
-    var cacheRate: Double { total == 0 ? 0 : Double(cacheRead) / Double(total) }
+    package var cacheRate: Double { total == 0 ? 0 : Double(cacheRead) / Double(total) }
 
-    static func + (lhs: TokenTally, rhs: TokenTally) -> TokenTally {
+    package static func + (lhs: TokenTally, rhs: TokenTally) -> TokenTally {
         TokenTally(
             input: lhs.input + rhs.input, output: lhs.output + rhs.output,
             cacheRead: lhs.cacheRead + rhs.cacheRead, cacheWrite: lhs.cacheWrite + rhs.cacheWrite)
@@ -33,19 +40,19 @@ struct TokenTally: Equatable {
 /// One agent — a session, or a subagent it spawned — and what it has spent, per model.
 /// A session and its subagents are separate rows: the lead's own spend is its planning,
 /// and the specialists' is the work, and the two are worth telling apart.
-struct AgentSpend: Identifiable {
-    let id: String
+package struct AgentSpend: Identifiable {
+    package let id: String
     /// The selection tag that opens this agent, so a row in the usage screen goes
     /// straight to the transcript it is describing.
-    let tag: String
-    let name: String
-    let role: String
-    let provider: AgentKind
-    let running: Bool
+    package let tag: String
+    package let name: String
+    package let role: String
+    package let provider: AgentKind
+    package let running: Bool
     /// Every turn this agent took, kept as its own timestamped slice rather than summed on
     /// the way in — a total cannot be narrowed to the last hour afterwards, and the screen
     /// asks for exactly that.
-    let samples: [UsageSample]
+    package let samples: [UsageSample]
 
     /// `since` nil is all time; otherwise only what was spent after it.
     func samples(since: Date?) -> [UsageSample] {
@@ -59,12 +66,12 @@ struct AgentSpend: Identifiable {
         }
     }
 
-    func tally(since: Date?) -> TokenTally {
+    package func tally(since: Date?) -> TokenTally {
         samples(since: since).map(\.tally).reduce(TokenTally(), +)
     }
 
     /// The one model to show on a one-line row: whichever spent the most in the window.
-    func topModel(since: Date?) -> String? {
+    package func topModel(since: Date?) -> String? {
         models(since: since).max { $0.value.total < $1.value.total }?.key
     }
 
@@ -73,7 +80,7 @@ struct AgentSpend: Identifiable {
 
 /// One turn's spend and when it happened. Each supported CLI stamps every record it writes, which
 /// is what makes a window and a histogram possible at all.
-struct UsageSample {
+package struct UsageSample {
     let at: Date
     let model: String
     let tally: TokenTally
@@ -81,16 +88,16 @@ struct UsageSample {
 
 /// The window the usage screen is showing. Wider windows get wider buckets, so the
 /// histogram is always about the same number of bars however far back it reaches.
-enum UsageRange: String, CaseIterable, Identifiable {
+package enum UsageRange: String, CaseIterable, Identifiable {
     case hour = "1h"
     case day = "24h"
     case week = "7d"
     case all = "All"
 
-    var id: Self { self }
+    package var id: Self { self }
 
     /// Nil for all time — there is no start to filter against.
-    func since(now: Date = Date()) -> Date? {
+    package func since(now: Date = Date()) -> Date? {
         switch self {
         case .hour: return now.addingTimeInterval(-3_600)
         case .day: return now.addingTimeInterval(-86_400)
@@ -99,7 +106,7 @@ enum UsageRange: String, CaseIterable, Identifiable {
         }
     }
 
-    var caption: String {
+    package var caption: String {
         switch self {
         case .hour: return "last hour"
         case .day: return "last 24 hours"
@@ -120,45 +127,45 @@ enum UsageRange: String, CaseIterable, Identifiable {
 
 /// One column of the histogram: what was spent in that slice of time, split by model so a
 /// bar says which model the work went to and not only how much of it there was.
-struct UsageBucket: Identifiable {
-    let id: Int
-    let start: Date
-    let byModel: [String: Int]
+package struct UsageBucket: Identifiable {
+    package let id: Int
+    package let start: Date
+    package let byModel: [String: Int]
 
-    var total: Int { byModel.values.reduce(0, +) }
+    package var total: Int { byModel.values.reduce(0, +) }
 }
 
 /// One rate-limit window a provider reports — the 5-hour session and the weekly bar both
 /// CLIs draw, plus whatever per-model windows the plan carries.
-struct PlanWindow: Identifiable {
-    let id: String
-    let name: String
+package struct PlanWindow: Identifiable {
+    package let id: String
+    package let name: String
     /// 0–100, as both providers report it.
-    let percent: Double
-    let resetsAt: Date?
+    package let percent: Double
+    package let resetsAt: Date?
 }
 
 /// What one coding tool says about the plan behind it. Read from that tool's own cache on
 /// disk — neither exposes an API for this, so an unread field just leaves the card empty
 /// rather than breaking anything.
-struct ProviderQuota {
-    let provider: AgentKind
-    var plan: String?
-    var windows: [PlanWindow] = []
+package struct ProviderQuota {
+    package let provider: AgentKind
+    package var plan: String?
+    package var windows: [PlanWindow] = []
     /// What is on the meter beyond the plan, already worded by the provider that reported
     /// it — Claude meters what has been spent, Codex what is left, and one number labelled
     /// two ways would be a lie half the time.
-    var credits: (label: String, value: String)?
+    package var credits: (label: String, value: String)?
     /// When the numbers were written. Both caches are refreshed by the CLI, not by this
     /// app, so a quiet tool shows a stale bar and has to say so.
-    var asOf: Date?
+    package var asOf: Date?
 }
 
-enum AgentUsage {
+package enum AgentUsage {
 
     /// What a lead's runs are filed under. Named, because it is also what the usage screen
     /// matches on to call those runs by the lead's name rather than a numbered title.
-    static let leadRole = "lead"
+    package static let leadRole = "lead"
 
     // MARK: - Per-agent spend
 
@@ -172,7 +179,7 @@ enum AgentUsage {
     }
 
     /// Every agent in the project with something on disk to read, biggest spender first.
-    static func spends(in project: Project) -> [AgentSpend] {
+    package static func spends(in project: Project) -> [AgentSpend] {
         project.sessions.flatMap { session -> [AgentSpend] in
             let provider = session.agent ?? .claude
             let own = Transcripts.url(of: session, in: project.directory).map { url in
@@ -201,7 +208,7 @@ enum AgentUsage {
 
     /// Sums a keyed slice of the spends — by role, by provider — as one call, because
     /// those panels are the same fold over a different key.
-    static func group<Key: Hashable>(
+    package static func group<Key: Hashable>(
         _ spends: [AgentSpend], since: Date?,
         by key: (AgentSpend) -> Key
     ) -> [(key: Key, tally: TokenTally)] {
@@ -211,7 +218,7 @@ enum AgentUsage {
             .sorted { $0.tally.total > $1.tally.total }
     }
 
-    static func byModel(_ spends: [AgentSpend], since: Date?) -> [(key: String, tally: TokenTally)] {
+    package static func byModel(_ spends: [AgentSpend], since: Date?) -> [(key: String, tally: TokenTally)] {
         spends.flatMap { $0.samples(since: since) }
             .reduce(into: [String: TokenTally]()) {
                 $0[$1.model, default: TokenTally()] = $0[$1.model, default: TokenTally()] + $1.tally
@@ -224,7 +231,7 @@ enum AgentUsage {
     /// The histogram: the range sliced into equal buckets, each holding what every model
     /// spent inside it. Samples outside the range fall outside the bucket index and are
     /// dropped here rather than filtered first.
-    static func histogram(
+    package static func histogram(
         _ samples: [UsageSample], range: UsageRange,
         now: Date = Date()
     ) -> [UsageBucket] {
@@ -399,7 +406,7 @@ enum AgentUsage {
     /// Claude Code caches what the API told it about the plan in `~/.claude.json`, and
     /// refreshes it as it works. Nothing here is a published API, so a missing field
     /// leaves a bar out instead of failing.
-    static func claudeQuota(
+    package static func claudeQuota(
         configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
     ) -> ProviderQuota? {
         guard let data = try? Data(contentsOf: configURL),
@@ -452,7 +459,7 @@ enum AgentUsage {
 
     /// Codex has no config cache for this: the limits ride along on every turn's
     /// `token_count` event, so the newest rollout that carries one is the current answer.
-    static func codexQuota(
+    package static func codexQuota(
         codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
     ) -> ProviderQuota? {
         let root = codexHome.appendingPathComponent("sessions")
@@ -514,7 +521,7 @@ enum AgentUsage {
 
     /// Token counts run to the tens of millions, and the exact digit never matters — what
     /// matters is which agent is an order of magnitude past the others.
-    static func short(_ count: Int) -> String {
+    package static func short(_ count: Int) -> String {
         switch count {
         case 1_000_000...: return String(format: "%.1fM", Double(count) / 1_000_000)
         case 10_000...: return "\(count / 1000)K"
@@ -525,12 +532,12 @@ enum AgentUsage {
 
     /// How long ago something was written. A quota is only as fresh as the last turn that
     /// wrote it, so a tool that has been quiet all day has to say so rather than look current.
-    static func ago(_ date: Date, now: Date = Date()) -> String {
+    package static func ago(_ date: Date, now: Date = Date()) -> String {
         span(now.timeIntervalSince(date)).map { "\($0) ago" } ?? "just now"
     }
 
     /// "2h 14m", "6d", or nil once the window has already rolled over.
-    static func until(_ date: Date?, now: Date = Date()) -> String? {
+    package static func until(_ date: Date?, now: Date = Date()) -> String? {
         guard let date else { return nil }
         return span(date.timeIntervalSince(now))
     }
@@ -543,13 +550,13 @@ enum AgentUsage {
         return "\(max(1, seconds / 60))m"
     }
 
-    static func family(_ model: String) -> String {
+    package static func family(_ model: String) -> String {
         let name = model.lowercased()
         return ["opus", "sonnet", "haiku", "fable", "gpt", "codex"].first { name.contains($0) } ?? "other"
     }
 
     /// `claude-haiku-4-5-20251001` → `haiku-4-5`: the date stamp is noise in a legend.
-    static func modelName(_ model: String) -> String {
+    package static func modelName(_ model: String) -> String {
         let stripped = model.hasPrefix("claude-") ? String(model.dropFirst("claude-".count)) : model
         let parts = stripped.split(separator: "-")
         guard let last = parts.last, last.count == 8, last.allSatisfy(\.isNumber) else { return stripped }

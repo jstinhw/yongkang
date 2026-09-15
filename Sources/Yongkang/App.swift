@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 
 @main
-struct YongkangApp: App {
+package struct YongkangApp: App {
     // ponytail: no folder is touched until the user picks one. Defaulting to $HOME made
     // claude scan the home folder and trip every TCC prompt (iCloud Drive, Music,
     // Documents) at launch. An NSOpenPanel choice carries intent, so macOS grants it.
@@ -67,7 +67,7 @@ struct YongkangApp: App {
     // code than a recursive watcher and the tree is tiny. Revisit at thousands of files.
     private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
-    init() {
+    package init() {
         if let index = CommandLine.arguments.firstIndex(of: "--shots"),
             let path = CommandLine.arguments[safe: index + 1]
         {
@@ -76,7 +76,7 @@ struct YongkangApp: App {
         }
     }
 
-    var body: some Scene {
+    package var body: some Scene {
         WindowGroup {
             ZStack(alignment: .topLeading) {
                 Theme.bg.ignoresSafeArea()

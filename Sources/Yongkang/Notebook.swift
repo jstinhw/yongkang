@@ -2,21 +2,21 @@ import Foundation
 
 /// One row in the notebook sidebar. `id` is the file path so selection and
 /// disclosure survive the periodic reload after an agent writes a file.
-struct NotebookEntry: Identifiable, Equatable {
-    let id: String
-    let url: URL
+package struct NotebookEntry: Identifiable, Equatable {
+    package let id: String
+    package let url: URL
     let title: String
     let icon: String
     let children: [NotebookEntry]?
 
     /// Both sides of a selection must agree: FileManager hands back symlink-resolved
     /// URLs (/var → /private/var), a URL you just appended to keeps the symlink.
-    static func id(for url: URL) -> String { url.resolvingSymlinksInPath().path }
+    package static func id(for url: URL) -> String { url.resolvingSymlinksInPath().path }
 }
 
-enum NotebookLoader {
+package enum NotebookLoader {
     /// Empty when the project has no `.notebook` — nothing is created to read it.
-    static func load(root: URL) -> [NotebookEntry] {
+    package static func load(root: URL) -> [NotebookEntry] {
         NotebookFormat.visibleFolders.compactMap { node(at: root.appendingPathComponent($0)) }
     }
 
@@ -51,7 +51,7 @@ enum NotebookLoader {
         }
     }
 
-    static func find(_ id: String, in entries: [NotebookEntry]) -> NotebookEntry? {
+    package static func find(_ id: String, in entries: [NotebookEntry]) -> NotebookEntry? {
         for entry in entries {
             if entry.id == id { return entry }
             if let hit = entry.children.flatMap({ find(id, in: $0) }) { return hit }

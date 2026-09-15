@@ -4,7 +4,7 @@ import SwiftUI
 /// limit, which models the spend went to, which role spent it, and which individual agent.
 /// Every number is read off the same transcripts the rest of the console watches, so this
 /// screen keeps no state of its own to drift out of date.
-struct UsageBoard: View {
+package struct UsageBoard: View {
     let project: Project
     let open: (String) -> Void
 
@@ -23,7 +23,7 @@ struct UsageBoard: View {
     /// `range` is only ever passed by the shot renderer, which has no one to click the
     /// picker and would otherwise photograph whichever window happens to be quiet on the
     /// machine it runs on.
-    init(project: Project, open: @escaping (String) -> Void, range: UsageRange = .day) {
+    package init(project: Project, open: @escaping (String) -> Void, range: UsageRange = .day) {
         self.project = project
         self.open = open
         _range = State(initialValue: range)
@@ -44,7 +44,7 @@ struct UsageBoard: View {
 
     private func tint(_ model: String) -> Color { palette[model] ?? AgentUsage.modelTint(model) }
 
-    var body: some View {
+    package var body: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 20) {

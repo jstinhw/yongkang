@@ -3,7 +3,7 @@ import SwiftUI
 /// What is being asked of the user, and the button that starts doing it. The body of a
 /// block is written as steps by whoever hit the gate, so it renders like any other page.
 /// The action bar either opens the guiding session or returns a proposal to Product.
-struct BlockDetail: View {
+package struct BlockDetail: View {
     let block: UserBlock
     let cards: [NotebookCard]
     /// The session that is waiting on this, if it is still running.
@@ -14,11 +14,27 @@ struct BlockDetail: View {
 
     @State private var content: [NotebookContent.Section] = []
 
+    package init(
+        block: UserBlock,
+        cards: [NotebookCard],
+        waiting: CodeSession?,
+        start: @escaping () -> Void,
+        revise: @escaping () -> Void,
+        resolve: @escaping () -> Void
+    ) {
+        self.block = block
+        self.cards = cards
+        self.waiting = waiting
+        self.start = start
+        self.revise = revise
+        self.resolve = resolve
+    }
+
     private var parent: NotebookCard? {
         block.task.flatMap { id in cards.first { $0.id == id } }
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ScrollView {

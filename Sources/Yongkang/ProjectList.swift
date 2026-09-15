@@ -4,7 +4,7 @@ import SwiftUI
 /// The column beside the rail: whatever its current section is a list of. One column per
 /// section rather than one tree holding everything at once — the old sidebar made you read
 /// past the notebook to find the agent you were watching.
-struct ProjectList: View {
+package struct ProjectList: View {
     let section: ConsoleSection
     let project: Project
     /// Dragged by the user from the divider on its trailing edge.
@@ -21,7 +21,29 @@ struct ProjectList: View {
     /// Agent trees start open; this only remembers the roots the user collapsed.
     @State private var collapsed: Set<UUID> = []
 
-    var body: some View {
+    package init(
+        section: ConsoleSection,
+        project: Project,
+        width: CGFloat = Theme.listWidth,
+        selection: Binding<String?>,
+        showDone: Bool,
+        changes: [FileChange],
+        assign: @escaping ([NotebookCard]) -> Void,
+        closeSession: @escaping (CodeSession) -> Void,
+        remove: @escaping (NotebookCard) -> Void
+    ) {
+        self.section = section
+        self.project = project
+        self.width = width
+        self._selection = selection
+        self.showDone = showDone
+        self.changes = changes
+        self.assign = assign
+        self.closeSession = closeSession
+        self.remove = remove
+    }
+
+    package var body: some View {
         ListPane(width: width) {
             header
             ScrollView {

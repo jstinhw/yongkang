@@ -1,7 +1,7 @@
 import Foundation
 
-enum AgentCommand {
-    static func quoted(_ text: String) -> String {
+package enum AgentCommand {
+    package static func quoted(_ text: String) -> String {
         "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
@@ -11,7 +11,7 @@ enum AgentCommand {
     /// Claude Code and Grok accept `--session-id`; Codex gets a marker in its prompt so
     /// its rollout can be found later. Agy has neither and starts prompted sessions with
     /// `--prompt-interactive`.
-    static func line(
+    package static func line(
         directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil,
         brief: Bool = false, noCommit: Bool = false
     ) -> String {
@@ -55,7 +55,7 @@ enum AgentCommand {
 
     /// A service is whatever the repo starts with, so no `exec` — the command may be a
     /// pipeline or a shell function, and the login shell has to stay around to run it.
-    static func line(directory: String, run command: String) -> String {
+    package static func line(directory: String, run command: String) -> String {
         "cd \(quoted(directory)) && \(command)"
     }
 }

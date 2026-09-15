@@ -5,7 +5,7 @@ extension NotebookFormat {
     /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
     /// point of an empty project is that nothing has been written to it yet — the
     /// agent writes the first file.
-    static func onboardingPrompt(description: String) -> String {
+    package static func onboardingPrompt(description: String) -> String {
         """
         This project has no notebook yet. We are going to start one.
 
@@ -69,7 +69,7 @@ extension NotebookFormat {
     /// The session id goes in so a block this lead writes says who is waiting on it —
     /// with two leads running, the answer has to come back to the right one. An empty
     /// batch is a lead started with no work: it confirms the team and waits.
-    static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
+    package static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
         let id = "Session id: \(sessionID.uuidString.lowercased())"
         let batch =
             tasks.isEmpty
@@ -80,7 +80,7 @@ extension NotebookFormat {
 
     /// A change request with no lead left to type it into: a fresh lead gets the task and
     /// the user's comments together, and the skill tells it to read the earlier records.
-    static func changeRequestPrompt(
+    package static func changeRequestPrompt(
         task: NotebookCard, message: String, sessionID: UUID,
         agent: AgentKind
     ) -> String {
@@ -91,13 +91,13 @@ extension NotebookFormat {
     }
 
     /// Reinvoke the same dispatcher for a later batch in the existing lead session.
-    static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
+    package static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
         engineeringPrompt(tasks: tasks, sessionID: sessionID, agent: agent)
     }
 
     /// Product writes its session id into the Blocks notification, making that row a link
     /// back to the transcript where the proposal is discussed.
-    static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
+    package static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
         agent.skill(
             "product",
             arguments: arguments
@@ -111,20 +111,20 @@ extension NotebookFormat {
     /// waiting behind it.
     /// The resumable prompt for a block. Live proposals route directly to their Product
     /// transcript; this is also the fallback when that Product session has exited.
-    static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
+    package static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
         agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
     }
 
     /// Incubate mode's opening prompt: the description of an agent that does not exist
     /// yet. The skill owns how to search for a skill to give it and what to write; the
     /// prompt carries only what the user typed.
-    static func incubatePrompt(brief: String, agent: AgentKind) -> String {
+    package static func incubatePrompt(brief: String, agent: AgentKind) -> String {
         agent.skill("incubate-agent", arguments: brief)
     }
 
     /// Typed into the waiting session once its block clears — the same words a person
     /// would use coming back to say the account is set up now.
-    static func unblockedMessage(block: UserBlock) -> String {
+    package static func unblockedMessage(block: UserBlock) -> String {
         let detail = block.resolution.isEmpty ? "" : " \(block.resolution)"
         return "Unblocked: \(block.title).\(detail) Continue from where you stopped."
     }

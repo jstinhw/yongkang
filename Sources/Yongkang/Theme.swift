@@ -4,11 +4,11 @@ import SwiftUI
 /// The console's whole visual vocabulary in one place: a cool near-black ground, one blue
 /// accent, and the notebook's own `status:` words as the only other colour. Every screen is
 /// built from these tokens, so a change here is a change everywhere.
-enum Theme {
+package enum Theme {
 
     // MARK: - Ground
 
-    static let bg = Color(hex: 0x0C0E12)  // window ground
+    package static let bg = Color(hex: 0x0C0E12)  // window ground
     static let rail = Color(hex: 0x0A0C10)  // the icon rail, one step darker
     static let panel = Color(hex: 0x0E1116)  // list and inspector columns
     static let card = Color(hex: 0x141821)  // raised surface
@@ -31,7 +31,7 @@ enum Theme {
 
     static let accent = Color(hex: 0x52A8FF)  // active — an agent is on it
     static let green = Color(hex: 0x45D8A4)  // done — QA passed
-    static let amber = Color(hex: 0xF3B455)  // blocked — waiting on you
+    package static let amber = Color(hex: 0xF3B455)  // blocked — waiting on you
     static let red = Color(hex: 0xFF6F6F)  // failed — QA sent it back
     static let violet = Color(hex: 0xA98CFF)  // wip — a lead already holds it
 
@@ -143,11 +143,11 @@ extension View {
 
 /// The one button shape in the app. `primary` is the single action a screen is for; there
 /// is never more than one on screen.
-struct ConsoleButtonStyle: ButtonStyle {
+package struct ConsoleButtonStyle: ButtonStyle {
     var primary = false
     var ghost = false
 
-    func makeBody(configuration: Configuration) -> some View {
+    package func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typo.text(12, primary ? .semibold : .medium))
             .foregroundStyle(primary ? Theme.bg : (ghost ? Theme.tx2 : Color(hex: 0xC7D0DC)))
@@ -168,9 +168,9 @@ struct ConsoleButtonStyle: ButtonStyle {
 }
 
 extension ButtonStyle where Self == ConsoleButtonStyle {
-    static var console: ConsoleButtonStyle { ConsoleButtonStyle() }
+    package static var console: ConsoleButtonStyle { ConsoleButtonStyle() }
     static var consolePrimary: ConsoleButtonStyle { ConsoleButtonStyle(primary: true) }
-    static var consoleGhost: ConsoleButtonStyle { ConsoleButtonStyle(ghost: true) }
+    package static var consoleGhost: ConsoleButtonStyle { ConsoleButtonStyle(ghost: true) }
 }
 
 /// A small square tile carrying a role's two-letter mark. The same colour follows a role

@@ -3,7 +3,7 @@ import SwiftUI
 /// Status colour and glyphs shared by every place a notebook entry's status shows up —
 /// the board's cards, a project's page, an agent's row. The words are the notebook's own
 /// `status:` values; the colours come from `Theme`, so there is one palette, not two.
-enum NotebookStyle {
+package enum NotebookStyle {
     static func color(of status: String) -> Color {
         switch status {
         case "done", "succeeded", "passed": return Theme.green
@@ -22,7 +22,7 @@ enum NotebookStyle {
     }
 
     /// The one badge shape in the app: 20pt tall, the signal colour on a wash of itself.
-    static func pill(_ text: String, _ color: Color, live: Bool = false) -> some View {
+    package static func pill(_ text: String, _ color: Color, live: Bool = false) -> some View {
         HStack(spacing: 5) {
             if live { StateDot(color: color, live: true) }
             Text(text).font(Typo.text(11, .medium))

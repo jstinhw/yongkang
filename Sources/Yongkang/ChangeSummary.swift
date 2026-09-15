@@ -7,31 +7,31 @@ import Foundation
 /// Nothing here is written for this screen. It is the lead's own run records, read the way
 /// a person reads them before a commit — so a summary can never claim work the notebook
 /// does not show.
-struct ChangeSummary: Equatable {
-    var tasks: [SummaryTask] = []
+package struct ChangeSummary: Equatable {
+    package var tasks: [SummaryTask] = []
     /// One line per lead: how it chose to split the batch. The only design decision the
     /// app can quote rather than infer.
     var strategies: [String] = []
 
     /// Changed files no task reported owning: hand edits, or a lead that recorded no
     /// paths. Never silently folded into a task — an unattributed file is a thing to know.
-    var unclaimed: [FileChange] = []
+    package var unclaimed: [FileChange] = []
     /// The longest bar on the screen, so a file's bar means the same thing under every
     /// task rather than being rescaled per card.
-    var peak: Int = 1
+    package var peak: Int = 1
 
-    var finished: [SummaryTask] { tasks.filter(\.done) }
-    var isEmpty: Bool { tasks.isEmpty && strategies.isEmpty }
+    package var finished: [SummaryTask] { tasks.filter(\.done) }
+    package var isEmpty: Bool { tasks.isEmpty && strategies.isEmpty }
 
     /// The strategy, then every decision a worker checkpointed — the two places a choice
     /// that outlives the run is written down.
-    var decisions: [String] {
+    package var decisions: [String] {
         strategies + tasks.flatMap(\.work).map(\.checkpoint).filter { !$0.isEmpty }
     }
 
     /// Every task a lead in this project was handed, done ones first, each carrying the
     /// work records filed against it and the files those workers reported owning.
-    static func of(_ project: Project, changes: [FileChange] = []) -> ChangeSummary {
+    package static func of(_ project: Project, changes: [FileChange] = []) -> ChangeSummary {
         var work: [String: [LeadWork]] = [:]
         var strategies: [String] = []
         for (_, coordination) in plans(of: project) {
@@ -83,10 +83,10 @@ struct ChangeSummary: Equatable {
     }
 
     /// Finished tasks whose work is still uncommitted — what is waiting on the user.
-    var waiting: [SummaryTask] { tasks.filter { $0.done && !$0.files.isEmpty } }
+    package var waiting: [SummaryTask] { tasks.filter { $0.done && !$0.files.isEmpty } }
 
     /// Another task that changed the same file, which approving this one would carry along.
-    func sharing(_ path: String, besides task: SummaryTask) -> SummaryTask? {
+    package func sharing(_ path: String, besides task: SummaryTask) -> SummaryTask? {
         tasks.first { $0.id != task.id && !$0.commitPaths.isEmpty && $0.files.contains { $0.path == path } }
     }
 
@@ -106,7 +106,7 @@ struct ChangeSummary: Equatable {
 
     /// A commit subject to edit instead of type. Only finished tasks go in it: naming work
     /// still in flight is a claim the repo would keep forever.
-    var commitMessage: String {
+    package var commitMessage: String {
         let done = finished
         guard let first = done.first else { return "" }
         guard done.count > 1 else { return first.title }
@@ -115,26 +115,28 @@ struct ChangeSummary: Equatable {
 }
 
 /// One task in the summary, with the specialists that built it and the ones that reviewed it.
-struct SummaryTask: Identifiable, Equatable {
-    let id: String
-    var title: String
-    var status: String
+package struct SummaryTask: Identifiable, Equatable {
+    package let id: String
+    package var title: String
+    package var status: String
     /// The task file, whose body is the brief and the "Done when" the review opens on.
-    var url: URL? = nil
-    var work: [LeadWork] = []
+    package var url: URL? = nil
+    package var work: [LeadWork] = []
     /// The changed files this task's workers reported owning, in the order they named them.
-    var files: [FileChange] = []
+    package var files: [FileChange] = []
     /// Changed notebook files that belong to this task: its own file and its work records.
     var records: [String] = []
 
     /// What approving this task commits: its code and its records, nothing else.
-    var commitPaths: [String] { files.map(\.path) + records.filter { path in !files.contains { $0.path == path } } }
+    package var commitPaths: [String] {
+        files.map(\.path) + records.filter { path in !files.contains { $0.path == path } }
+    }
 
-    var done: Bool { status == "done" }
-    var added: Int { files.reduce(0) { $0 + $1.added } }
-    var removed: Int { files.reduce(0) { $0 + $1.removed } }
+    package var done: Bool { status == "done" }
+    package var added: Int { files.reduce(0) { $0 + $1.added } }
+    package var removed: Int { files.reduce(0) { $0 + $1.removed } }
     /// QA is the one specialist whose report is a verdict on someone else's work, so it
     /// reads apart from the builds it accepted.
-    var reviews: [LeadWork] { work.filter { $0.skill.lowercased().contains("qa") } }
-    var builds: [LeadWork] { work.filter { !$0.skill.lowercased().contains("qa") } }
+    package var reviews: [LeadWork] { work.filter { $0.skill.lowercased().contains("qa") } }
+    package var builds: [LeadWork] { work.filter { !$0.skill.lowercased().contains("qa") } }
 }

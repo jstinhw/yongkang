@@ -1,7 +1,7 @@
 import Foundation
 
 /// Reads the session Grok writes for the UUID Yongkang passes with `--session-id`.
-enum GrokTranscripts {
+package enum GrokTranscripts {
     static func projectFolder(
         projectDirectory: URL,
         grokHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".grok")
@@ -51,7 +51,7 @@ enum GrokTranscripts {
             .appendingPathComponent("updates.jsonl")
     }
 
-    static func transcript(at url: URL) -> [TranscriptLine] {
+    package static func transcript(at url: URL) -> [TranscriptLine] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").flatMap { line -> [TranscriptLine] in
             guard let data = line.data(using: .utf8),

@@ -4,7 +4,7 @@ import SwiftUI
 /// for, what the reviewer said, and what each agent did. The code is one click further —
 /// collapsed under Changes, each file opening its diff — because the verdict and the
 /// reports are what most reviews need, and the diff is there for the ones that do not.
-struct TaskReview: View {
+package struct TaskReview: View {
     let task: SummaryTask
     let summary: ChangeSummary
     let directory: URL
@@ -22,6 +22,32 @@ struct TaskReview: View {
     /// it is flagged as Database before the reviewer expands anything.
     @State private var areas: [String: ReviewArea] = [:]
 
+    package init(
+        task: SummaryTask,
+        summary: ChangeSummary,
+        directory: URL,
+        cards: [NotebookCard],
+        team: [TeamMember],
+        branch: String?,
+        head: String?,
+        draft: Binding<ReviewDraft>,
+        openFile: @escaping (String) -> Void,
+        approve: @escaping (String) -> String?,
+        requestChanges: @escaping () -> Void
+    ) {
+        self.task = task
+        self.summary = summary
+        self.directory = directory
+        self.cards = cards
+        self.team = team
+        self.branch = branch
+        self.head = head
+        self._draft = draft
+        self.openFile = openFile
+        self.approve = approve
+        self.requestChanges = requestChanges
+    }
+
     private var checklist: [NotebookContent.ChecklistItem] {
         content.flatMap { $0.blocks }.flatMap { block -> [NotebookContent.ChecklistItem] in
             if case .checklist(let items) = block { return items }
@@ -36,7 +62,7 @@ struct TaskReview: View {
         }
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ScrollView {

@@ -11,7 +11,7 @@ import Foundation
 /// Rolled up by the hour rather than kept per turn. A turn-by-turn log would grow without
 /// bound in a folder the user commits, and every window past the first buckets an hour or
 /// wider anyway; only the live session, still read from its own transcript, needs finer.
-enum UsageLedger {
+package enum UsageLedger {
 
     private struct Ledger: Codable {
         var version = 1
@@ -39,13 +39,13 @@ enum UsageLedger {
         }
     }
 
-    static func url(root: URL) -> URL { root.appendingPathComponent("usage.json") }
+    package static func url(root: URL) -> URL { root.appendingPathComponent("usage.json") }
 
     /// Folds what the transcripts currently say into the ledger and writes it back.
     /// Returns whether anything was actually written — this is called from the app's
     /// two-second poll, and an unchanged ledger is left alone.
     @discardableResult
-    static func record(_ spends: [AgentSpend], root: URL) -> Bool {
+    package static func record(_ spends: [AgentSpend], root: URL) -> Bool {
         guard !spends.isEmpty else { return false }
         var byID = Dictionary(
             read(root: root).agents.map { ($0.id, $0) },
@@ -72,7 +72,7 @@ enum UsageLedger {
     /// beside the live ones. Their samples are hour marks rather than turns, which is all
     /// the file keeps — and they carry no tag, because the session that produced them is
     /// gone and there is nothing left for a click to open.
-    static func load(root: URL) -> [AgentSpend] {
+    package static func load(root: URL) -> [AgentSpend] {
         read(root: root).agents.map { record in
             AgentSpend(
                 id: record.id, tag: "", name: record.name, role: record.role,

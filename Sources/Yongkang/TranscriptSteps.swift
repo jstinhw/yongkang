@@ -7,23 +7,23 @@ import Foundation
 /// Claude Code's own view collapses a run of tool work into a single line — "Searched for 1
 /// pattern, read 14 files, ran 8 shell commands" — and this does the same, keeping the raw
 /// lines behind it so a run can still be opened when something looks wrong.
-struct TranscriptStep: Identifiable {
-    enum Kind { case task, say, skill, note, work }
+package struct TranscriptStep: Identifiable {
+    package enum Kind { case task, say, skill, note, work }
 
     /// Position in the list, so an opened run stays open across the 2-second reload —
     /// a fresh UUID per parse would close it again on every poll.
-    let id: Int
-    let kind: Kind
+    package let id: Int
+    package let kind: Kind
     /// The prose, the skill's name, or the summary line for a run of work.
-    let text: String
+    package let text: String
     /// The lines a work summary stands for, shown when it is opened.
-    var detail: [TranscriptLine] = []
-    var errors: Int = 0
+    package var detail: [TranscriptLine] = []
+    package var errors: Int = 0
 }
 
-enum TranscriptSteps {
+package enum TranscriptSteps {
 
-    static func steps(_ lines: [TranscriptLine]) -> [TranscriptStep] {
+    package static func steps(_ lines: [TranscriptLine]) -> [TranscriptStep] {
         var steps: [TranscriptStep] = []
         var run: [TranscriptLine] = []
         /// A subagent is briefed once. Every later user message is either the harness

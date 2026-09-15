@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// The timeline is `TranscriptTimeline`, the same one the lead is read through; what is
 /// particular to a subagent is the header above it and the task in the inspector.
-struct SubagentViewer: View {
+package struct SubagentViewer: View {
     let session: CodeSession
     let subagent: SubagentStatus
     let lines: [TranscriptLine]
@@ -16,7 +16,21 @@ struct SubagentViewer: View {
 
     @State private var checklist: [NotebookContent.ChecklistItem] = []
 
-    var body: some View {
+    package init(
+        session: CodeSession,
+        subagent: SubagentStatus,
+        lines: [TranscriptLine],
+        task: NotebookCard?,
+        openTask: @escaping (String) -> Void
+    ) {
+        self.session = session
+        self.subagent = subagent
+        self.lines = lines
+        self.task = task
+        self.openTask = openTask
+    }
+
+    package var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 header

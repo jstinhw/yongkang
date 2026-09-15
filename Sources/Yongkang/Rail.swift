@@ -3,12 +3,12 @@ import SwiftUI
 /// What the window is showing. The rail picks one of these; the list column then holds that
 /// section's objects and the work area holds whichever one is selected. Every screen is the
 /// same four columns, so moving between sections never rearranges the window.
-enum ConsoleSection: String, CaseIterable, Identifiable {
+package enum ConsoleSection: String, CaseIterable, Identifiable {
     case overview, board, agents, review, blocks
 
-    var id: Self { self }
+    package var id: Self { self }
 
-    var title: String {
+    package var title: String {
         switch self {
         case .overview: return "Overview"
         case .board: return "Board"
@@ -31,7 +31,7 @@ enum ConsoleSection: String, CaseIterable, Identifiable {
 
 /// The 64pt icon rail. It is the only navigation that never changes, which is what makes
 /// the rest of the window safe to rearrange per section.
-struct Rail: View {
+package struct Rail: View {
     @Binding var section: ConsoleSection
     /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
     let badges: [ConsoleSection: Color]
@@ -46,7 +46,7 @@ struct Rail: View {
 
     /// `hovering` is only ever passed by the shot renderer, which has no pointer of its own
     /// and would otherwise photograph a rail whose labels never appear.
-    init(
+    package init(
         section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
         leave: @escaping () -> Void, agentCount: Int = 0, listHidden: Bool = false,
         toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil
@@ -60,7 +60,7 @@ struct Rail: View {
         _hovered = State(initialValue: hovering)
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 4) {
             Button(action: leave) {
                 Text("YK")
@@ -165,13 +165,20 @@ struct Rail: View {
 
 /// The header strip above the work area: where you are on the left, what you can do here
 /// on the right.
-struct TopBar<Trailing: View>: View {
+package struct TopBar<Trailing: View>: View {
     let crumbs: [String]
     let title: String
     var pill: AnyView? = nil
     @ViewBuilder var trailing: Trailing
 
-    var body: some View {
+    package init(crumbs: [String], title: String, pill: AnyView? = nil, @ViewBuilder trailing: () -> Trailing) {
+        self.crumbs = crumbs
+        self.title = title
+        self.pill = pill
+        self.trailing = trailing()
+    }
+
+    package var body: some View {
         // Where you are gives way before what you can do: a long task title truncates and
         // the crumbs before it drop out entirely rather than pushing the actions off the
         // right edge of a narrow window.

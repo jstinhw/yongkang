@@ -7,7 +7,7 @@ import Foundation
 /// Installing a remote skill is the same idea in reverse: drop the folder where the
 /// provider is already looking (`.claude/skills/` for Claude Code, `.agents/skills/` for
 /// Codex, linked to the same file so the two cannot drift) and it is available to both.
-enum Skills {
+package enum Skills {
     /// The two folder names each provider reads, relative to a project or to `$HOME`.
     static let folders = [".claude/skills", ".agents/skills"]
 
@@ -38,7 +38,7 @@ enum Skills {
 
     /// Every skill this project could give an agent, one entry per name — the first root
     /// that answers to a name wins, so a project copy shadows the packaged one.
-    static func available(project: URL?) -> [SkillDoc] {
+    package static func available(project: URL?) -> [SkillDoc] {
         var seen: Set<String> = []
         return roots(project: project)
             .flatMap(folders(in:))
@@ -60,7 +60,7 @@ enum Skills {
     /// A remote worth handing to `git clone`. The arguments go straight to the process,
     /// never through a shell, so this is not about quoting: it is about a "URL" that is
     /// really a git option (`--upload-pack=…`) or a local path to somewhere else on disk.
-    static func isRemote(_ text: String) -> Bool {
+    package static func isRemote(_ text: String) -> Bool {
         let remote = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !remote.contains(" "), remote.count > 8 else { return false }
         return ["https://", "http://", "ssh://", "git@"].contains { remote.hasPrefix($0) }
@@ -100,7 +100,7 @@ enum Skills {
     /// ponytail: synchronous, like every other `git` call in the app. A shallow clone of
     /// a skills repo is a second or two of a modal sheet; move it off the main thread if
     /// someone points it at a repo that is actually big.
-    static func install(git remote: String, into project: URL) throws -> [String] {
+    package static func install(git remote: String, into project: URL) throws -> [String] {
         let url = remote.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isRemote(url) else {
             throw error("Not a git remote. Use an https:// or ssh:// URL, or git@host:owner/repo.")

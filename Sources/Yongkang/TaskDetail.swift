@@ -3,7 +3,7 @@ import SwiftUI
 /// One task's own page — what it is, what "done" means for it, and who is on it right now
 /// — instead of the raw Markdown file. The checklist is the only progress a task actually
 /// records, so it gets the room.
-struct TaskDetail: View {
+package struct TaskDetail: View {
     let card: NotebookCard
     let cards: [NotebookCard]
     /// Whether a still-open Engineering Lead session already has this task.
@@ -15,6 +15,24 @@ struct TaskDetail: View {
     let check: (CodeSession, SubagentStatus) -> Void
 
     @State private var content: [NotebookContent.Section] = []
+
+    package init(
+        card: NotebookCard,
+        cards: [NotebookCard],
+        assigned: Set<String>,
+        working: [(CodeSession, SubagentStatus)],
+        open: @escaping (URL) -> Void,
+        assign: @escaping ([NotebookCard]) -> Void,
+        check: @escaping (CodeSession, SubagentStatus) -> Void
+    ) {
+        self.card = card
+        self.cards = cards
+        self.assigned = assigned
+        self.working = working
+        self.open = open
+        self.assign = assign
+        self.check = check
+    }
 
     private var locked: Bool { assigned.contains(card.id) || card.status == "done" }
     private var project: NotebookCard? {
@@ -32,7 +50,7 @@ struct TaskDetail: View {
         }
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ScrollView {

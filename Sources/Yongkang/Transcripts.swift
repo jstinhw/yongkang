@@ -2,8 +2,8 @@ import Foundation
 
 /// Where supported providers keep a session's own transcript. Naming it once keeps the
 /// window and the usage screen looking in the same place.
-enum Transcripts {
-    static func url(of session: CodeSession, in directory: URL) -> URL? {
+package enum Transcripts {
+    package static func url(of session: CodeSession, in directory: URL) -> URL? {
         switch session.agent {
         case .codex:
             return CodexTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
@@ -19,7 +19,7 @@ enum Transcripts {
         }
     }
 
-    static func usageURL(of session: CodeSession, in directory: URL) -> URL? {
+    package static func usageURL(of session: CodeSession, in directory: URL) -> URL? {
         guard session.agent == .grok else { return url(of: session, in: directory) }
         return GrokTranscripts.usageURL(sessionID: session.id, projectDirectory: directory)
     }

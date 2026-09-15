@@ -8,21 +8,28 @@ import Foundation
 /// (which only Claude Code reads) — the lead routes by these files whether it is Claude
 /// Code or Codex, and hands each skill to the specialist the same way a top-level session
 /// gets one.
-struct TeamMember: Identifiable, Equatable {
-    var name: String
-    var skills: [String]
-    var owns: String
-    var notes: String = ""
+package struct TeamMember: Identifiable, Equatable {
+    package var name: String
+    package var skills: [String]
+    package var owns: String
+    package var notes: String = ""
 
-    var id: String { name }
+    package init(name: String, skills: [String], owns: String, notes: String = "") {
+        self.name = name
+        self.skills = skills
+        self.owns = owns
+        self.notes = notes
+    }
+
+    package var id: String { name }
 }
 
-enum Team {
+package enum Team {
     static let folder = "team"
 
     /// The roster shipped with the app. Written to `.notebook/team/` the first time a lead
     /// starts in a project that has a notebook; after that the files on disk are the truth.
-    static let defaults: [TeamMember] = [
+    package static let defaults: [TeamMember] = [
         // Two skills, in the order they run: Allen settles what a screen looks like and
         // the user approves it, then Allen builds it.
         TeamMember(
@@ -50,7 +57,7 @@ enum Team {
     /// The roster the app shows and the lead routes by. Files on disk win; with no `team/`
     /// folder yet, the shipped defaults stand in so the roster is never empty. Shipped
     /// agents keep their canonical order; anything hand-added sorts after them by name.
-    static func load(root: URL) -> [TeamMember] {
+    package static func load(root: URL) -> [TeamMember] {
         let dir = directory(in: root)
         guard FileManager.default.fileExists(atPath: dir.path) else { return defaults }
         let files = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
@@ -67,7 +74,7 @@ enum Team {
     /// The lead names every subagent `<task-id>-<skill>`, so the skill inside the label is
     /// what links a live agent back to a person on the roster — and the skill it matched is
     /// worth handing back, because a provider does not always say which one it spawned.
-    static func running(_ label: String, in team: [TeamMember]) -> (member: TeamMember, skill: String)? {
+    package static func running(_ label: String, in team: [TeamMember]) -> (member: TeamMember, skill: String)? {
         let haystack = Subagents.normalize(label)
         // Longest skill first, and roster order on a tie, so two agents given the same
         // skill resolve the same way every read rather than however the sort landed.
@@ -92,17 +99,17 @@ enum Team {
 
     /// Writes the shipped roster to `.notebook/team/` once. A folder that already exists —
     /// even trimmed to a subset — is the user's, and is left alone.
-    static func seedIfAbsent(root: URL) {
+    package static func seedIfAbsent(root: URL) {
         let dir = directory(in: root)
         guard !FileManager.default.fileExists(atPath: dir.path) else { return }
         for member in defaults { try? write(member, root: root) }
     }
 
-    static func file(for name: String, root: URL) -> URL {
+    package static func file(for name: String, root: URL) -> URL {
         directory(in: root).appendingPathComponent("\(NotebookFormat.slug(name)).md")
     }
 
-    static func write(_ member: TeamMember, root: URL) throws {
+    package static func write(_ member: TeamMember, root: URL) throws {
         try FileManager.default.createDirectory(at: directory(in: root), withIntermediateDirectories: true)
         let skills = "[" + member.skills.joined(separator: ", ") + "]"
         let front = "---\nname: \(member.name)\nskills: \(skills)\nowns: \(yaml(member.owns))\n---"

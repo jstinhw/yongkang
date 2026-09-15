@@ -1,13 +1,13 @@
 import Foundation
 
-enum AgentKind: String, CaseIterable, Identifiable {
+package enum AgentKind: String, CaseIterable, Identifiable {
     case claude
     case codex
     case grok
     case agy
 
-    var id: Self { self }
-    var displayName: String {
+    package var id: Self { self }
+    package var displayName: String {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
@@ -15,7 +15,7 @@ enum AgentKind: String, CaseIterable, Identifiable {
         case .agy: "Agy"
         }
     }
-    var systemImage: String {
+    package var systemImage: String {
         switch self {
         case .claude: "sparkles"
         case .codex: "chevron.left.forwardslash.chevron.right"

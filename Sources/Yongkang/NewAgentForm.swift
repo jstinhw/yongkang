@@ -9,7 +9,7 @@ import SwiftUI
 /// **Incubate** writes nothing. You describe the agent you want and a session goes and
 /// finds the skills for it, the same rule the notebook follows: the app does not write
 /// what an agent should be deciding. The new roster row appears when that session lands.
-struct NewAgentForm: View {
+package struct NewAgentForm: View {
     /// The project folder: what skills resolve against, and where a fetched one is put.
     let directory: URL
     let taken: [String]
@@ -35,6 +35,20 @@ struct NewAgentForm: View {
     @State private var failure = ""
     @State private var brief = ""
 
+    package init(
+        directory: URL,
+        taken: [String],
+        save: @escaping (TeamMember) -> Void,
+        incubate: @escaping (String) -> Void,
+        cancel: @escaping () -> Void
+    ) {
+        self.directory = directory
+        self.taken = taken
+        self.save = save
+        self.incubate = incubate
+        self.cancel = cancel
+    }
+
     private var slug: String { NotebookFormat.slug(name) }
     private var clash: Bool { !slug.isEmpty && taken.map(NotebookFormat.slug).contains(slug) }
     private var valid: Bool {
@@ -43,7 +57,7 @@ struct NewAgentForm: View {
             : !slug.isEmpty && !picked.isEmpty && !clash
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("New agent").font(Typo.display(16)).foregroundStyle(Theme.tx)

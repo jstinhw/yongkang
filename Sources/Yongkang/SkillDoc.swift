@@ -3,18 +3,18 @@ import Foundation
 /// A skill as it reads on screen: what the file calls itself, the one line it summarises
 /// itself with, the tools it is allowed, and the instructions themselves — the same text
 /// that gets pasted into an agent's opening prompt.
-struct SkillDoc: Identifiable, Equatable {
-    let name: String
-    let summary: String
-    let tools: [String]
-    let body: String
-    let url: URL?
+package struct SkillDoc: Identifiable, Equatable {
+    package let name: String
+    package let summary: String
+    package let tools: [String]
+    package let body: String
+    package let url: URL?
 
-    var id: String { name }
+    package var id: String { name }
 
     /// The skill this name resolves to for a project — the same file the provider running
     /// the agent would load, wherever it is installed.
-    static func load(_ name: String, project: URL?) -> SkillDoc {
+    package static func load(_ name: String, project: URL?) -> SkillDoc {
         guard let url = Skills.url(name, project: project) else {
             return SkillDoc(name: name, summary: "", tools: [], body: "", url: nil)
         }

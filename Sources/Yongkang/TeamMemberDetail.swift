@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// Nothing here is live. A member is a file in `.notebook/team/`, not a session; the only
 /// moving part is the list of its agents running right now, which is a way back into them.
-struct TeamMemberDetail: View {
+package struct TeamMemberDetail: View {
     let member: TeamMember
     /// The roster file this member was read from, so the reader can go edit it.
     let file: URL
@@ -25,7 +25,21 @@ struct TeamMemberDetail: View {
     @State private var expanded: Set<String> = []
     @State private var notes: [NotebookContent.Section] = []
 
-    var body: some View {
+    package init(
+        member: TeamMember,
+        file: URL,
+        directory: URL,
+        running: [(session: CodeSession, subagent: SubagentStatus)],
+        openSubagent: @escaping (CodeSession, SubagentStatus) -> Void
+    ) {
+        self.member = member
+        self.file = file
+        self.directory = directory
+        self.running = running
+        self.openSubagent = openSubagent
+    }
+
+    package var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 header

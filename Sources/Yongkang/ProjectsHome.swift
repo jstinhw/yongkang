@@ -4,7 +4,7 @@ import SwiftUI
 /// Every project at once — the way in. Leaving a project lands back here; clicking one
 /// enters it. A card says only what you would want before choosing: how far the work has
 /// got, who is on it, and whether anything is waiting on you.
-struct ProjectsHome: View {
+package struct ProjectsHome: View {
     let projects: [Project]
     let enter: (Project) -> Void
     /// Describe a project and an agent creates the folder and starts it.
@@ -17,6 +17,20 @@ struct ProjectsHome: View {
     /// permanent × on every card reads as a grid of things to undo.
     @State private var hovered: Project.ID?
 
+    package init(
+        projects: [Project],
+        enter: @escaping (Project) -> Void,
+        create: @escaping () -> Void,
+        add: @escaping () -> Void,
+        close: @escaping (Project) -> Void
+    ) {
+        self.projects = projects
+        self.enter = enter
+        self.create = create
+        self.add = add
+        self.close = close
+    }
+
     private var running: Int {
         projects.reduce(0) { $0 + $1.onlineAgentCount }
     }
@@ -24,7 +38,7 @@ struct ProjectsHome: View {
         projects.reduce(0) { $0 + $1.blocks.filter(\.waiting).count }
     }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             top
             ScrollView {

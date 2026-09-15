@@ -2,7 +2,7 @@ import SwiftUI
 
 /// What the agents actually changed, as a diff you can read without leaving the console.
 /// No agent commits, so this is the last thing between an agent's work and the repo — the one screen the old window had no answer for at all.
-struct ChangeReview: View {
+package struct ChangeReview: View {
     let project: Project
     let changes: [FileChange]
     let head: String?
@@ -30,9 +30,39 @@ struct ChangeReview: View {
     @State private var suggested = ""
     @State private var failure = ""
 
+    package init(
+        project: Project,
+        changes: [FileChange],
+        head: String?,
+        branch: String?,
+        path: String,
+        summary: ChangeSummary,
+        select: @escaping (String) -> Void,
+        commit: @escaping (String) -> String?,
+        task: SummaryTask? = nil,
+        draft: Binding<ReviewDraft> = .constant(ReviewDraft()),
+        openTask: @escaping (String) -> Void = { _ in },
+        approve: @escaping (String) -> String? = { _ in nil },
+        requestChanges: @escaping () -> Void = {}
+    ) {
+        self.project = project
+        self.changes = changes
+        self.head = head
+        self.branch = branch
+        self.path = path
+        self.summary = summary
+        self.select = select
+        self.commit = commit
+        self.task = task
+        self.draft = draft
+        self.openTask = openTask
+        self.approve = approve
+        self.requestChanges = requestChanges
+    }
+
     private var change: FileChange? { changes.first { $0.path == path } }
 
-    var body: some View {
+    package var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {

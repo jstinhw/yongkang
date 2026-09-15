@@ -7,14 +7,14 @@ import Foundation
 /// sections — but a checkbox list often sits right after the intro with no heading of
 /// its own, and a bullet list of `[[id]]` links is how a project names its own tasks
 /// and decisions.
-enum NotebookContent {
-    struct Section: Equatable {
+package enum NotebookContent {
+    package struct Section: Equatable {
         /// nil for the untitled block of text before the first `## ` heading.
-        var heading: String?
-        var blocks: [Block]
+        package var heading: String?
+        package var blocks: [Block]
     }
 
-    enum Block: Equatable {
+    package enum Block: Equatable {
         case paragraph(String)
         case checklist([ChecklistItem])
         case list([String])
@@ -22,9 +22,9 @@ enum NotebookContent {
         case code(String)
     }
 
-    struct ChecklistItem: Equatable {
-        var text: String
-        var done: Bool
+    package struct ChecklistItem: Equatable {
+        package var text: String
+        package var done: Bool
     }
 
     /// The page's body, already stripped of frontmatter (`NotebookIndex.body`), split
@@ -33,7 +33,7 @@ enum NotebookContent {
     /// meant for it. A wrapped line — no bullet, no blank line before it — is folded
     /// into whichever list item or paragraph was open, rather than starting a stray
     /// paragraph in the middle of one.
-    static func sections(_ body: String) -> [Section] {
+    package static func sections(_ body: String) -> [Section] {
         var result: [Section] = []
         var heading: String?
         var blocks: [Block] = []
@@ -171,14 +171,14 @@ enum NotebookContent {
 
     // MARK: - Cross-links
 
-    enum Token: Equatable {
+    package enum Token: Equatable {
         case text(String)
         case link(String)
     }
 
     /// `text`, split into plain runs and `[[id]]` references, in order. An unmatched
     /// `[[` is kept as plain text rather than swallowing the rest of the line.
-    static func tokens(_ text: String) -> [Token] {
+    package static func tokens(_ text: String) -> [Token] {
         var result: [Token] = []
         var remaining = Substring(text)
         while let open = remaining.range(of: "[[") {
@@ -195,7 +195,7 @@ enum NotebookContent {
         return result
     }
 
-    static func wikilinks(in text: String) -> [String] {
+    package static func wikilinks(in text: String) -> [String] {
         tokens(text).compactMap {
             if case .link(let id) = $0 { return id }
             return nil
@@ -205,7 +205,7 @@ enum NotebookContent {
     /// True when `text` is nothing but one or more `[[id]]` references — a plain
     /// cross-link list item (how a project names its own tasks and decisions), as
     /// opposed to prose that happens to mention one.
-    static func isPureLinks(_ text: String) -> Bool {
+    package static func isPureLinks(_ text: String) -> Bool {
         let found = tokens(text)
         guard !found.isEmpty else { return false }
         return found.allSatisfy { token in

@@ -12,7 +12,7 @@ import WebKit
 ///
 /// Both panes are live pages rather than pictures, because a picture of a layout answers
 /// none of the questions the layout is actually for.
-struct DesignDemo: View {
+package struct DesignDemo: View {
     let block: UserBlock
     let cards: [NotebookCard]
     /// The session waiting on this demo, if it is still running.
@@ -25,6 +25,20 @@ struct DesignDemo: View {
     @State private var pane = Pane.both
     /// Which revision is in the After pane. Nil is the demo's own `url` — the newest one.
     @State private var revision: Int?
+
+    package init(
+        block: UserBlock,
+        cards: [NotebookCard],
+        waiting: CodeSession?,
+        approve: @escaping (DemoRevision?) -> Void,
+        revise: @escaping () -> Void
+    ) {
+        self.block = block
+        self.cards = cards
+        self.waiting = waiting
+        self.approve = approve
+        self.revise = revise
+    }
 
     enum Pane: String, CaseIterable, Identifiable {
         case before = "Before"
@@ -47,7 +61,7 @@ struct DesignDemo: View {
         shown?.url ?? block.revisions.last?.url ?? block.link
     }
 
-    var body: some View {
+    package var body: some View {
         GeometryReader { geometry in
             // Two live pages side by side need the room before anything else does, so a
             // narrow window gives them the inspector's column.

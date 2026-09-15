@@ -1,9 +1,9 @@
 import Foundation
 
-enum EntryKind: String, CaseIterable {
+package enum EntryKind: String, CaseIterable {
     case roadmap, project, task, memory, run
 
-    var displayName: String { rawValue.capitalized }
+    package var displayName: String { rawValue.capitalized }
 }
 
 enum NotebookError: LocalizedError {
@@ -20,15 +20,15 @@ enum NotebookError: LocalizedError {
 
 /// On-disk shape of a notebook. Everything here is plain Markdown so the coding
 /// agents running in the sidebar read and write it with no extra plumbing.
-enum NotebookFormat {
-    static let folderName = ".notebook"
+package enum NotebookFormat {
+    package static let folderName = ".notebook"
     static let specFile = "NOTEBOOK.md"
     static let folders = ["roadmap", "projects", "tasks", "runs"]
     static let visibleFolders = ["roadmap", "projects", "tasks"]
 
     /// Where a project keeps its notebook. Nothing is written until the first entry:
     /// a project with no `.notebook` stays untouched and simply reads as empty.
-    static func root(in project: URL) -> URL { project.appendingPathComponent(folderName) }
+    package static func root(in project: URL) -> URL { project.appendingPathComponent(folderName) }
 
     private static func scaffold(_ root: URL) throws {
         let fm = FileManager.default
@@ -41,7 +41,7 @@ enum NotebookFormat {
         }
     }
 
-    static func create(
+    package static func create(
         _ kind: EntryKind, title: String, in root: URL, project: String?,
         roadmap: String? = nil, subject: String? = nil
     ) throws -> URL {
@@ -95,7 +95,7 @@ enum NotebookFormat {
     /// Everything one entry owns on disk. A project is a folder — its page and its
     /// memory — plus the tasks filed under it, which live in `tasks/` and would otherwise
     /// be left pointing at an id that is gone.
-    static func owned(by card: NotebookCard, in cards: [NotebookCard]) -> [URL] {
+    package static func owned(by card: NotebookCard, in cards: [NotebookCard]) -> [URL] {
         guard card.kind == .project else { return [card.url] }
         let folder = card.url.deletingLastPathComponent()
         return [folder] + cards.filter { $0.kind == .task && $0.project == card.id }.map(\.url)
@@ -104,7 +104,7 @@ enum NotebookFormat {
     /// Trash, not erase: a notebook page is the user's own writing, so removing one stays
     /// undoable from the Finder. A volume with no trash falls back to a plain delete. Tests
     /// pass `trash: false` so every run doesn't leave pages in the developer's Trash.
-    static func remove(_ card: NotebookCard, in cards: [NotebookCard], trash: Bool = true) throws {
+    package static func remove(_ card: NotebookCard, in cards: [NotebookCard], trash: Bool = true) throws {
         let fm = FileManager.default
         for url in owned(by: card, in: cards) where fm.fileExists(atPath: url.path) {
             if trash, (try? fm.trashItem(at: url, resultingItemURL: nil)) != nil { continue }
@@ -112,7 +112,7 @@ enum NotebookFormat {
         }
     }
 
-    static func slug(_ text: String) -> String {
+    package static func slug(_ text: String) -> String {
         let mapped = text.lowercased().map { ch in ch.isASCII && (ch.isLetter || ch.isNumber) ? ch : "-" }
         return String(mapped).split(separator: "-").joined(separator: "-")
     }
@@ -217,7 +217,7 @@ enum NotebookFormat {
     }
 
     /// `.notebook/tasks/x.md` — the agent runs in the project root, so give it that.
-    static func relativePath(_ url: URL) -> String {
+    package static func relativePath(_ url: URL) -> String {
         guard let range = url.path.range(of: "/\(folderName)/") else { return url.lastPathComponent }
         return folderName + "/" + url.path[range.upperBound...]
     }

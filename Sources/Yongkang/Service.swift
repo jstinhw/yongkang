@@ -9,8 +9,8 @@ import Foundation
 /// A repo is not always one app: a monorepo holds several under `apps/` or `services/`,
 /// and a compose file usually names more than one. Either way the repo is asked what runs
 /// under it, and each answer is its own independently runnable service.
-enum Service {
-    typealias Runnable = (name: String, directory: URL, command: String?)
+package enum Service {
+    package typealias Runnable = (name: String, directory: URL, command: String?)
 
     /// A `repos:` entry resolved against the project folder. Absolute paths and `~` are
     /// left alone; everything else is relative to the folder the agents run in.
@@ -106,8 +106,9 @@ enum Service {
     /// Every repo of a project, in the order they are listed, each with what runs under
     /// it. A project with no `repos:` is its own repo — the common case where the work
     /// lands in the folder the notebook lives in.
-    static func plan(for card: NotebookCard, in project: URL) -> [(repo: String, directory: URL, services: [Runnable])]
-    {
+    package static func plan(
+        for card: NotebookCard, in project: URL
+    ) -> [(repo: String, directory: URL, services: [Runnable])] {
         let repos = card.repos.isEmpty ? ["."] : card.repos
         return repos.map { repo in
             let directory = directory(repo, in: project)
@@ -120,7 +121,7 @@ enum Service {
     /// legitimately point at the same folder — a single app split across several project
     /// entries, or two that never filled in `repos:` and both fell back to the project
     /// root — and that must not read as several copies of the same app.
-    static func dedupedByDirectory(
+    package static func dedupedByDirectory(
         _ steps: [(repo: String, directory: URL, services: [Runnable])]
     )
         -> [(repo: String, directory: URL, services: [Runnable])]
@@ -131,7 +132,7 @@ enum Service {
 
     // ponytail: package.json presence, not real frontend detection. Good enough — a Node
     // backend without a UI is a false positive, and the preview just has nothing to load.
-    static func isFrontend(_ directory: URL) -> Bool {
+    package static func isFrontend(_ directory: URL) -> Bool {
         FileManager.default.fileExists(atPath: directory.appendingPathComponent("package.json").path)
     }
 }

@@ -1,16 +1,34 @@
 import Foundation
 
 /// The lead's current plan, written beside its run records and refreshed by the app poll.
-struct LeadCoordination: Equatable {
-    var strategy = ""
-    var parallelLimit: Int? = nil
-    var estimatedTokens: Int? = nil
-    var estimatedMinutes: Double? = nil
-    var updatedAt: Date? = nil
-    var contextSummary = ""
-    var workers: [LeadWork] = []
+package struct LeadCoordination: Equatable {
+    package var strategy = ""
+    package var parallelLimit: Int? = nil
+    package var estimatedTokens: Int? = nil
+    package var estimatedMinutes: Double? = nil
+    package var updatedAt: Date? = nil
+    package var contextSummary = ""
+    package var workers: [LeadWork] = []
 
-    static func load(root: URL, session: CodeSession) -> LeadCoordination? {
+    package init(
+        strategy: String = "",
+        parallelLimit: Int? = nil,
+        estimatedTokens: Int? = nil,
+        estimatedMinutes: Double? = nil,
+        updatedAt: Date? = nil,
+        contextSummary: String = "",
+        workers: [LeadWork] = []
+    ) {
+        self.strategy = strategy
+        self.parallelLimit = parallelLimit
+        self.estimatedTokens = estimatedTokens
+        self.estimatedMinutes = estimatedMinutes
+        self.updatedAt = updatedAt
+        self.contextSummary = contextSummary
+        self.workers = workers
+    }
+
+    package static func load(root: URL, session: CodeSession) -> LeadCoordination? {
         guard var result = read(root: root, only: session.id)[session.id] else { return nil }
         result.workers = result.workers
             .filter { session.taskIDs.isEmpty || session.taskIDs.contains($0.taskID) }
@@ -22,7 +40,7 @@ struct LeadCoordination: Equatable {
     /// Every lead's records on disk, by session id. Review reads these rather than the
     /// sessions open right now: a relaunch or a closed lead must not erase work that is
     /// still waiting for the user's approval.
-    static func all(root: URL) -> [UUID: LeadCoordination] { read(root: root, only: nil) }
+    package static func all(root: URL) -> [UUID: LeadCoordination] { read(root: root, only: nil) }
 
     private static func read(root: URL, only: UUID?) -> [UUID: LeadCoordination] {
         let notebook = root.resolvingSymlinksInPath().standardizedFileURL
@@ -178,45 +196,105 @@ struct LeadCoordination: Equatable {
 }
 
 /// A planned unit stays visible after its subagent returns; only the lead records QA-done.
-struct LeadWork: Identifiable, Equatable {
-    var id: String
-    var taskID = ""
-    var title = ""
-    var skill = ""
-    var model = ""
-    var reason = ""
-    var dependsOn: [String] = []
+package struct LeadWork: Identifiable, Equatable {
+    package var id: String
+    package var taskID = ""
+    package var title = ""
+    package var skill = ""
+    package var model = ""
+    package var reason = ""
+    package var dependsOn: [String] = []
     /// The files this worker reported owning, repo-relative. Empty when the lead did not
     /// record any — the summary then leaves this work's task without a diff of its own
     /// rather than guessing which files were its doing.
-    var paths: [String] = []
-    var state = "queued"
+    package var paths: [String] = []
+    package var state = "queued"
     var agentID: String? = nil
-    var estimatedTokens: Int? = nil
-    var estimatedMinutes: Double? = nil
+    package var estimatedTokens: Int? = nil
+    package var estimatedMinutes: Double? = nil
     var startedAt: Date? = nil
     var finishedAt: Date? = nil
-    var updatedAt: Date? = nil
+    package var updatedAt: Date? = nil
     var actualTokens: Int? = nil
-    var contextTokens: Int? = nil
-    var contextWindow: Int? = nil
-    var contextSource = ""
-    var checkpoint = ""
-    var report = ""
+    package var contextTokens: Int? = nil
+    package var contextWindow: Int? = nil
+    package var contextSource = ""
+    package var checkpoint = ""
+    package var report = ""
     /// The body's `## Result`: what the worker says it did, or QA's verdict and evidence.
-    var result = ""
+    package var result = ""
     /// The body's `## Change request`: the user's comments the lead quoted for this attempt.
-    var changeRequest = ""
+    package var changeRequest = ""
     /// Observations stay separate from the lead's reported values and lifecycle state.
     var measuredTokens: Int? = nil
-    var measuredModel: String? = nil
+    package var measuredModel: String? = nil
     var observedAt: Date? = nil
-    var runtimeRunning: Bool? = nil
+    package var runtimeRunning: Bool? = nil
 
-    var usedTokens: Int? { measuredTokens ?? actualTokens }
-    var tokenSource: String { measuredTokens != nil ? "Measured" : actualTokens != nil ? "Reported" : "Unavailable" }
+    package init(
+        id: String,
+        taskID: String = "",
+        title: String = "",
+        skill: String = "",
+        model: String = "",
+        reason: String = "",
+        dependsOn: [String] = [],
+        paths: [String] = [],
+        state: String = "queued",
+        agentID: String? = nil,
+        estimatedTokens: Int? = nil,
+        estimatedMinutes: Double? = nil,
+        startedAt: Date? = nil,
+        finishedAt: Date? = nil,
+        updatedAt: Date? = nil,
+        actualTokens: Int? = nil,
+        contextTokens: Int? = nil,
+        contextWindow: Int? = nil,
+        contextSource: String = "",
+        checkpoint: String = "",
+        report: String = "",
+        result: String = "",
+        changeRequest: String = "",
+        measuredTokens: Int? = nil,
+        measuredModel: String? = nil,
+        observedAt: Date? = nil,
+        runtimeRunning: Bool? = nil
+    ) {
+        self.id = id
+        self.taskID = taskID
+        self.title = title
+        self.skill = skill
+        self.model = model
+        self.reason = reason
+        self.dependsOn = dependsOn
+        self.paths = paths
+        self.state = state
+        self.agentID = agentID
+        self.estimatedTokens = estimatedTokens
+        self.estimatedMinutes = estimatedMinutes
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+        self.updatedAt = updatedAt
+        self.actualTokens = actualTokens
+        self.contextTokens = contextTokens
+        self.contextWindow = contextWindow
+        self.contextSource = contextSource
+        self.checkpoint = checkpoint
+        self.report = report
+        self.result = result
+        self.changeRequest = changeRequest
+        self.measuredTokens = measuredTokens
+        self.measuredModel = measuredModel
+        self.observedAt = observedAt
+        self.runtimeRunning = runtimeRunning
+    }
 
-    func subagent(in session: CodeSession) -> SubagentStatus? {
+    package var usedTokens: Int? { measuredTokens ?? actualTokens }
+    package var tokenSource: String {
+        measuredTokens != nil ? "Measured" : actualTokens != nil ? "Reported" : "Unavailable"
+    }
+
+    package func subagent(in session: CodeSession) -> SubagentStatus? {
         if let agentID { return session.subagents.first { $0.id == agentID } }
         // A task ID substring can name several workers. Only an exact work label is safe.
         let matches = session.subagents.filter { Subagents.normalize($0.description) == Subagents.normalize(id) }
@@ -224,7 +302,7 @@ struct LeadWork: Identifiable, Equatable {
     }
 
     /// Wall-clock elapsed from reported timestamps, never inferred from token throughput.
-    func elapsedMinutes(now: Date = Date()) -> Double? {
+    package func elapsedMinutes(now: Date = Date()) -> Double? {
         guard let startedAt else { return nil }
         let end = finishedAt ?? (state == "running" && runtimeRunning != false ? now : nil)
         guard let end, end >= startedAt else { return nil }

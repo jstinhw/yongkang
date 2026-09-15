@@ -1,27 +1,27 @@
 import Foundation
 
 /// One file an agent touched, as git sees it.
-struct FileChange: Identifiable, Equatable {
-    var id: String { path }
-    let path: String
-    let added: Int
-    let removed: Int
+package struct FileChange: Identifiable, Equatable {
+    package var id: String { path }
+    package let path: String
+    package let added: Int
+    package let removed: Int
     /// A file git has never seen — written by an agent this session, with nothing to diff
     /// against, so it is listed as whole-file new rather than shown as a fake hunk.
-    let untracked: Bool
+    package let untracked: Bool
 
-    var name: String { (path as NSString).lastPathComponent }
+    package var name: String { (path as NSString).lastPathComponent }
     var directory: String { (path as NSString).deletingLastPathComponent }
 }
 
 /// One row of a unified diff.
-struct DiffLine: Identifiable {
-    enum Kind { case hunk, add, remove, context }
-    let id = UUID()
-    let kind: Kind
-    let old: String
-    let new: String
-    let text: String
+package struct DiffLine: Identifiable {
+    package enum Kind { case hunk, add, remove, context }
+    package let id = UUID()
+    package let kind: Kind
+    package let old: String
+    package let new: String
+    package let text: String
 }
 
 /// What the agents actually changed, read straight from `git` in the project folder. No
@@ -31,9 +31,9 @@ struct DiffLine: Identifiable {
 ///
 /// Everything is against `HEAD`, so a review shows the work as it stands — uncommitted,
 /// because no agent commits, which is the moment this pane exists for.
-enum GitChanges {
+package enum GitChanges {
 
-    static func changes(in directory: URL) -> [FileChange] {
+    package static func changes(in directory: URL) -> [FileChange] {
         guard isRepository(directory) else { return [] }
         var counts: [String: (Int, Int)] = [:]
         for line in run(["diff", "--numstat", "HEAD"], in: directory).split(separator: "\n") {
@@ -58,7 +58,7 @@ enum GitChanges {
 
     /// The unified diff of one file, already split into rows with their line numbers so the
     /// view only has to draw them.
-    static func diff(of change: FileChange, in directory: URL) -> [DiffLine] {
+    package static func diff(of change: FileChange, in directory: URL) -> [DiffLine] {
         guard !change.untracked else { return newFileLines(change, in: directory) }
         let text = run(["diff", "--unified=3", "HEAD", "--", change.path], in: directory)
         var lines: [DiffLine] = []
@@ -90,14 +90,14 @@ enum GitChanges {
     }
 
     /// The commit a review is standing on, so the pane can say what it is diffing against.
-    static func head(in directory: URL) -> String? {
+    package static func head(in directory: URL) -> String? {
         guard isRepository(directory) else { return nil }
         let text = run(["log", "-1", "--format=%h %s"], in: directory)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 
-    static func branch(in directory: URL) -> String? {
+    package static func branch(in directory: URL) -> String? {
         guard isRepository(directory) else { return nil }
         // `--show-current`, not `rev-parse`: a repository the app just created has no commit
         // yet, and only this form still names its branch.
@@ -111,7 +111,7 @@ enum GitChanges {
     /// and committed, and whatever else sits in the index or the tree is left exactly as it
     /// was. Without, everything. Returns git's own words on failure and nil on success.
     /// Pushing and merging stay the user's.
-    static func commit(message: String, paths: [String]? = nil, in directory: URL) -> String? {
+    package static func commit(message: String, paths: [String]? = nil, in directory: URL) -> String? {
         let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "A commit needs a message." }
         guard paths?.isEmpty != true else { return "This task has no changed files left to commit." }
@@ -131,12 +131,12 @@ enum GitChanges {
     /// `git init`, so agents' work has a baseline to diff against and approving has somewhere
     /// to commit. Creates the repository only — nothing is staged or committed. Returns git's
     /// own words on failure.
-    static func initialize(in directory: URL) -> String? {
+    package static func initialize(in directory: URL) -> String? {
         let result = execute(["init"], in: directory)
         return result.status == 0 ? nil : result.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func isRepository(_ directory: URL) -> Bool {
+    package static func isRepository(_ directory: URL) -> Bool {
         run(["rev-parse", "--is-inside-work-tree"], in: directory)
             .trimmingCharacters(in: .whitespacesAndNewlines) == "true"
     }

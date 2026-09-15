@@ -73,7 +73,7 @@ enum ProjectLocation {
 /// otherwise it is a folder named after the prompt beside the projects already open. The
 /// line under the box says which, before Return, so deciding for you is never a surprise;
 /// naming a path in the prompt is how you say otherwise.
-struct NewProjectForm: View {
+package struct NewProjectForm: View {
     /// Where a project lands when its prompt does not name anywhere.
     let parent: URL
     let create: (URL, String) -> Void
@@ -81,6 +81,12 @@ struct NewProjectForm: View {
 
     @State private var text = ""
     @State private var failure = ""
+
+    package init(parent: URL, create: @escaping (URL, String) -> Void, cancel: @escaping () -> Void) {
+        self.parent = parent
+        self.create = create
+        self.cancel = cancel
+    }
 
     private var home: URL { URL(fileURLWithPath: NSHomeDirectory()) }
     /// Where `@` starts browsing: beside the other projects, unless that folder is not
@@ -92,7 +98,7 @@ struct NewProjectForm: View {
     }
     private var prompt: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    var body: some View {
+    package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("New project").font(Typo.display(16)).foregroundStyle(Theme.tx)
 

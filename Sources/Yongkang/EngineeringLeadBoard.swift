@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The recorded plan stays beside live transcripts, including workers that have returned.
-struct EngineeringLeadBoard: View {
+package struct EngineeringLeadBoard: View {
     let session: CodeSession
     let cards: [NotebookCard]
     let blocks: [UserBlock]
@@ -9,6 +9,24 @@ struct EngineeringLeadBoard: View {
     let openTask: (String) -> Void
     let openSubagent: (SubagentStatus) -> Void
     let openBlock: (UserBlock) -> Void
+
+    package init(
+        session: CodeSession,
+        cards: [NotebookCard],
+        blocks: [UserBlock],
+        team: [TeamMember],
+        openTask: @escaping (String) -> Void,
+        openSubagent: @escaping (SubagentStatus) -> Void,
+        openBlock: @escaping (UserBlock) -> Void
+    ) {
+        self.session = session
+        self.cards = cards
+        self.blocks = blocks
+        self.team = team
+        self.openTask = openTask
+        self.openSubagent = openSubagent
+        self.openBlock = openBlock
+    }
 
     private var workers: [LeadWork] { session.coordination?.workers ?? [] }
     private var taskIDs: [String] {
@@ -21,7 +39,7 @@ struct EngineeringLeadBoard: View {
         }
     }
 
-    var body: some View {
+    package var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
                 ScrollView {

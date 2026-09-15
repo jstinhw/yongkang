@@ -3,7 +3,7 @@ import Foundation
 /// Reads a Claude Code session's subagents straight off the same on-disk transcripts
 /// `--resume` uses. This is not a published API — a storage-format change upstream just
 /// makes this read nothing, rather than break anything the app depends on.
-enum ClaudeTranscripts {
+package enum ClaudeTranscripts {
     private struct SubagentMeta: Decodable {
         let agentType: String
         let description: String
@@ -13,7 +13,7 @@ enum ClaudeTranscripts {
     /// Claude Code slugs a project's absolute path into its transcript folder name by
     /// swapping every "/" for "-". `claudeHome` is overridable so tests can point this at a
     /// throwaway root instead of the user's real `~/.claude`.
-    static func projectFolder(
+    package static func projectFolder(
         projectDirectory: URL,
         claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     ) -> URL {
@@ -89,7 +89,7 @@ enum ClaudeTranscripts {
 
     /// Empty for a session with no `--session-id` match on disk yet — including every
     /// Codex or service-runner session, which never gets one.
-    static func subagents(
+    package static func subagents(
         sessionID: UUID, projectDirectory: URL, taskIDs: [String] = [],
         claudeHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     ) -> [SubagentStatus] {
@@ -131,7 +131,7 @@ enum ClaudeTranscripts {
         }.sorted { $0.description < $1.description }
     }
 
-    static func transcript(at url: URL) -> [TranscriptLine] {
+    package static func transcript(at url: URL) -> [TranscriptLine] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").flatMap { line -> [TranscriptLine] in
             guard let data = line.data(using: .utf8),

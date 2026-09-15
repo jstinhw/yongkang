@@ -7,12 +7,12 @@ import Foundation
 /// this folder, and the answer travels the same way back — the session that clears the
 /// block sets `status: done` in the file, and the app types the news into whichever
 /// session was waiting. Nothing here holds a secret; only what is now configured.
-struct UserBlock: Identifiable, Equatable {
+package struct UserBlock: Identifiable, Equatable {
     /// The file path, so selection survives the reload — same rule as `NotebookEntry`.
-    let id: String
-    let url: URL
-    let slug: String
-    let title: String
+    package let id: String
+    package let url: URL
+    package let slug: String
+    package let title: String
     let status: String
     /// `block` for a gate an agent cannot pass, `proposal` for work product wants to add,
     /// `demo` for a design a task cannot be built without your approval of. All three are
@@ -23,50 +23,86 @@ struct UserBlock: Identifiable, Equatable {
     /// create. Old proposal files predate this field and are already approval-ready.
     let stage: String
     /// The session waiting on this, when it named itself. Nil routes to the newest lead.
-    let session: UUID?
+    package let session: UUID?
     /// What the session started by the button is told to get done.
-    let action: String
+    package let action: String
     /// The provider page the user has to be on. Opened alongside that session.
-    let link: URL?
+    package let link: URL?
     /// The task this holds up, shown so the sidebar row says what it is costing.
-    let task: String?
+    package let task: String?
     /// One line about what is now configured, written by whoever cleared it.
-    let resolution: String
-    let body: String
+    package let resolution: String
+    package let body: String
     /// Demos only: the page as it stands, so the two can be shown side by side. Nil when
     /// the task adds a surface that does not exist yet — there is honestly no before.
-    let before: URL?
+    package let before: URL?
     /// Demos only: the throwaway branch the demo runs on, named so it is obvious nothing
     /// has landed. Approving turns it into the build; rejecting throws it away.
-    let branch: String
+    package let branch: String
     /// Demos only: every pass the designer made, oldest first, so the change can be
     /// followed rather than arriving as one finished thing.
-    let revisions: [DemoRevision]
+    package let revisions: [DemoRevision]
 
-    var waiting: Bool { status != "done" }
-    var isProposal: Bool { kind == "proposal" }
-    var proposalReady: Bool { isProposal && stage == "ready" }
+    package init(
+        id: String,
+        url: URL,
+        slug: String,
+        title: String,
+        status: String,
+        kind: String,
+        stage: String,
+        session: UUID?,
+        action: String,
+        link: URL?,
+        task: String?,
+        resolution: String,
+        body: String,
+        before: URL?,
+        branch: String,
+        revisions: [DemoRevision]
+    ) {
+        self.id = id
+        self.url = url
+        self.slug = slug
+        self.title = title
+        self.status = status
+        self.kind = kind
+        self.stage = stage
+        self.session = session
+        self.action = action
+        self.link = link
+        self.task = task
+        self.resolution = resolution
+        self.body = body
+        self.before = before
+        self.branch = branch
+        self.revisions = revisions
+    }
+
+    package var waiting: Bool { status != "done" }
+    package var isProposal: Bool { kind == "proposal" }
+    package var proposalReady: Bool { isProposal && stage == "ready" }
     /// A design waiting on the user before any engineer starts on what it blocks.
-    var isDemo: Bool { kind == "demo" }
+    package var isDemo: Bool { kind == "demo" }
 }
 
 /// One pass of a demo. `url` is whatever the designer left running or published for that
 /// pass; without one the revision is still listed — the note is the record — but only the
 /// passes that kept a URL can be opened again.
-struct DemoRevision: Identifiable, Equatable {
-    let id: Int
-    let label: String
-    let note: String
-    let url: URL?
+package struct DemoRevision: Identifiable, Equatable {
+    package let id: Int
+    package let label: String
+    package let note: String
+    package let url: URL?
 }
 
-enum Blocks {
+package enum Blocks {
     static let folderName = "blocks"
 
     static func root(in notebookRoot: URL) -> URL { notebookRoot.appendingPathComponent(folderName) }
 
     /// Empty until something is actually blocked — the folder is not scaffolded.
-    static func load(root: URL) -> [UserBlock] {
+    package static func load(root: URL) -> [UserBlock] {
         let files =
             (try? FileManager.default.contentsOfDirectory(
                 at: Blocks.root(in: root),
@@ -117,7 +153,7 @@ enum Blocks {
     /// The `## Revisions` list out of a demo's body: one `- ` line per pass, oldest first,
     /// its parts separated by `·`. A line the designer wrote a little differently still
     /// lists — the label is whatever came first and the rest is the note.
-    static func revisions(_ body: String) -> [DemoRevision] {
+    package static func revisions(_ body: String) -> [DemoRevision] {
         let lines = body.components(separatedBy: "\n")
         guard
             let start = lines.firstIndex(where: {
@@ -145,7 +181,7 @@ enum Blocks {
 
     /// Marking a block resolved by hand is the same edit the guiding session makes: the
     /// status line in the frontmatter, and nothing else in the file.
-    static func resolve(_ block: UserBlock) {
+    package static func resolve(_ block: UserBlock) {
         guard let text = try? String(contentsOf: block.url, encoding: .utf8),
             let line = text.range(of: "\nstatus: \(block.status)")
         else { return }
