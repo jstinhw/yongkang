@@ -1,28 +1,7 @@
 import AppKit
 import SwiftTerm
 import UserNotifications
-
-/// Read the rendered screen: escape sequences and split PTY writes are already handled
-/// by SwiftTerm. Require the question and its controls, not a mention in ordinary output.
-enum AgentPrompt {
-    static func reason(in screen: String) -> String? {
-        // Cursor-addressed TUIs leave blank cells as NUL, even though they display
-        // as spaces. Normalize both before matching the visible question.
-        let text = screen.lowercased().split(whereSeparator: { $0.isWhitespace || $0 == "\0" })
-            .joined(separator: " ")
-        if text.contains("do you trust the contents of this directory?")
-            && text.contains("yes, continue") && text.contains("no, quit")
-        {
-            return "Codex needs you to decide whether to trust this directory."
-        }
-        if text.contains("do you trust the files in this folder?")
-            && text.contains("yes") && text.contains("trust")
-        {
-            return "Claude Code needs you to decide whether to trust this folder."
-        }
-        return nil
-    }
-}
+import YongkangCore
 
 final class AttentionTerminalView: LocalProcessTerminalView {
     var onAttention: (String?) -> Void = { _ in }

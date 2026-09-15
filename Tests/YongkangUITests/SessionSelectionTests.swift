@@ -9,7 +9,8 @@ import Testing
 @Suite struct SessionSelectionTests {
     @Test func claudePickerRowMatchesOnlyItsOwnIdentity() throws {
         let picker = "Background\n❯ task-a-frontend (running)\n  task-b-qa (running)\nEnter to view · Esc to close"
-        let pickerRow = try #require(ChildAgentPicker.selectedRow(in: picker, agent: .claude))
+        let claude = try #require(AgentKind.claude.provider.childView)
+        let pickerRow = try #require(ChildAgentPicker.selectedRow(in: picker, of: claude))
         #expect(ChildAgentPicker.matches(pickerRow, identities: ["task-a-frontend"]))
         #expect(!ChildAgentPicker.matches(pickerRow, identities: ["task-a", "task-b-qa"]))
     }
@@ -19,8 +20,9 @@ import Testing
             ("❯ Explain background agents", AgentKind.claude, nil),
             ("Select agent\n› child-123\nEnter to select", AgentKind.codex, "› child-123"),
         ] as [(String, AgentKind, String?)])
-    func selectedRowOnlyInsideAPicker(screen: String, agent: AgentKind, row: String?) {
-        #expect(ChildAgentPicker.selectedRow(in: screen, agent: agent) == row)
+    func selectedRowOnlyInsideAPicker(screen: String, agent: AgentKind, row: String?) throws {
+        let childView = try #require(agent.provider.childView)
+        #expect(ChildAgentPicker.selectedRow(in: screen, of: childView) == row)
     }
 
     @Test func paneFollowsTheRoute() {

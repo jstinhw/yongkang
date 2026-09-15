@@ -103,21 +103,11 @@ import YongkangCore
 
     /// Each provider writes its subagents somewhere else — Claude Code beside the parent
     /// session, Codex as sibling rollouts pointing back at it — so the session's own agent
-    /// picks the reader. A service terminal has neither and is skipped by the caller.
+    /// reads them. A service terminal has none.
     private func subagents(of session: CodeSession) -> [SubagentStatus] {
-        let found: [SubagentStatus]
-        switch session.agent {
-        case .codex:
-            found = CodexTranscripts.subagents(
-                sessionID: session.id, projectDirectory: directory,
-                taskIDs: session.taskIDs)
-        case .claude:
-            found = ClaudeTranscripts.subagents(
-                sessionID: session.id, projectDirectory: directory,
-                taskIDs: session.taskIDs)
-        default:
-            found = []
-        }
+        let found =
+            session.agent?.provider.subagents(session: session.id, project: directory, taskIDs: session.taskIDs)
+            ?? []
         // Named here rather than in either reader: the roster is project state, and the
         // screens downstream should never each have to look a running agent up themselves.
         return found.map { $0.named(in: snapshot.team) }

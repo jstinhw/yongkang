@@ -75,7 +75,7 @@ import Testing
         try [
             #"{"type":"session_meta","payload":{"id":"thread-second","cwd":"\#(tmp.path)","source":"cli"}}"#,
             String(repeating: " ", count: 600_000),
-            AgentCommand.marker(secondSession),
+            CodexProvider.marker(secondSession),
         ].joined(separator: "\n").write(to: secondRollout, atomically: true, encoding: .utf8)
 
         _ = CodexTranscripts.transcriptURL(sessionID: UUID(), projectDirectory: tmp, codexHome: fleet.home)
@@ -222,7 +222,7 @@ private func makeFleet(in project: URL) throws -> CodexFleet {
 private func rolloutFixture(_ path: String, cwd: URL, session: UUID) throws -> String {
     try fixture(path)
         .replacingOccurrences(of: "{{CWD}}", with: cwd.path)
-        .replacingOccurrences(of: "{{MARKER}}", with: AgentCommand.marker(session))
+        .replacingOccurrences(of: "{{MARKER}}", with: CodexProvider.marker(session))
 }
 
 /// The child's turn ends: Codex appends `task_complete` after its `task_started`.

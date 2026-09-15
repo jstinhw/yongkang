@@ -29,6 +29,15 @@ struct AttentionPromptTests {
         #expect(view.attentionReason != nil, "detect the actual cursor-addressed Codex trust screen")
     }
 
+    // The same rendered capture, asked of each provider: the question is Codex's alone.
+    @Test(arguments: AgentKind.allCases)
+    func onlyCodexClaimsItsTrustScreen(kind: AgentKind) throws {
+        let view = makeView()
+        view.resize(cols: 100, rows: 30)
+        view.dataReceived(slice: Array(try fixture("codex/codex-0.154.0-trust-screen.ansi").utf8)[...])
+        #expect((kind.provider.attentionReason(screen: view.screen) != nil) == (kind == .codex))
+    }
+
     // The trust gate exists only in the PTY, before any rollout. Reproduce split,
     // ANSI-decorated writes in the same terminal renderer used by the live app.
     @Test func splitWritesRaiseAttentionOnceAndClearIt() async throws {

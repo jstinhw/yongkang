@@ -331,13 +331,7 @@ import YongkangCore
             agentTranscript = []
             return
         }
-        let fresh: [TranscriptLine]
-        switch source.agent {
-        case .codex: fresh = CodexTranscripts.transcript(at: source.url)
-        case .claude: fresh = ClaudeTranscripts.transcript(at: source.url)
-        case .grok: fresh = GrokTranscripts.transcript(at: source.url)
-        default: fresh = []
-        }
+        let fresh = source.agent.provider.transcript(at: source.url)
         guard source.url != transcriptSource || fresh.count != agentTranscript.count else { return }
         transcriptSource = source.url
         agentTranscript = fresh

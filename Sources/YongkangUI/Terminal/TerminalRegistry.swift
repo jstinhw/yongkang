@@ -143,13 +143,14 @@ import YongkangCore
         entry.child = child?.id
         entry.showsChild = true
         notice(child == nil ? nil : "Opening child agent…", for: id)
-        guard let agent = entry.agent, agent == .claude || agent == .codex, view.process.running else {
+        guard let childView = entry.agent?.provider.childView, view.process.running else {
             notice("This CLI cannot open a live child-agent view.", for: id)
             return
         }
-        // Claude's child view is an overlay; Codex switches the active conversation.
-        if wasChild && agent == .claude { type("\u{1b}", into: view) }
-        guard child != nil || agent == .codex else {
+        // A child view drawn over the conversation closes with Esc. One that took the
+        // conversation over is left by picking the session's own row.
+        if wasChild && childView.parentRow == nil { type("\u{1b}", into: view) }
+        guard let target = child.map({ [$0.id, $0.description] }) ?? childView.parentRow.map({ [$0] }) else {
             entry.showsChild = false
             return
         }
@@ -158,16 +159,15 @@ import YongkangCore
             interrupted = true
             self?.notice(nil, for: id)
         }
-        await pick(child.map { [$0.id, $0.description] } ?? ["Main [default]"], in: entry, id: id) {
+        await pick(target, with: childView, in: entry, id: id) {
             interrupted
         }
     }
 
     /// Types the picker command, then walks its rows until the selected one names `target`.
     private func pick(
-        _ target: [String], in entry: Entry, id: UUID, interrupted: () -> Bool
+        _ target: [String], with childView: ChildView, in entry: Entry, id: UUID, interrupted: () -> Bool
     ) async {
-        guard let agent = entry.agent else { return }
         let view = entry.view
         var typedCommand = false
         var lastRow: String?
@@ -179,14 +179,14 @@ import YongkangCore
             guard view.process.running else { break }
             guard view.attentionReason == nil else { continue }
             guard typedCommand else {
-                type("\u{1b}[200~" + (agent == .codex ? "/subagents" : "/tasks") + "\u{1b}[201~\r", into: view)
+                type("\u{1b}[200~" + childView.command + "\u{1b}[201~\r", into: view)
                 typedCommand = true
                 continue
             }
             let screen = view.screen
-            guard let row = ChildAgentPicker.selectedRow(in: screen, agent: agent) else {
-                // Claude skips the picker when there is only one background task.
-                if agent == .claude, screen.contains(target[0]), screen.lowercased().contains("esc") {
+            guard let row = ChildAgentPicker.selectedRow(in: screen, of: childView) else {
+                // Claude Code skips the picker when there is only one background task.
+                if childView.parentRow == nil, screen.contains(target[0]), screen.lowercased().contains("esc") {
                     notice(nil, for: id)
                     return
                 }
@@ -260,15 +260,9 @@ private final class Entry: LocalProcessTerminalViewDelegate {
 
 /// Only send selection keys inside a recognized CLI picker, never into a chat prompt.
 enum ChildAgentPicker {
-    static func selectedRow(in screen: String, agent: AgentKind) -> String? {
+    static func selectedRow(in screen: String, of childView: ChildView) -> String? {
         let text = screen.replacingOccurrences(of: "\0", with: " ")
-        let lower = text.lowercased()
-        let picker =
-            agent == .claude
-            ? lower.contains("background") && lower.contains("enter") && lower.contains("view")
-            : lower.contains("agent") && lower.contains("enter")
-                && (lower.contains("select") || lower.contains("confirm"))
-        guard picker else { return nil }
+        guard childView.isPicker(text.lowercased()) else { return nil }
         return text.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .first { $0.hasPrefix("❯") || $0.hasPrefix("›") || $0.hasPrefix(">") }

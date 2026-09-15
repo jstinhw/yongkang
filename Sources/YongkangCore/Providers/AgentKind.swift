@@ -7,26 +7,25 @@ package enum AgentKind: String, CaseIterable, Identifiable {
     case agy
 
     package var id: Self { self }
-    package var displayName: String {
+
+    /// The CLI behind this kind. The raw value is what persists, in a session's row and the
+    /// agent switch; everything else about the CLI is its provider's.
+    package var provider: any AgentProvider {
         switch self {
-        case .claude: "Claude Code"
-        case .codex: "Codex"
-        case .grok: "Grok"
-        case .agy: "Agy"
+        case .claude: ClaudeCodeProvider.shared
+        case .codex: CodexProvider.shared
+        case .grok: GrokProvider.shared
+        case .agy: AgyProvider()
         }
     }
-    package var systemImage: String {
-        switch self {
-        case .claude: "sparkles"
-        case .codex: "chevron.left.forwardslash.chevron.right"
-        case .grok: "bolt"
-        case .agy: "a.circle"
-        }
-    }
+
+    package var displayName: String { provider.displayName }
+    package var systemImage: String { provider.systemImage }
+    /// The executable on PATH, which is why a case is named after it.
     var command: String { rawValue }
 
     func skillInvocation(_ name: String, arguments: String) -> String {
-        "\(self == .codex ? "$" : "/")\(name) \(arguments)"
+        "\(provider.skillPrefix)\(name) \(arguments)"
     }
 
     /// Packaged sessions carry the app's exact skill text, so opening another project

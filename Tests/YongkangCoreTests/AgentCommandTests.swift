@@ -89,11 +89,11 @@ import Testing
             codexLine.hasPrefix("cd '/a' && exec codex 'hi"),
             "codex never understands --session-id, so the flag is never passed")
         #expect(
-            codexLine.contains(AgentCommand.marker(Self.sid)),
+            codexLine.contains(CodexProvider.marker(Self.sid)),
             "the prompt carries the id instead — the only join from a row to its rollout")
         #expect(
             !AgentCommand.line(directory: "/a", agent: .claude, prompt: "hi", sessionID: Self.sid)
-                .contains(AgentCommand.marker(Self.sid)),
+                .contains(CodexProvider.marker(Self.sid)),
             "claude has the flag and needs no marker in what the user reads")
     }
 
