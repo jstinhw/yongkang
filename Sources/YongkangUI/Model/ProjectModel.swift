@@ -69,6 +69,15 @@ import YongkangCore
     /// the only time it can differ, and published only when it does.
     private(set) var summary = ChangeSummary()
 
+    /// Every project card's repos and what runs under each, detected off the main actor when
+    /// the cards change. The repo list, the Run button and the preview all read it.
+    private(set) var services: [ServicePlan] = []
+
+    /// The repos one project card lists, in the order it lists them.
+    func services(of card: NotebookCard) -> [ServicePlan] {
+        services.filter { $0.card == card.id }
+    }
+
     private func resummarize() {
         let fresh = ChangeSummary.of(value, changes: repo.changes)
         if fresh != summary { summary = fresh }
@@ -90,11 +99,16 @@ import YongkangCore
     /// disk. Returns once `snapshot` holds that read.
     func reloadNotebook(frontmatter: Bool, records: Bool) async {
         if let notebookRead { return await notebookRead.value }
-        let read = Task { [snapshot, reader] in
+        let read = Task { [snapshot, reader, directory] in
             guard let fresh = await reader.notebook(after: snapshot, frontmatter: frontmatter, records: records)
             else { return }
             self.snapshot = fresh
             self.resummarize()
+            // The repos a project card lists only change with the cards, and finding what runs
+            // under each opens files. Detected here, once, rather than on every render.
+            guard fresh.cards != snapshot.cards else { return }
+            let plans = await Service.plans(for: fresh.cards, in: directory)
+            if plans != self.services { self.services = plans }
         }
         notebookRead = read
         await read.value

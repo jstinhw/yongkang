@@ -103,7 +103,7 @@ struct RootView: View {
                     ProjectList(
                         section: model.section, project: project.value, width: listWidth,
                         selection: $model.selection,
-                        showDone: model.showDone, changes: project.repo.changes,
+                        showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
                         assign: { model.assign($0, in: project, agent: agent) },
                         closeSession: { model.close($0, in: project) },
                         remove: { model.remove($0, in: project) }

@@ -17,9 +17,8 @@ struct ProjectPreview: View {
     @State private var address = "http://localhost:3000"
     @State private var webView = WKWebView()
 
-    private var hasFrontend: Bool {
-        services.contains { Service.isFrontend($0.directory) }
-    }
+    /// Answered by the detection that found the services, not by another look at the disk.
+    private var hasFrontend: Bool { services.contains(where: \.frontend) }
 
     var body: some View {
         VStack(spacing: 0) {

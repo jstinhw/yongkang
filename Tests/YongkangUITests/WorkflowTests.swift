@@ -311,15 +311,22 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: [], in: tmp)
         let (web, api) = (tmp.appendingPathComponent("web"), tmp.appendingPathComponent("api"))
-        let steps: [(repo: String, directory: URL, services: [Service.Runnable])] = [
-            (repo: "web", directory: web, services: [(name: "web", directory: web, command: "npm run dev")]),
-            (
-                repo: "api", directory: api,
+        let steps: [ServicePlan] = [
+            ServicePlan(
+                card: "p", repo: "web", directory: web, exists: true,
+                services: [(name: "web", directory: web, command: "npm run dev", frontend: true)]),
+            ServicePlan(
+                card: "p", repo: "api", directory: api, exists: true,
                 services: [
-                    (name: "server", directory: api.appendingPathComponent("server"), command: "cargo run"),
-                    (name: "worker", directory: api.appendingPathComponent("worker"), command: nil),
-                ]
-            ),
+                    (
+                        name: "server", directory: api.appendingPathComponent("server"),
+                        command: "cargo run", frontend: false
+                    ),
+                    (
+                        name: "worker", directory: api.appendingPathComponent("worker"),
+                        command: nil, frontend: false
+                    ),
+                ]),
         ]
 
         let first = project.runServices(steps)
@@ -335,7 +342,9 @@ import Testing
         #expect(again.destination == first.destination)
 
         let nothing = project.runServices([
-            (repo: "docs", directory: tmp, services: [(name: "docs", directory: tmp, command: nil)])
+            ServicePlan(
+                card: "p", repo: "docs", directory: tmp, exists: true,
+                services: [(name: "docs", directory: tmp, command: nil, frontend: false)])
         ])
         #expect(nothing.destination == Destination(section: .agents) && nothing.unstarted == ["docs"])
     }
@@ -435,7 +444,11 @@ import Testing
         #expect(model.alert?.title == "Nothing to assign")
 
         model.runServices(
-            [(repo: "docs", directory: tmp, services: [(name: "docs", directory: tmp, command: nil)])], in: project)
+            [
+                ServicePlan(
+                    card: "p", repo: "docs", directory: tmp, exists: true,
+                    services: [(name: "docs", directory: tmp, command: nil, frontend: false)])
+            ], in: project)
         #expect(model.alert?.title == "Nothing to run yet")
         #expect(model.alert?.detail.hasPrefix("No start command found in: docs.") == true)
 

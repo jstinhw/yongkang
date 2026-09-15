@@ -46,7 +46,7 @@ extension AppModel {
     }
 
     func runServices(
-        _ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
+        _ steps: [ServicePlan],
         in project: ProjectModel
     ) {
         let run = project.runServices(steps)

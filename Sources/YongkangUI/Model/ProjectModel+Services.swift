@@ -11,9 +11,7 @@ extension ProjectModel {
     /// A service already running is shown, not started again: a second `npm run dev`
     /// fights the first one for its port, and the loser exits — which is exactly what was
     /// pushing a "default to :3000" preview onto whatever port the collision left it on.
-    func runServices(
-        _ steps: [(repo: String, directory: URL, services: [Service.Runnable])]
-    ) -> (destination: Destination, unstarted: [String]) {
+    func runServices(_ steps: [ServicePlan]) -> (destination: Destination, unstarted: [String]) {
         let named = steps.flatMap { step in
             step.services.map { service in
                 (

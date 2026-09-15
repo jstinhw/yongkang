@@ -194,7 +194,7 @@ enum DesignShots {
         let changes = status.changes
         let summary = ChangeSummary.of(here, changes: changes)
         write(
-            console(here, section: .review, changes: changes) {
+            console(here, section: .review, changes: changes, summary: summary) {
                 ChangeReview(
                     project: here, changes: changes, head: status.head,
                     branch: status.branch,
@@ -214,7 +214,7 @@ enum DesignShots {
                     text: "Say which task the refused commit belonged to.")
             ]
             write(
-                console(reviewed, section: .review, changes: changes) {
+                console(reviewed, section: .review, changes: changes, summary: reviewedSummary) {
                     TaskReview(
                         task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
                         team: Team.defaults, branch: status.branch, head: status.head,
@@ -281,7 +281,7 @@ enum DesignShots {
     /// rather than a pane floating on its own.
     private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
-        changes: [FileChange] = [],
+        changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
         hovering: ConsoleSection? = nil,
         crumbs: [String]? = nil, title: String? = nil,
         pill: AnyView? = nil, action: String? = nil,
@@ -295,8 +295,8 @@ enum DesignShots {
             .zIndex(1)
             ProjectList(
                 section: section, project: project, selection: .constant(nil),
-                showDone: false, changes: changes, assign: { _ in }, closeSession: { _ in },
-                remove: { _ in })
+                showDone: false, changes: changes, summary: summary, assign: { _ in },
+                closeSession: { _ in }, remove: { _ in })
             VStack(spacing: 0) {
                 TopBar(
                     crumbs: crumbs ?? [project.name], title: title ?? section.title,
@@ -342,38 +342,41 @@ enum DesignShots {
         window.orderOut(nil)
     }
 
-    /// The sample pages are written to /tmp so the screens read them the way they read a
-    /// real notebook — bodies, checklists and all — instead of rendering empty panes.
+    /// The bodies the notebook read would have carried, so the pages that draw a card's text
+    /// draw it here too — bodies, checklists and all — instead of rendering empty panes.
+    private static let pages: [String: String] = [
+        "show-agent-tree": """
+        # Show all agents via tree expansion
+
+        An agent that finishes drops out of the lead's list, so a batch mid-flight reads \
+        as though nothing is running. Keep every affiliated agent reachable under its \
+        lead and let the tree expand instead of filtering by completion.
+
+        ## Done when
+
+        - [x] Every affiliated agent stays visible under its lead
+        - [x] Collapsed roots are remembered, not completion statuses
+        - [x] Codex descendants resolve through the full ancestor chain
+        - [ ] The self-test covers the expansion state
+        """,
+        "vercel-token": """
+        # Vercel project token
+
+        sre-dev needs a project-scoped token before it can deploy. It is holding until \
+        this is cleared.
+
+        ## Steps
+
+        1. Open the Vercel dashboard and pick the yongkang project
+        2. Settings, then Tokens, then Create token — scope it to the project
+        3. Paste it when the forward-deployed engineer asks for it
+        4. It verifies the deploy and releases sre-dev
+        """,
+    ]
+
+    /// The same pages on disk, so the "Edit file" buttons and the file names point at
+    /// something real.
     private static func writeFixturePages() {
-        let pages: [String: String] = [
-            "show-agent-tree": """
-            # Show all agents via tree expansion
-
-            An agent that finishes drops out of the lead's list, so a batch mid-flight reads \
-            as though nothing is running. Keep every affiliated agent reachable under its \
-            lead and let the tree expand instead of filtering by completion.
-
-            ## Done when
-
-            - [x] Every affiliated agent stays visible under its lead
-            - [x] Collapsed roots are remembered, not completion statuses
-            - [x] Codex descendants resolve through the full ancestor chain
-            - [ ] The self-test covers the expansion state
-            """,
-            "vercel-token": """
-            # Vercel project token
-
-            sre-dev needs a project-scoped token before it can deploy. It is holding until \
-            this is cleared.
-
-            ## Steps
-
-            1. Open the Vercel dashboard and pick the yongkang project
-            2. Settings, then Tokens, then Create token — scope it to the project
-            3. Paste it when the forward-deployed engineer asks for it
-            4. It verifies the deploy and releases sre-dev
-            """,
-        ]
         for (name, body) in pages {
             let text = "---\nid: \(name)\nstatus: active\n---\n\n" + body
             try? text.write(
@@ -389,26 +392,22 @@ enum DesignShots {
     private static func finished(_ project: Project, task id: String, in directory: URL) -> Project {
         var project = project
         let url = directory.appendingPathComponent("\(id).md")
-        try? """
-        ---
-        id: \(id)
-        kind: task
-        status: done
-        ---
+        let body = """
+            Link each block to the batch it holds up, so assigning a task brings its blockers along.
 
-        Link each block to the batch it holds up, so assigning a task brings its blockers along.
+            ## Done when
 
-        ## Done when
-
-        - [x] A block names the task it holds and the lead session waiting on it
-        - [x] Assigning a task pulls in every unfinished blocker
-        - [x] The board and the list agree on what a batch is
-        """.write(to: url, atomically: true, encoding: .utf8)
+            - [x] A block names the task it holds and the lead session waiting on it
+            - [x] Assigning a task pulls in every unfinished blocker
+            - [x] The board and the list agree on what a batch is
+            """
+        try? "---\nid: \(id)\nkind: task\nstatus: done\n---\n\n\(body)\n"
+            .write(to: url, atomically: true, encoding: .utf8)
         project.cards = project.cards.map { card in
             guard card.id == id else { return card }
             return NotebookCard(
                 id: card.id, url: url, kind: card.kind, title: card.title, status: "done",
-                project: card.project, dependsOn: card.dependsOn)
+                project: card.project, dependsOn: card.dependsOn, body: body)
         }
         for index in project.sessions.indices {
             guard var plan = project.sessions[index].coordination else { continue }
@@ -488,6 +487,14 @@ enum DesignShots {
                 "live-verify", .task, "Verify the live page and the download path", "todo",
                 project: "ship-the-site", dependsOn: ["vercel-project"]),
         ]
+        // What the notebook read would have put on each card. A page that draws a card's text
+        // takes it from here, the way every screen takes it from the snapshot.
+        project.cards = project.cards.map { card in
+            guard let body = pages[card.id] else { return card }
+            var filled = card
+            filled.body = body
+            return filled
+        }
         let leadID = UUID()
         let transcript = URL(fileURLWithPath: "/tmp/agent.jsonl")
         var lead = CodeSession(

@@ -83,6 +83,7 @@ package struct TaskReview: View {
             }
             TaskReviewBar(task: task, draft: draft, approve: approve, requestChanges: requestChanges)
         }
+        .task(id: task.body) { content = NotebookContent.sections(task.body) }
         .task(id: task.files) { await load() }
     }
 
@@ -365,8 +366,6 @@ package struct TaskReview: View {
     }
 
     private func load() async {
-        let text = task.url.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
         var found: [String: ReviewArea] = [:]
         for file in task.files {
             let owner = task.work.first { $0.paths.contains(file.path) }?.skill ?? ""

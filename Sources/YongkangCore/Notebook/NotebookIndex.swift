@@ -23,6 +23,10 @@ package struct NotebookCard: Identifiable, Equatable, Sendable {
     /// because a guess that is wrong either stalls plumbing behind a demo or lets a screen
     /// be built before anyone saw it.
     package var designer: String = ""
+    /// The page's Markdown after its frontmatter, kept by the read that parsed the rest of
+    /// this card. A screen showing a card's text reads it from here: opening the file again
+    /// while it draws would put the disk back in the render loop.
+    package var body: String = ""
 
     package init(
         id: String,
@@ -37,7 +41,8 @@ package struct NotebookCard: Identifiable, Equatable, Sendable {
         subject: String? = nil,
         memoryType: String = "",
         result: String = "",
-        designer: String = ""
+        designer: String = "",
+        body: String = ""
     ) {
         self.id = id
         self.url = url
@@ -52,6 +57,7 @@ package struct NotebookCard: Identifiable, Equatable, Sendable {
         self.memoryType = memoryType
         self.result = result
         self.designer = designer
+        self.body = body
     }
 
     package var isDesignWork: Bool { !designer.isEmpty }
@@ -93,7 +99,8 @@ package enum NotebookIndex {
             subject: fields["subject"].flatMap { $0.isEmpty ? nil : $0 },
             memoryType: fields["memory_type"] ?? "",
             result: fields["result"] ?? "",
-            designer: fields["designer"] ?? ""
+            designer: fields["designer"] ?? "",
+            body: body(text)
         )
     }
 
@@ -188,7 +195,7 @@ package enum NotebookIndex {
                 status: card.status, project: card.project, dependsOn: dependencies,
                 repos: card.repos, roadmap: card.roadmap, subject: card.subject,
                 memoryType: card.memoryType, result: card.result,
-                designer: card.designer)
+                designer: card.designer, body: card.body)
         }
 
         let eligible = picked.filter { $0.status != "done" && !assigned.contains($0.id) }

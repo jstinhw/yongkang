@@ -7,8 +7,9 @@ import YongkangCore
 struct ProjectDetail: View {
     let card: NotebookCard
     let cards: [NotebookCard]
-    /// The project folder, which is what `repos:` paths are relative to.
-    let directory: URL
+    /// This project's repos and what runs under each, detected by the poll. Never read from
+    /// disk here: the page draws them.
+    let repos: [ServicePlan]
     /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
     /// pickable for a new batch.
     let assigned: Set<String>
@@ -52,7 +53,7 @@ struct ProjectDetail: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .cardSurface(padding: 16)
                     }
-                    repos
+                    repoList
                     taskList
                 }
                 .padding(24)
@@ -61,7 +62,7 @@ struct ProjectDetail: View {
             assignBar
         }
         .background(Theme.bg)
-        .task(id: card.id) { load() }
+        .task(id: card.body) { content = NotebookContent.sections(card.body) }
     }
 
     // MARK: - Header
@@ -125,13 +126,12 @@ struct ProjectDetail: View {
     /// What the work touches, and whether it can be started. A repo that is not on disk
     /// yet — the usual state before anything is scaffolded — says so in amber rather than
     /// looking like a repo with nothing to run.
-    @ViewBuilder private var repos: some View {
-        let plan = Service.plan(for: card, in: directory)
-        if !plan.isEmpty {
+    @ViewBuilder private var repoList: some View {
+        if !repos.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel("Repos")
-                ForEach(plan, id: \.repo) { step in
-                    let missing = !FileManager.default.fileExists(atPath: step.directory.path)
+                ForEach(repos, id: \.repo) { step in
+                    let missing = !step.exists
                     HStack(spacing: 7) {
                         Image(systemName: missing ? "questionmark.folder" : "folder")
                             .font(.system(size: 11)).foregroundStyle(Theme.tx3)
@@ -267,8 +267,4 @@ struct ProjectDetail: View {
         }
     }
 
-    private func load() {
-        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
-    }
 }

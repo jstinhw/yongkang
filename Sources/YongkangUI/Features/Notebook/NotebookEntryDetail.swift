@@ -24,7 +24,7 @@ struct NotebookEntryDetail: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.bg)
-        .task(id: card.id) { load() }
+        .task(id: card.body) { content = NotebookContent.sections(card.body) }
     }
 
     private var header: some View {
@@ -90,8 +90,4 @@ struct NotebookEntryDetail: View {
         cards.first { $0.id == id }?.title ?? id
     }
 
-    private func load() {
-        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
-    }
 }

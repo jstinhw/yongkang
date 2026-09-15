@@ -29,11 +29,11 @@ extension RootView {
             UsageBoard(project: project.value, open: { model.selection = $0 })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
-                card: card, cards: project.snapshot.cards, directory: project.directory,
+                card: card, cards: project.snapshot.cards, repos: project.services(of: card),
                 assigned: project.assignedTaskIDs, showDone: model.showDone,
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
                 assign: { tasks in model.assign(tasks, in: project, agent: agent) },
-                run: { card in model.runServices(Service.plan(for: card, in: project.directory), in: project) },
+                run: { card in model.runServices(project.services(of: card), in: project) },
                 openTask: { task in model.selection = .task(task.id) }
             )
             .id(card.id)
@@ -276,15 +276,9 @@ extension RootView {
 
     /// The repo a preview route points at, one per repo actually on disk, deduped across
     /// every notebook project. Nil if `selection` is not a preview.
-    private func previewStep(
-        in project: ProjectModel
-    )
-        -> (repo: String, directory: URL, services: [Service.Runnable])?
-    {
+    private func previewStep(in project: ProjectModel) -> ServicePlan? {
         guard case .preview(let directory) = model.selection else { return nil }
-        let steps = project.snapshot.cards.filter { $0.kind == .project }
-            .flatMap { Service.plan(for: $0, in: project.directory) }
-        return Service.dedupedByDirectory(steps).first { $0.directory.path == directory.path }
+        return Service.dedupedByDirectory(project.services).first { $0.directory.path == directory.path }
     }
 
     private func reviewedTask(in project: ProjectModel) -> SummaryTask? {

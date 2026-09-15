@@ -39,6 +39,12 @@ enum Mention {
     /// What is inside that folder matching what has been typed of the name. Folders keep
     /// their trailing slash, so tagging one and pressing Tab again walks into it. Dotfiles
     /// stay hidden.
+    ///
+    /// ponytail: still synchronous, because `extend` and `accept` run inside a `keyDown`
+    /// monitor that has to say there and then whether it took the key. That is one listing
+    /// per Tab or Return, not one per keystroke per render — `PromptField` lists the tags it
+    /// shows off the main actor. Make this async if the monitor ever becomes an NSTextView
+    /// subclass that can answer later.
     static func matches(_ query: String, root: URL) -> [String] {
         let (folder, typed, base) = lookup(query, root: root)
         let prefix = typed.lowercased()
@@ -137,10 +143,10 @@ struct PromptField: View {
     /// Which tag the arrow keys are sitting on. Reset whenever the list changes under it.
     @State private var selection = 0
 
-    /// Every match, and the handful of them that fit under the box.
-    private var suggestions: [String] {
-        Mention.query(in: text).map { Mention.matches($0, root: root) } ?? []
-    }
+    /// Every match for the tag being typed, listed off the main actor when the tag changes
+    /// rather than in `body`: a folder listing per keystroke per render is the disk in the
+    /// render loop, and a tagged folder can hold thousands of names.
+    @State private var suggestions: [String] = []
     private var shown: [String] { Array(suggestions.prefix(6)) }
     /// The list can shrink a keystroke before `selection` hears about it.
     private var highlighted: Int { min(selection, max(shown.count - 1, 0)) }
@@ -159,9 +165,22 @@ struct PromptField: View {
             if !suggestions.isEmpty { tags }
         }
         .task { focused = true }
+        .task(id: Mention.query(in: text)) { await offerTags() }
         .onChange(of: text) { selection = 0 }
         .onChange(of: focused) { _, isFocused in isFocused ? claimTab() : releaseTab() }
         .onDisappear(perform: releaseTab)
+    }
+
+    /// The folder behind the tag being typed. Dropped if another keystroke landed while it
+    /// was being listed, which `.task(id:)` cancels this for.
+    private func offerTags() async {
+        guard let query = Mention.query(in: text) else {
+            suggestions = []
+            return
+        }
+        let found = await Task.detached { [root] in Mention.matches(query, root: root) }.value
+        guard !Task.isCancelled else { return }
+        suggestions = found
     }
 
     /// Tab, the arrows and Return belong to the tag being typed, not to the next field:

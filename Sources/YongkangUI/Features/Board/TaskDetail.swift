@@ -71,7 +71,7 @@ package struct TaskDetail: View {
             actionBar
         }
         .background(Theme.bg)
-        .task(id: card.id) { load() }
+        .task(id: card.body) { content = NotebookContent.sections(card.body) }
     }
 
     // MARK: - Header
@@ -241,8 +241,4 @@ package struct TaskDetail: View {
         }
     }
 
-    private func load() {
-        let text = (try? String(contentsOf: card.url, encoding: .utf8)) ?? ""
-        content = NotebookContent.sections(NotebookIndex.body(text))
-    }
 }

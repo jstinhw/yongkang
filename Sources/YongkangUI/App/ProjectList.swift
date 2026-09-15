@@ -14,6 +14,9 @@ package struct ProjectList: View {
     let showDone: Bool
     /// Only read when the Review section is showing; empty everywhere else.
     let changes: [FileChange]
+    /// What those changes mean, derived by the model rather than here: this column redraws on
+    /// every poll, and `ChangeSummary.of` walks every card and every run record.
+    let summary: ChangeSummary
     let assign: ([NotebookCard]) -> Void
     let closeSession: (CodeSession) -> Void
     /// Sends a notebook entry to the Trash — the only way work leaves the board.
@@ -29,6 +32,7 @@ package struct ProjectList: View {
         selection: Binding<Route?>,
         showDone: Bool,
         changes: [FileChange],
+        summary: ChangeSummary,
         assign: @escaping ([NotebookCard]) -> Void,
         closeSession: @escaping (CodeSession) -> Void,
         remove: @escaping (NotebookCard) -> Void
@@ -39,6 +43,7 @@ package struct ProjectList: View {
         self._selection = selection
         self.showDone = showDone
         self.changes = changes
+        self.summary = summary
         self.assign = assign
         self.closeSession = closeSession
         self.remove = remove
@@ -431,7 +436,6 @@ package struct ProjectList: View {
     /// Tasks, not files: what is waiting for the user's approval first, then what the agents
     /// are still on. The whole working tree is one row at the end, for edits no task claims.
     @ViewBuilder private var reviewRows: some View {
-        let summary = ChangeSummary.of(project, changes: changes)
         let waiting = summary.waiting
         let flight = summary.tasks.filter { !$0.done }
         group("Waiting for you", "\(waiting.count)")

@@ -85,7 +85,7 @@ package struct ChangeSummary: Equatable, Sendable {
                     }).compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
                 return SummaryTask(
                     id: card.id, title: card.title, status: card.status, url: card.url,
-                    work: workers, files: files, records: records)
+                    body: card.body, work: workers, files: files, records: records)
             }
         return ChangeSummary(
             tasks: tasks.filter(\.done) + tasks.filter { !$0.done },
@@ -133,6 +133,8 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     package var status: String
     /// The task file, whose body is the brief and the "Done when" the review opens on.
     package var url: URL? = nil
+    /// That body, carried from the card so the review never opens the file to draw it.
+    package var body: String = ""
     package var work: [LeadWork] = []
     /// The changed files this task's workers reported owning, in the order they named them.
     package var files: [FileChange] = []

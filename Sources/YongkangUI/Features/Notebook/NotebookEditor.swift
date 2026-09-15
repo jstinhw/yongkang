@@ -50,15 +50,20 @@ struct NotebookEditor: View {
             }
         }
         .background(Theme.bg)
-        .task { load() }
+        .task { await load() }
         .onDisappear(perform: save)
     }
 
     private var isPage: Bool { entry.url.pathExtension == "md" }
 
-    private func load() {
-        text = (try? String(contentsOf: entry.url, encoding: .utf8)) ?? ""
-        loaded = text
+    /// The raw file, not the card's body: this box edits the frontmatter too. Read off the
+    /// main actor, and dropped if the page was closed while the disk answered.
+    private func load() async {
+        let url = entry.url
+        let fresh = await Task.detached { (try? String(contentsOf: url, encoding: .utf8)) ?? "" }.value
+        guard !Task.isCancelled else { return }
+        text = fresh
+        loaded = fresh
     }
 
     private func save() {

@@ -10,7 +10,7 @@ import Foundation
 /// and a compose file usually names more than one. Either way the repo is asked what runs
 /// under it, and each answer is its own independently runnable service.
 package enum Service {
-    package typealias Runnable = (name: String, directory: URL, command: String?)
+    package typealias Runnable = (name: String, directory: URL, command: String?, frontend: Bool)
 
     /// A `repos:` entry resolved against the project folder. Absolute paths and `~` are
     /// left alone; everything else is relative to the folder the agents run in.
@@ -57,9 +57,15 @@ package enum Service {
         if !monorepo.isEmpty { return monorepo }
         let compose = composeServiceNames(in: directory)
         if !compose.isEmpty {
-            return compose.map { (name: $0, directory: directory, command: "docker compose up \($0)") }
+            return compose.map { runnable($0, in: directory, command: "docker compose up \($0)") }
         }
-        return [(name: directory.lastPathComponent, directory: directory, command: command(in: directory))]
+        return [runnable(directory.lastPathComponent, in: directory)]
+    }
+
+    /// A service with everything a screen asks of it already answered — what runs it, and
+    /// whether there is a front end to open — so no view has to go back to the disk.
+    private static func runnable(_ name: String, in directory: URL, command line: String? = nil) -> Runnable {
+        (name: name, directory: directory, command: line ?? command(in: directory), frontend: isFrontend(directory))
     }
 
     private static func monorepoServices(in directory: URL) -> [Runnable] {
@@ -73,7 +79,7 @@ package enum Service {
                 children
                 .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
                 .sorted { $0.lastPathComponent < $1.lastPathComponent }
-                .map { (name: $0.lastPathComponent, directory: $0, command: command(in: $0)) }
+                .map { runnable($0.lastPathComponent, in: $0) }
         }
     }
 
@@ -106,26 +112,28 @@ package enum Service {
     /// Every repo of a project, in the order they are listed, each with what runs under
     /// it. A project with no `repos:` is its own repo — the common case where the work
     /// lands in the folder the notebook lives in.
-    package static func plan(
-        for card: NotebookCard, in project: URL
-    ) -> [(repo: String, directory: URL, services: [Runnable])] {
+    package static func plan(for card: NotebookCard, in project: URL) -> [ServicePlan] {
         let repos = card.repos.isEmpty ? ["."] : card.repos
         return repos.map { repo in
             let directory = directory(repo, in: project)
-            let label = repo == "." ? project.lastPathComponent : repo
-            return (label, directory, services(in: directory))
+            return ServicePlan(
+                card: card.id, repo: repo == "." ? project.lastPathComponent : repo, directory: directory,
+                exists: FileManager.default.fileExists(atPath: directory.path),
+                services: services(in: directory))
         }
+    }
+
+    /// Every project card's repos, with what runs under each. `async` for the files it opens:
+    /// this is detection, and it belongs on a poll rather than in a view body.
+    package static func plans(for cards: [NotebookCard], in project: URL) async -> [ServicePlan] {
+        cards.filter { $0.kind == .project }.flatMap { plan(for: $0, in: project) }
     }
 
     /// Keeps the first repo at each resolved directory. Several notebook projects can
     /// legitimately point at the same folder — a single app split across several project
     /// entries, or two that never filled in `repos:` and both fell back to the project
     /// root — and that must not read as several copies of the same app.
-    package static func dedupedByDirectory(
-        _ steps: [(repo: String, directory: URL, services: [Runnable])]
-    )
-        -> [(repo: String, directory: URL, services: [Runnable])]
-    {
+    package static func dedupedByDirectory(_ steps: [ServicePlan]) -> [ServicePlan] {
         var seen: Set<String> = []
         return steps.filter { seen.insert($0.directory.path).inserted }
     }
@@ -134,5 +142,35 @@ package enum Service {
     // backend without a UI is a false positive, and the preview just has nothing to load.
     package static func isFrontend(_ directory: URL) -> Bool {
         FileManager.default.fileExists(atPath: directory.appendingPathComponent("package.json").path)
+    }
+}
+
+/// One repo of a project and what runs under it, read once when the notebook changes. The
+/// screens that show repos, and the button that starts them, read this rather than running
+/// the detection themselves while they draw.
+package struct ServicePlan: Equatable, Sendable {
+    /// The project card this repo is listed on.
+    package let card: String
+    /// The `repos:` entry as written, or the project folder's own name for a project with none.
+    package let repo: String
+    package let directory: URL
+    /// Whether the folder is on disk yet. The usual state before anything is scaffolded is
+    /// that it is not, which reads differently from a repo with nothing to run.
+    package let exists: Bool
+    package let services: [Service.Runnable]
+
+    package init(card: String, repo: String, directory: URL, exists: Bool, services: [Service.Runnable]) {
+        self.card = card
+        self.repo = repo
+        self.directory = directory
+        self.exists = exists
+        self.services = services
+    }
+
+    /// Spelled out because `services` is a tuple array, which has `==` but no `Equatable`.
+    package static func == (left: ServicePlan, right: ServicePlan) -> Bool {
+        left.card == right.card && left.repo == right.repo && left.directory == right.directory
+            && left.exists == right.exists && left.services.count == right.services.count
+            && zip(left.services, right.services).allSatisfy { $0 == $1 }
     }
 }
