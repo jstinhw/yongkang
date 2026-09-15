@@ -1,0 +1,3 @@
+import YongkangUI
+
+YongkangApp.main()
