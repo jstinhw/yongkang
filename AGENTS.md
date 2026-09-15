@@ -3,7 +3,8 @@
 A macOS console that runs a team of agent CLIs (`claude`, `codex`, `grok`, `agy`) in real
 PTYs against a project's `.notebook/` folder, and reviews the changes they leave behind.
 
-SwiftPM, macOS 13+, one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
+A Swift package holds all the code, with a thin Xcode project that builds the app. macOS 13+,
+one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
 
 `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
 
@@ -14,7 +15,10 @@ SwiftPM, macOS 13+, one dependency (SwiftTerm). Tests are Swift Testing, one fil
   `Services/`, `Skills/`, `Shell/`, `Prompts/`, `Usage/`.
 - **`Sources/YongkangUI/`**: SwiftUI, AppKit and SwiftTerm. `App/` (`YongkangApp`, the rail
   and the list column), `Terminal/`, `DesignSystem/`, and `Features/<screen>/`.
-- **`Sources/Yongkang/main.swift`**: the app's executable. It only runs `YongkangApp`.
+- **`App/`**: the thin Xcode shell that builds `Yongkang.app` (bundle ID `ai.yongkang.Yongkang`).
+  `Yongkang/main.swift` only calls `YongkangMain.run()`; the rest is assets, entitlements and
+  `Config/Signing.xcconfig`. Its sources are a synchronized folder, so adding a file never
+  touches `project.pbxproj`.
 - **`Sources/Shots/`**: dev-only, renders every screen offscreen. Never part of the app.
 - **`Tests/YongkangCoreTests/`**: tests of Core, with captured CLI output under
   `Fixtures/<provider>/`.
@@ -30,7 +34,9 @@ swift test --filter UsageTests              # one suite while you work
 swift test --filter UsageTests/shortCount   # one test
 swift test --filter YongkangCoreTests       # one test target
 swift run shots <dir>                       # render every screen offscreen to <dir>/*.png
-./make-app.sh && open .build/Yongkang.app   # release build, bundled skills, signed app
+make run                                    # debug build of the app, then open it
+make archive                                # signed Release build in .build/xcode
+make help                                   # every target
 ```
 
 - `make check` also runs as a `pre-push` hook (`git config core.hooksPath .githooks`, once
@@ -39,12 +45,14 @@ swift run shots <dir>                       # render every screen offscreen to <
   Render into two folders, one before your change and one after, and compare them.
   `review.png`, `handover.png` and `usage.png` read live git or the clock, so they differ on
   every commit.
-- `make-app.sh` runs `pkill -x Yongkang` first. That quits the user's running app and every
-  agent session inside it, so don't run it unless you've been asked to.
+- `make run` refuses while Yongkang is running (`ai.yongkang.Yongkang`, or the old
+  `local.yongkang.app`) instead of quitting it: that would end every agent session inside
+  it. The user's copy is usually running, so don't launch or `open` a built app unless
+  you've been asked to.
+- Building the app needs Xcode; `make check` needs only the Swift toolchain.
 - The shipped role skills live in `Skills/` (product source, the prompts the app's agents run);
   `.claude/skills` and `.agents/skills` are symlinks to it. Only the app bundle carries them
-  (`Contents/Resources/skills`).
-  `swift run` falls back to whatever skills the CLI can find on its own.
+  (`Contents/Resources/skills`, copied by a build phase on every build).
 
 ## Definition of done
 
@@ -60,7 +68,8 @@ A handoff needs all of these:
   YongkangUI. A colour for a Core type is an extension there, like `ReviewArea+Color.swift`.
 - **`package`, never `public`,** for what one target uses from another. A struct that
   another target builds needs an explicit `package init`: the synthesized memberwise one is
-  internal.
+  internal. The one `public` is `YongkangMain`, because Xcode builds the app target without
+  the package's `-package-name`.
 - **The `.notebook/` format is a contract.** Never change it without updating
   `NotebookFormat.specText`, `docs/notebook-format.md` and the tests that cover it.
 - **Design before SwiftUI.** UI or design work goes through Claude Code's native `/design`

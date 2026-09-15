@@ -170,7 +170,7 @@ Each decision lists what it is, why, what was rejected, and its cost.
 ```
 Package.swift            ← unchanged location; `swift build` / `swift test` still work
 App/Yongkang.xcodeproj   ← one app target, ~4 files that rarely change
-App/Yongkang/            ← YongkangApp.swift (≈10 lines), Assets.xcassets, Info.plist, .entitlements
+App/Yongkang/            ← main.swift (one call), Assets.xcassets, .entitlements; Info.plist generated from build settings
 ```
 
 - **Why an Xcode project at all:** an app icon from an asset catalog, entitlements plus hardened runtime, Archive and notarize, and (later) embedding and signing Sparkle are all automatic in Xcode and fragile to script. `make-app.sh` already can't do any of them.
@@ -402,7 +402,7 @@ yongkang/
 ├── App/                                   # thin Xcode shell
 │   ├── Yongkang.xcodeproj
 │   ├── Config/Signing.xcconfig
-│   └── Yongkang/{YongkangApp.swift, Assets.xcassets, Info.plist, Yongkang.entitlements}
+│   └── Yongkang/{main.swift, Assets.xcassets, Yongkang.entitlements}
 ├── Skills/                                # shipped role skills (source of truth)
 │   └── engineering-lead/ product/ designer/ frontend-dev/ backend-dev/ qa-dev/ sre-dev/ fde-dev/ incubate-agent/
 ├── .claude/skills → ../Skills             # symlinks, for dogfooding

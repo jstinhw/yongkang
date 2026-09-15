@@ -15,9 +15,10 @@ haven't been checked against a live CLI.
 
 **Before you start**
 
-- Build the app bundle: `./make-app.sh && open .build/Yongkang.app`. This quits any running
-  Yongkang, and every agent session in it. Use the bundle rather than `swift run`: only the
-  bundle carries the packaged role skills.
+- Quit Yongkang, then run `make run`, which builds the app with Xcode and opens it. It refuses
+  while any Yongkang is running rather than quitting it, because that would end every agent
+  session inside it. The app bundle is also the only build that carries the packaged role
+  skills.
 - Have `claude` or `codex` on your PATH. Only those two have a subagent reader and a live
   child view. With Grok or Agy, step 8 has nothing to show.
 - Make an empty folder, for example `mkdir ~/Projects/yk-smoke`.
@@ -246,18 +247,25 @@ Create the identity once:
 2. Name it `Yongkang Dev`, set Identity Type to **Self Signed Root** and Certificate Type
    to **Code Signing**.
 
-`make-app.sh` checks `security find-identity -v -p codesigning` for that name. If it's
-there, the script signs with it (`--identifier local.yongkang.app`). If it isn't, the script
-signs ad-hoc and prints a note that macOS will keep asking. To use a different certificate,
-set `YONGKANG_IDENTITY=<name>`.
+`App/Config/Signing.xcconfig` names the identity. `make run` and `make archive` check
+`security find-identity -v -p codesigning` for that name. If it's there, Xcode signs with it.
+If it isn't, they sign ad-hoc and print a note that macOS will keep asking. To use a
+different certificate, change `CODE_SIGN_IDENTITY` in that file.
 
 To check which signature a build got, run
-`codesign -dv .build/Yongkang.app 2>&1 | grep -E 'Authority|Signature'`. A stable build
-shows `Authority=Yongkang Dev`; an ad-hoc one shows `Signature=adhoc`.
+`codesign -dv --verbose=4 .build/xcode/Build/Products/Debug/Yongkang.app 2>&1 | grep -E 'Authority|Signature|flags'`.
+A stable build shows `Authority=Yongkang Dev`; an ad-hoc one shows `Signature=adhoc`. Both
+show `runtime` in the flags: the app always has hardened runtime, with no exception
+entitlements.
 
 *(Unverified: if `security find-identity -v -p codesigning` doesn't list the new
 certificate, it may need **Trust → Code Signing: Always Trust** in Keychain Access. The
 certificate hasn't been created on the machine this was written on.)*
+
+The bundle ID changed from `local.yongkang.app` to `ai.yongkang.Yongkang` in refactor PR 2.4.
+On its first launch the app copies the open projects, the list column's width and visibility,
+and the agent choice from the old defaults domain (`DefaultsMigration`). macOS still treats
+it as a new app, so it asks for folder access and notification permission again.
 
 ## Adding a provider (today)
 

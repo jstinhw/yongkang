@@ -7,7 +7,7 @@ let package = Package(
     name: "Yongkang",
     platforms: [.macOS(.v13)],
     products: [
-        // For an app target to link. The Yongkang executable below is what make-app.sh bundles.
+        // What App/Yongkang.xcodeproj links. The app itself is built there, not by SwiftPM.
         .library(name: "YongkangUI", targets: ["YongkangUI"]),
         .executable(name: "shots", targets: ["Shots"]),
     ],
@@ -19,7 +19,6 @@ let package = Package(
         // SwiftUI, it belongs in YongkangUI.
         .target(name: "YongkangCore", swiftSettings: v5),
         .target(name: "YongkangUI", dependencies: ["YongkangCore", "SwiftTerm"], swiftSettings: v5),
-        .executableTarget(name: "Yongkang", dependencies: ["YongkangUI"], swiftSettings: v5),
         // Dev-only: `swift run shots <dir>` renders every screen offscreen. Never in the app.
         .executableTarget(name: "Shots", dependencies: ["YongkangCore", "YongkangUI"], swiftSettings: v5),
         .testTarget(

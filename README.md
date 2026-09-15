@@ -10,13 +10,15 @@ Every screen is the same four columns: a **rail** picking the section, a **list*
 ## Requirements
 
 - macOS 13+
+- Xcode 16 or later to build the app. On Xcode 26, also run
+  `xcodebuild -downloadComponent MetalToolchain` once: Xcode compiles SwiftTerm's shaders.
 - At least one of `claude`, `codex`, `grok` or `agy` on PATH (they launch via `zsh -ilc`, so `.zshrc` applies)
 
 ## Build, run, test
 
 ```sh
-./make-app.sh && open .build/Yongkang.app
-swift test                           # parsers, notebook format and workflows
+make run                             # builds the app with Xcode and opens it
+make check                           # format lint, build, and the tests
 swift run shots /tmp/ui              # renders every screen to PNG from a fixed sample
 ```
 
