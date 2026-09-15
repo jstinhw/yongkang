@@ -96,12 +96,13 @@ enum NotebookFormat {
     }
 
     /// Trash, not erase: a notebook page is the user's own writing, so removing one stays
-    /// undoable from the Finder. A volume with no trash falls back to a plain delete.
-    static func remove(_ card: NotebookCard, in cards: [NotebookCard]) throws {
+    /// undoable from the Finder. A volume with no trash falls back to a plain delete. Tests
+    /// pass `trash: false` so every run doesn't leave pages in the developer's Trash.
+    static func remove(_ card: NotebookCard, in cards: [NotebookCard], trash: Bool = true) throws {
         let fm = FileManager.default
         for url in owned(by: card, in: cards) where fm.fileExists(atPath: url.path) {
-            do { try fm.trashItem(at: url, resultingItemURL: nil) }
-            catch { try fm.removeItem(at: url) }
+            if trash, (try? fm.trashItem(at: url, resultingItemURL: nil)) != nil { continue }
+            try fm.removeItem(at: url)
         }
     }
 

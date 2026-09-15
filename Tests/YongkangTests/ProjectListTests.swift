@@ -48,15 +48,15 @@ import Testing
         #expect(NotebookFormat.owned(by: tricky, in: notebook.cards) == [tricky.url], "a task is one file")
     }
 
-    // `remove` trashes rather than erases, so this leaves the removed pages in the user's
-    // Trash (under a yongkang-test-… temp path), exactly as the self-test did.
+    // `trash: false` takes the plain-delete fallback, so test runs leave nothing in the
+    // developer's Trash; which pages go is the same either way.
     @Test func removingAProjectLeavesRunHistoryAndTheRest() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let notebook = try sample(in: tmp)
         let launch = try #require(notebook.cards.first { $0.id == "launch-beta" })
 
-        try NotebookFormat.remove(launch, in: notebook.cards)
+        try NotebookFormat.remove(launch, in: notebook.cards, trash: false)
         let left = NotebookIndex.load(root: notebook.root)
         // Run history is an append-only log of what agents did, and is not navigable, so
         // it stays behind; every page a user can still open goes.
