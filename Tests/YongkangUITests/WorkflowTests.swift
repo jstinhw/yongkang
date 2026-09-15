@@ -312,4 +312,40 @@ import Testing
             project.repo.changes.isEmpty && project.repo.head?.hasSuffix("Add the notebook") == true,
             "the new notebook went in, and the repo was read again after")
     }
+
+    // MARK: - Services
+
+    @Test func runningServicesStartsEachOnceAndNamesWhatHasNothingToRun() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try project(tasks: [], in: tmp)
+        let (web, api) = (tmp.appendingPathComponent("web"), tmp.appendingPathComponent("api"))
+        let steps: [(repo: String, directory: URL, services: [Service.Runnable])] = [
+            (repo: "web", directory: web, services: [(name: "web", directory: web, command: "npm run dev")]),
+            (
+                repo: "api", directory: api,
+                services: [
+                    (name: "server", directory: api.appendingPathComponent("server"), command: "cargo run"),
+                    (name: "worker", directory: api.appendingPathComponent("worker"), command: nil),
+                ]
+            ),
+        ]
+
+        let first = project.runServices(steps)
+        #expect(
+            project.sessions.map(\.title) == ["Run web", "Run api/server"],
+            "a service named after its repo keeps that name; one of several is repo/service")
+        #expect(project.sessions[0].line.contains("npm run dev") && project.sessions[0].agent == nil)
+        #expect(first.destination == Destination(section: .agents, route: .session(project.sessions[1].id)))
+        #expect(first.unstarted == ["api/worker"], "what has nothing to run is named, not skipped")
+
+        let again = project.runServices(steps)
+        #expect(project.sessions.count == 2, "a service already running is shown, not started again")
+        #expect(again.destination == first.destination)
+
+        let nothing = project.runServices([
+            (repo: "docs", directory: tmp, services: [(name: "docs", directory: tmp, command: nil)])
+        ])
+        #expect(nothing.destination == Destination(section: .agents) && nothing.unstarted == ["docs"])
+    }
 }

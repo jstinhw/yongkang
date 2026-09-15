@@ -110,59 +110,24 @@ extension RootView {
         model.selection = project.addSession(agent, id: id, prompt: prompt, title: title, taskIDs: taskIDs)
     }
 
-    func addSession(
-        id: UUID = UUID(), to project: ProjectModel, title: String, icon: String, line: String,
-        agent: AgentKind? = nil, taskIDs: [String] = []
-    ) {
-        project.addSession(id: id, title: title, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
-        // New sessions open their live CLI.
-        model.selection = .session(id)
-    }
-
     /// Every service in a project's repos, started at once — the board's "run the whole
     /// project" action.
     func runServices(_ card: NotebookCard, in project: ProjectModel) {
         runServices(Service.plan(for: card, in: project.directory), in: project)
     }
 
-    /// One terminal per runnable service, all started together, because a front end
-    /// reviewed without its service behind it is a page of errors. A service named after
-    /// its repo (the common single-app case) keeps that name; one of several under a repo
-    /// is named `repo/service`. Anything with nothing to run is named rather than skipped
-    /// in silence.
-    ///
-    /// A service already running is shown, not started again: a second `npm run dev`
-    /// fights the first one for its port, and the loser exits — which is exactly what was
-    /// pushing a "default to :3000" preview onto whatever port the collision left it on.
     func runServices(
         _ steps: [(repo: String, directory: URL, services: [Service.Runnable])],
         in project: ProjectModel
     ) {
-        let named = steps.flatMap { step in
-            step.services.map { service in
-                (
-                    label: service.name == step.repo ? step.repo : "\(step.repo)/\(service.name)",
-                    directory: service.directory, command: service.command
-                )
-            }
-        }
-        model.section = .agents
-        for service in named where service.command != nil {
-            let title = "Run \(service.label)"
-            if let running = project.sessions.first(where: { $0.title == title }) {
-                model.selection = .session(running.id)
-                continue
-            }
-            addSession(
-                to: project, title: title, icon: "play.circle",
-                line: AgentCommand.line(directory: service.directory.path, run: service.command!))
-        }
-        let stuck = named.filter { $0.command == nil }
-        guard !stuck.isEmpty else { return }
+        let run = project.runServices(steps)
+        go(to: run.destination)
+        guard !run.unstarted.isEmpty else { return }
         let alert = NSAlert()
-        alert.messageText = named.count == stuck.count ? "Nothing to run yet" : "Some services did not start"
+        // No route means no service was started or shown: none of them had a command.
+        alert.messageText = run.destination.route == nil ? "Nothing to run yet" : "Some services did not start"
         alert.informativeText = """
-            No start command found in: \(stuck.map(\.label).joined(separator: ", ")).
+            No start command found in: \(run.unstarted.joined(separator: ", ")).
 
             A service starts if it has a compose file, an npm dev/start script, Cargo.toml, \
             go.mod, or a Makefile dev target. Add `repos: [path, ...]` to the project's \
