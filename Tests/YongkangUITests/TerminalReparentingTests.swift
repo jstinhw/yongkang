@@ -64,7 +64,7 @@ struct TerminalReparentingTests {
 
     /// Moves `terminal` into `container` and lays it out, the way `TerminalHost` does.
     private func attach(_ terminal: NSView, to container: NSView) {
-        pin(terminal, into: container)
+        TerminalHost.pin(terminal, into: container)
         container.layoutSubtreeIfNeeded()
         #expect(terminal.window != nil, "the pane is in a window")
     }
@@ -268,44 +268,11 @@ struct TerminalReparentingTests {
         #expect(try await eventually { childSeesTerminalSize(view) })
         try await show(.small)
         #expect(isAlive(view))
-        window.makeFirstResponder(view)
-        #expect(window.firstResponder === view)
+        #expect(try await eventually { window.firstResponder === view }, "the host asks for focus once it is placed")
 
         // One PTY resize per insert into a different size (the first from the 900x560 the view
         // was made at), none on removal, and no transient sizes while SwiftUI lays out.
         #expect(grids.sizes.count == 4, "\(grids.sizes)")
-    }
-}
-
-/// Pins `terminal` to `container`'s edges, taking it from wherever it was.
-private func pin(_ terminal: NSView, into container: NSView) {
-    terminal.removeFromSuperview()
-    terminal.translatesAutoresizingMaskIntoConstraints = false
-    container.addSubview(terminal)
-    NSLayoutConstraint.activate([
-        terminal.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-        terminal.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-        terminal.topAnchor.constraint(equalTo: container.topAnchor),
-        terminal.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-    ])
-}
-
-/// The shape of PR 3.4's host: a plain container that borrows the registry's terminal.
-private struct TerminalHost: NSViewRepresentable {
-    let terminal: AttentionTerminalView
-
-    func makeNSView(context: Context) -> NSView {
-        let container = NSView()
-        pin(terminal, into: container)
-        return container
-    }
-
-    func updateNSView(_ container: NSView, context: Context) {}
-
-    /// Lets go only of what this container still holds: in a move between panes the new host
-    /// has already taken the terminal by the time the old one is dismantled.
-    static func dismantleNSView(_ container: NSView, coordinator: ()) {
-        for view in container.subviews { view.removeFromSuperview() }
     }
 }
 
