@@ -1,0 +1,18 @@
+// Signing for the Yongkang app target (refactor plan D7).
+//
+// "Yongkang Dev" is a self-signed code-signing identity. macOS ties Desktop and Documents
+// access (TCC) to the signature, so a stable identity means one approval survives every
+// rebuild. docs/development.md, "Stable local signing identity", says how to create it.
+// `make run` and `make archive` sign ad-hoc when this Mac doesn't have it.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Yongkang Dev
+
+// Xcode turns hardened runtime off when it signs ad-hoc ("Disabling hardened runtime with
+// ad-hoc codesigning"), so ask codesign for it directly. With a real identity Xcode passes
+// the same option itself.
+OTHER_CODE_SIGN_FLAGS = --options=runtime
+
+// Hardened runtime turns on library validation, which rejects a dylib whose signature has no
+// Team ID (ad-hoc or self-signed). Debug builds otherwise split the app into
+// Yongkang.debug.dylib, for SwiftUI previews, and crash at launch with "different Team IDs".
+ENABLE_DEBUG_DYLIB = NO
