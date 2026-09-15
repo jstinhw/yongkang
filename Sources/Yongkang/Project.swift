@@ -92,3 +92,7 @@ struct CodeSession: Identifiable, Equatable {
         self.coordination = coordination
     }
 }
+
+extension CodeSession {
+    var isEngineeringLead: Bool { title.hasPrefix("Engineering Lead") }
+}

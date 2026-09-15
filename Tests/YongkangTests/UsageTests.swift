@@ -319,16 +319,6 @@ import Testing
         #expect(AgentUsage.modelName(model) == name)
     }
 
-    // Two versions of one model must not draw as the same colour, or a stacked bar
-    // says how much went to Opus without saying which Opus.
-    @Test func paletteShadesVersionsOfOneFamily() {
-        let shades = AgentUsage.palette(for: ["claude-opus-5", "claude-opus-4-7", "claude-sonnet-5"])
-        #expect(shades["claude-opus-5"] != shades["claude-opus-4-7"])
-        #expect(
-            shades["claude-opus-5"] == AgentUsage.modelTint("claude-opus-5"),
-            "and the biggest spender in a family keeps the family's own colour")
-    }
-
     @Test func untilAWindowResets() {
         #expect(AgentUsage.until(noon.addingTimeInterval(8_100), now: noon) == "2h 15m")
         #expect(

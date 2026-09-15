@@ -547,7 +547,3 @@ struct NotebookKindCount {
         ]
     }
 }
-
-extension CodeSession {
-    var isEngineeringLead: Bool { title.hasPrefix("Engineering Lead") }
-}

@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 /// Which part of the product a changed file belongs to, so a reviewer can see at a glance
 /// that a task touched the database or an endpoint before reading any of it. Worked out
@@ -14,17 +14,6 @@ enum ReviewArea: String, CaseIterable, Identifiable {
     case notebook = "Notebook records"
 
     var id: Self { self }
-
-    var color: Color {
-        switch self {
-        case .database: return Theme.amber
-        case .api: return Theme.green
-        case .frontend: return Theme.accent
-        case .tests: return Theme.violet
-        case .config, .other: return Theme.tx2
-        case .notebook: return Theme.tx3
-        }
-    }
 
     var systemImage: String {
         switch self {

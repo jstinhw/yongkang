@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 /// Tokens spent, in the four buckets the supported providers report. Cache reads are kept apart
 /// from fresh input on purpose: they are the bulk of an agent's traffic and priced
@@ -544,47 +543,9 @@ enum AgentUsage {
         return "\(max(1, seconds / 60))m"
     }
 
-    /// A bar's colour is its headroom, not its provider: the point of the number is how
-    /// close the work is to stopping.
-    static func tint(_ percent: Double) -> Color {
-        switch percent {
-        case 90...: return Theme.red
-        case 70...: return Theme.amber
-        default: return Theme.green
-        }
-    }
-
-    /// One colour per model family, held steady across every panel so a slice in the model
-    /// bar and a label on an agent row are recognisably the same thing.
-    static func modelTint(_ model: String) -> Color {
-        switch family(model) {
-        case "opus": return Theme.violet
-        case "sonnet": return Theme.accent
-        case "haiku": return Theme.green
-        case "fable": return Theme.amber
-        default: return Theme.tx3
-        }
-    }
-
-    private static func family(_ model: String) -> String {
+    static func family(_ model: String) -> String {
         let name = model.lowercased()
         return ["opus", "sonnet", "haiku", "fable", "gpt", "codex"].first { name.contains($0) } ?? "other"
-    }
-
-    /// A colour per model for one render, rather than per family. Two versions of the same
-    /// model are the same hue at different weights: a bar stacked out of one flat violet
-    /// says how much went to Opus but not which Opus, which is half the question. Pass the
-    /// models biggest-spender first, so the one that did most of the work is full strength.
-    static func palette(for models: [String]) -> [String: Color] {
-        var depth: [String: Int] = [:]
-        return models.reduce(into: [:]) { palette, model in
-            let step = depth[family(model), default: 0]
-            depth[family(model)] = step + 1
-            palette[model] =
-                step == 0
-                ? modelTint(model)
-                : modelTint(model).opacity(1 - 0.32 * Double(min(step, 2)))
-        }
     }
 
     /// `claude-haiku-4-5-20251001` → `haiku-4-5`: the date stamp is noise in a legend.
@@ -593,30 +554,5 @@ enum AgentUsage {
         let parts = stripped.split(separator: "-")
         guard let last = parts.last, last.count == 8, last.allSatisfy(\.isNumber) else { return stripped }
         return parts.dropLast().joined(separator: "-")
-    }
-}
-
-/// Where supported providers keep a session's own transcript. Naming it once keeps the
-/// window and the usage screen looking in the same place.
-enum Transcripts {
-    static func url(of session: CodeSession, in directory: URL) -> URL? {
-        switch session.agent {
-        case .codex:
-            return CodexTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
-        case .claude:
-            return ClaudeTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
-        case .grok:
-            return GrokTranscripts.transcriptURL(sessionID: session.id, projectDirectory: directory)
-        case .agy:
-            return nil
-        case nil:
-            // A service terminal is a PTY in a folder, not an agent — it has no transcript.
-            return nil
-        }
-    }
-
-    static func usageURL(of session: CodeSession, in directory: URL) -> URL? {
-        guard session.agent == .grok else { return url(of: session, in: directory) }
-        return GrokTranscripts.usageURL(sessionID: session.id, projectDirectory: directory)
     }
 }
