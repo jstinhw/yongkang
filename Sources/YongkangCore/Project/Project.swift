@@ -3,7 +3,9 @@ import Foundation
 /// A project is a folder. Its agents run there, its notebook lives in `.notebook/`
 /// inside it, and both are only ever reachable through the project.
 package struct Project: Identifiable, Equatable {
-    package let id = UUID()
+    /// Minted by the caller that keeps the project, so every value built from it has the
+    /// same identity: hover, lists and the entered project all key on it.
+    package let id: UUID
     package let directory: URL
     package var entries: [NotebookEntry] = []
     /// Frontmatter for the board, read only while you are inside the project.
@@ -19,6 +21,7 @@ package struct Project: Identifiable, Equatable {
     package var records: [UUID: LeadCoordination] = [:]
 
     package init(
+        id: UUID = UUID(),
         directory: URL,
         entries: [NotebookEntry] = [],
         cards: [NotebookCard] = [],
@@ -27,6 +30,7 @@ package struct Project: Identifiable, Equatable {
         sessions: [CodeSession] = [],
         records: [UUID: LeadCoordination] = [:]
     ) {
+        self.id = id
         self.directory = directory
         self.entries = entries
         self.cards = cards
