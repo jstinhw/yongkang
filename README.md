@@ -5,7 +5,7 @@ CLI sessions, the notebook they work from, and the changes they produce.
 
 ![Yongkang](docs/images/overview.png)
 
-Every screen is the same four columns: a **rail** picking the section, a **list** of that section's objects, the **work area** holding whichever one is selected, and an **inspector** carrying what you would otherwise have to go and find. The rail's sections are Overview, Board, Agents, Review, Blocks and Terminals.
+Every screen is the same four columns: a **rail** picking the section, a **list** of that section's objects, the **work area** holding whichever one is selected, and an **inspector** carrying what you would otherwise have to go and find. The rail's sections are Overview, Board, Agents, Review and Blocks.
 
 ## Requirements
 
