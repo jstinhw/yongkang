@@ -130,7 +130,8 @@ through the same `setFrameSize` path as point 3.
     before the registry.
   - So `TerminalRegistry.terminate(_:)` forgets the session itself and reaps the pid off the
     main thread, with SIGKILL if the child is still there after 5 s. `onExit` only covers a child
-    that exits by itself.
+    that exits by itself, and SwiftTerm reaps that one, so closing its session sends nothing to a
+    pid that may have been reused.
 - **Keep terminals in one window.** Moving to another `NSWindow` is untested. A second app window
   showing the same session would take the terminal from the first. With Metal on, it
   rebuilds the Metal view (`MacTerminalView.swift:220-226`, 583-592).

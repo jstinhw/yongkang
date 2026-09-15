@@ -55,7 +55,7 @@ import YongkangCore
         let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
         let entry = Entry(view: view, label: session.title, agent: session.agent)
         let id = session.id
-        entry.exited = { [weak self] in self?.onExit(id) }
+        entry.onExit = { [weak self] in self?.onExit(id) }
         view.processDelegate = entry
         view.onAttention = { [weak self] reason in self?.onAttention(id, reason) }
         view.onCheck = { [weak self] in self?.typeQueued(id) }
@@ -85,6 +85,8 @@ import YongkangCore
     func terminate(_ id: UUID) {
         guard let entry = entries.removeValue(forKey: id) else { return }
         notice(nil, for: id)
+        // SwiftTerm reaped a child that exited by itself, so its pid may be another process's now.
+        guard !entry.exited else { return }
         let pid = entry.view.process.shellPid
         entry.view.terminate()
         guard pid > 0 else { return }  // waitpid(0) and kill(0) mean this whole process group.
@@ -227,7 +229,9 @@ private final class Entry: LocalProcessTerminalViewDelegate {
     /// Named in the exit notice, so a dead process says which one it was.
     let label: String
     let agent: AgentKind?
-    var exited: () -> Void = {}
+    var onExit: () -> Void = {}
+    /// Set once the child has exited by itself and SwiftTerm has reaped it.
+    private(set) var exited = false
     /// Messages waiting for the terminal to be free.
     var queued: [String] = []
     /// The child agent the CLI was last steered to; nil for the session's own view.
@@ -242,10 +246,11 @@ private final class Entry: LocalProcessTerminalViewDelegate {
     }
 
     func processTerminated(source: TerminalView, exitCode: Int32?) {
+        exited = true
         let code = exitCode.map(String.init) ?? "?"
         source.feed(
             text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
-        exited()
+        onExit()
     }
 
     func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}

@@ -121,6 +121,21 @@ struct TerminalRegistryTests {
         #expect(try await eventually { pids.allSatisfy(isReaped) }, "closing the project ends the rest")
     }
 
+    @Test func aSessionThatExitsByItselfIsMarkedExitedAndCanBeClosed() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel(terminals: registry())
+        let project = model.open(tmp)
+        let id = UUID()
+        project.addSession(id: id, title: "Run web", icon: "play.circle", line: "exit 3")
+        let view = try #require(model.terminals.view(for: id))
+
+        #expect(try await eventually { project.sessions.first?.exited == true }, "the exit reaches the model")
+        #expect(view.screen.contains("[Run web exited"), "and the terminal says which session it was")
+        model.close(project.sessions[0], in: project)
+        #expect(model.terminals.view(for: id) == nil && project.sessions.isEmpty)
+    }
+
     // MARK: - Typing
 
     @Test func aMessageWaitsForTheQuestionOnScreenAndIsTypedOnce() async throws {
