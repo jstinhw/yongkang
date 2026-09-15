@@ -42,9 +42,9 @@ package struct TokenTally: Equatable {
 /// and the specialists' is the work, and the two are worth telling apart.
 package struct AgentSpend: Identifiable {
     package let id: String
-    /// The selection tag that opens this agent, so a row in the usage screen goes
-    /// straight to the transcript it is describing.
-    package let tag: String
+    /// The route that opens this agent, so a row in the usage screen goes straight to the
+    /// session it is describing. Nil when there is nothing left to open.
+    package let route: Route?
     package let name: String
     package let role: String
     package let provider: AgentKind
@@ -184,7 +184,7 @@ package enum AgentUsage {
             let provider = session.agent ?? .claude
             let own = Transcripts.url(of: session, in: project.directory).map { url in
                 AgentSpend(
-                    id: session.id.uuidString, tag: Tag.session(session),
+                    id: session.id.uuidString, route: .session(session.id),
                     name: session.title, role: role(of: session),
                     provider: provider, running: !session.exited,
                     samples: samples(
@@ -197,7 +197,7 @@ package enum AgentUsage {
                 // which would collide as a list key here and as a ledger row on disk.
                 AgentSpend(
                     id: "\(session.id.uuidString):\(subagent.id)",
-                    tag: Tag.subagent(session, subagent),
+                    route: .subagent(session: session.id, id: subagent.id),
                     name: subagent.description, role: subagent.agentType,
                     provider: provider, running: subagent.running,
                     samples: samples(at: subagent.transcriptURL, provider))

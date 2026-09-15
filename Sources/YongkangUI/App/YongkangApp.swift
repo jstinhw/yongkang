@@ -13,8 +13,8 @@ package struct YongkangApp: App {
     /// Which of the rail's sections the window is showing. The list column is that
     /// section's objects and the work area is whichever one is selected.
     @State private var section: ConsoleSection = .overview
-    /// Notebook entries tag by file path, terminals by UUID, everything else by `Tag`.
-    @State private var selection: String?
+    /// The row the list column has selected and the page the work area shows.
+    @State private var selection: Route?
     /// Progress or a fallback instruction while selecting a child inside its CLI.
     @State private var childNavigation: [UUID: String] = [:]
     @State private var attention: [UUID: String] = [:]
@@ -150,7 +150,7 @@ package struct YongkangApp: App {
     private func openAttention(_ session: CodeSession, in project: Project) {
         if entered != project.id { enter(project) }
         section = .agents
-        selection = Tag.session(session)
+        selection = .session(session.id)
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -284,14 +284,14 @@ package struct YongkangApp: App {
                 addMenu(for: project)
                 Button {
                     section = .board
-                    selection = Tag.board(project)
+                    selection = .board
                 } label: {
                     Label("Assign work", systemImage: "bolt")
                 }
                 .buttonStyle(.consolePrimary)
             }
         case .board:
-            let scoped = Tag.card(selection, in: project.cards)
+            let scoped = selection?.card(in: project.cards)
             let demo = selectedBlock(in: project).flatMap { $0.isDemo ? $0 : nil }
             TopBar(
                 crumbs: demo == nil ? [project.name] : [project.name, "Board"],
@@ -316,7 +316,7 @@ package struct YongkangApp: App {
             let watched = selectedAgent(in: project) ?? selectedSubagent(in: project)?.session
             TopBar(
                 crumbs: [project.name],
-                title: selection == Tag.usage(project)
+                title: selection == .usage
                     ? "Usage"
                     : selectedSubagent(in: project)?.subagent.description
                         ?? watched?.title ?? selectedSession(in: project)?.title
@@ -333,7 +333,7 @@ package struct YongkangApp: App {
                 }
                 if let found = selectedSubagent(in: project) {
                     Button {
-                        selection = Tag.session(found.session)
+                        selection = .session(found.session.id)
                     } label: {
                         Label("Parent session", systemImage: "terminal")
                     }
@@ -396,63 +396,63 @@ package struct YongkangApp: App {
                     prompt: NotebookFormat.onboardingPrompt(description: description),
                     title: "Notebook Setup")
             }
-        } else if selection == Tag.overview(project) {
+        } else if selection == .overview {
             Overview(
                 project: project, changes: changes, head: head,
                 go: {
                     section = $0
-                    if let tag = $1 { selection = tag }
+                    selection = $1
                 },
                 assign: {
                     section = .board
-                    selection = Tag.board(project)
+                    selection = .board
                 })
-        } else if selection == Tag.board(project) {
+        } else if selection == .board {
             boardView(for: project)
-        } else if selection == Tag.usage(project) {
+        } else if selection == .usage {
             UsageBoard(project: project, open: { selection = $0 })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
                 card: card, cards: project.cards, directory: project.directory,
                 assigned: project.assignedTaskIDs, showDone: showDone,
-                open: { url in selection = NotebookEntry.id(for: url) },
+                open: { url in selection = .entry(NotebookEntry.id(for: url)) },
                 assign: { tasks in assign(tasks, in: project) },
                 run: { card in runServices(card, in: project) },
-                openTask: { task in selection = Tag.task(task.id) }
+                openTask: { task in selection = .task(task.id) }
             )
             .id(card.id)
         } else if let card = scopedCard(in: project, kind: .task) {
             TaskDetail(
                 card: card, cards: project.cards, assigned: project.assignedTaskIDs,
                 working: workers(on: card.id, in: project),
-                open: { url in selection = NotebookEntry.id(for: url) },
+                open: { url in selection = .entry(NotebookEntry.id(for: url)) },
                 assign: { tasks in assign(tasks, in: project) },
                 check: { session, subagent in
                     section = .agents
-                    selection = Tag.subagent(session, subagent)
+                    selection = .subagent(session: session.id, id: subagent.id)
                 }
             )
             .id(card.id)
         } else if let card = scopedPageCard(in: project) {
             NotebookEntryDetail(
                 card: card, cards: project.cards,
-                open: { url in selection = NotebookEntry.id(for: url) }
+                open: { url in selection = .entry(NotebookEntry.id(for: url)) }
             )
             .id(card.id)
         } else if let watched = selectedAgent(in: project) {
-            switch AgentPane.of(selection, session: watched.id) {
+            switch selection?.pane(of: watched.id) {
             case .lanes:
                 EngineeringLeadBoard(
                     session: watched, cards: project.cards, blocks: project.blocks,
                     team: project.team,
                     openTask: {
                         section = .board
-                        selection = Tag.task($0)
+                        selection = .task($0)
                     },
-                    openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
+                    openSubagent: { subagent in selection = .subagent(session: watched.id, id: subagent.id) },
                     openBlock: {
                         section = .blocks
-                        selection = Tag.block($0)
+                        selection = .block($0.id)
                     }
                 )
             case .session:
@@ -469,13 +469,13 @@ package struct YongkangApp: App {
                     source: Transcripts.url(of: watched, in: project.directory),
                     openTask: {
                         section = .board
-                        selection = Tag.task($0)
+                        selection = .task($0)
                     },
                     openBlock: {
                         section = .blocks
-                        selection = Tag.block($0)
+                        selection = .block($0.id)
                     },
-                    openSubagent: { subagent in selection = Tag.subagent(watched, subagent) },
+                    openSubagent: { subagent in selection = .subagent(session: watched.id, id: subagent.id) },
                     send: { pendingInput[watched.id] = $0 }
                 )
             }
@@ -492,7 +492,7 @@ package struct YongkangApp: App {
                 directory: project.directory,
                 running: runningAgents(of: member, in: project),
                 openSubagent: { session, subagent in
-                    selection = Tag.subagent(session, subagent)
+                    selection = .subagent(session: session.id, id: subagent.id)
                 }
             )
             .id(member.id)
@@ -521,12 +521,12 @@ package struct YongkangApp: App {
                 task: task, summary: ChangeSummary.of(project, changes: changes),
                 directory: project.directory, cards: project.cards, team: project.team,
                 branch: branch, head: head, draft: draft(for: task.id),
-                openFile: { selection = Tag.review(project) + ":" + $0 },
+                openFile: { selection = .review(file: $0) },
                 approve: { approve(task, message: $0, in: project) },
                 requestChanges: { requestChanges(on: task, in: project) }
             )
             .id(task.id)
-        } else if let path = reviewPath(project) {
+        } else if let path = reviewPath {
             let summary = ChangeSummary.of(project, changes: changes)
             // A file a task's worker claimed is reviewed as part of that task: comments on
             // its lines join that task's feedback, and the bar is that task's decision.
@@ -534,10 +534,10 @@ package struct YongkangApp: App {
             ChangeReview(
                 project: project, changes: changes, head: head, branch: branch,
                 path: path, summary: summary,
-                select: { selection = Tag.review(project) + ":" + $0 },
+                select: { selection = .review(file: $0) },
                 commit: { commit($0, in: project) },
                 task: owner, draft: draft(for: owner?.id ?? ""),
-                openTask: { selection = Tag.reviewTask(project, $0) },
+                openTask: { selection = .reviewTask($0) },
                 approve: { message in owner.flatMap { approve($0, message: message, in: project) } },
                 requestChanges: { if let owner { requestChanges(on: owner, in: project) } })
         } else if let step = previewStep(in: project) {
@@ -571,8 +571,8 @@ package struct YongkangApp: App {
             showDone: showDone,
             assign: { tasks in assign(tasks, in: project) },
             review: { startProductReview(in: project) },
-            openCard: { card in selection = Tag.task(card.id) },
-            openDemo: { demo in selection = Tag.block(demo) },
+            openCard: { card in selection = .task(card.id) },
+            openDemo: { demo in selection = .block(demo.id) },
             remove: { card in remove(card, in: project) }
         )
     }
@@ -589,7 +589,7 @@ package struct YongkangApp: App {
                 "The demo at \(block.slug) is approved.\(pass) "
                 + "Mark the design task done and start the tasks waiting on it."
             section = .agents
-            selection = Tag.session(waiting)
+            selection = .session(waiting.id)
         }
         reload()
     }
@@ -599,7 +599,7 @@ package struct YongkangApp: App {
     private func openDesigner(_ block: UserBlock, in project: Project) {
         guard let waiting = waitingSession(for: block, in: project) else { return }
         section = .agents
-        selection = Tag.session(waiting)
+        selection = .session(waiting.id)
     }
 
     // MARK: - Selection
@@ -608,23 +608,23 @@ package struct YongkangApp: App {
         guard let project = enteredProject else { return }
         switch section {
         case .overview:
-            selection = Tag.overview(project)
+            selection = .overview
         case .board:
-            if Tag.card(selection, in: project.cards) == nil {
-                selection = Tag.board(project)
+            if selection?.card(in: project.cards) == nil {
+                selection = .board
             }
         case .agents:
             if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
                 && selectedSession(in: project) == nil && selectedMember(in: project) == nil
-                && selection != Tag.usage(project)
+                && selection != .usage
             {
                 // A lead first, then any agent — and a service runner only if that is all
-                // there is, on its own tag, because it has no transcript to open.
+                // there is, on its terminal, because it has no transcript to open.
                 selection =
                     (project.sessions.first { $0.isEngineeringLead }
-                    ?? project.sessions.first { $0.agent != nil })
-                    .map { Tag.session($0) }
-                    ?? project.sessions.first.map { Tag.session($0) }
+                    ?? project.sessions.first { $0.agent != nil }
+                    ?? project.sessions.first)
+                    .map { .session($0.id) }
             }
         case .review:
             refreshChanges(force: true)
@@ -635,24 +635,25 @@ package struct YongkangApp: App {
             selection =
                 (project.blocks.first(where: \.waiting)
                 ?? (showDone ? project.blocks.first : nil))
-                .map { Tag.block($0) }
+                .map { .block($0.id) }
         }
     }
 
     private func isVisible(_ session: CodeSession) -> Bool {
         enteredProject.map { project in
-            selection == Tag.session(session) || selectedSubagent(in: project)?.session.id == session.id
+            selection == .session(session.id) || selectedSubagent(in: project)?.session.id == session.id
         } ?? false
     }
 
     private func selectedSession(in project: Project) -> CodeSession? {
-        project.sessions.first { Tag.session($0) == selection }
+        project.sessions.first { selection == .session($0.id) }
     }
 
     /// The team member the selection is on. A member is a file, not a session, so it is
-    /// matched by roster name — the tag survives the reload the same way.
+    /// matched by roster name, which survives the reload the same way.
     private func selectedMember(in project: Project) -> TeamMember? {
-        Tag.scope(selection, "member").flatMap { name in project.team.first { $0.name == name } }
+        guard case .member(let name) = selection else { return nil }
+        return project.team.first { $0.name == name }
     }
 
     /// The agents running this member's skill right now, wherever they were dispatched
@@ -672,15 +673,15 @@ package struct YongkangApp: App {
     /// with it. A service terminal is not an agent and has no transcript to watch.
     private func selectedAgent(in project: Project) -> CodeSession? {
         project.sessions.first {
-            $0.agent != nil && AgentPane.of(selection, session: $0.id) != nil
+            $0.agent != nil && selection?.pane(of: $0.id) != nil
         }
     }
 
     private func agentPane(_ session: CodeSession) -> Binding<AgentPane> {
         Binding(
-            get: { AgentPane.of(selection, session: session.id) ?? .session },
+            get: { selection?.pane(of: session.id) ?? .session },
             set: {
-                selection = $0.tag(session.id)
+                selection = .session(session.id, pane: $0)
                 reloadAgentTranscript()
             }
         )
@@ -692,17 +693,21 @@ package struct YongkangApp: App {
     }
 
     private var selectedEntry: NotebookEntry? {
-        guard let selection, let project = enteredProject else { return nil }
-        return NotebookLoader.find(selection, in: project.entries)
+        guard case .entry(let id) = selection, let project = enteredProject else { return nil }
+        return NotebookLoader.find(id, in: project.entries)
     }
 
     private func scopedCard(in project: Project, kind: EntryKind) -> NotebookCard? {
-        guard let id = Tag.scope(selection, kind == .project ? "project" : "task") else { return nil }
+        let id: String
+        switch (selection, kind) {
+        case (.project(let scoped)?, .project), (.task(let scoped)?, .task): id = scoped
+        default: return nil
+        }
         return project.cards.first { $0.id == id && $0.kind == kind }
     }
 
     private func scopedPageCard(in project: Project) -> NotebookCard? {
-        guard let id = Tag.scope(selection, "page") else { return nil }
+        guard case .page(let id) = selection else { return nil }
         return project.cards.first { $0.id == id }
     }
 
@@ -715,26 +720,22 @@ package struct YongkangApp: App {
     }
 
     private func selectedSubagent(in project: Project) -> (session: CodeSession, subagent: SubagentStatus)? {
-        guard let selection else { return nil }
-        for session in project.sessions {
-            if let subagent = session.subagents.first(where: { Tag.subagent(session, $0) == selection }) {
-                return (session, subagent)
-            }
-        }
-        return nil
+        guard case .subagent(let sessionID, let id) = selection,
+            let session = project.sessions.first(where: { $0.id == sessionID }),
+            let subagent = session.subagents.first(where: { $0.id == id })
+        else { return nil }
+        return (session, subagent)
     }
 
     private func selectedBlock(in project: Project) -> UserBlock? {
-        project.blocks.first { Tag.block($0) == selection }
+        project.blocks.first { selection == .block($0.id) }
     }
 
     /// The file a review selection points at, or "" for the review screen with nothing
     /// picked yet. Nil when the selection is not a review at all.
-    private func reviewPath(_ project: Project) -> String? {
-        let root = Tag.review(project)
-        guard let selection, selection.hasPrefix(root) else { return nil }
-        let rest = selection.dropFirst(root.count)
-        return rest.hasPrefix(":") ? String(rest.dropFirst()) : ""
+    private var reviewPath: String? {
+        guard case .review(let file) = selection else { return nil }
+        return file ?? ""
     }
 
     // MARK: - Assigning
@@ -766,7 +767,7 @@ package struct YongkangApp: App {
             pendingInput[lead.id] = NotebookFormat.additionalTasksPrompt(
                 tasks: batch, sessionID: lead.id,
                 agent: leadAgent)
-            selection = Tag.session(lead)
+            selection = .session(lead.id)
             return
         }
         // The id is minted here so the prompt can carry it: a lead that knows its own
@@ -852,7 +853,7 @@ package struct YongkangApp: App {
             } ?? project.sessions.last { isProduct($0) && !$0.exited }
         if let running {
             section = .agents
-            selection = Tag.session(running)
+            selection = .session(running.id)
             if approve {
                 pendingInput[running.id] =
                     "Approved. Create the roadmap changes, project, and tasks in this ready proposal."
@@ -872,7 +873,7 @@ package struct YongkangApp: App {
             deliveredBlocks.insert(block.id)
             pendingInput[session.id] = NotebookFormat.unblockedMessage(block: block)
             section = .agents
-            selection = session.id.uuidString
+            selection = .session(session.id)
         }
     }
 
@@ -966,7 +967,7 @@ package struct YongkangApp: App {
         projects = [project]
         entered = project.id
         section = .agents
-        selection = Tag.session(session)
+        selection = .session(session.id)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             precondition(attention[session.id] != nil, "PTY callback must reach the app's banner state")
             guard let host = NSApp.windows.first(where: { $0.isVisible })?.contentView,
@@ -1001,7 +1002,7 @@ package struct YongkangApp: App {
         entered = project.id
         doneTasks = nil
         section = .overview
-        selection = Tag.overview(project)
+        selection = .overview
         reload()
         refreshChanges(force: true)
         // The lead is started by an assignment, not by opening the project — an empty
@@ -1045,7 +1046,7 @@ package struct YongkangApp: App {
             pendingInput[running.id] = NotebookFormat.productPrompt(
                 arguments: arguments, sessionID: running.id, agent: productAgent
             )
-            selection = Tag.session(running)
+            selection = .session(running.id)
             return
         }
         let id = UUID()
@@ -1071,31 +1072,17 @@ package struct YongkangApp: App {
         session.title == "Product" || session.title.hasPrefix("Product ")
     }
 
-    /// One row per repo actually on disk, deduped across every notebook project.
-    private func previewRows(
-        for project: Project
-    )
-        -> [(id: String, repo: String, directory: URL, services: [Service.Runnable])]
-    {
-        let steps = project.cards.filter { $0.kind == .project }
-            .flatMap { Service.plan(for: $0, in: project.directory) }
-        return Service.dedupedByDirectory(steps).map { step in
-            (
-                id: Tag.preview(project, step.directory), repo: step.repo,
-                directory: step.directory, services: step.services
-            )
-        }
-    }
-
-    /// The repo a preview tag points at, or nil if `selection` is not one.
+    /// The repo a preview route points at, one per repo actually on disk, deduped across
+    /// every notebook project. Nil if `selection` is not a preview.
     private func previewStep(
         in project: Project
     )
         -> (repo: String, directory: URL, services: [Service.Runnable])?
     {
-        guard let selection else { return nil }
-        guard let row = previewRows(for: project).first(where: { $0.id == selection }) else { return nil }
-        return (row.repo, row.directory, row.services)
+        guard case .preview(let directory) = selection else { return nil }
+        let steps = project.cards.filter { $0.kind == .project }
+            .flatMap { Service.plan(for: $0, in: project.directory) }
+        return Service.dedupedByDirectory(steps).first { $0.directory.path == directory.path }
     }
 
     // MARK: - Reloading
@@ -1171,15 +1158,13 @@ package struct YongkangApp: App {
 
     /// The task page to land on: the first one waiting for approval, or the whole working
     /// tree when nothing is.
-    private func firstReview(in project: Project) -> String {
+    private func firstReview(in project: Project) -> Route {
         ChangeSummary.of(project, changes: changes).waiting.first
-            .map { Tag.reviewTask(project, $0.id) } ?? Tag.review(project)
+            .map { .reviewTask($0.id) } ?? .review(file: nil)
     }
 
     private func reviewedTask(in project: Project) -> SummaryTask? {
-        let prefix = "review-task:\(project.id.uuidString):"
-        guard let selection, selection.hasPrefix(prefix) else { return nil }
-        let id = String(selection.dropFirst(prefix.count))
+        guard case .reviewTask(let id) = selection else { return nil }
         return ChangeSummary.of(project, changes: changes).tasks.first { $0.id == id }
     }
 
@@ -1211,7 +1196,7 @@ package struct YongkangApp: App {
             reviewDrafts[task.id] = nil
             section = .agents
             pendingInput[lead.id] = message
-            selection = Tag.session(lead)
+            selection = .session(lead.id)
             return
         }
         guard let card = project.cards.first(where: { $0.id == task.id }) else { return }
@@ -1246,7 +1231,7 @@ package struct YongkangApp: App {
     /// no push, no merge, no branch — and only because the user pressed the button.
     private func commit(_ message: String, in project: Project) -> String? {
         let failure = GitChanges.commit(message: message, in: project.directory)
-        if failure == nil { selection = Tag.review(project) }
+        if failure == nil { selection = .review(file: nil) }
         refreshChanges(force: true)
         return failure
     }
@@ -1297,7 +1282,7 @@ package struct YongkangApp: App {
     /// lead's own when its transcript pane is up.
     private func onScreenTranscript(in project: Project) -> (agent: AgentKind, url: URL)? {
         guard let watched = selectedAgent(in: project),
-            AgentPane.of(selection, session: watched.id) == .transcript,
+            selection?.pane(of: watched.id) == .transcript,
             let url = Transcripts.url(of: watched, in: project.directory)
         else { return nil }
         return (watched.agent ?? .claude, url)
@@ -1336,7 +1321,7 @@ package struct YongkangApp: App {
                 id: id, title: name, icon: icon, line: line,
                 agent: agent, taskIDs: taskIDs))
         // New sessions open their live CLI.
-        selection = id.uuidString
+        selection = .session(id)
     }
 
     /// Every service in a project's repos, started at once — the board's "run the whole
@@ -1370,7 +1355,7 @@ package struct YongkangApp: App {
         for service in named where service.command != nil {
             let title = "Run \(service.label)"
             if let running = project.sessions.first(where: { $0.title == title }) {
-                selection = running.id.uuidString
+                selection = .session(running.id)
                 continue
             }
             addSession(
@@ -1396,10 +1381,9 @@ package struct YongkangApp: App {
         guard let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         attentionChanged(nil, session: session, project: project)
         projects[index].sessions.removeAll { $0.id == session.id }
-        if AgentPane.of(selection, session: session.id) != nil
-            || selection?.hasPrefix("subagent:\(session.id.uuidString):") == true
-        {
-            selection = nil
+        switch selection {
+        case .session(session.id, _)?, .subagent(session.id, _)?: selection = nil
+        default: break
         }
     }
 
@@ -1428,17 +1412,17 @@ package struct YongkangApp: App {
 
     /// The `.notebook/projects/<id>` the selection sits in — memory has to land in one.
     private func notebookProject(in project: Project) -> String? {
-        if let scope = Tag.scope(selection, "project") { return scope }
-        if let id = Tag.scope(selection, "task"),
+        if case .project(let scope) = selection { return scope }
+        if case .task(let id) = selection,
             let owner = project.cards.first(where: { $0.id == id })?.project
         {
             return owner
         }
-        guard let selection,
-            selection.hasPrefix(NotebookEntry.id(for: project.directory)),
-            let marker = selection.range(of: "/\(NotebookFormat.folderName)/projects/")
+        guard case .entry(let path) = selection,
+            path.hasPrefix(NotebookEntry.id(for: project.directory)),
+            let marker = path.range(of: "/\(NotebookFormat.folderName)/projects/")
         else { return nil }
-        return selection[marker.upperBound...].split(separator: "/").first.map(String.init)
+        return path[marker.upperBound...].split(separator: "/").first.map(String.init)
     }
 
     private func add(_ kind: EntryKind, to project: Project) {
@@ -1456,9 +1440,9 @@ package struct YongkangApp: App {
                 : file.deletingPathExtension().lastPathComponent
             section = .board
             switch kind {
-            case .project: selection = Tag.project(id)
-            case .task: selection = Tag.task(id)
-            case .roadmap, .memory, .run: selection = Tag.page(id)
+            case .project: selection = .project(id)
+            case .task: selection = .task(id)
+            case .roadmap, .memory, .run: selection = .page(id)
             }
         } catch {
             NSAlert(error: error).runModal()
@@ -1487,16 +1471,16 @@ package struct YongkangApp: App {
         }
         // Anything on screen that was inside what just went to the Trash has no page left.
         let gone = Set(NotebookFormat.owned(by: card, in: project.cards).map(\.path))
-        if let shown = Tag.card(selection, in: project.cards),
+        if let shown = selection?.card(in: project.cards),
             gone.contains(where: { shown.url.path == $0 || shown.url.path.hasPrefix($0 + "/") })
         {
-            selection = Tag.board(project)
+            selection = .board
         }
         reload()
     }
 
     private func notebookRoadmap(in project: Project) -> String? {
-        if let id = Tag.scope(selection, "page"),
+        if case .page(let id) = selection,
             project.cards.contains(where: { $0.id == id && $0.kind == .roadmap })
         {
             return id
@@ -1506,12 +1490,7 @@ package struct YongkangApp: App {
     }
 
     private func notebookSubject(in project: Project) -> String? {
-        if let id = Tag.scope(selection, "task") ?? Tag.scope(selection, "project")
-            ?? Tag.scope(selection, "page")
-        {
-            return id
-        }
-        return notebookProject(in: project)
+        selection?.cardID ?? notebookProject(in: project)
     }
 }
 

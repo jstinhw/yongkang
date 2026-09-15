@@ -8,7 +8,7 @@ package struct Overview: View {
     let project: Project
     let changes: [FileChange]
     let head: String?
-    let go: (ConsoleSection, String?) -> Void
+    let go: (ConsoleSection, Route) -> Void
     let assign: () -> Void
 
     /// Loaded on a change rather than per render: reading a handful of task files and
@@ -21,7 +21,7 @@ package struct Overview: View {
         project: Project,
         changes: [FileChange],
         head: String?,
-        go: @escaping (ConsoleSection, String?) -> Void,
+        go: @escaping (ConsoleSection, Route) -> Void,
         assign: @escaping () -> Void
     ) {
         self.project = project
@@ -83,7 +83,7 @@ package struct Overview: View {
                     Text("No agents running. Pick tasks on the board and assign them.")
                         .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 0)
-                    Button("Open the board") { go(.board, Tag.board(project)) }
+                    Button("Open the board") { go(.board, .board) }
                         .buttonStyle(.console)
                 }
                 .cardSurface()
@@ -104,7 +104,7 @@ package struct Overview: View {
         let task = subagent.taskID.flatMap { id in project.cards.first { $0.id == id } }
         let bars = subagent.taskID.flatMap { checklists[$0] }
         return Button {
-            go(.agents, Tag.subagent(session, subagent))
+            go(.agents, .subagent(session: session.id, id: subagent.id))
         } label: {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 10) {
@@ -160,7 +160,7 @@ package struct Overview: View {
                     Text("−\(removed)").font(Typo.mono(11.5)).foregroundStyle(Theme.red)
                 }
                 Spacer(minLength: 8)
-                Button("Review changes") { go(.review, Tag.review(project)) }
+                Button("Review changes") { go(.review, .review(file: nil)) }
                     .buttonStyle(.console)
                     .disabled(changes.isEmpty)
             }
@@ -179,7 +179,7 @@ package struct Overview: View {
             }
             ForEach(recent, id: \.card.id) { item in
                 Button {
-                    go(.board, tag(for: item.card))
+                    go(.board, route(for: item.card))
                 } label: {
                     HStack(alignment: .top, spacing: 11) {
                         Text(Overview.ago(item.at))
@@ -203,11 +203,11 @@ package struct Overview: View {
         }
     }
 
-    private func tag(for card: NotebookCard) -> String {
+    private func route(for card: NotebookCard) -> Route {
         switch card.kind {
-        case .project: return Tag.project(card.id)
-        case .task: return Tag.task(card.id)
-        default: return Tag.page(card.id)
+        case .project: return .project(card.id)
+        case .task: return .task(card.id)
+        default: return .page(card.id)
         }
     }
 
@@ -231,7 +231,7 @@ package struct Overview: View {
             }
             ForEach(waiting) { block in
                 Button {
-                    go(.blocks, Tag.block(block))
+                    go(.blocks, .block(block.id))
                 } label: {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: block.isProposal ? "lightbulb" : "hand.raised")
@@ -289,7 +289,7 @@ package struct Overview: View {
                     let own = tasks.filter { $0.project == card.id }
                     let ownDone = own.filter { $0.status == "done" }.count
                     Button {
-                        go(.board, Tag.project(card.id))
+                        go(.board, .project(card.id))
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
@@ -323,7 +323,7 @@ package struct Overview: View {
             SectionLabel("Team").padding(.bottom, 6)
             ForEach(project.sessions.filter { $0.agent != nil }) { session in
                 Button {
-                    go(.agents, Tag.session(session))
+                    go(.agents, .session(session.id))
                 } label: {
                     HStack(spacing: 9) {
                         RoleTile(role: session.isEngineeringLead ? "lead" : session.title)

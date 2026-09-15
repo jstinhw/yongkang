@@ -10,7 +10,7 @@ package struct ProjectList: View {
     let project: Project
     /// Dragged by the user from the divider on its trailing edge.
     var width: CGFloat = Theme.listWidth
-    @Binding var selection: String?
+    @Binding var selection: Route?
     let showDone: Bool
     /// Only read when the Review section is showing; empty everywhere else.
     let changes: [FileChange]
@@ -26,7 +26,7 @@ package struct ProjectList: View {
         section: ConsoleSection,
         project: Project,
         width: CGFloat = Theme.listWidth,
-        selection: Binding<String?>,
+        selection: Binding<Route?>,
         showDone: Bool,
         changes: [FileChange],
         assign: @escaping ([NotebookCard]) -> Void,
@@ -125,9 +125,9 @@ package struct ProjectList: View {
             .padding(.bottom, 6)
     }
 
-    private func row<Content: View>(_ tag: String, @ViewBuilder content: () -> Content) -> some View {
+    private func row<Content: View>(_ route: Route, @ViewBuilder content: () -> Content) -> some View {
         Button {
-            selection = tag
+            selection = route
         } label: {
             content()
                 .padding(.horizontal, 11)
@@ -136,20 +136,20 @@ package struct ProjectList: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .rowSelection(selection == tag)
+        .rowSelection(selection == route)
         .padding(.horizontal, 8)
         .padding(.bottom, 2)
     }
 
-    private func cardRow(_ card: NotebookCard, tag: String) -> some View {
-        row(tag) {
+    private func cardRow(_ card: NotebookCard, route: Route) -> some View {
+        row(route) {
             HStack(alignment: .top, spacing: 10) {
                 NotebookStyle.statusRing(card.status, progress: progress(of: card), size: 14)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(card.title)
                         .font(Typo.text(12))
-                        .foregroundStyle(selection == tag ? Theme.tx : Theme.tx2)
+                        .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Text(card.id).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3).lineLimit(1)
@@ -213,25 +213,25 @@ package struct ProjectList: View {
     // MARK: - Board
 
     @ViewBuilder private var boardRows: some View {
-        row(Tag.board(project)) {
+        row(.board) {
             HStack(spacing: 9) {
                 Image(systemName: "rectangle.split.3x1").font(.system(size: 12))
-                    .foregroundStyle(selection == Tag.board(project) ? Theme.accent : Theme.tx3)
+                    .foregroundStyle(selection == .board ? Theme.accent : Theme.tx3)
                 Text("Board").font(Typo.text(12.5))
-                    .foregroundStyle(selection == Tag.board(project) ? Theme.tx : Theme.tx2)
+                    .foregroundStyle(selection == .board ? Theme.tx : Theme.tx2)
             }
         }
         let roadmaps = NotebookIndex.ordered(project.cards.filter { $0.kind == .roadmap })
         if !roadmaps.isEmpty {
             group("Roadmap", "\(roadmaps.count)")
-            ForEach(roadmaps) { cardRow($0, tag: Tag.page($0.id)) }
+            ForEach(roadmaps) { cardRow($0, route: .page($0.id)) }
         }
         let projects = visible(project.cards.filter { $0.kind == .project })
         group("Projects", "\(projects.count)")
         if projects.isEmpty { empty("No projects yet") }
         ForEach(projects) { card in
             let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
-            cardRow(card, tag: Tag.project(card.id))
+            cardRow(card, route: .project(card.id))
                 .contextMenu {
                     Button("Assign all tasks to Engineering Lead") { assign(tasks) }
                         .disabled(
@@ -249,7 +249,7 @@ package struct ProjectList: View {
             if !memory.isEmpty {
                 group("Memory", "\(memory.count)")
                 ForEach(memory) { card in
-                    row(Tag.page(card.id)) {
+                    row(.page(card.id)) {
                         HStack(spacing: 9) {
                             Image(systemName: "brain").font(.system(size: 11)).foregroundStyle(Theme.tx3)
                             Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
@@ -276,10 +276,10 @@ package struct ProjectList: View {
     /// The project the board is scoped to: whatever is selected, or the project a selected
     /// task belongs to, so its tasks stay listed while you read one.
     private var scopedProject: NotebookCard? {
-        if let id = Tag.scope(selection, "project") {
+        if case .project(let id) = selection {
             return project.cards.first { $0.id == id && $0.kind == .project }
         }
-        if let id = Tag.scope(selection, "task"),
+        if case .task(let id) = selection,
             let task = project.cards.first(where: { $0.id == id }), let owner = task.project
         {
             return project.cards.first { $0.id == owner && $0.kind == .project }
@@ -321,13 +321,13 @@ package struct ProjectList: View {
     /// A standing member of the Engineering Lead's team — a name and the skill it runs.
     /// Not a session: opening one reads the agent itself, not a transcript.
     private func teamRow(_ member: TeamMember) -> some View {
-        let tag = Tag.member(member.name)
-        return row(tag) {
+        let route = Route.member(member.name)
+        return row(route) {
             HStack(spacing: 9) {
                 RoleTile(role: member.skills.first ?? member.name, size: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(member.name).font(Typo.text(12, .medium))
-                        .foregroundStyle(selection == tag ? Theme.tx : Theme.tx2).lineLimit(1)
+                        .foregroundStyle(selection == route ? Theme.tx : Theme.tx2).lineLimit(1)
                     Text(member.skills.joined(separator: ", "))
                         .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
@@ -339,7 +339,7 @@ package struct ProjectList: View {
     /// The one row here that is not an agent: what the whole fleet has spent, and how
     /// close each coding tool is to the limit that would stop it.
     private var usageRow: some View {
-        row(Tag.usage(project)) {
+        row(.usage) {
             HStack(spacing: 9) {
                 Image(systemName: "gauge.with.dots.needle.33percent")
                     .font(.system(size: 12)).foregroundStyle(Theme.tx2)
@@ -355,9 +355,8 @@ package struct ProjectList: View {
 
     private func sessionRow(_ session: CodeSession) -> some View {
         // Agent and service rows open their live sessions.
-        let tag = Tag.session(session)
         let running = session.activeSubagents.count
-        return row(tag) {
+        return row(.session(session.id)) {
             HStack(spacing: 9) {
                 if session.agent == nil {
                     Image(systemName: session.icon).font(.system(size: 12))
@@ -405,15 +404,15 @@ package struct ProjectList: View {
     }
 
     private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
-        let tag = Tag.subagent(session, subagent)
+        let route = Route.subagent(session: session.id, id: subagent.id)
         return HStack(spacing: 0) {
             Rectangle().fill(Theme.line).frame(width: 1).padding(.leading, 25)
-            row(tag) {
+            row(route) {
                 HStack(spacing: 8) {
                     RoleTile(role: subagent.agentType, size: 20)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(subagent.displayName).font(Typo.text(12, .medium))
-                            .foregroundStyle(selection == tag ? Theme.tx : Theme.tx2)
+                            .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
                             .lineLimit(1)
                         // The label underneath is still the link to the task: the lead names
                         // every subagent `<task-id>-<skill>`, and that is what matches it back.
@@ -450,7 +449,7 @@ package struct ProjectList: View {
         let added = changes.reduce(0) { $0 + $1.added }
         let removed = changes.reduce(0) { $0 + $1.removed }
         group("Working tree", "+\(added) −\(removed)")
-        row(Tag.review(project)) {
+        row(.review(file: nil)) {
             HStack(spacing: 9) {
                 Image(systemName: summary.unclaimed.isEmpty ? "doc.on.doc" : "questionmark.circle")
                     .font(.system(size: 12))
@@ -470,12 +469,12 @@ package struct ProjectList: View {
     }
 
     private func reviewRow(_ task: SummaryTask, detail: String) -> some View {
-        row(Tag.reviewTask(project, task.id)) {
+        row(.reviewTask(task.id)) {
             HStack(alignment: .top, spacing: 10) {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 14).padding(.top, 2)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(Typo.text(12.5))
-                        .foregroundStyle(selection == Tag.reviewTask(project, task.id) ? Theme.tx : Theme.tx2)
+                        .foregroundStyle(selection == .reviewTask(task.id) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
                     Text(detail).font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
@@ -505,7 +504,7 @@ package struct ProjectList: View {
     }
 
     private func blockRow(_ block: UserBlock) -> some View {
-        row(Tag.block(block)) {
+        row(.block(block.id)) {
             HStack(alignment: .top, spacing: 10) {
                 Image(
                     systemName: block.waiting
@@ -523,7 +522,7 @@ package struct ProjectList: View {
                 .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(block.title).font(Typo.text(12.5))
-                        .foregroundStyle(selection == Tag.block(block) ? Theme.tx : Theme.tx2)
+                        .foregroundStyle(selection == .block(block.id) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
                     if block.isProposal {
                         Text(block.proposalReady ? "ready to create" : "product needs feedback")

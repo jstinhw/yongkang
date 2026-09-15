@@ -37,7 +37,7 @@ import Testing
     }
 
     private func leadSpend(_ samples: [UsageSample]) -> AgentSpend {
-        AgentSpend(id: "s", tag: "t", name: "Lead", role: "lead", provider: .claude, running: true, samples: samples)
+        AgentSpend(id: "s", route: nil, name: "Lead", role: "lead", provider: .claude, running: true, samples: samples)
     }
 
     @Test func claudeTranscriptIsReadIncrementally() throws {
@@ -158,7 +158,7 @@ import Testing
         #expect(
             remembered[0].tally(since: nil).total == spend.tally(since: nil).total,
             "what an agent spent survives the run that read it")
-        #expect(remembered[0].tag.isEmpty, "but its session is gone, so nothing opens")
+        #expect(remembered[0].route == nil, "but its session is gone, so nothing opens")
         // 12:00 and 12:30 are one opus hour; 12:45 is a haiku hour of its own.
         #expect(remembered[0].samples.count == 2, "kept by the hour, not by the turn")
         #expect(
@@ -178,7 +178,7 @@ import Testing
         UsageLedger.record([spend], root: notebook)
 
         let truncated = AgentSpend(
-            id: spend.id, tag: "t", name: "Lead", role: "lead",
+            id: spend.id, route: nil, name: "Lead", role: "lead",
             provider: .claude, running: false, samples: [grown[0]])
         UsageLedger.record([truncated], root: notebook)
         #expect(
@@ -222,7 +222,7 @@ import Testing
         UsageLedger.record([leadSpend(try grownSamples(in: dir).samples)], root: notebook)
 
         let other = AgentSpend(
-            id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
+            id: "codex-1", route: nil, name: "Backend", role: "backend-dev",
             provider: .codex, running: false, samples: try rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         let both = UsageLedger.load(root: notebook)
@@ -256,7 +256,7 @@ import Testing
         let damaged = try damageLedger(damage, in: notebook, samples: try grownSamples(in: dir).samples)
 
         let other = AgentSpend(
-            id: "codex-1", tag: "t", name: "Backend", role: "backend-dev",
+            id: "codex-1", route: nil, name: "Backend", role: "backend-dev",
             provider: .codex, running: false, samples: try rolloutSamples(in: dir))
         UsageLedger.record([other], root: notebook)
         // Compared as text so a failure shows what the file became, not a byte dump.

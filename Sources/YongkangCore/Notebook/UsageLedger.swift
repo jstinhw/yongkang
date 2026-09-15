@@ -70,12 +70,12 @@ package enum UsageLedger {
 
     /// The agents the ledger remembers, shaped as spends so the usage screen can show them
     /// beside the live ones. Their samples are hour marks rather than turns, which is all
-    /// the file keeps — and they carry no tag, because the session that produced them is
+    /// the file keeps — and they carry no route, because the session that produced them is
     /// gone and there is nothing left for a click to open.
     package static func load(root: URL) -> [AgentSpend] {
         read(root: root).agents.map { record in
             AgentSpend(
-                id: record.id, tag: "", name: record.name, role: record.role,
+                id: record.id, route: nil, name: record.name, role: record.role,
                 provider: AgentKind(rawValue: record.provider) ?? .claude, running: false,
                 samples: record.hours
                     .map { UsageSample(at: $0.at, model: $0.model, tally: $0.tally) }

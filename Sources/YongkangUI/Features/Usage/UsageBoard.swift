@@ -7,7 +7,7 @@ import YongkangCore
 /// screen keeps no state of its own to drift out of date.
 package struct UsageBoard: View {
     let project: Project
-    let open: (String) -> Void
+    let open: (Route) -> Void
 
     /// Loaded on a change rather than per render: parsing transcripts inside `body` at
     /// 60fps would be the most expensive thing in the app.
@@ -24,7 +24,7 @@ package struct UsageBoard: View {
     /// `range` is only ever passed by the shot renderer, which has no one to click the
     /// picker and would otherwise photograph whichever window happens to be quiet on the
     /// machine it runs on.
-    package init(project: Project, open: @escaping (String) -> Void, range: UsageRange = .day) {
+    package init(project: Project, open: @escaping (Route) -> Void, range: UsageRange = .day) {
         self.project = project
         self.open = open
         _range = State(initialValue: range)
@@ -328,7 +328,7 @@ package struct UsageBoard: View {
 
     private func agentRow(_ spend: AgentSpend) -> some View {
         Button {
-            open(spend.tag)
+            if let route = spend.route { open(route) }
         } label: {
             HStack(spacing: 10) {
                 RoleTile(role: spend.role, size: 22)
@@ -363,7 +363,7 @@ package struct UsageBoard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(spend.tag.isEmpty)
+        .disabled(spend.route == nil)
     }
 
     // MARK: - Totals and roles
