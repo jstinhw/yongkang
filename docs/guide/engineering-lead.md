@@ -53,11 +53,11 @@ capacity stays unknown. The lead keeps volatile checkpoints in run records and p
 only durable facts to project memory; saving a summary is followed by actual native
 compaction or a fresh worker when supported.
 
-The roles are skills in `.claude/skills/`: `product`, `engineering-lead`, `designer`,
+The roles are skills in `Skills/`: `product`, `engineering-lead`, `designer`,
 `frontend-dev`, `backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. One roster member runs both
 `designer` and `frontend-dev` — the same agent settles what a screen looks like and then
-builds it, in that order. `.agents/skills/` links to those same files
-for Codex, so the two agents cannot drift. The app bundles the exact skill text into every
+builds it, in that order. `.claude/skills/` and `.agents/skills/` link to that folder,
+so Claude Code and Codex working on this repo read the same files. The app bundles the exact skill text into every
 managed session. Install the same role folders in `~/.claude/skills/` and
 `~/.agents/skills/` only for specialist subagents, which start outside the app's launcher
 (symlinks to one shared folder are fine).
@@ -86,7 +86,7 @@ its existing resolution flow. Its `Agents / Session` switch opens the live termi
 
 The lead writes `.notebook/runs/<session-id>-coordination.md` and one
 `<session-id>-work-<work-id>.md` per attempt, using the schema in the
-[engineering-lead skill](../../.claude/skills/engineering-lead/SKILL.md). The app reads them on
+[engineering-lead skill](../../Skills/engineering-lead/SKILL.md). The app reads them on
 its existing poll; it does not schedule agents itself. These run records stay hidden
 from ordinary notebook navigation. Legacy sessions still show their transcript-linked
 workers, with missing estimates/context shown as unknown. Provider token measurements

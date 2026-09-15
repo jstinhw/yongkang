@@ -10,7 +10,7 @@ pkill -x Yongkang 2>/dev/null || true
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Yongkang "$APP/Contents/MacOS/Yongkang"
-cp -R .claude/skills "$APP/Contents/Resources/skills"
+cp -R Skills "$APP/Contents/Resources/skills"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

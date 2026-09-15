@@ -26,7 +26,9 @@ swift run Yongkang --shots <dir>      # render every screen offscreen to <dir>/*
   `handover.png` and `usage.png` read live git or the clock, so they differ on every commit.
 - `make-app.sh` runs `pkill -x Yongkang` first. That quits the user's running app and every
   agent session inside it, so don't run it unless you've been asked to.
-- Only the app bundle carries the packaged role skills (`Contents/Resources/skills`).
+- The shipped role skills live in `Skills/` (product source, the prompts the app's agents run);
+  `.claude/skills` and `.agents/skills` are symlinks to it. Only the app bundle carries them
+  (`Contents/Resources/skills`).
   `swift run` falls back to whatever skills the CLI can find on its own.
 
 ## Definition of done
