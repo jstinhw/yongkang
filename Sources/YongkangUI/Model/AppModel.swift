@@ -35,11 +35,25 @@ import YongkangCore
     /// The done tasks the window has already seen in this project. nil until the first
     /// poll seeds it, so opening a project full of finished work does not read as news.
     private var doneTasks: Set<String>?
+    /// Posts the system notification for a session's question, titled, or withdraws it when the
+    /// reason is nil.
+    private let notify: (_ session: UUID, _ title: String, _ reason: String?) -> Void
 
-    /// `terminals` is for the tests, which run `/bin/sh` rather than the user's login shell.
-    init(terminals: TerminalRegistry? = nil) {
+    /// Both are for the tests, which run `/bin/sh` rather than the user's login shell, and have
+    /// no app bundle for `AgentNotifications` to post from.
+    init(
+        terminals: TerminalRegistry? = nil,
+        notify: @escaping (_ session: UUID, _ title: String, _ reason: String?) -> Void = { id, title, reason in
+            if let reason {
+                AgentNotifications.shared.send(sessionID: id, title: title, reason: reason)
+            } else {
+                AgentNotifications.shared.clear(id)
+            }
+        }
+    ) {
         let terminals = terminals ?? TerminalRegistry()
         self.terminals = terminals
+        self.notify = notify
         terminals.onExit = { [weak self] id in
             guard let self, let found = self.session(id) else { return }
             self.markExited(found.session, in: found.project)
@@ -146,14 +160,7 @@ import YongkangCore
         }
         guard attention[session.id] != reason else { return }
         attention[session.id] = reason
-        if let reason {
-            guard !CommandLine.arguments.contains("--attention-selftest") else { return }
-            AgentNotifications.shared.send(
-                sessionID: session.id,
-                title: "\(project.name) · \(session.title)", reason: reason)
-        } else {
-            AgentNotifications.shared.clear(session.id)
-        }
+        notify(session.id, "\(project.name) · \(session.title)", reason)
     }
 
     /// Navigation only: the caller brings the app forward.

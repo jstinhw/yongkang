@@ -162,55 +162,9 @@ struct RootView: View {
 
     private func restore() {
         guard model.projects.isEmpty else { return }
-        if CommandLine.arguments.contains("--attention-selftest") {
-            runAttentionSelfTest()
-            return
-        }
         model.restore(openProjects)
         persist()
         model.reload()
-    }
-
-    /// Full app regression: actual Codex screen bytes travel through the PTY,
-    /// representable callback, app state, banner and session navigation. No real agent.
-    private func runAttentionSelfTest() {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("yk-attention-\(UUID())")
-        let root = NotebookFormat.root(in: directory)
-        _ = try! NotebookFormat.create(.task, title: "Trust screen test", in: root, project: nil)
-        let output = directory.appendingPathComponent("trust.ansi")
-        // Dev-only, run from a checkout: the capture is the test fixture, not a copy of it.
-        let capture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("../../../Tests/YongkangCoreTests/Fixtures/codex/codex-0.154.0-trust-screen.ansi")
-        try! FileManager.default.copyItem(at: capture, to: output)
-        let project = model.open(directory)
-        let session = CodeSession(
-            title: "Engineering Lead", icon: "terminal",
-            line: "cat \(AgentCommand.quoted(output.path)); exec sleep 30", agent: .codex)
-        project.addSession(
-            id: session.id, title: session.title, icon: session.icon, line: session.line, agent: session.agent)
-        model.enter(project)
-        model.section = .agents
-        model.selection = .session(session.id)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            precondition(model.attention[session.id] != nil, "PTY callback must reach the app's banner state")
-            guard let host = NSApp.windows.first(where: { $0.isVisible })?.contentView,
-                let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)
-            else {
-                preconditionFailure("attention selftest needs a rendered app window")
-            }
-            host.layoutSubtreeIfNeeded()
-            host.cacheDisplay(in: host.bounds, to: rep)
-            try! rep.representation(using: .png, properties: [:])!
-                .write(to: URL(fileURLWithPath: "/tmp/yongkang-attention-selftest.png"))
-            openAttention(session, in: project)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                precondition(model.isVisible(session), "Open session must reveal the blocked terminal")
-                model.close(project)
-                try? FileManager.default.removeItem(at: directory)
-                print("attention app selftest ok — banner rendered and blocked session opened")
-                exit(0)
-            }
-        }
     }
 
     func persist() {

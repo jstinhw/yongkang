@@ -179,8 +179,8 @@ its own `fixture()`, which reads the same folder:
 
 - **Terminal bytes.** `codex/codex-0.154.0-trust-screen.ansi` is Codex 0.154.0's trust
   screen. `AttentionPromptTests` feeds it to `AttentionTerminalView.dataReceived` and
-  expects an `attentionReason`. The `--attention-selftest` flag in `RootView.swift` plays
-  the same file through a real PTY.
+  expects an `attentionReason`. `TerminalRegistryTests` plays the same file through a real
+  PTY into `AppModel`, up to the notice and the session it opens.
 - **Transcripts and usage.** One JSON object per line, copied into a temporary fake home
   and read back through the real reader. Each reader takes `claudeHome:`, `codexHome:` or
   `grokHome:` for this. Values only known at runtime (a temp path, a session marker) are

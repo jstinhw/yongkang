@@ -136,6 +136,39 @@ struct TerminalRegistryTests {
         #expect(model.terminals.view(for: id) == nil && project.sessions.isEmpty)
     }
 
+    // MARK: - Attention
+
+    /// Codex's captured trust screen, printed through a real PTY, up to the notice and the
+    /// system notification, then to the session opened for the user to answer it.
+    @Test func aQuestionOnScreenNotifiesOnceAndOpensItsSession() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let screen = tmp.appendingPathComponent("trust.ansi")
+        try fixture("codex/codex-0.154.0-trust-screen.ansi").write(to: screen, atomically: true, encoding: .utf8)
+        var notifications: [(session: UUID, reason: String?)] = []
+        let model = AppModel(terminals: registry(), notify: { notifications.append(($0, $2)) })
+        let project = model.open(tmp)
+        model.enter(project)
+        let id = UUID()
+        project.addSession(
+            id: id, title: "Engineering Lead", icon: "terminal",
+            line: "cat \(AgentCommand.quoted(screen.path)); exec sleep 30", agent: .codex)
+        let session = try #require(project.sessions.first)
+        let pid = try #require(model.terminals.view(for: id)).process.shellPid
+
+        #expect(try await eventually { model.attention[id] != nil }, "the question on screen reaches the model")
+        #expect(
+            notifications.map(\.session) == [id] && notifications.first?.reason == model.attention[id],
+            "one system notification, with the notice's reason")
+        #expect(!model.isVisible(session))
+        model.openAttention(session, in: project)
+        #expect(model.isVisible(session), "Open session shows the terminal that is asking")
+
+        model.close(project)
+        #expect(notifications.count == 2 && notifications.last?.reason == nil, "closing withdraws the notification")
+        #expect(try await eventually { isReaped(pid) }, "and ends the session's process")
+    }
+
     // MARK: - Typing
 
     @Test func aMessageWaitsForTheQuestionOnScreenAndIsTypedOnce() async throws {
