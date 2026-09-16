@@ -121,6 +121,11 @@ HStack
   (no shot draws a real one; `DesignShots.console` frames the list column itself), but every
   screen with an inspector would lose that pane from its shot, and the shots are how this repo
   checks a layout. See the `ponytail:` marker on `Inspector`.
+  **Decided in 5.2, not deferred by accident:** keep the pane hand-built while it is the only
+  version anyone can look at. What would change the answer is a capture path that sees glass,
+  or the shots composing each screen's inspector content the way `console` already composes the
+  list column. Until one of those exists, a native inspector buys resize behaviour and costs
+  the gate on eleven screens.
 
 ## Terminal lifetime
 
