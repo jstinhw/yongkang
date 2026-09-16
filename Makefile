@@ -1,4 +1,4 @@
-.PHONY: check format run shots archive help
+.PHONY: check format run shots icon archive help
 
 DIR ?= docs/images
 IDENTITY = $(shell sed -n 's/^CODE_SIGN_IDENTITY *= *//p' App/Config/Signing.xcconfig)
@@ -34,6 +34,9 @@ run: ## Debug build of the app, then open it. Refuses while Yongkang is running.
 
 shots: ## Render every screen offscreen: make shots DIR=docs/images
 	swift run shots $(DIR)
+
+icon: ## Redraw the app icon's 1024 master from AppIcon.swift.
+	swift run shots --icon App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png
 
 archive: ## Signed Release build; prints the .app path.
 	@$(XCODEBUILD) -configuration Release -destination generic/platform=macOS \
