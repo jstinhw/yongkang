@@ -8,8 +8,10 @@ written to the folder before that, so opening a project never touches your repo.
 An empty project opens a compose box instead of a blank pane: describe what the
 project is for and press Return. That text starts a session with the selected agent, carrying the
 notebook format. It fills the gaps with a few multiple-choice questions — never open
-ones — then writes `.notebook/` without showing you a plan first — reading a real notebook on the board beats approving an
-imaginary one. Calls it had to make on your behalf land as memory entries, so they are
+ones — then drafts the plan under Blocks before writing any of it: what you will have once
+it is built, the projects, and every task with what it waits on and what can start
+together. Change it in that session until it is right; `Create project` writes the roadmap,
+projects and tasks. Calls it had to make on your behalf land as memory entries, so they are
 visible and correctable. The app writes nothing; the agent does. Entries look like:
 
 ```

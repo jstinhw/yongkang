@@ -53,9 +53,12 @@ for.
    - If the CLI asks whether to trust the folder, a bar appears at the bottom of the window:
      **Action required · yk-smoke · Notebook Setup**, with an **Open session** button.
      Answer the question in the terminal and the bar goes away.
-4. Answer the agent's questions until it has written `.notebook/`. *(Agent behaviour: the
-   prompt tells it to ask a few multiple-choice questions, then write the notebook without
-   asking for approval.)*
+4. Answer the agent's questions until it drafts the plan. *(Agent behaviour: the prompt
+   tells it to ask a few multiple-choice questions, then write `.notebook/NOTEBOOK.md` and
+   a ready proposal at `.notebook/blocks/plan.md`, and nothing else until you approve.)*
+   - **Blocks** in the rail lights amber. The draft's subtitle reads **Product plan is
+     ready**, with a **Create project** button. Click it: the window returns to **Notebook Setup**
+     with the approval typed in, and the agent writes the notebook.
    - **Board** in the rail shows the project's tasks, in chains, about a third of a second
      after the last file lands. The folder is watched with FSEvents, not polled, and the
      watcher holds a burst back by 300 ms so twenty files an agent just wrote are one read.

@@ -36,9 +36,14 @@ Do not switch modes because another mode sounds relevant to something the user s
    into what already exists. Do not independently invent other features in this mode.
 3. Clarify only gaps that materially change scope or task order. Ask one question at a
    time, with two to four concrete options; put your recommendation first.
-4. Once clear, state the scope in one line and write the project and tasks directly,
-   following **Creating the Approved Plan** steps 2–5 and 7. The user's described feature
-   is already the decision in this mode; there is no proposal file or Blocks notification.
+4. Once clear, state the scope in one line and draft it: write `.notebook/blocks/<slug>.md`
+   as a **Complete proposal**, with the **Discussion notification** frontmatter, its own
+   title and action, and `stage: ready`. The described feature is already the decision, so
+   there is no discussion stage; the draft is how the user checks you heard them right, and
+   knows what they will own once it is built. Tell them it is under Blocks and wait.
+5. Feedback comes back in this transcript. Change the same file, say what moved, and leave
+   it `status: open`. Write no roadmap, project, task or memory file until the user
+   approves it — `Create project`, or saying so — then follow **Creating the Approved Plan**.
 
 ## Reviewing the Product
 
@@ -98,12 +103,17 @@ Use one open notification for this review. Update it; do not create one file per
 
 The ready proposal must be detailed enough that approval is mechanical:
 
+- What the user will have, written for them rather than an engineer: what they can do
+  once every task has landed, then one line per task on what it changes that they could
+  see or check. A task with nothing to see says what it makes possible. This comes first
+  because it is what they are approving.
 - Recommendation and rationale tied to observed evidence.
 - Roadmap impact: the existing roadmap entry advanced, or the exact new/changed roadmap
   content if that is part of the plan.
 - Project: id, outcome, done-when criteria, approach, dependencies, and repos.
-- Tasks in build order: id, outcome, `depends_on`, specialist owner, and verifiable
-  done-when criteria.
+- Tasks in build order, cut by **Shaping tasks**: id, outcome, the area it changes,
+  `depends_on`, specialist owner, and verifiable done-when criteria. Then which tasks can
+  start together.
 - Agent resources: `engineering-lead` coordinates the work; which of `designer`,
   `frontend-dev`, `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev`
   verifies completed tasks. Include only specialist roles actually needed.
@@ -136,14 +146,12 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
    the gap and leave it open.
 2. Create or update the roadmap entry only when the approved proposal explicitly includes
    that change.
-3. Write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
+3. For each project, write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
    `owner:`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
 4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`,
    `depends_on`, and `owner:` set to the specialist named in the proposal. Design is a task
    of its own that blocks the engineering tasks on its screen — see **Design work** below.
-   Each task is one shippable change with a `## Done when` checklist another agent can
-   verify. Five to nine engineering tasks is normally one project, its design tasks on top
-   of that; split a larger plan before writing it.
+   Write each task as the proposal cut it — see **Shaping tasks** below.
 5. Record material assumptions or user decisions as one fact per memory file under the
    project. Do not copy the whole proposal into memory.
 6. Edit the proposal last: `status: done`, `updated:` to today, and
@@ -153,6 +161,29 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
 Never write secrets, environment values, or machine-local paths into the notebook. If
 new evidence makes the proposal wrong, explain it and leave `status: open` rather than
 creating work you no longer recommend.
+
+## Shaping tasks
+
+Each task goes to an agent of its own, which gets that task's file, the files of what it
+depends on, and nobody's transcript. Cut the tasks so that is enough.
+
+- **The smallest change that stands on its own.** One change someone could see work or
+  check, with a `## Done when` checklist another agent can verify. A Done when that joins
+  two outcomes is usually two tasks. Five to nine engineering tasks is normally one
+  project, its design tasks on top of that; split a larger plan before writing it.
+- **`depends_on` names only what a task cannot start without:** something another task
+  builds that this one uses — an endpoint, a table, a type, an approved design. Not the
+  order you would do them in, and not that they share a project. Every extra edge makes
+  work wait that could have run at once.
+- **Say what crosses each edge.** A task names in its Context what it takes from its
+  dependencies — the endpoint and its shape, the type, the design task — so the agents on
+  either side never need to talk.
+- **Tasks with no edge between them never change the same thing.** Each task's Context
+  names the area it changes: a screen, an endpoint, a module. Where two independent tasks
+  would change the same one, merge them or make one wait on the other; two agents in one
+  file at once is a collision, not parallel work.
+- **Wide over deep.** A chain runs one agent at a time. When a task waits on only part of
+  another, split that part out so the rest can start.
 
 ## Design work
 

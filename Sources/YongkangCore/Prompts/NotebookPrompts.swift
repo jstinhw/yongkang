@@ -5,7 +5,11 @@ extension NotebookFormat {
     /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
     /// point of an empty project is that nothing has been written to it yet — the
     /// agent writes the first file.
-    package static func onboardingPrompt(description: String) -> String {
+    ///
+    /// The plan is drafted as a ready proposal before any of it is written, so the user
+    /// knows what they are getting while changing it is still cheap. The session id goes
+    /// in the draft so `Create project` on it comes back to this conversation.
+    package static func onboardingPrompt(description: String, sessionID: UUID) -> String {
         """
         This project has no notebook yet. We are going to start one.
 
@@ -23,33 +27,72 @@ extension NotebookFormat {
         before what. One question at a time, a handful of them rather than an
         interrogation, and write no files while we are talking.
 
-        Then write the notebook. Do not show me a plan first and do not wait for my
-        approval — I would rather read a real notebook than approve an imaginary one. I
-        will read it on the board and tell you what to change.
+        Then draft the plan, before writing any of it, so I know what I am getting and can
+        change it while that is still cheap.
 
         It all goes into `\(folderName)/` in this folder — every file this produces goes in
         there and nowhere else. Do not create roadmap/, projects/, tasks/ or runs/ at the
         project root, and leave everything outside `\(folderName)/` untouched.
 
-        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then the files it
-        describes, following its frontmatter exactly: my goals as roadmap entries, the
-        projects that get us there, each carrying its `roadmap:`, `depends_on` where one
-        blocks another and `repos` naming the folders its work lands in, and the tasks
-        that ship each project, each carrying its `project:` and its own `depends_on`.
-        Order matters more than volume — the dependencies are what I am going to read.
+        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then write the
+        draft as one file, `\(folderName)/blocks/plan.md`, with this frontmatter:
 
-        Where something is still vague once we have talked, make the call rather than
-        asking again, and record it: one memory entry in the project it affects, saying
-        what you assumed and why. Leave `owner` and any unknown date empty rather than
-        inventing one.
+            ---
+            id: plan
+            kind: proposal
+            title: "Plan for <what this project is>"
+            status: open
+            stage: ready
+            session: \(sessionID.uuidString.lowercased())
+            action: "Return to the setup session to change the plan."
+            created: YYYY-MM-DD
+            updated: YYYY-MM-DD
+            ---
+
+        Its body, in this order:
+
+        - What I will have once every task has landed, in my words: what someone can do
+          with it, not how it is built.
+        - My goals as roadmap entries, and the projects that get us there, each with its
+          outcome, `depends_on` where one blocks another, and `repos` naming the folders
+          its work lands in.
+        - Every task, grouped by project in build order: its id, one line on what it
+          changes that I could see or check, its `depends_on`, and its Done when.
+        - Which tasks can start together. Order matters more than volume — the
+          dependencies are what I am going to read.
+        - The calls you made where I left something vague, and what is left out.
+
+        Each task goes to an agent of its own, which gets that task's file and the files of
+        what it depends on, and nothing else. Cut the tasks so that is enough:
+
+        - A task is the smallest change someone could see work or check on its own, with a
+          `## Done when` checklist another agent can verify.
+        - `depends_on` names only what a task cannot start without — something another
+          task builds that this one uses — never just the order you would do them in. The
+          task's Context says what it takes from each.
+        - Tasks with no dependency between them never change the same screen, endpoint or
+          module. Where two would, merge them or make one wait on the other.
+
+        Then stop, tell me the draft is under Blocks, and wait. When I ask for changes,
+        change that file and nothing else, and tell me what moved. Write no roadmap,
+        project or task file until I approve the draft, with its `Create project` button
+        or in my own words.
+
+        Once I approve, write the files it describes, following the format's frontmatter
+        exactly: the roadmap entries, the projects, each carrying its `roadmap:`,
+        `depends_on` and `repos`, and the tasks, each carrying its `project:` and its own
+        `depends_on`. Record every call you made as one memory entry in the project it
+        affects, saying what you assumed and why. Leave `owner` and any unknown date empty
+        rather than inventing one. Then set the draft's `status: done` with
+        `resolution: "Wrote the notebook."`.
 
         Before your final reply, append one run record under `.notebook/runs/` for this
         setup session. Use the primary roadmap id as `subject`, summarize the result in
         the first body paragraph, and put corrections or unfinished work under
         `## Handoff`. Do not copy the transcript into it.
 
-        When the files are written, stop and tell me in a few lines what you created and
-        which calls you made, then wait for my corrections.
+        When the files are written, stop and tell me in a few lines what you created, then
+        wait for my corrections.
 
         Here is the format to write verbatim to `\(folderName)/\(specFile)`, and then follow:
 

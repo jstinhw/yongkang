@@ -28,6 +28,15 @@ extension ProjectModel {
                 title: "Product"))
     }
 
+    /// The session an empty project starts with. It drafts its plan into Blocks under its
+    /// own id, so `Create project` on that draft comes back to this conversation.
+    func startNotebookSetup(_ description: String, agent: AgentKind) -> Route {
+        let id = UUID()
+        return addSession(
+            agent, id: id, prompt: NotebookFormat.onboardingPrompt(description: description, sessionID: id),
+            title: "Notebook Setup")
+    }
+
     /// Incubate mode: the app does not write the agent, a session does. It searches the
     /// skills this project can already load, fetches or writes what is missing, and adds
     /// the file to `.notebook/team/` — which the poll picks up as a new roster row, the

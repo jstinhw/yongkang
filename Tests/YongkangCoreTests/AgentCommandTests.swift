@@ -67,8 +67,12 @@ import Testing
     // apostrophes, newlines, backticks and pipes. Round-trip it through a real shell.
     @Test func onboardingPromptSurvivesTheShell() throws {
         let typed = "It's a CLI that syncs \"stuff\"\nfast; `now`"
-        let prompt = NotebookFormat.onboardingPrompt(description: typed)
+        let session = UUID()
+        let prompt = NotebookFormat.onboardingPrompt(description: typed, sessionID: session)
         #expect(prompt.contains(typed), "what the user typed reaches the agent")
+        #expect(
+            prompt.contains("stage: ready") && prompt.contains("session: \(session.uuidString.lowercased())"),
+            "the plan is drafted as a ready proposal that Create project brings back to this session")
         #expect(prompt.contains("author's problem"), "the spec's apostrophes are what break quoting")
         #expect(prompt.contains("append one run record"), "setup sessions must leave a handoff")
         #expect(try echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")

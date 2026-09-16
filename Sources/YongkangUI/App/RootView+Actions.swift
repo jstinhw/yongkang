@@ -76,8 +76,7 @@ extension RootView {
         model.enter(project)
         guard let started = model.entered, !started.hasNotebook else { return }
         model.section = .agents
-        model.selection = started.addSession(
-            agent, prompt: NotebookFormat.onboardingPrompt(description: prompt), title: "Notebook Setup")
+        model.selection = started.startNotebookSetup(prompt, agent: agent)
     }
 
     func close(_ project: ProjectModel) {
