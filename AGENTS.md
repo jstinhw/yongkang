@@ -39,6 +39,7 @@ swift test --filter UsageTests              # one suite while you work
 swift test --filter UsageTests/shortCount   # one test
 swift test --filter YongkangCoreTests       # one test target
 swift run shots <dir>                       # render every screen offscreen to <dir>/*.png
+make icon                                   # redraw the app icon's 1024 master
 make run                                    # debug build of the app, then open it
 make archive                                # signed Release build in .build/xcode
 make help                                   # every target
@@ -50,6 +51,10 @@ make help                                   # every target
   Render into two folders, one before your change and one after, and compare them.
   `review.png`, `handover.png` and `usage.png` read live git or the clock, so they differ on
   every commit.
+- `make icon` redraws `App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png` from
+  `DesignSystem/AppIcon.swift`, through the same shots binary. The PNG is a build artefact,
+  not artwork: change the view, run the command, commit both. See
+  [`docs/development.md`](docs/development.md#the-app-icon).
 - `make run` refuses while Yongkang is running (`ai.yongkang.Yongkang`, or the old
   `local.yongkang.app`) instead of quitting it: that would end every agent session inside
   it. The user's copy is usually running, so don't launch or `open` a built app unless

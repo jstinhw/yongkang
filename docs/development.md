@@ -235,6 +235,40 @@ those files are named after the UUID.
    message naming what it protects. Run `swift test`. Then break the reader on purpose for a
    moment and confirm the check fails.
 
+## The app icon
+
+A shell caret with a waiting cursor: real terminals running real CLIs, and the amber block is
+the moment one of them needs you. It is the console's own `accent` and `amber`, so the Dock
+and the app agree on what "waiting on you" looks like.
+
+It is drawn in code, not exported from an editor. `Sources/YongkangUI/DesignSystem/AppIcon.swift`
+is a SwiftUI view that takes a side length and puts every coordinate on a 256-unit grid scaled
+by it, so 16 px and 1024 px are one picture. To change it, edit that view, then:
+
+```sh
+make icon   # → App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+```
+
+That runs `swift run shots --icon <file>`, which renders through `ImageRenderer` at scale 1 —
+not the offscreen window the screens use, because that one renders at the display's backing
+scale and 1024 points would come out 2048 px. Commit the view and the PNG together: the PNG is
+a build artefact of the view, and nothing else regenerates it.
+
+The catalog holds one entry, not the ten slots Xcode used to want: `actool` takes that 1024
+master and generates the whole `AppIcon.icns` family from it. The entry has to be spelled
+`"size": "512x512", "scale": "2x"`, which is what "1024 px" is called in a macOS icon set.
+`"size": "1024x1024", "scale": "1x"` builds without an error and produces no icon at all —
+`actool` calls it "an unassigned child", skips it, and the app ships with no `Assets.car` and
+no `CFBundleIconName`. Check for that file and that key after any change here.
+
+macOS downscales the master for every size it shows, so the check that matters is the small
+end. At 128 and 32 px the caret and the cursor both read cleanly. At 16 px the cursor is about
+one device pixel tall and softens to a dim amber dash — still the only warm thing in the icon,
+and still visible, which `AppIconTests` pins by sampling that pixel. Retina draws a 16 pt row
+from the 32 px picture, so 1x-at-16 is the worst case rather than the usual one. The tile's
+dark ground carries the mark on a light Dock, and the `markLine` inner edge separates it from
+a dark one.
+
 ## Stable local signing identity
 
 macOS ties the Desktop and Documents permission (TCC) to the app's code signature. The
