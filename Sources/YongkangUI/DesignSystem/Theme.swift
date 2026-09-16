@@ -8,12 +8,14 @@ import SwiftUI
 /// value change here rather than a hunt through the features. Nothing outside this folder
 /// writes a hex literal; `NoStrayTokensTests` fails the build if something does.
 ///
-/// The values are fixed sRGB rather than dynamic `NSColor(name:dynamicProvider:)` on
-/// purpose. The app pins no appearance, so its dark ground comes from these literals alone;
-/// a dynamic colour whose light branch differed would repaint the app on a light-mode Mac,
-/// and one whose branches matched would be a light theme in name only. D16 asks for dynamic
-/// values — they arrive with the light palette that gives them a second branch to return,
-/// and then it is these 41 lines that change.
+/// The values are fixed sRGB rather than the dynamic `NSColor(name:dynamicProvider:)` D16
+/// asks for. Dynamic would be pixel-safe: `RootView` pins `.preferredColorScheme(.dark)`,
+/// so the window is always `darkAqua` and a provider would only ever run its dark branch.
+/// (Measured, not assumed — a dynamic colour and this literal render identical bytes in a
+/// `darkAqua` window, and differ in an `aqua` one.) It would also be inert, because there
+/// is no light palette yet: both branches would return the value below, and the pinned
+/// scheme would keep the second one from ever running. Dynamic arrives with the palette
+/// that gives it something to return, in the PR that also drops that pin.
 package enum Theme {
 
     // MARK: - Ground
