@@ -19,6 +19,20 @@ func fixture(_ path: String) throws -> String {
     return try String(contentsOf: url, encoding: .utf8)
 }
 
+/// True once `condition` holds, false if it still doesn't after `seconds`. Suspends between
+/// checks rather than blocking, so whatever the test is waiting for keeps running.
+///
+/// ponytail: a generous bound, not a timing claim — the same one `YongkangUITests` uses.
+/// FSEvents' own latency is 300 ms and the suites run in parallel.
+func eventually(within seconds: Double = 10, _ condition: () async -> Bool) async -> Bool {
+    let deadline = Date().addingTimeInterval(seconds)
+    while await !condition() {
+        guard Date() < deadline else { return false }
+        try? await Task.sleep(for: .milliseconds(20))
+    }
+    return true
+}
+
 /// Runs git for a test's own setup, and returns what it said. With the app's git environment,
 /// so a test run from a git hook sets up its temp repo and never the checkout running the hook.
 @discardableResult
