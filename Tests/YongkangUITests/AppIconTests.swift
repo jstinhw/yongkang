@@ -19,21 +19,21 @@ import Testing
         return NSBitmapImageRep(cgImage: image)
     }
 
-    /// 16 px is where a mark drawn for 1024 goes blank: the cursor is barely a device pixel
-    /// tall there, and it is the whole "an agent is waiting on you" half of the icon.
-    @Test func theWaitingCursorSurvivesEveryScale() throws {
+    /// 16 px is where a mark drawn for 1024 goes blank: the amber stream is one device pixel
+    /// wide there, and it is the whole "yours, and waiting on you" half of the icon.
+    @Test func theAmberStreamSurvivesEveryScale() throws {
         for side in [CGFloat(16), 1024] {
             let rep = try render(side: side)
             #expect(rep.pixelsWide == Int(side) && rep.pixelsHigh == Int(side))
-            // The cursor's centre on the 256-grid the view draws on. Amber is the only warm
-            // thing in the icon, so "far redder than it is blue" is the whole test — it fails
-            // if the block vanishes into the ground or turns into the caret's blue.
+            // The middle stream on the 256-grid the view draws on. Amber is the only warm thing
+            // in the icon, so "far redder than it is blue" is the whole test — it fails if the
+            // stream vanishes into the ground or turns into the outer streams' ink.
             let colour = try #require(
-                rep.colorAt(x: Int(side * 158 / 256), y: Int(side * 157 / 256))?
+                rep.colorAt(x: Int(side * 128 / 256), y: Int(side * 128 / 256))?
                     .usingColorSpace(.sRGB))
             #expect(
                 colour.redComponent > colour.blueComponent + 0.2,
-                "the cursor is not amber at \(Int(side)) px: \(colour)")
+                "the middle stream is not amber at \(Int(side)) px: \(colour)")
         }
     }
 

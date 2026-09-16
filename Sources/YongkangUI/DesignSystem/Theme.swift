@@ -28,7 +28,6 @@ package enum Theme {
     static let panel = Color(hex: 0x0E1116)  // list and inspector columns, and code blocks
     static let well = Color(hex: 0x12161E)  // a sunken area inside a card: transcripts, quotes
     static let card = Color(hex: 0x141821)  // raised surface
-    static let mark = Color(hex: 0x141C28)  // the "YK" identity tile
     static let nested = Color(hex: 0x151A22)  // a card sitting on a card
     static let railActive = Color(hex: 0x161C26)  // the rail's selected item
     static let raised = Color(hex: 0x171C25)  // hover / selected surface, chips, buttons
@@ -50,7 +49,7 @@ package enum Theme {
     static let chipLine = Color(hex: 0x252C39)  // a fact chip
     static let controlLine = Color(hex: 0x262D3A)  // a button, and the dashed new-project tile
     static let hairline = Color(hex: 0x2A3240)  // selected outline
-    static let markLine = Color(hex: 0x2B3B52)  // the "YK" identity tile
+    static let markLine = Color(hex: 0x2B3B52)  // the app icon tile's inner edge
 
     // MARK: - Ink
 

@@ -15,7 +15,7 @@ enum IconShot {
     /// `ImageRenderer` rather than the offscreen window `DesignShots` uses: it takes an
     /// explicit scale, so 1024 points come out as exactly 1024 pixels instead of whatever
     /// backing scale the main display has. The renderer's one blind spot is `ScrollView`,
-    /// and the icon is four shapes.
+    /// and the icon is a tile and three strokes.
     @MainActor static func write(to file: URL) -> Bool {
         let renderer = ImageRenderer(content: AppIcon(side: side))
         renderer.scale = 1

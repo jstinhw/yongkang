@@ -76,14 +76,7 @@ package struct ProjectsHome: View {
 
     private var top: some View {
         HStack(spacing: 14) {
-            Text("YK")
-                .font(Typography.code(.semibold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 32, height: 32)
-                .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Theme.markLine, lineWidth: 1))
+            LogoMark(side: 32).trimmed()
             Text("Yongkang").font(Typography.headline).tracking(0.3)
             Spacer(minLength: 12)
         }

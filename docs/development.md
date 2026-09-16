@@ -278,13 +278,15 @@ those files are named after the UUID.
 
 ## The app icon
 
-A shell caret with a waiting cursor: real terminals running real CLIs, and the amber block is
-the moment one of them needs you. It is the console's own `accent` and `amber`, so the Dock
-and the app agree on what "waiting on you" looks like.
+Three streams joining one current. 永, the "yong" of Yongkang, began as a picture of water
+running a long way: separate streams of work, from agents and from people, leaving as one. The
+middle stream is yours, in the console's own `amber`, so the Dock and the app agree on what
+"waiting on you" looks like; the outer two are its text ink, `tx`.
 
-It is drawn in code, not exported from an editor. `Sources/YongkangUI/DesignSystem/AppIcon.swift`
-is a SwiftUI view that takes a side length and puts every coordinate on a 256-unit grid scaled
-by it, so 16 px and 1024 px are one picture. To change it, edit that view, then:
+It is drawn in code, not exported from an editor. `Sources/YongkangUI/DesignSystem/LogoMark.swift`
+is the mark: a SwiftUI view that takes a side length and puts every coordinate on a 256-unit
+grid scaled by it, so 16 px and 1024 px are one picture. `AppIcon.swift` sets it on the dark
+tile, and the Fleet header draws it bare beside the name. To change it, edit the view, then:
 
 ```sh
 make icon   # → App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png
@@ -293,7 +295,8 @@ make icon   # → App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png
 That runs `swift run shots --icon <file>`, which renders through `ImageRenderer` at scale 1 —
 not the offscreen window the screens use, because that one renders at the display's backing
 scale and 1024 points would come out 2048 px. Commit the view and the PNG together: the PNG is
-a build artefact of the view, and nothing else regenerates it.
+a build artefact of the view, and nothing else regenerates it. No other logo file is kept in
+the repo — not the icon at other sizes, the bare mark, or the mark with the name.
 
 The catalog holds one entry, not the ten slots Xcode used to want: `actool` takes that 1024
 master and generates the whole `AppIcon.icns` family from it. The entry has to be spelled
@@ -303,9 +306,10 @@ master and generates the whole `AppIcon.icns` family from it. The entry has to b
 no `CFBundleIconName`. Check for that file and that key after any change here.
 
 macOS downscales the master for every size it shows, so the check that matters is the small
-end. At 128 and 32 px the caret and the cursor both read cleanly. At 16 px the cursor is about
-one device pixel tall and softens to a dim amber dash — still the only warm thing in the icon,
-and still visible, which `AppIconTests` pins by sampling that pixel. Retina draws a 16 pt row
+end. At 128 px and 32 px all three streams read separately, and the channels between them
+still open. At 16 px the channels close, and the streams blur into a Y with a dim amber
+centre — still the only warm thing in the icon, and still visible. `AppIconTests` checks this
+by sampling that pixel. Retina draws a 16 pt row
 from the 32 px picture, so 1x-at-16 is the worst case rather than the usual one. The tile's
 dark ground carries the mark on a light Dock, and the `markLine` inner edge separates it from
 a dark one.
