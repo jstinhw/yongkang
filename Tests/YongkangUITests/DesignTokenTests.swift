@@ -44,6 +44,6 @@ import Testing
         #expect(Typography.caption == Typo.text(10.5))
         #expect(Typography.mono == Typo.mono(10))
         #expect(Typography.monoCaption == Typo.mono(9.5))
-        #expect(Typography.section == Typo.section)
+        #expect(Typography.section == Typo.display(10))
     }
 }

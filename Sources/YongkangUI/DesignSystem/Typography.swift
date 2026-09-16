@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 /// What a piece of text *is*, rather than how big it is. A screen picks a role here and
@@ -27,40 +26,29 @@ enum Typography {
     /// Mono where it has to sit inside a row rather than own one.
     static let monoCaption = Typo.mono(9.5)
     /// The all-caps tracked label that heads every section on every screen.
-    static let section = Typo.section
+    static let section = Typo.display(10)
 }
 
-/// Three faces, each with one job: a display face for titles, a text face for prose, and a
-/// mono for anything an agent typed — ids, paths, commands, diffs. Named faces are used
-/// when they are installed and quietly fall back to the system stack when they are not, so
-/// the app never ships a font it cannot draw.
+/// The faces, and nothing else. Two of them, both the system's own: SF Pro for anything a
+/// person reads, SF Mono for anything an agent typed — ids, paths, commands, diffs. They
+/// come from `.system`, so there is no font to bundle, no name to look up, and no Mac where
+/// the app quietly draws something else because a designer's font happened to be installed.
 ///
-/// The faces themselves. Prefer `Typography`'s roles; reach for these only for a size no
-/// role carries yet.
+/// `display` and `text` are that same SF Pro; the default weight is the difference, which is
+/// what a display size is for. Prefer `Typography`'s roles — this is the plumbing under them,
+/// and `DesignTokenTests` fails the build if a screen reaches past a role to a raw size.
 enum Typo {
-    private static func installed(_ name: String) -> Bool { NSFont(name: name, size: 12) != nil }
-
-    private static let displayFace: String? = ["Space Grotesk"].first(where: installed)
-    private static let textFace: String? = ["IBM Plex Sans"].first(where: installed)
-    private static let monoFace: String? = ["JetBrains Mono", "SF Mono"].first(where: installed)
-
     static func display(_ size: CGFloat, _ weight: Font.Weight = .semibold) -> Font {
-        guard let displayFace else { return .system(size: size, weight: weight) }
-        return .custom(displayFace, size: size).weight(weight)
+        .system(size: size, weight: weight)
     }
 
     static func text(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        guard let textFace else { return .system(size: size, weight: weight) }
-        return .custom(textFace, size: size).weight(weight)
+        .system(size: size, weight: weight)
     }
 
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        guard let monoFace else { return .system(size: size, weight: weight, design: .monospaced) }
-        return .custom(monoFace, size: size).weight(weight)
+        .system(size: size, weight: weight, design: .monospaced)
     }
-
-    /// The all-caps tracked label that heads every section on every screen.
-    static let section = Font.system(size: 10, weight: .semibold)
 }
 
 /// A section heading: the same 10pt tracked caps everywhere, so panels read as one system.
@@ -76,7 +64,7 @@ struct SectionLabel: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(text.uppercased())
-                .font(Typo.section)
+                .font(Typography.section)
                 .tracking(1.4)
                 .foregroundStyle(Theme.tx3)
             if let trailing {
