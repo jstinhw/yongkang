@@ -12,8 +12,13 @@ struct RootView: View {
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
     /// Whether the list column is collapsed. It persists: a window you have collapsed once
-    /// should come back that way. Its *width* no longer does — the split view owns that, and
-    /// drags it from a real divider.
+    /// should come back that way.
+    ///
+    /// Its *width* does not, and `@SceneStorage` offers no way to make it: SwiftUI takes
+    /// `min`/`ideal`/`max` for a column and hands back no binding for the width the user
+    /// dragged it to, so there is nothing to store. `Theme.listWidth` is the width it opens
+    /// at, every launch. Reaching into the underlying `NSSplitView` to read the divider would
+    /// be inventing a mechanism, not using one; revisit if SwiftUI ever exposes the width.
     @AppStorage("listHidden") var listHidden = false
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
@@ -22,6 +27,12 @@ struct RootView: View {
     @State var addingAgent = false
     /// What the title prompt's field holds while `model.alert` asks for one.
     @State var typedTitle = ""
+    /// The project the window was inside when it last closed, by path, and where in it it
+    /// was. `@AppStorage("openProjects")` reopens the folders; these three are the rest of
+    /// the address. See `restore()`.
+    @SceneStorage("enteredProject") private var enteredProject = ""
+    @SceneStorage("section") private var storedSection = ConsoleSection.overview
+    @SceneStorage("route") private var storedRoute = ""
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -58,13 +69,20 @@ struct RootView: View {
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 1120, minHeight: 680)
-        .task { restore() }
-        .onChange(of: model.section) { model.openSectionDefault() }
+        .task { await restore() }
+        .onChange(of: model.section) {
+            model.openSectionDefault()
+            storedSection = model.section
+        }
         // The transcript follows the selection rather than the poll: a row that opens an
         // agent must not leave the one before it on screen for up to two seconds under
         // the new agent's name. Every screen that opens one is covered by this — the
         // list column and the overview's "Running now" cards included.
-        .onChange(of: model.selection) { model.reloadAgentTranscript() }
+        .onChange(of: model.selection) {
+            model.reloadAgentTranscript()
+            storedRoute = model.selection?.stored ?? ""
+        }
+        .onChange(of: model.entered?.directory.path) { enteredProject = model.entered?.directory.path ?? "" }
     }
 
     private var attentionNotices: some View {
@@ -170,12 +188,19 @@ struct RootView: View {
 
     // MARK: - Projects
 
-    private func restore() {
+    /// The last run's window, in order: its folders, then the project it was inside and the
+    /// page it had open.
+    ///
+    /// The read is awaited rather than fired off, because a route names a card, a block or a
+    /// team member, and none of those exist until a notebook has been read — validated any
+    /// earlier, every stored route would look stale on every launch.
+    private func restore() async {
         guard model.projects.isEmpty else { return }
         model.restore(openProjects)
         persist()
-        model.reload()
         model.start()
+        await model.reloadNow()
+        model.restore(entered: enteredProject, section: storedSection, route: Route(stored: storedRoute))
     }
 
     func persist() {

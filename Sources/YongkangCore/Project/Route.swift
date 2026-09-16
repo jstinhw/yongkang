@@ -8,7 +8,7 @@ import Foundation
 /// agent writes a file, so every case carries only an ID that reload keeps: a card id, a
 /// session UUID, a file path, a roster name. None carries the project's own id, because a
 /// selection only ever means something inside the entered project, and entering one resets it.
-package enum Route: Hashable, Sendable {
+package enum Route: Hashable, Sendable, Codable {
     case overview, board
     /// The project-wide usage screen, which belongs to no single agent.
     case usage
@@ -58,10 +58,30 @@ package enum Route: Hashable, Sendable {
         guard case .session(session, let pane) = self else { return nil }
         return pane
     }
+
+    // MARK: - Storing one
+
+    /// The route as one string, which is what `@SceneStorage` can keep: relaunching returns
+    /// the window to the page it was on.
+    ///
+    /// Codable's own shape, deliberately not a format anything else reads or writes — so a
+    /// string that no longer decodes is simply no route, the same answer as a route whose
+    /// card an agent has since deleted. `RawRepresentable` would spell this too, but it also
+    /// offers the stdlib's `==` through `rawValue`, and a selection is compared once per row
+    /// per redraw: JSON in that path would be a real cost for no gain.
+    package var stored: String {
+        guard let data = try? JSONEncoder().encode(self) else { return "" }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    package init?(stored: String) {
+        guard let decoded = try? JSONDecoder().decode(Route.self, from: Data(stored.utf8)) else { return nil }
+        self = decoded
+    }
 }
 
 /// The available agent panes. Transcript remains implemented but is hidden for now.
-package enum AgentPane: String, CaseIterable, Identifiable, Sendable {
+package enum AgentPane: String, CaseIterable, Identifiable, Sendable, Codable {
     case transcript = "Transcript"
     case lanes = "Agents"
     case session = "Session"

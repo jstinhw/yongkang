@@ -260,6 +260,11 @@ import YongkangCore
             // the diff means anything.
             openReview(in: project)
         case .blocks:
+            // A block already open stays open, the way a card or a session does above. This
+            // runs on every section change, so without it opening one block from a lead's
+            // board — or restoring the one you quit on — would slide straight off it onto
+            // whichever block happens to be waiting first.
+            guard !project.snapshot.blocks.contains(where: { selection == .block($0.id) }) else { return }
             selection =
                 (project.snapshot.blocks.first(where: \.waiting)
                 ?? (showDone ? project.snapshot.blocks.first : nil))
