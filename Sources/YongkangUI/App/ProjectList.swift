@@ -136,6 +136,10 @@ package struct ProjectList: View {
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
+                // Every row in the column goes through here, so one line makes each of them
+                // read as a row — title, id, state, counts — rather than as four stops. A
+                // session row's own disclosure button joins as an action on that row.
+                .accessibilityElement(children: .combine)
         }
         .buttonStyle(.plain)
         .rowSelection(selection == route)
@@ -384,6 +388,9 @@ package struct ProjectList: View {
                             .foregroundStyle(Theme.tx3)
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityLabel(
+                        collapsed.contains(session.id)
+                            ? "Show \(session.title)’s agents" : "Hide \(session.title)’s agents")
                 }
                 StateDot(
                     color: session.exited ? Theme.tx4 : (running > 0 ? Theme.accent : Theme.green),

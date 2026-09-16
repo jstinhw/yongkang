@@ -178,6 +178,9 @@ package struct ProjectsHome: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 16)
         .contentShape(RoundedRectangle(cornerRadius: 12))
+        // One thing, not eight: a name, a path, a ring, four role tiles and two counts. The
+        // remove × is an overlay on the button outside this, so it keeps its own element.
+        .accessibilityElement(children: .combine)
     }
 
     /// The two ways to add one, sitting where a card would rather than in the toolbar:
@@ -229,6 +232,7 @@ package struct ProjectsHome: View {
         }
         .buttonStyle(.plain)
         .help("Remove \(project.name) from Fleet — the folder stays on disk")
+        .accessibilityLabel("Remove \(project.name) from Fleet")
     }
 
     private func summary(_ project: Project) -> String {

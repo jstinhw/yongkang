@@ -322,6 +322,7 @@ package struct NotebookBoard: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Open this task's page")
+                .accessibilityLabel("Open \(card.title)")
             }
             HStack(spacing: 6) {
                 NotebookStyle.pill(row.lane.label, row.lane.tint)
@@ -355,6 +356,10 @@ package struct NotebookBoard: View {
         .shadow(color: isPicked ? Theme.accent.opacity(0.25) : .clear, radius: 12, y: 4)
         .opacity(selected.isEmpty || inBatch ? 1 : 0.32)
         .contentShape(RoundedRectangle(cornerRadius: 11))
+        // A card is one thing to read — title, id, lane, pills — rather than six. It is drawn
+        // both inside a picking button and bare, for work already out with a lead, and the
+        // bare one is where this matters most: nothing else would group it.
+        .accessibilityElement(children: .combine)
     }
 
     /// Order says what a card waits on now, so the line is kept only for the one thing

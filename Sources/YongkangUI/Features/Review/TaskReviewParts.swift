@@ -115,6 +115,7 @@ struct FeedbackCard: View {
                     }
                     .buttonStyle(.consoleGhost)
                     .help("Delete this comment")
+                    .accessibilityLabel("Delete the comment on \(comment.path) line \(comment.line)")
                 }
                 .cardSurface(radius: 9, padding: 10, fill: Theme.raised)
             }

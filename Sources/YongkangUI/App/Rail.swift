@@ -71,6 +71,9 @@ package struct Rail: View {
             // while that button is drawn, and a menu item is also what VoiceOver and Full
             // Keyboard Access find it by.
             .help("All projects (⌘[)")
+            // The mark is the app's, not a word, so it says what it does for a reader that
+            // cannot see it.
+            .accessibilityLabel("All projects")
             .padding(.bottom, 12)
 
             ForEach(ConsoleSection.allCases) { item in

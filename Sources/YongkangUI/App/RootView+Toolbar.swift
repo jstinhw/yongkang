@@ -94,6 +94,7 @@ extension RootView {
                 }
                 .pickerStyle(.segmented).labelsHidden()
                 .frame(width: panes.count == 3 ? 250 : 175)
+                .accessibilityLabel("\(watched.title) pane")
             }
             if let found = model.selectedSubagent(in: project) {
                 Button {
@@ -128,11 +129,14 @@ extension RootView {
         }
     }
 
+    /// Labelled rather than titled: the four CLI names say what the control is to anyone
+    /// looking at it, and nothing but a reader needs the word.
     private var providerPicker: some View {
         Picker("", selection: $agent) {
             ForEach(AgentKind.allCases) { Text($0.displayName).tag($0) }
         }
         .pickerStyle(.segmented).labelsHidden().frame(width: 320)
+        .accessibilityLabel("Agent for new sessions")
     }
 
     private var completedToggle: some View {

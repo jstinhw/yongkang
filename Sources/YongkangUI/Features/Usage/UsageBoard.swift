@@ -150,6 +150,10 @@ package struct UsageBoard: View {
         // Rounded at the top only, so a stack of segments still reads as one bar.
         .clipShape(RoundedRectangle(cornerRadius: 2))
         .help("\(stamp(bucket.start)) · \(AgentUsage.short(bucket.total))")
+        // A bar is coloured rectangles and nothing else, so a reader gets silence from it
+        // unless it is told what it is worth. Same two facts the tooltip carries.
+        .accessibilityElement()
+        .accessibilityLabel("\(stamp(bucket.start)), \(AgentUsage.short(bucket.total))")
     }
 
     /// Three marks rather than one per bar: the range is the axis, and a label under every

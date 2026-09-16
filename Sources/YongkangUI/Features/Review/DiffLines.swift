@@ -90,6 +90,7 @@ struct DiffLines: View {
                 Image(systemName: "xmark").font(.system(size: 10))
             }
             .buttonStyle(.consoleGhost)
+            .accessibilityLabel("Delete this comment")
         }
         .frame(width: 560, alignment: .leading)
         .cardSurface(radius: 10, padding: 10)
