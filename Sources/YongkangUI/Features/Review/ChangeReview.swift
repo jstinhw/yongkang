@@ -224,7 +224,7 @@ package struct ChangeReview: View {
                 }
                 if let head {
                     Text("against \(head)")
-                        .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(2)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -238,7 +238,7 @@ package struct ChangeReview: View {
                             select(saved.path)
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("\(saved.path):\(saved.line)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                                Text("\(saved.path):\(saved.line)").font(Typography.mono).foregroundStyle(Theme.tx3)
                                     .lineLimit(1).truncationMode(.head)
                                 Text(saved.text).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).lineLimit(2)
                             }
@@ -249,7 +249,8 @@ package struct ChangeReview: View {
                         .buttonStyle(.plain)
                     }
                     Text("Sent to the lead when you request changes on \(task.title).")
-                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+                        .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(
+                            horizontal: false, vertical: true)
                 }
             }
 
@@ -265,10 +266,10 @@ package struct ChangeReview: View {
                                 .lineLimit(1).truncationMode(.middle)
                             Spacer(minLength: 6)
                             if file.counted {
-                                Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
-                                Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+                                Text("+\(file.added)").font(Typography.mono).foregroundStyle(Theme.green)
+                                Text("−\(file.removed)").font(Typography.mono).foregroundStyle(Theme.red)
                             } else {
-                                Text("new file").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                                Text("new file").font(Typography.mono).foregroundStyle(Theme.green)
                             }
                         }
                         .contentShape(Rectangle())
@@ -284,7 +285,7 @@ package struct ChangeReview: View {
                     ? "No agent commits, pushes or opens a PR — committing here is your approval."
                     : "Click a line to comment on it. Nothing is sent until you request changes."
             )
-            .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineSpacing(2)
+            .font(Typography.mono).foregroundStyle(Theme.tx3).lineSpacing(2)
         }
     }
 

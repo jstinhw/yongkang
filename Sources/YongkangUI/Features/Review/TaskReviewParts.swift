@@ -19,7 +19,7 @@ struct WorkReport: View {
             HStack(spacing: 8) {
                 RoleTile(role: work.skill, size: 22)
                 if !name.isEmpty { Text(name).font(Typo.text(13, .medium)).foregroundStyle(Theme.tx) }
-                Text(work.skill).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                Text(work.skill).font(Typography.mono).foregroundStyle(Theme.tx3)
                 Spacer(minLength: 8)
                 if !work.model.isEmpty { NotebookStyle.chip(work.model, mono: true) }
                 if let minutes = work.elapsedMinutes() {
@@ -34,10 +34,10 @@ struct WorkReport: View {
             if !work.result.isEmpty {
                 NotebookContentView(sections: NotebookContent.sections(work.result), cards: cards)
             } else if !work.report.isEmpty {
-                Text(work.report).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                Text(work.report).font(Typography.body).foregroundStyle(Theme.tx2)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Nothing reported back yet.").font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                Text("Nothing reported back yet.").font(Typography.body).foregroundStyle(Theme.tx3)
             }
             if let openFile, !work.paths.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -104,7 +104,7 @@ struct FeedbackCard: View {
                             Text("\(comment.path):\(comment.line)").font(Typo.mono(10.5)).foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
-                        Text(comment.text).font(Typo.text(12)).foregroundStyle(Theme.tx)
+                        Text(comment.text).font(Typography.body).foregroundStyle(Theme.tx)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)

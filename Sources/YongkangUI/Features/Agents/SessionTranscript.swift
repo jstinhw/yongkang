@@ -169,7 +169,7 @@ struct SessionInspector: View {
                                 RoleTile(role: subagent.agentType, size: 20)
                                 Text(subagent.displayName).font(Typo.text(11.5))
                                     .foregroundStyle(Theme.tx2).lineLimit(1)
-                                Text(subagent.agentType).font(Typo.mono(9.5))
+                                Text(subagent.agentType).font(Typography.monoCaption)
                                     .foregroundStyle(Theme.tx4).lineLimit(1)
                                 Spacer(minLength: 0)
                                 StateDot(

@@ -157,7 +157,7 @@ package struct ProjectsHome: View {
                     RoleTile(role: role, size: 22)
                 }
                 if roles.count > 4 {
-                    Text("+\(roles.count - 4)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    Text("+\(roles.count - 4)").font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 4)
                 if blocks > 0 {
@@ -200,8 +200,8 @@ package struct ProjectsHome: View {
         Button(action: action) {
             VStack(spacing: 9) {
                 Image(systemName: symbol).font(.system(size: 20))
-                Text(title).font(Typo.text(12))
-                Text(note).font(Typo.mono(10))
+                Text(title).font(Typography.body)
+                Text(note).font(Typography.mono)
             }
             .foregroundStyle(Theme.tx3)
             .frame(maxWidth: .infinity, minHeight: 152)

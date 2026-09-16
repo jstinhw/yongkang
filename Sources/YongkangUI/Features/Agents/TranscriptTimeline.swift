@@ -50,7 +50,7 @@ struct TranscriptTimeline: View {
                     // Only the brief is labelled. What the agent says needs no heading —
                     // it is the one thing on the screen written for a person to read.
                     if item.kind == .task {
-                        Text("TASK").font(Typo.section).tracking(1.4)
+                        Text("TASK").font(Typography.section).tracking(1.4)
                             .foregroundStyle(tint(item.kind))
                     }
                     Text(item.text)
@@ -94,7 +94,7 @@ struct TranscriptTimeline: View {
                     Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Theme.tx4)
-                    Text(item.text).font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    Text(item.text).font(Typography.body).foregroundStyle(Theme.tx3)
                     if item.errors > 0 {
                         NotebookStyle.pill("\(item.errors) failed", Theme.amber)
                     }

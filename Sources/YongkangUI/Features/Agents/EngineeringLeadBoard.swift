@@ -52,7 +52,7 @@ package struct EngineeringLeadBoard: View {
                                     session: session, cards: cards, blocks: blocks,
                                     openTask: openTask, openBlock: openBlock, inline: true)
                             }
-                            .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
+                            .font(Typography.body).tint(Theme.tx2).cardSurface()
                         }
                         ForEach(taskIDs, id: \.self) { lane($0) }
                         if !unlinked.isEmpty {
@@ -84,7 +84,7 @@ package struct EngineeringLeadBoard: View {
                     .font(Typo.display(21)).foregroundStyle(Theme.tx)
                 Spacer(minLength: 8)
                 if let updated = session.coordination?.updatedAt {
-                    Text("Updated \(AgentUsage.ago(updated))").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    Text("Updated \(AgentUsage.ago(updated))").font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
             }
             Text(
@@ -93,7 +93,7 @@ package struct EngineeringLeadBoard: View {
                         ? "Assign tasks from the board. The lead will size the work, choose specialists and run independent subtasks together."
                         : "Waiting for the lead’s plan. Existing workers and their transcripts remain available below.")
             )
-            .font(Typo.text(12)).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
+            .font(Typography.body).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
             if !taskIDs.isEmpty {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 24) { planMetrics }
@@ -106,7 +106,7 @@ package struct EngineeringLeadBoard: View {
                         if index > 0 {
                             Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(Theme.tx3)
                         }
-                        Text(label).font(Typo.mono(10)).foregroundStyle(index == 3 ? Theme.violet : Theme.tx2)
+                        Text(label).font(Typography.mono).foregroundStyle(index == 3 ? Theme.violet : Theme.tx2)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -129,7 +129,7 @@ package struct EngineeringLeadBoard: View {
 
     private func summaryMetric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased()).font(Typo.section).tracking(1).foregroundStyle(Theme.tx3)
+            Text(title.uppercased()).font(Typography.section).tracking(1).foregroundStyle(Theme.tx3)
             Text(value).font(Typo.mono(11)).foregroundStyle(Theme.tx)
         }
     }
@@ -151,7 +151,7 @@ package struct EngineeringLeadBoard: View {
                             .multilineTextAlignment(.leading)
                     }
                     .buttonStyle(.plain).disabled(card == nil)
-                    Text(taskID).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    Text(taskID).font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
                 NotebookStyle.pill(
@@ -199,7 +199,7 @@ package struct EngineeringLeadBoard: View {
                         Text(
                             "\(work.skill.nonEmpty ?? "Skill pending") · \(work.measuredModel ?? work.model.nonEmpty ?? "Model unreported")"
                         )
-                        .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                        .font(Typography.mono).foregroundStyle(Theme.tx2)
                         .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -226,7 +226,7 @@ package struct EngineeringLeadBoard: View {
                         "\(LeadDisplay.minutes(work.elapsedMinutes())) elapsed / \(LeadDisplay.minutes(work.estimatedMinutes)) est."
                     )
                 }
-                .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                .font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                 .fixedSize(horizontal: false, vertical: true)
                 if !work.report.isEmpty {
                     Label(work.report, systemImage: "arrow.turn.down.left")
@@ -238,12 +238,12 @@ package struct EngineeringLeadBoard: View {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(work.reason.nonEmpty ?? "Selection rationale not recorded.")
                         if !work.report.isEmpty { Text("Report: \(work.report)") }
-                        Text("Worker ID: \(work.id)").font(Typo.mono(10))
+                        Text("Worker ID: \(work.id)").font(Typography.mono)
                     }
                     .font(Typo.text(11)).foregroundStyle(Theme.tx2)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
                 }
-                .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).tint(Theme.tx3)
+                .font(Typography.caption).foregroundStyle(Theme.tx3).tint(Theme.tx3)
             }
         }
         .padding(.vertical, 5)
@@ -251,7 +251,7 @@ package struct EngineeringLeadBoard: View {
 
     private func dependencyLine(_ ids: [String], prefix: String) -> some View {
         Text("\(prefix): \(ids.joined(separator: ", "))")
-            .font(Typo.mono(10)).foregroundStyle(Theme.amber)
+            .font(Typography.mono).foregroundStyle(Theme.amber)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -263,7 +263,7 @@ package struct EngineeringLeadBoard: View {
                 RoleTile(role: agent.agentType)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(agent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
-                    Text(agent.description).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(2)
+                    Text(agent.description).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
                     Text("Plan, estimates and check-in unavailable").font(Typo.text(10)).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
@@ -286,13 +286,13 @@ package struct EngineeringLeadBoard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("\(member.name) · \(member.skills.joined(separator: ", "))")
                                 .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
-                            Text(member.owns).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                            Text(member.owns).font(Typography.caption).foregroundStyle(Theme.tx3)
                         }
                     }
                 }
             }.padding(.top, 12)
         }
-        .font(Typo.text(12)).tint(Theme.tx2).foregroundStyle(Theme.tx2).cardSurface()
+        .font(Typography.body).tint(Theme.tx2).foregroundStyle(Theme.tx2).cardSurface()
     }
 }
 
@@ -322,7 +322,7 @@ struct LeadInspector: View {
         return VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Acceptance")
-                Text("\(done) / \(session.taskIDs.count) tasks passed QA").font(Typo.display(15)).foregroundStyle(
+                Text("\(done) / \(session.taskIDs.count) tasks passed QA").font(Typography.headline).foregroundStyle(
                     Theme.tx)
                 MeterBar(
                     value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green
@@ -390,7 +390,7 @@ struct LeadInspector: View {
                 Text(work.title.nonEmpty ?? work.id).font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx2)
             }
             Text("Check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")")
-                .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                .font(Typography.mono).foregroundStyle(Theme.tx3)
             if let used = work.contextTokens, let window = work.contextWindow, window > 0 {
                 let ratio = Double(used) / Double(window)
                 HStack {
@@ -398,7 +398,7 @@ struct LeadInspector: View {
                     Spacer(minLength: 4)
                     Text(String(format: "%.0f%%", ratio * 100))
                 }
-                .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                .font(Typography.mono).foregroundStyle(Theme.tx2)
                 MeterBar(value: ratio, tint: ratio >= 0.75 ? Theme.red : ratio >= 0.6 ? Theme.amber : Theme.green)
                 if ratio >= 0.6 {
                     Text(ratio >= 0.75 ? "Compaction threshold reached" : "Checkpoint threshold reached")
@@ -406,7 +406,7 @@ struct LeadInspector: View {
                 }
             } else {
                 Text("Context: \(LeadDisplay.tokens(work.contextTokens)) / \(LeadDisplay.tokens(work.contextWindow))")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
             }
             if !work.contextSource.isEmpty {
                 Text(work.contextSource).font(Typo.text(10)).foregroundStyle(Theme.tx3)
@@ -416,7 +416,7 @@ struct LeadInspector: View {
                     .font(Typo.text(11)).foregroundStyle(Theme.tx2)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
             }
-            .font(Typo.text(10.5)).tint(Theme.tx3).foregroundStyle(Theme.tx3)
+            .font(Typography.caption).tint(Theme.tx3).foregroundStyle(Theme.tx3)
         }
         .cardSurface(radius: 9, padding: 12)
     }

@@ -171,7 +171,7 @@ package struct NewAgentForm: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(doc.name).font(Typo.mono(12)).foregroundStyle(Theme.tx2)
                 if !doc.summary.isEmpty {
-                    Text(doc.summary).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    Text(doc.summary).font(Typography.caption).foregroundStyle(Theme.tx3)
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
             }

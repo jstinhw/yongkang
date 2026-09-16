@@ -31,7 +31,7 @@ struct ChangeSummaryPane: View {
         let done = summary.finished.count
         let flight = summary.tasks.count - done
         return VStack(alignment: .leading, spacing: 9) {
-            Text(headlineText).font(Typo.display(22))
+            Text(headlineText).font(Typography.title)
             HStack(spacing: 9) {
                 Text("\(changes.count) file\(changes.count == 1 ? "" : "s")")
                     .font(Typo.mono(12)).foregroundStyle(Theme.tx3)
@@ -78,7 +78,7 @@ struct ChangeSummaryPane: View {
             }
             if ranked.count > 8 {
                 Text("+\(ranked.count - 8) more file\(ranked.count == 9 ? "" : "s") in the list")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -99,13 +99,13 @@ struct ChangeSummaryPane: View {
             }
             .frame(height: 8)
             if file.counted {
-                Text("+\(file.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                Text("+\(file.added)").font(Typography.mono).foregroundStyle(Theme.green)
                     .frame(width: 44, alignment: .trailing)
-                Text("−\(file.removed)").font(Typo.mono(10)).foregroundStyle(Theme.red)
+                Text("−\(file.removed)").font(Typography.mono).foregroundStyle(Theme.red)
                     .frame(width: 44, alignment: .trailing)
             } else {
                 // The width of the two counts and the gap between them, so the bars stay aligned.
-                Text("new file").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                Text("new file").font(Typography.mono).foregroundStyle(Theme.green)
                     .frame(width: 98, alignment: .trailing)
             }
         }
@@ -168,7 +168,7 @@ struct ChangeSummaryPane: View {
                 HStack(spacing: 6) {
                     RoleTile(role: work.skill, size: 18)
                     Text(work.skill.isEmpty ? work.id : work.skill)
-                        .font(Typo.mono(10)).foregroundStyle(Theme.tx2)
+                        .font(Typography.mono).foregroundStyle(Theme.tx2)
                     StateDot(
                         color: NotebookStyle.color(of: work.state),
                         live: work.runtimeRunning == true)
@@ -186,7 +186,7 @@ struct ChangeSummaryPane: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 Text(work.title.isEmpty ? work.id : work.title)
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx)
+                    .font(Typography.body).foregroundStyle(Theme.tx)
                 Spacer(minLength: 8)
                 if !work.model.isEmpty { NotebookStyle.chip(work.model, mono: true) }
                 NotebookStyle.pill(work.state)
@@ -231,7 +231,7 @@ struct ChangeSummaryPane: View {
             ForEach(Array(summary.decisions.enumerated()), id: \.offset) { _, line in
                 HStack(alignment: .top, spacing: 9) {
                     StateDot(color: Theme.violet).padding(.top, 5)
-                    Text(line).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                    Text(line).font(Typography.body).foregroundStyle(Theme.tx2)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
@@ -246,7 +246,7 @@ struct ChangeSummaryPane: View {
             "No agent batch is recorded against this working tree — these changes were "
                 + "made outside the console. The diff and the commit bar still work."
         )
-        .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+        .font(Typography.body).foregroundStyle(Theme.tx3)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 15)

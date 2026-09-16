@@ -93,7 +93,7 @@ package struct NotebookBoard: View {
                             picked: Set(picked.map(\.id)), openDemo: openDemo,
                             inline: true)
                     }
-                    .font(Typo.text(12)).tint(Theme.tx2).cardSurface()
+                    .font(Typography.body).tint(Theme.tx2).cardSurface()
                 }
                 // Columns are bounded by how many projects there are, not by the longest
                 // chain — but a narrow window can still run out of room for them, and a
@@ -200,11 +200,11 @@ package struct NotebookBoard: View {
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
                 Text("\(chain.done)/\(chain.total)")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
             }
             HStack(spacing: 8) {
                 MeterBar(value: chain.total == 0 ? 0 : Double(chain.done) / Double(chain.total))
-                Text(chain.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                Text(chain.id).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             .padding(.top, 8)
             .padding(.bottom, 14)
@@ -261,7 +261,7 @@ package struct NotebookBoard: View {
     private func finished(_ card: NotebookCard) -> some View {
         HStack(spacing: 9) {
             NotebookStyle.statusRing("done", progress: 1, size: 15)
-            Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+            Text(card.title).font(Typography.body).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 13)
@@ -276,7 +276,7 @@ package struct NotebookBoard: View {
         let inBatch = inBatch.contains(card.id)
         return HStack(spacing: 9) {
             Circle().strokeBorder(Theme.tx2.opacity(0.22), lineWidth: 2).frame(width: 15, height: 15)
-            Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+            Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
             Spacer(minLength: 4)
             if card.isDesignWork { RoleTile(role: "design", size: 20) }
         }
@@ -310,7 +310,7 @@ package struct NotebookBoard: View {
                         .foregroundStyle(Theme.tx)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
-                    Text(card.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    Text(card.id).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 Button {
@@ -332,7 +332,7 @@ package struct NotebookBoard: View {
             }
             .padding(.top, 10)
             if let waits = NotebookStyle.edge("waits on ", unknown(card), in: cards) {
-                waits.font(Typo.mono(10)).padding(.top, 9)
+                waits.font(Typography.mono).padding(.top, 9)
             }
             if let demo = row.demo {
                 footer(demo)

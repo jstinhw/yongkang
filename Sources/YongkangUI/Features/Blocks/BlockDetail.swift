@@ -122,7 +122,7 @@ package struct BlockDetail: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(parent.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
                                 .lineLimit(2).multilineTextAlignment(.leading)
-                            Text(parent.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                            Text(parent.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                         }
                         Spacer(minLength: 0)
                     }
@@ -136,7 +136,7 @@ package struct BlockDetail: View {
                     SectionLabel("Waiting agent")
                     HStack(spacing: 10) {
                         RoleTile(role: waiting.isEngineeringLead ? "lead" : waiting.title)
-                        Text(waiting.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+                        Text(waiting.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                         Spacer(minLength: 0)
                         NotebookStyle.pill("blocked", Theme.amber)
                     }
@@ -189,7 +189,7 @@ package struct BlockDetail: View {
 
     private var actionBar: some View {
         ActionBar {
-            Text(footer).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+            Text(footer).font(Typography.body).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
             if block.waiting {
                 if block.isProposal && block.proposalReady {

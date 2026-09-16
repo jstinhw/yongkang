@@ -77,7 +77,7 @@ struct ProjectDetail: View {
                 )
                 .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(card.title).font(Typo.display(22))
+                    Text(card.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
@@ -165,7 +165,7 @@ struct ProjectDetail: View {
                         ? "This project has no tasks yet."
                         : "All tasks are complete. Use Completed to view them."
                 )
-                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 ForEach(["active", "blocked", "todo", "done"], id: \.self) { group($0) }
             }
@@ -178,9 +178,9 @@ struct ProjectDetail: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 7) {
                     StateDot(color: NotebookStyle.color(of: status))
-                    Text(status.uppercased()).font(Typo.section).tracking(1.4)
+                    Text(status.uppercased()).font(Typography.section).tracking(1.4)
                         .foregroundStyle(Theme.tx3)
-                    Text("\(rows.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
+                    Text("\(rows.count)").font(Typography.mono).foregroundStyle(Theme.tx4)
                 }
                 VStack(spacing: 1) {
                     ForEach(rows) { row($0) }
@@ -216,9 +216,9 @@ struct ProjectDetail: View {
                     if assigned.contains(task.id) { NotebookStyle.pill("wip") }
                     Spacer(minLength: 8)
                     if let waits = NotebookStyle.edge("waits on ", task.dependsOn, in: cards) {
-                        waits.font(Typo.mono(10))
+                        waits.font(Typography.mono)
                     }
-                    Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    Text(task.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 .contentShape(Rectangle())
             }

@@ -160,7 +160,7 @@ package struct UsageBoard: View {
                 [buckets.first, buckets[buckets.count / 2], buckets.last].compactMap { $0 },
                 id: \.id
             ) { bucket in
-                Text(stamp(bucket.start)).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                Text(stamp(bucket.start)).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                     .frame(
                         maxWidth: .infinity,
                         alignment: bucket.id == 0
@@ -206,11 +206,11 @@ package struct UsageBoard: View {
                 }
                 Spacer(minLength: 8)
                 if let asOf = quota.asOf {
-                    Text(AgentUsage.ago(asOf)).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                    Text(AgentUsage.ago(asOf)).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                 }
             }
             if quota.windows.isEmpty {
-                Text("No windows reported.").font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                Text("No windows reported.").font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 ForEach(quota.windows) { window($0) }
             }
@@ -233,7 +233,7 @@ package struct UsageBoard: View {
                 Text(window.name).font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
                 Spacer(minLength: 8)
                 if let until = AgentUsage.until(window.resetsAt) {
-                    Text("resets in \(until)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
+                    Text("resets in \(until)").font(Typography.mono).foregroundStyle(Theme.tx4)
                 }
                 Text("\(Int(window.percent.rounded()))%")
                     .font(Typo.mono(11, .semibold))
@@ -280,7 +280,7 @@ package struct UsageBoard: View {
         HStack(spacing: 10) {
             Circle().fill(tint(model)).frame(width: 7, height: 7)
             Text(AgentUsage.modelName(model)).font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
-            Text("\(share(tally))%").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+            Text("\(share(tally))%").font(Typography.mono).foregroundStyle(Theme.tx3)
             Spacer(minLength: 12)
             splitLabels(tally)
             Text(AgentUsage.short(tally.total))
@@ -300,7 +300,7 @@ package struct UsageBoard: View {
                 ], id: \.0
             ) { label, value in
                 Text("\(label) \(AgentUsage.short(value))")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
             }
         }
     }
@@ -342,14 +342,14 @@ package struct UsageBoard: View {
                         // The run's own label, when it says more than the name above does —
                         // which dispatch of a specialist this row is.
                         if spend.name != person(spend) {
-                            Text(spend.name).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                            Text(spend.name).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                                 .lineLimit(1).truncationMode(.middle)
                         }
                         if let model = spend.topModel(since: since) {
                             Text(AgentUsage.modelName(model))
-                                .font(Typo.mono(9.5)).foregroundStyle(tint(model))
+                                .font(Typography.monoCaption).foregroundStyle(tint(model))
                         }
-                        Text(spend.provider.displayName).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                        Text(spend.provider.displayName).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                     }
                 }
                 Spacer(minLength: 12)
@@ -375,7 +375,7 @@ package struct UsageBoard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(AgentUsage.short(total.total)).font(Typo.display(26))
-                    Text("tokens").font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    Text("tokens").font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 ForEach(
                     [
@@ -438,8 +438,8 @@ package struct UsageBoard: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 9) {
                 RoleTile(role: role, size: 20)
-                Text(name).font(Typo.text(12)).foregroundStyle(Theme.tx).lineLimit(1)
-                Text("\(mine.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx4)
+                Text(name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
+                Text("\(mine.count)").font(Typography.mono).foregroundStyle(Theme.tx4)
                 Spacer(minLength: 8)
                 Text(AgentUsage.short(tally.total))
                     .font(Typo.mono(11, .semibold)).foregroundStyle(Theme.tx2)

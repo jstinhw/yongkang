@@ -41,7 +41,7 @@ struct BoardInspector: View {
             SectionLabel("The batch", trailing: batch.isEmpty ? nil : "\(batch.count)")
             if batch.isEmpty {
                 Text("Click a task to pick it. Anything it waits on comes along.")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(Array(batch.enumerated()), id: \.element.id) { index, card in
@@ -61,7 +61,7 @@ struct BoardInspector: View {
                 Text("demo ready").font(Typo.text(11, .medium)).foregroundStyle(Theme.amber)
                 Spacer(minLength: 0)
                 if let task = demo.task {
-                    Text(task).font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    Text(task).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
             }
             Text(demo.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
@@ -80,15 +80,15 @@ struct BoardInspector: View {
 
     private func row(index: Int, card: NotebookCard) -> some View {
         HStack(spacing: 8) {
-            Text("\(index + 1)").font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+            Text("\(index + 1)").font(Typography.mono).foregroundStyle(Theme.tx3)
                 .frame(width: 14, alignment: .leading)
             Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx).lineLimit(1)
             Spacer(minLength: 4)
             if card.isDesignWork {
-                Text("design first").font(Typo.text(10.5)).foregroundStyle(Theme.violet)
+                Text("design first").font(Typography.caption).foregroundStyle(Theme.violet)
             } else {
                 Text(picked.contains(card.id) ? "picked" : "pulled in")
-                    .font(Typo.text(10.5))
+                    .font(Typography.caption)
                     .foregroundStyle(picked.contains(card.id) ? Theme.tx2 : Theme.tx3)
             }
         }
@@ -113,7 +113,7 @@ struct BoardInspector: View {
                     ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the engineering tasks waiting on it can start."
                     : "No design tasks in this batch, so it goes straight to the lead."
             )
-            .font(Typo.text(12)).foregroundStyle(Theme.tx2)
+            .font(Typography.body).foregroundStyle(Theme.tx2)
             .fixedSize(horizontal: false, vertical: true)
             if designCount > 0 {
                 VStack(alignment: .leading, spacing: 9) {
@@ -132,8 +132,8 @@ struct BoardInspector: View {
 
     private func step(_ number: Int, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 9) {
-            Text("\(number)").font(Typo.mono(10)).foregroundStyle(Theme.violet).padding(.top, 1)
-            Text(text).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+            Text("\(number)").font(Typography.mono).foregroundStyle(Theme.violet).padding(.top, 1)
+            Text(text).font(Typography.body).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

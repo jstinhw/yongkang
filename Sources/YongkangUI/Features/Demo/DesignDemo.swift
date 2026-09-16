@@ -95,7 +95,7 @@ package struct DesignDemo: View {
             }
             .pickerStyle(.segmented).labelsHidden().frame(width: 210).layoutPriority(1)
             if !narrow {
-                Text(hint).font(Typo.text(12)).foregroundStyle(Theme.tx3).lineLimit(1)
+                Text(hint).font(Typography.body).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             Spacer(minLength: 8)
             if !block.branch.isEmpty {
@@ -114,7 +114,7 @@ package struct DesignDemo: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 12)
         }
-        .font(Typo.text(12)).tint(Theme.tx2)
+        .font(Typography.body).tint(Theme.tx2)
         .cardSurface()
         .padding(.horizontal, 24)
         .padding(.bottom, 14)
@@ -137,7 +137,7 @@ package struct DesignDemo: View {
                 SectionLabel("Revisions")
                 ForEach(block.revisions) { pass in chip(pass) }
                 if let note = shown?.note ?? block.revisions.last?.note, !note.isEmpty {
-                    Text(note).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+                    Text(note).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                 }
                 Spacer(minLength: 0)
             }
@@ -204,9 +204,9 @@ package struct DesignDemo: View {
     ) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Text(label.uppercased()).font(Typo.section).tracking(1.4).foregroundStyle(tint)
+                Text(label.uppercased()).font(Typography.section).tracking(1.4).foregroundStyle(tint)
                 Text(url?.absoluteString ?? "—")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
@@ -248,7 +248,7 @@ package struct DesignDemo: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
                             .lineLimit(2).multilineTextAlignment(.leading)
-                        Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                        Text(task.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                     }
                     Spacer(minLength: 0)
                     if !task.designer.isEmpty { RoleTile(role: "design", size: 22) }
@@ -269,7 +269,7 @@ package struct DesignDemo: View {
                                 .font(.system(size: 11))
                                 .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                                 .padding(.top, 1)
-                            Text(item.text).font(Typo.text(12))
+                            Text(item.text).font(Typography.body)
                                 .foregroundStyle(item.done ? Theme.tx2 : Theme.tx3)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -280,7 +280,7 @@ package struct DesignDemo: View {
 
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Cost of the demo")
-            Text(cost).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+            Text(cost).font(Typography.body).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         Spacer(minLength: 0)

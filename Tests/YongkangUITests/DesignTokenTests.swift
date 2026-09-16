@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 
+@testable import YongkangUI
+
 /// The design system is only a system while it is the only place a colour is written down.
 /// One `Color(hex:)` in a feature file is how the last set of strays got there, so the
 /// check is on the source rather than on a reviewer's eye.
@@ -30,5 +32,18 @@ import Testing
             .map(\.lastPathComponent)
             .sorted()
         #expect(strays.isEmpty, "name these in Theme instead of writing the hex here: \(strays)")
+    }
+
+    /// 5.1 renamed sizes; it did not change them. Each role still resolves to the exact
+    /// `Typo` call its 142 sites used to spell out, so the shots stayed byte-identical —
+    /// and so that the PR that *does* move the scale has to say so here first.
+    @Test func eachRoleStillResolvesToTheSizeItReplaced() {
+        #expect(Typography.title == Typo.display(22))
+        #expect(Typography.headline == Typo.display(15))
+        #expect(Typography.body == Typo.text(12))
+        #expect(Typography.caption == Typo.text(10.5))
+        #expect(Typography.mono == Typo.mono(10))
+        #expect(Typography.monoCaption == Typo.mono(9.5))
+        #expect(Typography.section == Typo.section)
     }
 }

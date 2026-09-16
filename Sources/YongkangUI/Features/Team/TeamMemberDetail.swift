@@ -82,7 +82,7 @@ package struct TeamMemberDetail: View {
         HStack(spacing: 12) {
             RoleTile(role: member.skills.first ?? member.name, size: 36)
             VStack(alignment: .leading, spacing: 3) {
-                Text(member.name).font(Typo.display(15))
+                Text(member.name).font(Typography.headline)
                 Text(member.owns.isEmpty ? member.skills.joined(separator: ", ") : member.owns)
                     .font(Typo.text(11)).foregroundStyle(Theme.tx3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -142,7 +142,7 @@ package struct TeamMemberDetail: View {
                 NotebookContentView(sections: sections[doc.name] ?? [], cards: [])
                 if let url = doc.url {
                     HStack(spacing: 9) {
-                        Text(url.path).font(Typo.mono(9.5)).foregroundStyle(Theme.tx4)
+                        Text(url.path).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                             .lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 8)
                         Button {
@@ -191,7 +191,7 @@ package struct TeamMemberDetail: View {
                                 Text(found.subagent.description).font(Typo.mono(10.5))
                                     .foregroundStyle(Theme.tx2)
                                     .lineLimit(2).multilineTextAlignment(.leading)
-                                Text("in \(found.session.title)").font(Typo.text(10.5))
+                                Text("in \(found.session.title)").font(Typography.caption)
                                     .foregroundStyle(Theme.tx3).lineLimit(1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)

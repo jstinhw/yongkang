@@ -187,7 +187,7 @@ extension RootView {
             TerminalHost(terminal: view)
                 .overlay(alignment: .top) {
                     if let message = model.terminals.childNavigation[session.id] {
-                        Text(message).font(Typo.text(12)).padding(10).background(Theme.panel)
+                        Text(message).font(Typography.body).padding(10).background(Theme.panel)
                     }
                 }
                 .task(id: child?.id) { await model.terminals.showChild(child, in: session.id) }

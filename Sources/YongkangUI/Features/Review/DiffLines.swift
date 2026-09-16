@@ -79,7 +79,7 @@ struct DiffLines: View {
         HStack(alignment: .top, spacing: 9) {
             Text("You").font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx)
             NotebookStyle.pill("draft", Theme.violet)
-            Text(saved.text).font(Typo.text(12)).foregroundStyle(Theme.tx)
+            Text(saved.text).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             Button {
@@ -104,7 +104,7 @@ struct DiffLines: View {
                 .foregroundStyle(Theme.tx)
             HStack(spacing: 6) {
                 Text("\(path):\(Self.number(of: line)) · sent with your review")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 Spacer(minLength: 8)
                 Button("Cancel") { composing = nil }.buttonStyle(.consoleGhost)
                 Button {

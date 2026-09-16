@@ -93,7 +93,7 @@ package struct TaskReview: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 20)
-                Text(task.title).font(Typo.display(22)).fixedSize(horizontal: false, vertical: true)
+                Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 9) {
                 if task.done {
@@ -135,7 +135,7 @@ package struct TaskReview: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("The task", trailing: task.url.map(NotebookFormat.relativePath))
             if content.isEmpty {
-                Text("The task file could not be read.").font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                Text("The task file could not be read.").font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 NotebookContentView(sections: content, cards: cards)
             }
@@ -167,7 +167,7 @@ package struct TaskReview: View {
                         ? "No QA record was filed against this task — nobody but you has checked it."
                         : "QA has not run yet."
                 )
-                .font(Typo.text(12)).foregroundStyle(task.done ? Theme.amber : Theme.tx3)
+                .font(Typography.body).foregroundStyle(task.done ? Theme.amber : Theme.tx3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -181,7 +181,7 @@ package struct TaskReview: View {
             SectionLabel("What the agents did", trailing: task.builds.isEmpty ? nil : "\(task.builds.count)")
             if task.builds.isEmpty {
                 Text("No work records were filed against this task.")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             }
             ForEach(Array(task.builds.enumerated()), id: \.offset) { _, work in
                 WorkReport(work: work, name: name(of: work), cards: cards, openFile: openFile)
@@ -209,7 +209,7 @@ package struct TaskReview: View {
                     + "+\(task.added) −\(task.removed)")
             if task.files.isEmpty {
                 Text("No uncommitted file is recorded against this task.")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             }
             ForEach(grouped, id: \.area) { group in
                 VStack(alignment: .leading, spacing: 6) {
@@ -301,7 +301,7 @@ package struct TaskReview: View {
                 Text("Only this task's files and its run records. Nothing is pushed.")
                     .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
                 if let head {
-                    Text("on top of \(head)").font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(2)
+                    Text("on top of \(head)").font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -348,9 +348,9 @@ package struct TaskReview: View {
         return HStack(spacing: 8) {
             Image(systemName: area.systemImage).font(.system(size: 11)).foregroundStyle(area.color).frame(width: 14)
             Text(area.rawValue).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).frame(width: 104, alignment: .leading)
-            Text("\(files.count)").font(Typo.mono(10)).foregroundStyle(Theme.tx3).frame(width: 16)
+            Text("\(files.count)").font(Typography.mono).foregroundStyle(Theme.tx3).frame(width: 16)
             MeterBar(value: Double(lines) / Double(max(1, task.added + task.removed)), tint: area.color, height: 5)
-            Text("+\(files.reduce(0) { $0 + $1.added })").font(Typo.mono(10)).foregroundStyle(Theme.green)
+            Text("+\(files.reduce(0) { $0 + $1.added })").font(Typography.mono).foregroundStyle(Theme.green)
                 .frame(width: 38, alignment: .trailing)
         }
     }

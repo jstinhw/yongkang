@@ -88,7 +88,7 @@ package struct TaskDetail: View {
                 )
                 .padding(.top, 3)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(card.title).font(Typo.display(22))
+                    Text(card.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
@@ -183,7 +183,7 @@ package struct TaskDetail: View {
                     SectionLabel("In project")
                     HStack(spacing: 10) {
                         NotebookStyle.statusRing(project.status, progress: projectProgress, size: 16)
-                        Text(project.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(2)
+                        Text(project.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(2)
                         Spacer(minLength: 0)
                     }
                 }
@@ -224,10 +224,10 @@ package struct TaskDetail: View {
                         ? "Done — nothing to assign."
                         : "An Engineering Lead already has this task."
                 )
-                .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                .font(Typography.body).foregroundStyle(Theme.tx3)
             } else if batch.count > 1 {
                 Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
-                    .font(Typo.text(12)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             }
             Button {
                 assign([card])

@@ -68,7 +68,7 @@ package struct SubagentViewer: View {
                             Text(task.title).font(Typo.text(13)).foregroundStyle(Theme.tx)
                                 .multilineTextAlignment(.leading)
                             HStack(spacing: 7) {
-                                Text(task.id).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                                Text(task.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                                 if !task.status.isEmpty { NotebookStyle.pill(task.status) }
                             }
                         }
@@ -128,7 +128,7 @@ struct TranscriptHeader: View {
         HStack(spacing: 12) {
             RoleTile(role: role, size: 36)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(Typo.display(15))
+                Text(title).font(Typography.headline)
                 Text(subtitle).font(Typo.text(11)).foregroundStyle(Theme.tx3)
             }
             Spacer(minLength: 12)
@@ -153,7 +153,7 @@ struct TranscriptSource: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(label)
             Text(url?.path ?? "Not on disk yet.")
-                .font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                .font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                 .lineLimit(3).truncationMode(.middle)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)

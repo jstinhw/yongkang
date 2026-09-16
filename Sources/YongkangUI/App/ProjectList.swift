@@ -84,7 +84,7 @@ package struct ProjectList: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(project.name).font(Typo.display(13.5)).foregroundStyle(Theme.tx)
                 Text(project.directory.path)
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
                     .lineLimit(1).truncationMode(.head)
             }
             Spacer(minLength: 0)
@@ -97,7 +97,7 @@ package struct ProjectList: View {
     @ViewBuilder private var footer: some View {
         if let note = footNote {
             Text(note)
-                .font(Typo.mono(10))
+                .font(Typography.mono)
                 .foregroundStyle(Theme.tx3)
                 .lineSpacing(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,15 +153,15 @@ package struct ProjectList: View {
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(card.title)
-                        .font(Typo.text(12))
+                        .font(Typography.body)
                         .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    Text(card.id).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    Text(card.id).font(Typography.monoCaption).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 if let done = taskCount(of: card) {
-                    Text(done).font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    Text(done).font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 if project.assignedTaskIDs.contains(card.id) && card.status != "done" {
                     NotebookStyle.pill("wip")
@@ -206,7 +206,7 @@ package struct ProjectList: View {
         ForEach(NotebookKindCount.all(in: project.cards), id: \.label) { item in
             HStack(spacing: 9) {
                 Image(systemName: item.icon).font(.system(size: 12)).foregroundStyle(Theme.tx3)
-                Text(item.label).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                Text(item.label).font(Typography.body).foregroundStyle(Theme.tx2)
                 Spacer(minLength: 8)
                 Text("\(item.count)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
             }
@@ -257,7 +257,7 @@ package struct ProjectList: View {
                     row(.page(card.id)) {
                         HStack(spacing: 9) {
                             Image(systemName: "brain").font(.system(size: 11)).foregroundStyle(Theme.tx3)
-                            Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+                            Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                         }
                     }
                 }
@@ -334,7 +334,7 @@ package struct ProjectList: View {
                     Text(member.name).font(Typo.text(12, .medium))
                         .foregroundStyle(selection == route ? Theme.tx : Theme.tx2).lineLimit(1)
                     Text(member.skills.joined(separator: ", "))
-                        .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                        .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 6)
             }
@@ -351,7 +351,7 @@ package struct ProjectList: View {
                     .frame(width: 24, height: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Usage").font(Typo.text(12, .medium)).foregroundStyle(Theme.tx)
-                    Text("Limits, models, roles").font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    Text("Limits, models, roles").font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 6)
             }
@@ -374,7 +374,7 @@ package struct ProjectList: View {
                     Text(session.title).font(Typo.text(12, .medium))
                         .foregroundStyle(session.exited ? Theme.tx3 : Theme.tx)
                         .lineLimit(1)
-                    Text(subtitle(of: session)).font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    Text(subtitle(of: session)).font(Typography.caption).foregroundStyle(Theme.tx3)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
@@ -421,7 +421,7 @@ package struct ProjectList: View {
                             .lineLimit(1)
                         // The label underneath is still the link to the task: the lead names
                         // every subagent `<task-id>-<skill>`, and that is what matches it back.
-                        Text(subagent.description).font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                        Text(subagent.description).font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                             .lineLimit(1).truncationMode(.middle)
                     }
                     Spacer(minLength: 4)
@@ -465,7 +465,7 @@ package struct ProjectList: View {
                             ? "\(changes.count) files"
                             : "\(summary.unclaimed.count) not claimed by a task"
                     )
-                    .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
             }
@@ -480,11 +480,11 @@ package struct ProjectList: View {
                     Text(task.title).font(Typo.text(12.5))
                         .foregroundStyle(selection == .reviewTask(task.id) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
-                    Text(detail).font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    Text(detail).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 if !task.files.isEmpty {
-                    Text("+\(task.added)").font(Typo.mono(10)).foregroundStyle(Theme.green)
+                    Text("+\(task.added)").font(Typography.mono).foregroundStyle(Theme.green)
                 }
                 if task.done && !task.files.isEmpty {
                     StateDot(color: Theme.green, live: true).padding(.top, 5).help("Waiting for your review")
@@ -530,10 +530,10 @@ package struct ProjectList: View {
                         .lineLimit(2).multilineTextAlignment(.leading)
                     if block.isProposal {
                         Text(block.proposalReady ? "ready to create" : "product needs feedback")
-                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                            .font(Typography.caption).foregroundStyle(Theme.tx3)
                     } else if let task = block.task {
                         Text(block.isDemo ? "demo · \(task)" : "holds \(task)")
-                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                            .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 0)
@@ -543,7 +543,7 @@ package struct ProjectList: View {
 
     private func empty(_ text: String) -> some View {
         Text(text)
-            .font(Typo.text(12))
+            .font(Typography.body)
             .foregroundStyle(Theme.tx4)
             .padding(.horizontal, 19)
             .padding(.vertical, 8)

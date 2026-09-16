@@ -249,7 +249,7 @@ struct PromptField: View {
                             .foregroundStyle(index == highlighted ? Theme.tx : Theme.tx2)
                         Spacer(minLength: 8)
                         if index == highlighted {
-                            Text("↩").font(Typo.mono(9.5)).foregroundStyle(Theme.tx3)
+                            Text("↩").font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                         }
                     }
                     .padding(.horizontal, 10)
@@ -261,7 +261,7 @@ struct PromptField: View {
             }
             if suggestions.count > shown.count {
                 Text("+\(suggestions.count - shown.count) more — keep typing")
-                    .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
                     .padding(.horizontal, 10).frame(height: 20)
             }
         }

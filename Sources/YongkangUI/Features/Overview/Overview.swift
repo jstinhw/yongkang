@@ -113,7 +113,7 @@ package struct Overview: View {
                         Text(subagent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
                             .lineLimit(1)
                         Text("\(subagent.agentType) · on \(task?.title ?? subagent.taskID ?? "no task")")
-                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                            .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
                     Spacer(minLength: 6)
                     NotebookStyle.pill(wrote(subagent), Theme.accent, live: true)
@@ -122,7 +122,7 @@ package struct Overview: View {
                     VStack(alignment: .leading, spacing: 6) {
                         MeterBar(value: Double(bars.done) / Double(max(1, bars.total)))
                         Text("done when · \(bars.done) of \(bars.total) ticked")
-                            .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                            .font(Typography.mono).foregroundStyle(Theme.tx3)
                     }
                 }
             }
@@ -174,7 +174,7 @@ package struct Overview: View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Recent notebook writes")
             if recent.isEmpty {
-                Text("The notebook is empty.").font(Typo.text(12)).foregroundStyle(Theme.tx4)
+                Text("The notebook is empty.").font(Typography.body).foregroundStyle(Theme.tx4)
                     .padding(.vertical, 8)
             }
             ForEach(recent, id: \.card.id) { item in
@@ -183,14 +183,14 @@ package struct Overview: View {
                 } label: {
                     HStack(alignment: .top, spacing: 11) {
                         Text(Overview.ago(item.at))
-                            .font(Typo.mono(10)).foregroundStyle(Theme.tx3)
+                            .font(Typography.mono).foregroundStyle(Theme.tx3)
                             .frame(width: 46, alignment: .leading).padding(.top, 3)
                         StateDot(color: NotebookStyle.color(of: item.card.status)).padding(.top, 5)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                            Text(item.card.title).font(Typography.body).foregroundStyle(Theme.tx2)
                                 .lineLimit(1)
                             Text("\(item.card.kind.rawValue) · \(item.card.id)")
-                                .font(Typo.mono(10)).foregroundStyle(Theme.tx3).lineLimit(1)
+                                .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                         }
                         Spacer(minLength: 8)
                         if !item.card.status.isEmpty { NotebookStyle.pill(item.card.status) }
@@ -245,7 +245,7 @@ package struct Overview: View {
                                     ? "product proposal"
                                     : "holds \(block.task ?? "an agent")"
                             )
-                            .font(Typo.text(10.5)).foregroundStyle(Theme.tx3)
+                            .font(Typography.caption).foregroundStyle(Theme.tx3)
                         }
                         Spacer(minLength: 0)
                     }
@@ -274,7 +274,7 @@ package struct Overview: View {
                     progress: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count),
                     size: 44)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(done) of \(tasks.count) tasks done").font(Typo.display(15))
+                    Text("\(done) of \(tasks.count) tasks done").font(Typography.headline)
                     Text(
                         "\(workers.count) agent\(workers.count == 1 ? "" : "s") in flight · "
                             + "\(project.assignedTaskIDs.count) assigned"
@@ -293,7 +293,7 @@ package struct Overview: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
-                                Text(card.title).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                                Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2)
                                     .lineLimit(1)
                                 Spacer(minLength: 8)
                                 Text("\(ownDone)/\(own.count)").font(Typo.mono(10.5))
@@ -327,7 +327,7 @@ package struct Overview: View {
                 } label: {
                     HStack(spacing: 9) {
                         RoleTile(role: session.isEngineeringLead ? "lead" : session.title)
-                        Text(session.title).font(Typo.text(12)).foregroundStyle(Theme.tx2).lineLimit(1)
+                        Text(session.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                         Spacer(minLength: 8)
                         StateDot(color: session.exited ? Theme.tx4 : Theme.accent, live: !session.exited)
                     }
@@ -340,7 +340,7 @@ package struct Overview: View {
                 let running = dispatched[name] ?? []
                 HStack(spacing: 9) {
                     RoleTile(role: running.first?.agentType ?? name)
-                    Text(name).font(Typo.text(12)).foregroundStyle(Theme.tx2)
+                    Text(name).font(Typography.body).foregroundStyle(Theme.tx2)
                     Spacer(minLength: 8)
                     Text("\(running.count)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
                     StateDot(color: Theme.accent, live: true)

@@ -37,7 +37,7 @@ package enum NotebookStyle {
     /// A chip for a fact rather than a state: an id, a role, a count.
     static func chip(_ text: String, mono: Bool = false) -> some View {
         Text(text)
-            .font(mono ? Typo.mono(10) : Typo.text(11))
+            .font(mono ? Typography.mono : Typo.text(11))
             .foregroundStyle(Theme.tx2)
             .padding(.horizontal, 8)
             .frame(height: 22)
