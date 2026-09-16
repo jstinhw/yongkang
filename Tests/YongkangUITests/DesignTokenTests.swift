@@ -36,7 +36,7 @@ import Testing
     }
 
     /// The whole scale, written out against SwiftUI rather than against `Typo`, so this fails
-    /// on a changed size, a changed weight *and* a changed face. Seven roles, one size each:
+    /// on a changed size, a changed weight *and* a changed face. Eight roles over seven sizes:
     /// a PR that wants an eighth size has to add it here first, where the ramp it would
     /// restart is visible on one screen.
     @Test func everyRoleResolvesToItsOneSize() {

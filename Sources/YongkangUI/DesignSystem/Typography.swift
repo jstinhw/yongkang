@@ -4,7 +4,8 @@ import SwiftUI
 /// gets whatever size and face that role currently means, so the scale moves in one place
 /// instead of at every call site.
 ///
-/// Seven roles and one size each. The app used to spell 15 sizes across a 0.5 pt ramp, which
+/// Eight roles over seven sizes — `section` and `mono` both sit at 10 pt, in different
+/// faces, because a tracked cap and an id are not the same thing. The app used to spell 15 sizes across a 0.5 pt ramp, which
 /// is a ramp rather than a scale: nothing distinguished 11.5 pt from 12 pt except which file
 /// you were in. A role that carries exactly one size is the thing that keeps a sixteenth from
 /// appearing, and `DesignTokenTests` fails the build if a screen reaches past a role to spell

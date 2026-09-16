@@ -32,7 +32,7 @@ enum DesignShots {
             "new-project", into: directory, width: 900)
 
         write(
-            console(project, section: .overview, hovering: .blocks) {
+            console(project, section: .overview) {
                 Overview(
                     project: project, changes: [], head: "51b0740 Show all agents",
                     go: { _, _ in }, assign: {})
@@ -104,7 +104,7 @@ enum DesignShots {
             }, "agents", into: directory)
 
         write(
-            console(project, section: .agents) {
+            console(project, section: .agents, hovering: .blocks) {
                 EngineeringLeadBoard(
                     session: lead, cards: project.cards, blocks: project.blocks,
                     team: Team.defaults,
@@ -205,7 +205,7 @@ enum DesignShots {
             var draft = ReviewDraft()
             draft.comments = [
                 ReviewComment(
-                    path: "Sources/Yongkang/GitChanges.swift", line: "104", code: "",
+                    path: "Sources/YongkangCore/Git/GitClient.swift", line: "104", code: "",
                     text: "Say which task the refused commit belonged to.")
             ]
             write(
@@ -414,7 +414,7 @@ enum DesignShots {
                 work.runtimeRunning = false
                 if work.skill == "qa-dev" {
                     work.result =
-                        "Verdict **pass**. `swift run Yongkang --selftest` ok; `swift build` exit 0.\n\n"
+                        "Verdict **pass**. `make check` green; 281 tests, 12 known issues.\n\n"
                         + "Assigned a task with two open blockers: both joined the batch in dependency order. "
                         + "Not exercised: two leads racing for the same blocker."
                 } else {
@@ -544,7 +544,10 @@ enum DesignShots {
                     id: "pull-blockers-reader", taskID: "pull-blockers", title: "Link blockers to the assigned batch",
                     skill: "backend-dev", model: "gpt-5.6-terra",
                     reason: "Ben owns notebook loading; the reader is independent of the UI files.",
-                    paths: ["Sources/Yongkang/LeadCoordination.swift", "Sources/Yongkang/GitChanges.swift"],
+                    paths: [
+                        "Sources/YongkangCore/Notebook/LeadCoordination.swift",
+                        "Sources/YongkangCore/Git/GitClient.swift",
+                    ],
                     state: "review", agentID: "be", estimatedTokens: 11000, estimatedMinutes: 10,
                     startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-120),
                     updatedAt: now.addingTimeInterval(-120), actualTokens: 7900,
@@ -647,7 +650,7 @@ enum DesignShots {
                     + "subagents, so the filter belongs on the session itself rather than in each view."),
             TranscriptLine(label: "Tool", text: "Edit(file_path: Sources/Project.swift)"),
             TranscriptLine(label: "Result", text: "+4 −0"),
-            TranscriptLine(label: "Tool", text: "Bash(command: swift build && swift run Yongkang --selftest)"),
+            TranscriptLine(label: "Tool", text: "Bash(command: make check)"),
             TranscriptLine(label: "Result", text: "Build complete! (4.67s)\nnotebook selftest ok"),
             TranscriptLine(label: "Tool", text: "Bash(command: swift test)"),
             TranscriptLine(label: "Result", text: "error: no such module 'XCTest'", isError: true),
