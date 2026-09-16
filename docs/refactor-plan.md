@@ -666,9 +666,9 @@ in readers that take agent-written files, kept visible instead of being papered 
 | `Skills.url` appends a skill name to each root unchecked, so a `../../outside` name in a team file resolves to a `SKILL.md` outside the skill folders | `SkillsTests.dotDotSkillNameDoesNotEscapeTheSkillRoots` | 2 |
 | `UsageLedger.record` treats an unreadable `usage.json` as empty and replaces it, losing the hours it held | `UsageTests.damagedLedgerIsNotOverwritten` | 2 |
 
-The first three are one root cause: `NotebookIndex` parses frontmatter line by line, and
+The first three rows are one root cause: `NotebookIndex` parses frontmatter line by line, and
 `NotebookFormat.yaml` doesn't escape what that parser treats as structure. Fixing the writer and
-the reader together is what would clear four of the five rows.
+the reader together would clear those three rows — eight of the twelve issues.
 
 ### Decisions that look like omissions
 
