@@ -5,7 +5,14 @@ CLI sessions, the notebook they work from, and the changes they produce.
 
 ![Yongkang](docs/images/overview.png)
 
-Every screen is the same four columns: a **rail** picking the section, a **list** of that section's objects, the **work area** holding whichever one is selected, and an **inspector** carrying what you would otherwise have to go and find. The rail's sections are Overview, Board, Agents, Review and Blocks.
+Every screen has the same columns: a **rail** picking the section, a **list** of that section's
+objects, the **work area** holding whichever one is selected, and on most screens an
+**inspector** carrying what you would otherwise have to go and find. The rail's sections are
+Overview, Board, Agents, Review and Blocks. The list is the window's sidebar, so you can drag it
+wider or collapse it; the screen's name and the project are the window's own title and subtitle.
+
+Every action is also a menu item, because a shortcut hung on a button only answers while that
+button is drawn. File, View, Go and Agent hold `⌘N`, `⌘O`, `⌘1`–`⌘5`, `⌘\` and `⌘[`.
 
 ## Requirements
 
@@ -19,8 +26,13 @@ Every screen is the same four columns: a **rail** picking the section, a **list*
 ```sh
 make run                             # builds the app with Xcode and opens it
 make check                           # format lint, build, and the tests
-swift run shots /tmp/ui              # renders every screen to PNG from a fixed sample
+make shots DIR=/tmp/ui               # renders every screen to PNG, offscreen
+make help                            # every target
 ```
+
+The shots come from a fixed sample notebook, so two runs are comparable — except `review.png`,
+`handover.png` and `usage.png`, which are drawn from whatever repository the command is run in
+and from this machine's own agent transcripts.
 
 ## How it works
 

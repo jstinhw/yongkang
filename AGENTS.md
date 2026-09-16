@@ -61,7 +61,12 @@ make help                                   # every target
 - `swift run shots` is how you see a UI or structural change without launching the app.
   Render into two folders, one before your change and one after, and compare them.
   `review.png`, `handover.png` and `usage.png` read live git or the clock, so they differ on
-  every commit.
+  every commit — which is why `docs/images/` holds only the nine fixture-drawn shots the guide
+  pages point at, and those three are not among them.
+- **The shots have no title bar.** They are drawn into an offscreen window, so the toolbar, the
+  window title and subtitle, and the menu bar do not appear in one. Those are checked by running
+  the app, which is what the smoke script in
+  [`docs/development.md`](docs/development.md#manual-smoke-script) is for.
 - `make icon` redraws `App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png` from
   `DesignSystem/AppIcon.swift`, through the same shots binary. The PNG is a build artefact,
   not artwork: change the view, run the command, commit both. See
@@ -107,9 +112,13 @@ A handoff needs all of these:
 
 ## More
 
-- `docs/development.md`: the manual smoke script, capturing CLI fixtures, and the local signing
-  identity.
+- `docs/architecture.md`: how a project is read, what the diagnostics log, how the window is
+  composed, the menu tree, what a relaunch restores, and the rules a terminal's lifetime obeys.
+  Read it before changing any of those.
+- `docs/development.md`: the manual smoke script, capturing CLI fixtures, the app icon, and the
+  local signing identity.
 - `docs/providers.md`: the `AgentProvider` protocol, where fixtures go, and the checklist for
   adding a CLI.
-- `docs/refactor-plan.md`: where the structure is heading. This file changes with each
-  phase, so describe what exists, not what's planned.
+- `docs/refactor-plan.md`: the record of the refactor that gave the repo this shape — the
+  decisions, and §8, what is deliberately not there and what would bring it back. Describe what
+  exists, not what's planned.
