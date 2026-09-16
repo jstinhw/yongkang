@@ -25,6 +25,10 @@ package struct GrokProvider: AgentProvider {
         return words.compactMap { $0 }
     }
 
+    package func ask(prompt: String) -> [String] {
+        ["-p", AgentCommand.quoted(prompt)]
+    }
+
     package func transcriptURL(session: UUID, project: URL) async -> URL? {
         GrokTranscripts.transcriptURL(sessionID: session, projectDirectory: project)
     }

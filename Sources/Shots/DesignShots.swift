@@ -25,7 +25,7 @@ enum DesignShots {
 
         write(
             NewProjectForm(
-                parent: project.directory.deletingLastPathComponent(),
+                parent: project.directory.deletingLastPathComponent(), agent: .claude,
                 create: { _, _ in }, cancel: {}
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),

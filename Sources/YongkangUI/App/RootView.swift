@@ -44,7 +44,7 @@ struct RootView: View {
         .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
         .sheet(isPresented: $model.creatingProject) {
             NewProjectForm(
-                parent: projectsParent, create: createProject,
+                parent: projectsParent, agent: agent, create: createProject,
                 cancel: { model.creatingProject = false })
         }
         .alert(model.alert?.title ?? "", isPresented: alertShown, presenting: model.alert) { item in

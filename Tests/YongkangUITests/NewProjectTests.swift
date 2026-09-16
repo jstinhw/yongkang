@@ -180,19 +180,6 @@ import Testing
             "a parent that is not there is not a location")
     }
 
-    // A prompt that names no path still names the folder: the words that carry
-    // meaning, and never the paths the agent was pointed at.
-    @Test(arguments: [
-        ("Build a CLI that renames photos", "cli-renames-photos", ""),
-        ("a todo app", "todo-app", ""),
-        // The original named the tagging folder; suggest never touches the disk, so any path reads the same.
-        ("read @/private/tmp/mention/SPEC.md and ~/notes", "read", "a tag is a reference, not a name"),
-        ("the  ", "project", "something has to be typed in the box"),
-    ])
-    func suggestNamesTheFolder(prompt: String, name: String, why: String) {
-        #expect(ProjectLocation.suggest(prompt) == name, Comment(rawValue: why))
-    }
-
     @Test func vacantSkipsAFolderAlreadyThere() throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }

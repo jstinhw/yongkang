@@ -23,6 +23,12 @@ package struct CodexProvider: AgentProvider {
         prompt.map { text in [AgentCommand.quoted(sessionID.map { "\(text)\n\n\(Self.marker($0))" } ?? text)] } ?? []
     }
 
+    /// `exec` refuses to run outside a git repository unless told to, and a question asked
+    /// before a project exists is never inside one.
+    package func ask(prompt: String) -> [String] {
+        ["exec", "--skip-git-repo-check", AgentCommand.quoted(prompt)]
+    }
+
     /// Codex picks its own thread id, so `--session-id` has nothing to set on it: the only
     /// join from an app session row back to a rollout on disk is the opening prompt, which
     /// the rollout records verbatim. Every prompted Codex session therefore ends with its

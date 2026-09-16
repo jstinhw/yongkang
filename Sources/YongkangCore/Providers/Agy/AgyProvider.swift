@@ -14,6 +14,10 @@ package struct AgyProvider: AgentProvider {
         prompt.map { ["--prompt-interactive", AgentCommand.quoted($0)] } ?? []
     }
 
+    package func ask(prompt: String) -> [String] {
+        ["-p", AgentCommand.quoted(prompt)]
+    }
+
     package func transcriptURL(session: UUID, project: URL) async -> URL? {
         nil
     }

@@ -27,6 +27,10 @@ package struct ClaudeCodeProvider: AgentProvider {
         return words.compactMap { $0 }
     }
 
+    package func ask(prompt: String) -> [String] {
+        ["-p", AgentCommand.quoted(prompt)]
+    }
+
     package func transcriptURL(session: UUID, project: URL) async -> URL? {
         ClaudeTranscripts.transcriptURL(sessionID: session, projectDirectory: project)
     }

@@ -22,6 +22,9 @@ package protocol AgentProvider: Sendable {
     /// record it. `brief` is asked for a lead. `noCommit` denies `AgentCommand.commitRules`,
     /// where the CLI has a flag for it.
     func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String]
+    /// The words that make the CLI answer one prompt on stdout and exit, with no session, for
+    /// what has to be asked before a session exists. Already shell-quoted, like `launch`.
+    func ask(prompt: String) -> [String]
 
     // The reads a provider may answer from state it keeps between calls are `async`, because
     // it keeps that state in an actor: its usage cursors, or Codex's index of rollouts.

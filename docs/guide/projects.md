@@ -15,9 +15,12 @@ running while you are away: terminals are hidden, never torn down.
 Two tiles sit at the end of the grid, one per door, and the `File` menu opens either from
 anywhere, including from inside another project. `Describe a new project…` (`File ▸ New
 Project…`, ⌘N) opens a prompt: say what to build and tag anything it should read with `@`. Where the folder
-goes is worked out from the prompt — `~/code/todo` in it is enough — and otherwise it is
-named after the prompt and lands beside the projects you already have (`~/Projects` on a
-first run). The line under the box says where before you press Return. The folder is
+goes is worked out from the prompt — `~/code/todo` in it is enough. Otherwise it lands beside
+the projects you already have (`~/Projects` on a first run), and when you press Return the
+agent selected in the toolbar reads the description and names it: a few seconds for Claude
+Code, longer for some CLIs. No path is shown before you press Return. If the
+agent cannot answer — not signed in, no network — the box says why and nothing is created;
+naming a path in the prompt skips the question. The folder is
 created and the prompt goes straight to the session that writes its notebook.
 `Open a folder you have` (`File ▸ Open Folder…`, ⌘O) is the other door, for a folder that
 already exists; an empty one asks what it is for on the way in.

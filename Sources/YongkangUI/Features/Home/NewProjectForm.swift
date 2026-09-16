@@ -27,26 +27,7 @@ enum ProjectLocation {
         return nil
     }
 
-    /// Words that name nothing — every second prompt opens with them, and a folder called
-    /// `build-a-tool-that` is worse than one called `weather-cli`.
-    private static let filler: Set<String> = [
-        "a", "an", "the", "and", "build", "create",
-        "for", "it", "make", "of", "project", "that",
-        "then", "to", "which", "with",
-    ]
-
-    /// A folder name for a prompt that named no path: the first few words that carry
-    /// meaning. Tags and paths are left out — the agent's own references are not a name.
-    static func suggest(_ prompt: String) -> String {
-        let words = prompt.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
-            .filter { !"@/~".contains($0.first ?? " ") }
-            .map { NotebookFormat.slug(String($0)) }
-            .filter { !$0.isEmpty && !filler.contains($0) }
-        let name = words.prefix(4).joined(separator: "-")
-        return name.isEmpty ? "project" : name
-    }
-
-    /// The suggested name, or the next one along when a folder is already sitting there.
+    /// The name, or the next one along when a folder is already sitting there.
     /// Nothing an earlier project left behind is written into.
     static func vacant(in parent: URL, named name: String) -> URL {
         var url = parent.appendingPathComponent(name)
@@ -71,20 +52,28 @@ enum ProjectLocation {
 /// New project as a prompt: say what to build, tag whatever it should look at with `@`,
 /// and the folder is created and handed to an agent that writes the notebook. Where it
 /// goes is worked out rather than asked for at all — a path named in the prompt wins,
-/// otherwise it is a folder named after the prompt beside the projects already open. The
-/// line under the box says which, before Return, so deciding for you is never a surprise;
-/// naming a path in the prompt is how you say otherwise.
+/// otherwise it lands beside the projects already open, under a name the selected agent
+/// chooses from the description once Return is pressed. No path is shown before then;
+/// naming one in the prompt is how you choose it yourself.
 package struct NewProjectForm: View {
     /// Where a project lands when its prompt does not name anywhere.
     let parent: URL
+    /// The CLI that names the folder: the one about to write its notebook.
+    let agent: AgentKind
     let create: (URL, String) -> Void
     let cancel: () -> Void
 
     @State private var text = ""
     @State private var failure = ""
+    /// The agent choosing a name, while it does. Cancel ends it, and the CLI with it.
+    @State private var naming: Task<Void, Never>?
 
-    package init(parent: URL, create: @escaping (URL, String) -> Void, cancel: @escaping () -> Void) {
+    package init(
+        parent: URL, agent: AgentKind, create: @escaping (URL, String) -> Void,
+        cancel: @escaping () -> Void
+    ) {
         self.parent = parent
+        self.agent = agent
         self.create = create
         self.cancel = cancel
     }
@@ -110,10 +99,10 @@ package struct NewProjectForm: View {
                     text: $text, submit: submit)
                 Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
                     .font(Typography.mono).foregroundStyle(Theme.tx3)
-                // Not a question, an answer: where this one is about to land.
-                if !prompt.isEmpty {
-                    Text(landing).font(Typography.mono).foregroundStyle(Theme.tx2)
-                        .lineLimit(1).truncationMode(.head)
+                // Naming can take half a minute on some CLIs; without this the sheet looks stuck.
+                if naming != nil {
+                    Text("\(agent.displayName) is naming the project…")
+                        .font(Typography.mono).foregroundStyle(Theme.tx2)
                 }
             }
 
@@ -124,57 +113,68 @@ package struct NewProjectForm: View {
 
             HStack {
                 Spacer()
-                Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
+                Button("Cancel") {
+                    naming?.cancel()
+                    cancel()
+                }
+                .keyboardShortcut(.cancelAction)
                 Button("Create project", action: submit)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(prompt.isEmpty)
+                    .disabled(prompt.isEmpty || naming != nil)
             }
         }
         .padding(22)
         .frame(width: 520)
         .background(Theme.bg)
-    }
-
-    /// Where the prompt as it stands would put the project, so dropping the question
-    /// does not make the answer a mystery.
-    private var landing: String {
-        let (parent, name) = destination
-        return abbreviated(parent) + "/" + name
+        .onDisappear { naming?.cancel() }
     }
 
     /// A path named in the prompt wins; a folder it names that is already there is a
     /// parent to land in, not the project itself. Nothing named lands beside the other
-    /// projects under a name taken from the prompt.
-    private var destination: (parent: URL, name: String) {
+    /// projects, and has no name until the agent gives it one.
+    private var destination: (parent: URL, name: String?) {
         let found = ProjectLocation.parse(text)
         if let found, !found.name.isEmpty { return (found.parent, found.name) }
-        let base = found?.parent ?? parent
-        return (
-            base,
-            ProjectLocation.vacant(in: base, named: ProjectLocation.suggest(prompt))
-                .lastPathComponent
-        )
-    }
-
-    private func abbreviated(_ url: URL) -> String {
-        (url.path as NSString).abbreviatingWithTildeInPath
+        return (found?.parent ?? parent, nil)
     }
 
     private func submit() {
         if Mention.accept(&text, root: root, absolute: true) { return }
-        guard !prompt.isEmpty else { return }
+        guard !prompt.isEmpty, naming == nil else { return }
         let (parent, name) = destination
+        if let name {
+            make(parent.appendingPathComponent(name), rejecting: name, for: prompt)
+            return
+        }
+        failure = ""
+        let description = prompt
+        naming = Task {
+            do {
+                let named = try await ProjectNaming.ask(agent, description: description)
+                // What was typed when Return was pressed, not what the box holds by now.
+                make(ProjectLocation.vacant(in: parent, named: named), rejecting: named, for: description)
+            } catch is CancellationError {
+                // Cancel closed the sheet; there is nobody left to tell.
+            } catch {
+                failure =
+                    "\(error.localizedDescription). Name a path in the prompt, like ~/Projects/my-app, "
+                    + "to choose the folder yourself."
+            }
+            naming = nil
+        }
+    }
+
+    private func make(_ directory: URL, rejecting name: String, for description: String) {
         if let rejection = ProjectLocation.rejection(name) {
             failure = rejection
             return
         }
-        let directory = parent.appendingPathComponent(name)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         } catch {
             failure = "Could not create \(directory.path): \(error.localizedDescription)"
             return
         }
-        create(directory, prompt)
+        create(directory, description)
     }
 }
