@@ -77,23 +77,11 @@ package struct ProjectList: View {
     // MARK: - Header and footer
 
     /// The project's name is the switcher: it is where you already look to see which project
-    /// you are in. It goes with the list when ⌘\ hides it, and Go → All Projects (⌘[) is still
-    /// there then. ⌘[ is not repeated on the item below — one binding per shortcut.
+    /// you are in. It goes with the list when ⌘\ hides it, and the toolbar shows the same menu
+    /// until the list comes back.
     private var header: some View {
         Menu {
-            Section("Open Projects") {
-                ForEach(projects) { other in
-                    // A Toggle is what draws the check. Choosing the project you are already
-                    // in does nothing: entering it again would drop you back on Overview.
-                    Toggle(
-                        switcherTitle(other),
-                        isOn: Binding(
-                            get: { other.id == project.id },
-                            set: { _ in if other.id != project.id { open(other) } }))
-                }
-            }
-            Divider()
-            Button("All Projects", action: leave)
+            ProjectSwitcherItems(projects: projects, current: project.id, open: open, leave: leave)
         } label: {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -119,13 +107,6 @@ package struct ProjectList: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
-    }
-
-    /// A menu item cannot carry the amber dot the Fleet cards do, so what is waiting on you
-    /// is said in words.
-    private func switcherTitle(_ other: Project) -> String {
-        let waiting = other.blocks.filter(\.waiting).count
-        return waiting == 0 ? other.name : "\(other.name) — \(waiting) waiting on you"
     }
 
     @ViewBuilder private var footer: some View {
@@ -612,5 +593,37 @@ struct NotebookKindCount {
                 label: "Memory", icon: "brain",
                 count: cards.filter { $0.kind == .memory }.count),
         ]
+    }
+}
+
+/// What the project menu holds, wherever it is drawn: the list header, or the toolbar while the
+/// list is hidden. ⌘[ is not repeated on All Projects — Go → All Projects owns that binding.
+struct ProjectSwitcherItems: View {
+    let projects: [Project]
+    let current: Project.ID
+    let open: (Project) -> Void
+    let leave: () -> Void
+
+    var body: some View {
+        Section("Open Projects") {
+            ForEach(projects) { other in
+                // A Toggle is what draws the check. Choosing the project you are already in does
+                // nothing: entering it again would drop you back on Overview.
+                Toggle(
+                    title(other),
+                    isOn: Binding(
+                        get: { other.id == current },
+                        set: { _ in if other.id != current { open(other) } }))
+            }
+        }
+        Divider()
+        Button("All Projects", action: leave)
+    }
+
+    /// A menu item cannot carry the amber dot the Fleet cards do, so what is waiting on you is
+    /// said in words.
+    private func title(_ other: Project) -> String {
+        let waiting = other.blocks.filter(\.waiting).count
+        return waiting == 0 ? other.name : "\(other.name) — \(waiting) waiting on you"
     }
 }

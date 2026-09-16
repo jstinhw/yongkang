@@ -38,7 +38,13 @@ extension RootView {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder func toolbar(for project: ProjectModel) -> some ToolbarContent {
-        ToolbarItem(placement: .navigation) { listToggle }
+        ToolbarItemGroup(placement: .navigation) {
+            listToggle
+            // The list header is the project menu, so hiding the list would leave no way out of
+            // the project on screen — an empty project, whose screen has nothing to click, least
+            // of all. The same menu stands in here until the list comes back.
+            if listHidden { projectMenu(for: project) }
+        }
         ToolbarItemGroup(placement: .primaryAction) { actions(for: project) }
     }
 
@@ -52,6 +58,18 @@ extension RootView {
             Label(listHidden ? "Show list" : "Hide list", systemImage: "sidebar.left")
         }
         .help(listHidden ? "Show list (⌘\\)" : "Hide list (⌘\\)")
+    }
+
+    private func projectMenu(for project: ProjectModel) -> some View {
+        Menu {
+            ProjectSwitcherItems(
+                projects: model.projects.map(\.value), current: project.id,
+                open: { if let other = model.project($0.id) { model.enter(other) } },
+                leave: { model.leave() })
+        } label: {
+            Label("Projects", systemImage: "square.stack")
+        }
+        .help("Switch project")
     }
 
     @ViewBuilder private func actions(for project: ProjectModel) -> some View {

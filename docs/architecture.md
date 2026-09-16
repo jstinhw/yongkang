@@ -155,8 +155,9 @@ Full Keyboard Access and VoiceOver read an app through.
   carries stays readable and the menu keeps the same shape on every screen.
 - **One binding per shortcut.** ⌘\ came off the toolbar's list toggle and ⌘[ off the rail's
   "YK" button when those items landed. The toggle keeps its `.help`, which still names the
-  shortcut. The YK button is gone; the list header's project menu has an All Projects item
-  that carries no shortcut of its own, so ⌘[ stays bound once. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
+  shortcut. The YK button is gone; the project menu — the list header, or a toolbar item
+  beside the list toggle while the list is hidden — has an All Projects item that carries
+  no shortcut of its own, so ⌘[ stays bound once. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
 - **Assign to Lead is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
   job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a lead —
