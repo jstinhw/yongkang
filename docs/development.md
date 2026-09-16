@@ -181,17 +181,19 @@ for.
 
 16. Walk the menus. Nothing here is on a button only, and an item the window cannot act on is
     disabled rather than hidden — so the shape stays the same on every screen.
-    - **View → Overview…Blocks (⌘1–⌘5)** moves between sections from any screen. Try it with
-      a terminal focused too: that is the case a button-bound shortcut could never answer, and
-      the one this step exists for. *(Unverified: the registry's key monitor passes the event
-      on rather than swallowing it, and `MenuCommandTests` checks the items with no window, but
-      nothing has checked a menu shortcut against a focused SwiftTerm view.)*
-    - **View → Hide List (⌘\)** collapses the list column, and the toolbar's own button
+    - **View → Overview** through **Blocks**, `⌘1`–`⌘5`, moves between sections from any
+      screen. Try it with a terminal focused too: that is the case a button-bound shortcut
+      could never answer, and the one this step exists for. *(Unverified: the registry's key
+      monitor passes the event on rather than swallowing it, and `MenuCommandTests` checks the
+      items with no window, but nothing has checked a menu shortcut against a focused SwiftTerm
+      view.)*
+    - **View → Hide List**, `⌘\`, collapses the list column, and the toolbar's own button
       agrees with it. The item's title flips to **Show List**.
     - **Agent → Assign to Lead** is lit only while a task page is open for a task that is
       neither done nor already with a lead. Open a done task: it greys out.
-    - **Go → All Projects (⌘[)** leaves the project. Every item below **Open Folder…** is now
-      disabled, and **File → New Project… (⌘N)** and **Open Folder… (⌘O)** still work.
+    - **Go → All Projects**, `⌘[`, leaves the project. Every item that needs one is now
+      disabled — the rest of File, and all of View, Go and Agent — while
+      **File → New Project…** (`⌘N`) and **Open Folder…** (`⌘O`) still work.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
 17. With the project open on a task page, quit Yongkang (⌘Q) and run `make run` again.
