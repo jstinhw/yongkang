@@ -56,7 +56,7 @@ struct ProjectIntake: View {
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private func send() {
-        if Mention.accept(&text, root: project.directory, absolute: false) { return }
+        if Mention.accept(&text, root: project.directory) { return }
         guard !sent, !trimmed.isEmpty else { return }
         sent = true
         start(trimmed)

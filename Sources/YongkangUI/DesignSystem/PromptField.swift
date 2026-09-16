@@ -24,8 +24,8 @@ enum Mention {
     /// Under `root` first: `@/De` is Desktop in the folder you are tagging from, not
     /// `/dev` on the disk, and the leading slash is dropped so what completes is a path
     /// that is really there. A tag `root` has no such folder for is a path of its own —
-    /// which is how an already absolute tag, the kind this box writes for a project that
-    /// does not exist yet, keeps drilling down instead of being re-rooted into nothing.
+    /// which is how a tag typed as a full path keeps drilling down instead of being
+    /// re-rooted into nothing.
     static func lookup(_ query: String, root: URL) -> (folder: URL, prefix: String, base: String) {
         let slash = query.lastIndex(of: "/")
         let typed = slash.map { String(query[..<query.index(after: $0)]) } ?? ""
@@ -56,16 +56,41 @@ enum Mention {
             .map { base + $0 + (isFolder(folder.appendingPathComponent($0)) ? "/" : "") }
     }
 
-    /// What the tag reads as once picked: a path relative to `root`, or an absolute one
-    /// when the agent will run somewhere else — a project folder that does not exist yet
-    /// cannot be what its own prompt's paths are relative to. A match that is already a
-    /// path of its own is left alone; re-rooting it is what stopped `@/Users/…/Desktop/`
-    /// from listing anything.
-    static func inserted(_ match: String, root: URL, absolute: Bool) -> String {
+    /// What the tag reads as once picked: the path relative to `root`, as the list found it.
+    /// A match that is already a path of its own is left alone; re-rooting it is what
+    /// stopped `@/Users/…/Desktop/` from listing anything.
+    static func inserted(_ match: String) -> String {
         let slash = match.hasSuffix("/") ? "/" : ""
         if match.hasPrefix("~") { return (match as NSString).expandingTildeInPath + slash }
-        guard absolute, !match.hasPrefix("/") else { return match }
-        return root.appendingPathComponent(match).path + slash
+        return match
+    }
+
+    /// The prompt with its tags made relative to where the agent will run, for a box that
+    /// tags from somewhere else: the new-project box browses beside the other projects, but
+    /// its agent starts inside a folder that did not exist while the tags were typed. So
+    /// `@designs/SPEC.md` goes to the agent as `@../designs/SPEC.md`.
+    ///
+    /// Only a tag naming something really under `root` moves. A full path, a `~` path, an
+    /// email address and an `@name` that is not a file are sent as they were typed.
+    static func rebased(_ text: String, from root: URL, to directory: URL) -> String {
+        text.replacing(/(?<lead>^|[ \n])@(?<path>[^ \n]+)/) { match in
+            let path = String(match.path)
+            let target = root.appendingPathComponent(path)
+            guard !path.hasPrefix("/"), !path.hasPrefix("~"),
+                FileManager.default.fileExists(atPath: target.path)
+            else { return String(match.output.0) }
+            let slash = path.hasSuffix("/") ? "/" : ""
+            return match.lead + "@" + relative(target, from: directory) + slash
+        }
+    }
+
+    /// `target` as a path from `directory`, climbing out with `..` as far as they differ.
+    static func relative(_ target: URL, from directory: URL) -> String {
+        let from = directory.standardizedFileURL.pathComponents
+        let to = target.standardizedFileURL.pathComponents
+        let shared = zip(from, to).prefix { $0 == $1 }.count
+        return (Array(repeating: "..", count: from.count - shared) + to.dropFirst(shared))
+            .joined(separator: "/")
     }
 
     private static func isFolder(_ url: URL) -> Bool {
@@ -97,7 +122,7 @@ enum Mention {
     /// further, and stalling there is a dead Tab on the folder you were heading for.
     ///
     /// True whenever a tag is open, so Tab stays inside the box rather than moving focus.
-    static func extend(_ text: inout String, root: URL, absolute: Bool) -> Bool {
+    static func extend(_ text: inout String, root: URL) -> Bool {
         guard let query = query(in: text) else { return false }
         let all = matches(query, root: root)
         guard let first = all.first else { return false }
@@ -108,7 +133,7 @@ enum Mention {
         let deeper = shared.count > query.count ? shared : folder
         guard all.count == 1 || deeper != nil else { return true }
         text = complete(
-            text, with: inserted(deeper ?? shared, root: root, absolute: absolute),
+            text, with: inserted(deeper ?? shared),
             finished: all.count == 1)
         return true
     }
@@ -116,10 +141,10 @@ enum Mention {
     /// Return in a prompt box takes the first tag on offer before it sends anything —
     /// sending `@REA` would hand the agent a path that does not exist. True when it took
     /// the key, so the caller knows not to submit.
-    static func accept(_ text: inout String, root: URL, absolute: Bool) -> Bool {
+    static func accept(_ text: inout String, root: URL) -> Bool {
         guard let query = query(in: text), let top = matches(query, root: root).first
         else { return false }
-        text = complete(text, with: inserted(top, root: root, absolute: absolute))
+        text = complete(text, with: inserted(top))
         return true
     }
 }
@@ -133,7 +158,6 @@ struct PromptField: View {
     let placeholder: String
     /// Where `@` starts browsing.
     let root: URL
-    var absolute = false
     @Binding var text: String
     let submit: () -> Void
 
@@ -204,7 +228,7 @@ struct PromptField: View {
                 take(shown[highlighted])
             case 48:
                 var draft = text
-                guard Mention.extend(&draft, root: root, absolute: absolute) else { return event }
+                guard Mention.extend(&draft, root: root) else { return event }
                 // Nothing left to fill in — `sources/` and `website/` agree on nothing —
                 // so Tab takes the highlighted one rather than sitting there dead.
                 if draft == text { take(shown[highlighted]) } else { text = draft }
@@ -218,7 +242,7 @@ struct PromptField: View {
     /// Writes a picked tag into the box and puts the list back at the top for whatever
     /// the next level down offers.
     private func take(_ match: String) {
-        text = Mention.complete(text, with: Mention.inserted(match, root: root, absolute: absolute))
+        text = Mention.complete(text, with: Mention.inserted(match))
         selection = 0
     }
 

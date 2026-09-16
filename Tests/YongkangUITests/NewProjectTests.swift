@@ -57,23 +57,23 @@ import Testing
         let root = try makeMentionRoot(in: dir)
 
         var tab = "build from @de"
-        #expect(Mention.extend(&tab, root: root, absolute: false))
+        #expect(Mention.extend(&tab, root: root))
         #expect(tab == "build from @design", "two matches only agree this far")
         #expect(
-            Mention.extend(&tab, root: root, absolute: false),
+            Mention.extend(&tab, root: root),
             "and Tab stays in the box rather than moving focus")
         #expect(tab == "build from @design", "with nothing left to add, nothing is picked")
         tab += "s"
-        #expect(Mention.extend(&tab, root: root, absolute: false))
+        #expect(Mention.extend(&tab, root: root))
         #expect(tab == "build from @designs/", "one match completes, a folder keeps its slash")
         let query = try #require(Mention.query(in: tab))
         #expect(Mention.matches(query, root: root).count == 2, "so the list is now what is inside it")
-        #expect(Mention.extend(&tab, root: root, absolute: false))
+        #expect(Mention.extend(&tab, root: root))
         #expect(tab == "build from @designs/", "its two children agree on nothing further")
         tab += "t"
-        #expect(Mention.extend(&tab, root: root, absolute: false))
+        #expect(Mention.extend(&tab, root: root))
         #expect(tab == "build from @designs/type/", "Tab walks down a level at a time")
-        #expect(Mention.extend(&tab, root: root, absolute: false))
+        #expect(Mention.extend(&tab, root: root))
         #expect(
             tab == "build from @designs/type/BODY.md ",
             "and closes the tag on the one file at the bottom")
@@ -86,9 +86,9 @@ import Testing
         let root = try makeMentionRoot(in: dir)
 
         var into = "build from @cases"
-        #expect(Mention.extend(&into, root: root, absolute: false))
+        #expect(Mention.extend(&into, root: root))
         #expect(into == "build from @cases/", "Tab walks into a folder the tag already names")
-        #expect(Mention.extend(&into, root: root, absolute: false))
+        #expect(Mention.extend(&into, root: root))
         #expect(into == "build from @cases/alpha", "and carries on inside it")
     }
 
@@ -100,7 +100,7 @@ import Testing
         let root = try makeMentionRoot(in: dir)
 
         var mixed = "build from @cases/a"
-        #expect(Mention.extend(&mixed, root: root, absolute: false))
+        #expect(Mention.extend(&mixed, root: root))
         #expect(mixed == "build from @cases/alpha", "a lowercase name and a capitalised one still agree")
     }
 
@@ -110,37 +110,50 @@ import Testing
         let root = try makeMentionRoot(in: dir)
 
         var text = "build from @SP"
-        #expect(Mention.accept(&text, root: root, absolute: false))
+        #expect(Mention.accept(&text, root: root))
         #expect(text == "build from @SPEC.md ", "Return takes the first tag before it sends")
-        #expect(!Mention.accept(&text, root: root, absolute: false), "and then gets out of the way")
-        var absolute = "build from @SP"
-        #expect(Mention.accept(&absolute, root: root, absolute: true))
-        #expect(
-            absolute == "build from @\(root.path)/SPEC.md ",
-            "a folder that does not exist yet cannot be what its prompt's paths are relative to")
+        #expect(!Mention.accept(&text, root: root), "and then gets out of the way")
     }
 
-    @Test func absoluteTagsDrillDown() throws {
+    @Test func aTagTypedAsAFullPathDrillsDown() throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let root = try makeMentionRoot(in: dir)
 
-        var absoluteTab = "build from @designs"
-        #expect(Mention.extend(&absoluteTab, root: root, absolute: true))
-        #expect(absoluteTab == "build from @\(root.path)/designs/", "Tab writes the same paths")
-        // The one that was broken: an absolute tag has to keep listing what is inside it,
+        var typed = "build from @\(root.path)/designs"
+        #expect(Mention.extend(&typed, root: root))
+        #expect(typed == "build from @\(root.path)/designs/", "a full path stays one")
+        // The one that was broken: a full-path tag has to keep listing what is inside it,
         // not be re-rooted under the box's root and come back empty.
         #expect(
             Mention.matches("\(root.path)/designs/", root: root)
                 == ["\(root.path)/designs/logo.png", "\(root.path)/designs/type/"],
             "a tag that is already a path of its own drills down from where it points")
-        #expect(Mention.extend(&absoluteTab, root: root, absolute: true))
-        #expect(absoluteTab == "build from @\(root.path)/designs/", "two children, nothing agreed")
-        absoluteTab += "t"
-        #expect(Mention.extend(&absoluteTab, root: root, absolute: true))
-        #expect(absoluteTab == "build from @\(root.path)/designs/type/")
-        #expect(Mention.extend(&absoluteTab, root: root, absolute: true))
-        #expect(absoluteTab == "build from @\(root.path)/designs/type/BODY.md ")
+        #expect(Mention.extend(&typed, root: root))
+        #expect(typed == "build from @\(root.path)/designs/", "two children, nothing agreed")
+        typed += "t"
+        #expect(Mention.extend(&typed, root: root))
+        #expect(typed == "build from @\(root.path)/designs/type/")
+        #expect(Mention.extend(&typed, root: root))
+        #expect(typed == "build from @\(root.path)/designs/type/BODY.md ")
+    }
+
+    /// The new-project box shows tags relative to where it browses; its agent runs in the new
+    /// folder, so they are rewritten from there when the project is created.
+    @Test func tagsAreRebasedOntoTheNewProject() throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let root = try makeMentionRoot(in: dir)
+        let prompt = "build from @SPEC.md and @designs/type/\nmail a@b.com, ask @nobody, see @/etc/hosts"
+
+        #expect(
+            Mention.rebased(prompt, from: root, to: root.appendingPathComponent("photo-app"))
+                == "build from @../SPEC.md and @../designs/type/\nmail a@b.com, ask @nobody, see @/etc/hosts",
+            "a project beside the tags climbs one level; what is not a tag under root is untouched")
+        #expect(
+            Mention.rebased("read @SPEC.md", from: root, to: dir.appendingPathComponent("code/todo"))
+                == "read @../../mention/SPEC.md",
+            "a project named somewhere else climbs out as far as it has to")
     }
 
     // `@/De` is the folder you are tagging from, not `/dev` on the disk, and the
@@ -152,11 +165,11 @@ import Testing
 
         var rooted = "build from @/designs"
         #expect(Mention.matches("/de", root: root) == ["design-notes.md", "designs/"])
-        #expect(Mention.extend(&rooted, root: root, absolute: false))
+        #expect(Mention.extend(&rooted, root: root))
         #expect(rooted == "build from @designs/")
         // String expansion only: nothing under the real home folder is read.
         #expect(
-            Mention.inserted("~/notes/", root: root, absolute: false) == NSHomeDirectory() + "/notes/",
+            Mention.inserted("~/notes/") == NSHomeDirectory() + "/notes/",
             "a tag written from home is expanded — the agent gets a path it can open")
     }
 

@@ -95,8 +95,7 @@ package struct NewProjectForm: View {
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel("Describe it", trailing: "an agent builds it")
                 PromptField(
-                    placeholder: "A CLI that…", root: root, absolute: true,
-                    text: $text, submit: submit)
+                    placeholder: "A CLI that…", root: root, text: $text, submit: submit)
                 Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
                     .font(Typography.mono).foregroundStyle(Theme.tx3)
                 // Naming can take half a minute on some CLIs; without this the sheet looks stuck.
@@ -139,7 +138,7 @@ package struct NewProjectForm: View {
     }
 
     private func submit() {
-        if Mention.accept(&text, root: root, absolute: true) { return }
+        if Mention.accept(&text, root: root) { return }
         guard !prompt.isEmpty, naming == nil else { return }
         let (parent, name) = destination
         if let name {
@@ -175,6 +174,6 @@ package struct NewProjectForm: View {
             failure = "Could not create \(directory.path): \(error.localizedDescription)"
             return
         }
-        create(directory, description)
+        create(directory, Mention.rebased(description, from: root, to: directory))
     }
 }
