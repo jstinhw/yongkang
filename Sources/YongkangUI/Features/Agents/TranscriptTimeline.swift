@@ -55,7 +55,7 @@ struct TranscriptTimeline: View {
                     }
                     Text(item.text)
                         .font(Typo.text(12.5))
-                        .foregroundStyle(Color(hex: 0xC7D0DC))
+                        .foregroundStyle(Theme.prose)
                         .lineSpacing(3)
                         .textSelection(.enabled)
                 }
@@ -129,17 +129,17 @@ struct TranscriptTimeline: View {
             } else {
                 Text(line.text)
                     .font(Typo.mono(10.5))
-                    .foregroundStyle(line.isError ? Color(hex: 0xF1BDBD) : Theme.tx2)
+                    .foregroundStyle(line.isError ? Theme.problem : Theme.tx2)
                     .lineSpacing(2)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x0E1116)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(
                                 line.isError
                                     ? Theme.red.opacity(0.25)
-                                    : Color(hex: 0x1E242F), lineWidth: 1)
+                                    : Theme.wellLine, lineWidth: 1)
                     )
                     .textSelection(.enabled)
             }
@@ -158,10 +158,10 @@ struct TranscriptTimeline: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(tint(item.kind))
                     .frame(width: 23, height: 23)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x12161E)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.well))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color(hex: 0x242B37), lineWidth: 1))
+                            .strokeBorder(Theme.stepLine, lineWidth: 1))
             default:
                 Circle().fill(tint(item.kind))
                     .frame(width: 6, height: 6)

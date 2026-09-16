@@ -67,10 +67,10 @@ package struct Rail: View {
                     .font(Typo.mono(12, .semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 32, height: 32)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x141C28)))
+                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
                     .overlay(
                         RoundedRectangle(cornerRadius: 9)
-                            .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
+                            .strokeBorder(Theme.markLine, lineWidth: 1))
             }
             .buttonStyle(.plain)
             .help("All projects (⌘[)")
@@ -141,7 +141,7 @@ package struct Rail: View {
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(on ? Theme.tx : Theme.tx3)
                 .frame(width: 40, height: 38)
-                .background(RoundedRectangle(cornerRadius: 9).fill(on ? Color(hex: 0x161C26) : .clear))
+                .background(RoundedRectangle(cornerRadius: 9).fill(on ? Theme.railActive : .clear))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9)
                         .strokeBorder(on ? Theme.hairline : .clear, lineWidth: 1)

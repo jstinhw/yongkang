@@ -1,0 +1,34 @@
+import Foundation
+import Testing
+
+/// The design system is only a system while it is the only place a colour is written down.
+/// One `Color(hex:)` in a feature file is how the last set of strays got there, so the
+/// check is on the source rather than on a reviewer's eye.
+@Suite struct DesignTokenTests {
+
+    /// `Sources/YongkangUI/`, found from this file rather than the working directory, which
+    /// `swift test` does not promise.
+    private static let ui = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()  // YongkangUITests
+        .deletingLastPathComponent()  // Tests
+        .deletingLastPathComponent()  // repo root
+        .appendingPathComponent("Sources/YongkangUI")
+
+    private static func swiftFiles() throws -> [URL] {
+        let all = FileManager.default.enumerator(at: ui, includingPropertiesForKeys: nil)
+        let urls = (all?.allObjects as? [URL] ?? []).filter { $0.pathExtension == "swift" }
+        #expect(urls.count > 40, "found \(urls.count) files under \(ui.path) — is the path right?")
+        return urls
+    }
+
+    @Test func onlyThemeWritesAColourDown() throws {
+        // A hex colour reaches SwiftUI through `Color(hex:)` and nothing else, so that call
+        // is the whole surface to guard.
+        let strays = try DesignTokenTests.swiftFiles()
+            .filter { $0.lastPathComponent != "Theme.swift" }
+            .filter { try String(contentsOf: $0, encoding: .utf8).contains("Color(hex:") }
+            .map(\.lastPathComponent)
+            .sorted()
+        #expect(strays.isEmpty, "name these in Theme instead of writing the hex here: \(strays)")
+    }
+}

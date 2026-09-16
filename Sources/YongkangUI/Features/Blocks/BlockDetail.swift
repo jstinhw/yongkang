@@ -93,7 +93,7 @@ package struct BlockDetail: View {
                 Spacer(minLength: 12)
             }
             if !block.resolution.isEmpty {
-                Text(block.resolution).font(Typo.text(12.5)).foregroundStyle(Color(hex: 0xC7D0DC))
+                Text(block.resolution).font(Typo.text(12.5)).foregroundStyle(Theme.prose)
             }
         }
     }
@@ -157,10 +157,10 @@ package struct BlockDetail: View {
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
+                        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.well))
                         .overlay(
                             RoundedRectangle(cornerRadius: 9)
-                                .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                                .strokeBorder(Theme.wellLine, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -172,7 +172,7 @@ package struct BlockDetail: View {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "lock.shield").font(.system(size: 12)).foregroundStyle(Theme.red)
                     Text("No secret is ever echoed back to you or written into the notebook.")
-                        .font(Typo.text(11)).foregroundStyle(Color(hex: 0xF1BDBD))
+                        .font(Typo.text(11)).foregroundStyle(Theme.problem)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(12)

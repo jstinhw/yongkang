@@ -9,17 +9,17 @@ package struct ConsoleButtonStyle: ButtonStyle {
     package func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typo.text(12, primary ? .semibold : .medium))
-            .foregroundStyle(primary ? Theme.bg : (ghost ? Theme.tx2 : Color(hex: 0xC7D0DC)))
+            .foregroundStyle(primary ? Theme.bg : (ghost ? Theme.tx2 : Theme.prose))
             .padding(.horizontal, 12)
             .frame(height: 30)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x171C25)))
+                    .fill(primary ? Theme.accent : (ghost ? .clear : Theme.raised))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
-                        primary ? Theme.accent : (ghost ? .clear : Color(hex: 0x262D3A)),
+                        primary ? Theme.accent : (ghost ? .clear : Theme.controlLine),
                         lineWidth: 1)
             )
             .opacity(configuration.isPressed ? 0.75 : 1)

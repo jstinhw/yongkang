@@ -41,8 +41,8 @@ package enum NotebookStyle {
             .foregroundStyle(Theme.tx2)
             .padding(.horizontal, 8)
             .frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: 0x171C25)))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color(hex: 0x252C39), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.raised))
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.chipLine, lineWidth: 1))
     }
 
     /// Linear's issue-status glyph: an outline in the status colour, filled in as tasks

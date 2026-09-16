@@ -121,11 +121,11 @@ package struct TaskDetail: View {
             }
             HStack(spacing: 6) {
                 StateDot(color: NotebookStyle.color(of: card.status))
-                Text("this task").font(Typo.text(11)).foregroundStyle(Color(hex: 0xC7D0DC))
+                Text("this task").font(Typo.text(11)).foregroundStyle(Theme.prose)
             }
             .padding(.horizontal, 9)
             .frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: 0x171C25)))
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.raised))
             .overlay(
                 RoundedRectangle(cornerRadius: 7)
                     .strokeBorder(Theme.accent.opacity(0.4), lineWidth: 1))

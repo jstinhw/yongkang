@@ -251,8 +251,8 @@ package struct Overview: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .cardSurface(
-                        radius: 10, padding: 12, border: Color(hex: 0x222937),
-                        fill: Color(hex: 0x151A22)
+                        radius: 10, padding: 12, border: Theme.nestedLine,
+                        fill: Theme.nested
                     )
                     .contentShape(Rectangle())
                 }

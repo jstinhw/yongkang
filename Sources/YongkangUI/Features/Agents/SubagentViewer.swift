@@ -89,7 +89,7 @@ package struct SubagentViewer: View {
                                     .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                                     .padding(.top, 1)
                                 Text(item.text).font(Typo.text(11.5))
-                                    .foregroundStyle(item.done ? Color(hex: 0xC7D0DC) : Theme.tx3)
+                                    .foregroundStyle(item.done ? Theme.prose : Theme.tx3)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -157,10 +157,10 @@ struct TranscriptSource: View {
                 .lineLimit(3).truncationMode(.middle)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x12161E)))
+                .background(RoundedRectangle(cornerRadius: 9).fill(Theme.well))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+                        .strokeBorder(Theme.wellLine, lineWidth: 1))
             Button {
                 if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             } label: {

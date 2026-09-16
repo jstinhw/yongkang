@@ -95,10 +95,10 @@ package struct ProjectsHome: View {
                 .font(Typo.mono(12, .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 32, height: 32)
-                .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0x141C28)))
+                .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Color(hex: 0x2B3B52), lineWidth: 1))
+                        .strokeBorder(Theme.markLine, lineWidth: 1))
             Text("Yongkang").font(Typo.display(14)).tracking(0.3)
             Spacer(minLength: 12)
         }
@@ -207,7 +207,7 @@ package struct ProjectsHome: View {
             .frame(maxWidth: .infinity, minHeight: 152)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color(hex: 0x262D3A), style: StrokeStyle(lineWidth: 1, dash: [4])))
+                    .strokeBorder(Theme.controlLine, style: StrokeStyle(lineWidth: 1, dash: [4])))
         }
         .buttonStyle(.plain)
     }

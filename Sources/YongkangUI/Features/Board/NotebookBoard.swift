@@ -524,7 +524,7 @@ struct DotGrid: View {
     var body: some View {
         Canvas { context, size in
             let step: CGFloat = 24
-            let dot = Color(hex: 0x1A202A)
+            let dot = Theme.dotGrid
             var y: CGFloat = 0
             while y < size.height {
                 var x: CGFloat = 0

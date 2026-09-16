@@ -95,8 +95,8 @@ package struct SessionTranscript: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 11).fill(Color(hex: 0x12161E)))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 11).fill(Theme.well))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.wellLine, lineWidth: 1))
         .padding(.horizontal, 22)
         .padding(.bottom, 16)
     }

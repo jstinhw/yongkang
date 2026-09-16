@@ -9,7 +9,7 @@ struct MeterBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color(hex: 0x1E242F))
+                Capsule().fill(Theme.wellLine)
                 Capsule().fill(tint)
                     .frame(width: max(0, min(1, value)) * geo.size.width)
             }

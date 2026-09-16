@@ -29,16 +29,16 @@ struct DiffLines: View {
         let wash: Color
         switch line.kind {
         case .add:
-            ink = Color(hex: 0xB6EBD5)
+            ink = Theme.insertion
             wash = Theme.green.opacity(0.07)
         case .remove:
-            ink = Color(hex: 0xF1BDBD)
+            ink = Theme.problem
             wash = Theme.red.opacity(0.07)
         case .hunk:
-            ink = Color(hex: 0x5F9FE0)
+            ink = Theme.hunk
             wash = Theme.accent.opacity(0.06)
         case .context:
-            ink = Color(hex: 0x8C97A6)
+            ink = Theme.unchanged
             wash = .clear
         }
         let sign = line.kind == .add ? "+" : (line.kind == .remove ? "−" : " ")

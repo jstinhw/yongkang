@@ -48,7 +48,7 @@ struct NotebookContentView: View {
     private func blockView(_ block: NotebookContent.Block) -> some View {
         switch block {
         case .paragraph(let text):
-            resolved(text).font(Typo.text(13)).lineSpacing(3).foregroundStyle(Color(hex: 0xC7D0DC))
+            resolved(text).font(Typo.text(13)).lineSpacing(3).foregroundStyle(Theme.prose)
         case .checklist(let items):
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
@@ -57,7 +57,7 @@ struct NotebookContentView: View {
                             .font(.system(size: 13))
                             .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                         resolved(item.text)
-                            .foregroundStyle(item.done ? Theme.tx2 : Color(hex: 0xC7D0DC))
+                            .foregroundStyle(item.done ? Theme.tx2 : Theme.prose)
                     }
                     .font(Typo.text(12.5))
                 }
@@ -67,7 +67,7 @@ struct NotebookContentView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .top, spacing: 6) {
                         Text("•").foregroundStyle(Theme.tx3)
-                        resolved(item).foregroundStyle(Color(hex: 0xC7D0DC))
+                        resolved(item).foregroundStyle(Theme.prose)
                     }
                     .font(Typo.text(12.5))
                 }
@@ -79,7 +79,7 @@ struct NotebookContentView: View {
                         Text("\(index + 1).")
                             .font(Typo.mono(11.5))
                             .foregroundStyle(Theme.tx3)
-                        resolved(item).foregroundStyle(Color(hex: 0xC7D0DC))
+                        resolved(item).foregroundStyle(Theme.prose)
                     }
                     .font(Typo.text(12.5))
                 }
@@ -92,8 +92,8 @@ struct NotebookContentView: View {
                     .textSelection(.enabled)
                     .padding(10)
             }
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0x0E1116)))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: 0x1E242F), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.wellLine, lineWidth: 1))
         }
     }
 
