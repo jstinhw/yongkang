@@ -4,27 +4,48 @@ import SwiftUI
 /// gets whatever size and face that role currently means, so the scale moves in one place
 /// instead of at every call site.
 ///
-/// Six roles, each at the exact size its call sites already used — 5.1 renames, it does not
-/// repaint, and `DesignTokenTests` holds them to it.
+/// Seven roles and one size each. The app used to spell 15 sizes across a 0.5 pt ramp, which
+/// is a ramp rather than a scale: nothing distinguished 11.5 pt from 12 pt except which file
+/// you were in. A role that carries exactly one size is the thing that keeps a sixteenth from
+/// appearing, and `DesignTokenTests` fails the build if a screen reaches past a role to spell
+/// a size itself.
 ///
-/// ponytail: this covers 142 of 376 call sites. The other 234 still spell a size out
-/// through `Typo`, because the app's scale is a near-continuous 0.5 pt ramp — 32 spellings
-/// across 15 sizes from 9 to 27 pt — and merging any two of them moves pixels, which 5.1
-/// forbids. `grep -o 'Typo\.[a-z]*([0-9.]*' Sources` is the current list. 5.2's canvas is
-/// where a real scale gets chosen and the ramp collapses into it.
+/// Where a call site leaned on weight rather than size — a row's own title against the text
+/// beside it — the role takes the weight: `Typography.body(.semibold)`, never a new size.
 enum Typography {
     /// A screen's subject: a card, a task, a review's verdict.
     static let title = Typo.display(22)
+
     /// A panel or section heading inside a screen.
     static let headline = Typo.display(15)
+
     /// Prose and row labels — the default for anything a person reads in sentences.
     static let body = Typo.text(12)
+    /// `body` where a row's own title has to outweigh what sits beside it.
+    static func body(_ weight: Font.Weight) -> Font { Typo.text(12, weight) }
+
     /// The dimmer second line under a row: a subtitle, a count, a timestamp.
     static let caption = Typo.text(10.5)
-    /// Anything an agent typed or a machine chose: ids, paths, commands, counts.
+    /// `caption` where it labels rather than trails.
+    static func caption(_ weight: Font.Weight) -> Font { Typo.text(10.5, weight) }
+
+    /// Monospace that owns a pane: a diff, a transcript, a code block. Bigger than `mono`
+    /// because a pane is read line after line, and 10 pt for that is a squint.
+    static let code = Typo.mono(11.5)
+    /// `code` for the one line in a pane that heads the rest: a file path, a hunk.
+    static func code(_ weight: Font.Weight) -> Font { Typo.mono(11.5, weight) }
+
+    /// Anything an agent typed or a machine chose, sitting inside a row rather than owning
+    /// one: ids, paths, counts.
     static let mono = Typo.mono(10)
-    /// Mono where it has to sit inside a row rather than own one.
+    /// `mono` where it is the row's subject rather than its trailing detail.
+    static func mono(_ weight: Font.Weight) -> Font { Typo.mono(10, weight) }
+
+    /// Mono small enough to sit beside `caption`, or inside a badge.
     static let monoCaption = Typo.mono(9.5)
+    /// `monoCaption` in a badge, where a lighter weight would disappear at that size.
+    static func monoCaption(_ weight: Font.Weight) -> Font { Typo.mono(9.5, weight) }
+
     /// The all-caps tracked label that heads every section on every screen.
     static let section = Typo.display(10)
 }

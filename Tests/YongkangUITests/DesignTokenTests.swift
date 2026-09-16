@@ -1,11 +1,12 @@
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import YongkangUI
 
-/// The design system is only a system while it is the only place a colour is written down.
-/// One `Color(hex:)` in a feature file is how the last set of strays got there, so the
-/// check is on the source rather than on a reviewer's eye.
+/// The design system is only a system while it is the only place a colour or a size is
+/// written down. One `Color(hex:)` in a feature file is how the last set of strays got
+/// there, so the checks are on the source rather than on a reviewer's eye.
 @Suite struct DesignTokenTests {
 
     /// `Sources/YongkangUI/`, found from this file rather than the working directory, which
@@ -34,16 +35,29 @@ import Testing
         #expect(strays.isEmpty, "name these in Theme instead of writing the hex here: \(strays)")
     }
 
-    /// 5.1 renamed sizes; it did not change them. Each role still resolves to the exact
-    /// `Typo` call its 142 sites used to spell out, so the shots stayed byte-identical —
-    /// and so that the PR that *does* move the scale has to say so here first.
-    @Test func eachRoleStillResolvesToTheSizeItReplaced() {
-        #expect(Typography.title == Typo.display(22))
-        #expect(Typography.headline == Typo.display(15))
-        #expect(Typography.body == Typo.text(12))
-        #expect(Typography.caption == Typo.text(10.5))
-        #expect(Typography.mono == Typo.mono(10))
-        #expect(Typography.monoCaption == Typo.mono(9.5))
-        #expect(Typography.section == Typo.display(10))
+    /// The whole scale, written out against SwiftUI rather than against `Typo`, so this fails
+    /// on a changed size, a changed weight *and* a changed face. Seven roles, one size each:
+    /// a PR that wants an eighth size has to add it here first, where the ramp it would
+    /// restart is visible on one screen.
+    @Test func everyRoleResolvesToItsOneSize() {
+        #expect(Typography.title == .system(size: 22, weight: .semibold))
+        #expect(Typography.headline == .system(size: 15, weight: .semibold))
+        #expect(Typography.body == .system(size: 12, weight: .regular))
+        #expect(Typography.caption == .system(size: 10.5, weight: .regular))
+        #expect(Typography.code == .system(size: 11.5, weight: .regular, design: .monospaced))
+        #expect(Typography.mono == .system(size: 10, weight: .regular, design: .monospaced))
+        #expect(Typography.monoCaption == .system(size: 9.5, weight: .regular, design: .monospaced))
+        #expect(Typography.section == .system(size: 10, weight: .semibold))
     }
+
+    /// A weighted role is the *same* size as its plain form — that is what makes it a weight
+    /// and not a new size sneaking in through a second spelling.
+    @Test func aWeightedRoleKeepsItsRolesSize() {
+        #expect(Typography.body(.regular) == Typography.body)
+        #expect(Typography.caption(.regular) == Typography.caption)
+        #expect(Typography.code(.regular) == Typography.code)
+        #expect(Typography.mono(.regular) == Typography.mono)
+        #expect(Typography.monoCaption(.regular) == Typography.monoCaption)
+    }
+
 }
