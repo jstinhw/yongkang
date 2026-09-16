@@ -11,15 +11,13 @@ struct RootView: View {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
-    /// The list column's width, dragged from its trailing divider, and whether it is
-    /// collapsed. Both persist: a window you have sized once should come back that way.
-    @AppStorage("listWidth") private var listWidth = 268.0
-    @AppStorage("listHidden") private var listHidden = false
+    /// Whether the list column is collapsed. It persists: a window you have collapsed once
+    /// should come back that way. Its *width* no longer does — the split view owns that, and
+    /// drags it from a real divider.
+    @AppStorage("listHidden") var listHidden = false
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
     @AppStorage("agentKind") var agent = AgentKind.claude
-    /// The list width the current resize drag started from; nil when nothing is dragging.
-    @State private var dragBase: Double?
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State var addingAgent = false
     /// The new-project sheet, opened from the Fleet page's own tile: a prompt, which is
@@ -97,29 +95,38 @@ struct RootView: View {
             }
         } else if let project = model.entered {
             HStack(spacing: 0) {
-                // Above the list column: the rail's hover labels hang past its own width.
+                // The rail stays outside the split view. A native sidebar cannot hold both it
+                // and the list without reading as two sidebars, and the rail is the one piece
+                // of navigation that never changes. It is also drawn above the list column,
+                // because its hover labels hang past its own width.
                 Rail(
                     section: $model.section, badges: badges(for: project), leave: { model.leave() },
-                    agentCount: project.value.onlineAgentCount,
-                    listHidden: listHidden, toggleList: { listHidden.toggle() }
+                    agentCount: project.value.onlineAgentCount
                 )
                 .zIndex(1)
-                if !listHidden {
+                NavigationSplitView(columnVisibility: columns) {
                     ProjectList(
-                        section: model.section, project: project.value, width: listWidth,
+                        section: model.section, project: project.value,
                         selection: $model.selection,
                         showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
                         assign: { model.assign($0, in: project, agent: agent) },
                         closeSession: { model.close($0, in: project) },
                         remove: { model.remove($0, in: project) }
                     )
-                    .overlay(alignment: .trailing) { listResizer }
-                }
-                VStack(spacing: 0) {
-                    topBar(for: project)
+                    // The three numbers the hand-rolled resizer used to clamp to, handed to
+                    // the split view instead. Nothing adds them up any more: the panes'
+                    // geometry is the containers' own.
+                    .navigationSplitViewColumnWidth(min: 200, ideal: Theme.listWidth, max: 560)
+                    // One toggle, not two: ours carries ⌘\ and sits where the system's did.
+                    .toolbar(removing: .sidebarToggle)
+                } detail: {
                     screen(for: project)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Theme.bg)
+                        .navigationTitle(title(for: project))
+                        .navigationSubtitle(subtitle(for: project))
+                        .toolbar { toolbar(for: project) }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .sheet(isPresented: $addingAgent) {
                 NewAgentForm(
@@ -142,23 +149,13 @@ struct RootView: View {
         }
     }
 
-    /// The grab area over the list column's trailing divider. It sits in the overlay rather
-    /// than the HStack so widening the column does not also move it by its own width.
-    private var listResizer: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(width: 8)
-            .contentShape(Rectangle())
-            .onHover { $0 ? NSCursor.resizeLeftRight.set() : NSCursor.arrow.set() }
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { drag in
-                        let base = dragBase ?? listWidth
-                        dragBase = base
-                        listWidth = min(560, max(200, base + drag.translation.width))
-                    }
-                    .onEnded { _ in dragBase = nil }
-            )
+    /// The split view's state, read and written through the one thing that persists. Collapsing
+    /// by dragging the divider and collapsing with ⌘\ are then the same switch, and neither can
+    /// disagree with what comes back on the next launch.
+    private var columns: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { NavigationSplitViewVisibility(listHidden: listHidden) },
+            set: { listHidden = $0.listHidden })
     }
 
     /// A dot on the rail for the two things that are about the user rather than the work:
@@ -187,6 +184,18 @@ struct RootView: View {
     func persist() {
         openProjects = model.storedProjects
     }
+}
+
+extension NavigationSplitViewVisibility {
+    /// ⌘\ has two positions, and the window only ever has two columns, so the split view's
+    /// four-way state is stored as the one bit that survives a relaunch. `.doubleColumn` is
+    /// what SwiftUI hands back when the divider is dragged open, and means the same as `.all`
+    /// here: the list is showing.
+    init(listHidden: Bool) {
+        self = listHidden ? .detailOnly : .all
+    }
+
+    var listHidden: Bool { self == .detailOnly }
 }
 
 /// One project's "Action required" notices, in their own view so a poll that changes this

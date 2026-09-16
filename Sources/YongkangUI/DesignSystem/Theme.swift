@@ -92,10 +92,13 @@ package enum Theme {
 
     // MARK: - Metrics
 
+    // Two of these are still fixed widths the app draws; `listWidth` is now only the width the
+    // split view opens its sidebar at, and the user drags it from there. The top bar's height
+    // is gone with the bar: the window's title bar decides how tall it is.
+
     static let railWidth: CGFloat = 64
-    static let listWidth: CGFloat = 268
+    package static let listWidth: CGFloat = 268  // the width the split view opens the sidebar at
     static let inspectorWidth: CGFloat = 320
-    static let topBarHeight: CGFloat = 56
     static let actionBarHeight: CGFloat = 58
 }
 

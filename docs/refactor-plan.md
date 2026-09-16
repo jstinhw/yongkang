@@ -387,6 +387,7 @@ protocol AgentProvider: Sendable {
      *Recommendation: SF Pro and SF Mono,* for native feel, nothing to bundle, and the same look on every Mac.
   2. **Chrome:** keep the custom rail, top bar and inspector, or map them onto `NavigationSplitView` + native toolbar + `.inspector()`. Native brings the standard sidebar toggle, toolbar behaviour, full-screen and resize handling, and VoiceOver structure. Custom keeps the distinctive console identity.
      *Recommendation: native containers styled with the existing dark tokens,* which keeps the identity and gains the platform behaviour. D13 makes either option safe for running terminals.
+     **Decided and half-landed (5.2):** the list column is a `NavigationSplitView` sidebar and the top bar is the window's toolbar; the rail stays custom, outside the split view. `.inspector()` is held — on macOS 26 a native inspector is a window-server-composited glass container the shot renderer cannot photograph, so every screen with one would lose that pane from its shot. `docs/architecture.md`, "How the window is composed".
   3. **App icon:** there's no icon today. The Dock, Finder and ⌘-Tab all show a generic app. It needs a 1024 px master in the asset catalog (needs D5).
 - **Keep:** the "review outcomes before diffs" layout rule for Review surfaces (existing project rule).
 

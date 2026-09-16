@@ -85,6 +85,43 @@ whoever read the notebook:
   before assigning — the diffs in `ChangeReview` and `TaskReview`, and the tag list in
   `PromptField`.
 
+## How the window is composed
+
+One window, and three things side by side inside it (`RootView.chrome`):
+
+```
+HStack
+├── Rail                       64pt, fixed, outside the split view
+└── NavigationSplitView(columnVisibility:)
+    ├── sidebar: ProjectList   min 200 / ideal 268 / max 560, dragged by the user
+    └── detail:  screen(for:)  .navigationTitle + .navigationSubtitle + .toolbar
+```
+
+- **The rail stays outside.** A native sidebar cannot hold both the rail and the list without
+  reading as two sidebars, and the rail is the only navigation that never changes — it is what
+  makes the window recognisable. It is also drawn above the list column (`zIndex(1)`), because
+  its hover labels hang past its own width.
+- **The list column is the sidebar.** That is where drag-to-resize, the standard collapse
+  animation, full-screen behaviour and a VoiceOver structure that says "sidebar" come from.
+  `Theme.listWidth` is now only the width it opens at.
+- **The top bar is the window's toolbar.** `RootView+Toolbar.swift` builds it: the screen's
+  name is `.navigationTitle`, the project (or, in Review, the branch) is `.navigationSubtitle`,
+  and what the old bar drew on its right is one `ToolbarItemGroup`. The bar was 56pt; the
+  title bar is the system's ~52.
+- **One list toggle, not two.** The split view's automatic one is removed
+  (`.toolbar(removing: .sidebarToggle)`) and `RootView` adds its own in the same place, so ⌘\
+  has something to attach to. The rail's own toggle is gone with it. ⌘[ is on the rail's "YK"
+  button, where its `.help` always said it was.
+- **No width math.** Nothing adds `railWidth + listWidth` up to position a pane, the way the
+  pre-3.4 code did. Each pane is laid out by its container, and the terminal with it.
+- **The inspector is still hand-built** (`Inspector`, in `Rail.swift`), not `.inspector()`.
+  On macOS 26 a native inspector — and a native sidebar — is an
+  `NSContainerConcentricGlassEffectView` composited by the window server, which
+  `NSView.cacheDisplay` photographs as a white rectangle. The sidebar can live with that
+  (no shot draws a real one; `DesignShots.console` frames the list column itself), but every
+  screen with an inspector would lose that pane from its shot, and the shots are how this repo
+  checks a layout. See the `ponytail:` marker on `Inspector`.
+
 ## Terminal lifetime
 
 Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
@@ -96,7 +133,10 @@ Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
   project calls `terminate(_:)`. Typing into a session (`send(_:to:)`) and steering its CLI to a
   child agent (`showChild(_:in:)`) go through it too.
 - **`TerminalHost`**, an `NSViewRepresentable`, **re-parents** the registry's view into the work
-  area while that session's pane is on screen, and lets go of it when the pane goes.
+  area while that session's pane is on screen, and lets go of it when the pane goes. Since 5.2
+  the work area is the split view's detail column, which is a plain hosting view like the
+  `VStack` before it — the terminal is still pinned to its container's edges by constraints,
+  and collapsing the list is one more resize (verdict 3 below).
 
 A spike (PR 2.1) checked whether re-parenting is safe, before the registry was built.
 `Tests/YongkangUITests/TerminalReparentingTests.swift` runs real `/bin/sh` children inside

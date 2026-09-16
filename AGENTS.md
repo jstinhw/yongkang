@@ -20,6 +20,12 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
   that has to ask or tell the user set as `AppModel.alert` rather than run modally), `App/`
   (`YongkangApp`, `RootView`, the rail and the list column), `Terminal/`, `DesignSystem/`,
   and `Features/<screen>/`.
+- **The window is the rail, then a `NavigationSplitView`.** The 64pt icon rail is drawn
+  outside the split view; the list column is the sidebar, the screen is the detail, and what
+  used to be a hand-built 56pt bar above the screen is the window's own toolbar
+  (`RootView+Toolbar.swift`, with `.navigationTitle`/`.navigationSubtitle`). Nothing adds
+  column widths up any more — a pane's geometry is its container's.
+  [`docs/architecture.md`](docs/architecture.md#how-the-window-is-composed) says why.
 - **`App/`**: the thin Xcode shell that builds `Yongkang.app` (bundle ID `ai.yongkang.Yongkang`).
   `Yongkang/main.swift` only calls `YongkangMain.run()`; the rest is assets, entitlements and
   `Config/Signing.xcconfig`. Its sources are a synchronized folder, so adding a file never

@@ -67,15 +67,10 @@ enum DesignShots {
                     waiting: lead, approve: { _ in }, revise: {})
             }, "demo", into: directory)
 
-        // With the top bar the app actually draws there: a long task title, a pill and an
-        // action, which is where a title that will not yield pushes the buttons off.
+        // The same screen at the window's minimum width, where its two panes run out of room
+        // first. The demo's title and its pill are the window's title bar now, not the screen's.
         write(
-            console(
-                project, section: .board, crumbs: [project.name, "Board"],
-                title: project.blocks.first { $0.isDemo }!.title,
-                pill: AnyView(NotebookStyle.pill("demo · waiting on you", Theme.amber, live: true)),
-                action: "Open task"
-            ) {
+            console(project, section: .board) {
                 DesignDemo(
                     block: project.blocks.first { $0.isDemo }!, cards: project.cards,
                     waiting: lead, approve: { _ in }, revise: {})
@@ -280,14 +275,19 @@ enum DesignShots {
         return project
     }
 
-    /// The same four columns every screen is drawn inside, so a shot shows the real thing
-    /// rather than a pane floating on its own.
+    /// The rail and the list column beside the screen, so a shot shows the real thing rather
+    /// than a pane floating on its own. There is no bar above the screen any more: what used
+    /// to be drawn here is the window's title bar, which no offscreen window has.
+    ///
+    /// ponytail: the list column is framed at the width the split view opens its sidebar at,
+    /// rather than drawn through a real `NavigationSplitView`. A native sidebar on macOS 26 is
+    /// an `NSContainerConcentricGlassEffectView` the window server composites, and
+    /// `cacheDisplay` photographs it as a white rectangle — measured, not assumed. Draw the
+    /// real container here when an offscreen capture can see one.
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
         hovering: ConsoleSection? = nil,
-        crumbs: [String]? = nil, title: String? = nil,
-        pill: AnyView? = nil, action: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         HStack(spacing: 0) {
@@ -299,17 +299,10 @@ enum DesignShots {
             ProjectList(
                 section: section, project: project, selection: .constant(nil),
                 showDone: false, changes: changes, summary: summary, assign: { _ in },
-                closeSession: { _ in }, remove: { _ in })
-            VStack(spacing: 0) {
-                TopBar(
-                    crumbs: crumbs ?? [project.name], title: title ?? section.title,
-                    pill: pill
-                ) {
-                    Button("Completed") {}.buttonStyle(.consoleGhost)
-                    if let action { Button(action) {}.buttonStyle(.console) }
-                }
-                content()
-            }
+                closeSession: { _ in }, remove: { _ in }
+            )
+            .frame(width: Theme.listWidth)
+            content()
         }
     }
 

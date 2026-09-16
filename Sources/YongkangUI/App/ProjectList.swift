@@ -8,8 +8,6 @@ import YongkangCore
 package struct ProjectList: View {
     let section: ConsoleSection
     let project: Project
-    /// Dragged by the user from the divider on its trailing edge.
-    var width: CGFloat = Theme.listWidth
     @Binding var selection: Route?
     let showDone: Bool
     /// Only read when the Review section is showing; empty everywhere else.
@@ -28,7 +26,6 @@ package struct ProjectList: View {
     package init(
         section: ConsoleSection,
         project: Project,
-        width: CGFloat = Theme.listWidth,
         selection: Binding<Route?>,
         showDone: Bool,
         changes: [FileChange],
@@ -39,7 +36,6 @@ package struct ProjectList: View {
     ) {
         self.section = section
         self.project = project
-        self.width = width
         self._selection = selection
         self.showDone = showDone
         self.changes = changes
@@ -50,7 +46,7 @@ package struct ProjectList: View {
     }
 
     package var body: some View {
-        ListPane(width: width) {
+        ListPane {
             header
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -64,9 +60,10 @@ package struct ProjectList: View {
                 }
                 .padding(.bottom, 14)
             }
+            // The sidebar would otherwise paint the system's own scroll ground over the panel.
+            .scrollContentBackground(.hidden)
             footer
         }
-
     }
 
     // MARK: - Header and footer

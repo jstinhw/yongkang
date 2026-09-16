@@ -36,10 +36,7 @@ package struct Rail: View {
     /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
     let badges: [ConsoleSection: Color]
     let leave: () -> Void
-    /// Whether the list column beside the rail is currently collapsed, and the toggle for it.
     var agentCount = 0
-    var listHidden = false
-    var toggleList: () -> Void = {}
 
     /// The tab under the pointer, which is the one wearing its name.
     @State private var hovered: ConsoleSection?
@@ -48,15 +45,12 @@ package struct Rail: View {
     /// and would otherwise photograph a rail whose labels never appear.
     package init(
         section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
-        leave: @escaping () -> Void, agentCount: Int = 0, listHidden: Bool = false,
-        toggleList: @escaping () -> Void = {}, hovering: ConsoleSection? = nil
+        leave: @escaping () -> Void, agentCount: Int = 0, hovering: ConsoleSection? = nil
     ) {
         _section = section
         self.badges = badges
         self.leave = leave
         self.agentCount = agentCount
-        self.listHidden = listHidden
-        self.toggleList = toggleList
         _hovered = State(initialValue: hovering)
     }
 
@@ -73,6 +67,7 @@ package struct Rail: View {
                             .strokeBorder(Theme.markLine, lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .keyboardShortcut("[", modifiers: .command)
             .help("All projects (⌘[)")
             .padding(.bottom, 12)
 
@@ -90,16 +85,9 @@ package struct Rail: View {
                     if hovered == item { flyout(item) }
                 }
             }
+            // No list toggle down here any more: it lives in the window's toolbar, where the
+            // system puts a sidebar's switch, and it still answers to ⌘\.
             Spacer(minLength: 8)
-            Button(action: toggleList) {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(listHidden ? Theme.tx3 : Theme.tx)
-                    .frame(width: 40, height: 38)
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut("\\", modifiers: .command)
-            .help(listHidden ? "Show list (⌘\\)" : "Hide list (⌘\\)")
         }
         .frame(width: Theme.railWidth)
         .padding(.vertical, 16)
@@ -163,52 +151,6 @@ package struct Rail: View {
     }
 }
 
-/// The header strip above the work area: where you are on the left, what you can do here
-/// on the right.
-package struct TopBar<Trailing: View>: View {
-    let crumbs: [String]
-    let title: String
-    var pill: AnyView? = nil
-    @ViewBuilder var trailing: Trailing
-
-    package init(crumbs: [String], title: String, pill: AnyView? = nil, @ViewBuilder trailing: () -> Trailing) {
-        self.crumbs = crumbs
-        self.title = title
-        self.pill = pill
-        self.trailing = trailing()
-    }
-
-    package var body: some View {
-        // Where you are gives way before what you can do: a long task title truncates and
-        // the crumbs before it drop out entirely rather than pushing the actions off the
-        // right edge of a narrow window.
-        HStack(spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { path }
-                HStack(spacing: 10) { path.lineLimit(1).truncationMode(.tail) }
-                Text(title).font(Typography.headline).lineLimit(1).truncationMode(.tail)
-            }
-            if let pill { pill }
-            Spacer(minLength: 12)
-            trailing.layoutPriority(1)
-        }
-        .padding(.horizontal, 20)
-        .frame(height: Theme.topBarHeight)
-        .background(Theme.bg)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
-    }
-
-    @ViewBuilder private var path: some View {
-        ForEach(Array(crumbs.enumerated()), id: \.offset) { _, crumb in
-            Text(crumb).font(Typography.mono).foregroundStyle(Theme.tx3)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Theme.tx4)
-        }
-        Text(title).font(Typography.headline)
-    }
-}
-
 /// The bar along the bottom of a screen that has one thing to do: the file path on the
 /// left so you always know what you are looking at, the action on the right.
 struct ActionBar<Content: View>: View {
@@ -223,21 +165,29 @@ struct ActionBar<Content: View>: View {
     }
 }
 
-/// The column of whatever the current section is a list of. Its width is dragged by the
-/// user — file paths and entry titles are as long as the project makes them.
+/// The column of whatever the current section is a list of. It fills the split view's sidebar,
+/// which owns its width and draws the divider that resizes it — file paths and entry titles
+/// are as long as the project makes them, so the user drags it.
 struct ListPane<Content: View>: View {
-    var width: CGFloat = Theme.listWidth
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .frame(width: width)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The sidebar draws its own ground under this. The panel token goes over it, so
+            // the column reads as the console's rather than as the system's.
             .background(Theme.panel)
-            .overlay(alignment: .trailing) { Rectangle().fill(Theme.line).frame(width: 1) }
     }
 }
 
 /// The right-hand column: what you would otherwise have to go and find.
+///
+/// ponytail: still hand-built, while the list column beside it is now a native sidebar. 5.2
+/// moved the list and the top bar; `.inspector()` is held because on macOS 26 it renders into
+/// an `NSContainerConcentricGlassEffectView` that the window server composites, and the shot
+/// renderer photographs one as a white rectangle — every screen with an inspector would lose
+/// that pane from its shot, and with it the only way this repo checks a layout. Move it when
+/// the shots can see one, or when the screens are checked some other way.
 struct Inspector<Content: View>: View {
     var width: CGFloat = Theme.inspectorWidth
     @ViewBuilder var content: Content
