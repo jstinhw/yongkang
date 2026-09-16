@@ -6,8 +6,8 @@ done are in that file.
 ## Manual smoke script
 
 This walks the core loop by hand: open folder → intake → assign → subagent Check → block →
-approve. Run it after any change to navigation, sessions, blocks or review, and at the end
-of refactor Phases 2, 3 and 4. It uses real agents and spends real tokens.
+approve → relaunch. Run it after any change to navigation, sessions, blocks, review or the
+menu bar. It uses real agents and spends real tokens.
 
 Every label below comes from the code. Steps marked *agent behaviour* depend on what a
 model does with its skill, so the app can't guarantee them. Steps marked *unverified*
@@ -19,24 +19,33 @@ haven't been checked against a live CLI.
   while any Yongkang is running rather than quitting it, because that would end every agent
   session inside it. The app bundle is also the only build that carries the packaged role
   skills.
+- **Expect macOS to ask for folder access, and for permission to notify you.** The bundle ID is
+  `ai.yongkang.Yongkang`; a build signed ad-hoc gets a new signature each time, so macOS asks
+  again after every rebuild unless you have the signing identity below.
 - Have `claude` or `codex` on your PATH. Only those two have a subagent reader and a live
   child view. With Grok or Agy, step 8 has nothing to show.
 - Make an empty folder, for example `mkdir ~/Projects/yk-smoke`.
 
+**What the shots can't check for you.** `make shots` draws each screen into an offscreen
+window, which has no title bar — so the toolbar, the window title and subtitle, and the whole
+menu bar only ever exist in a running app. That is most of what steps 1, 2 and 16 below are
+for.
+
 ### Open a folder
 
-1. On the **Fleet** screen, click the **Open a folder you have** tile (⌘O) and choose the
-   empty folder.
+1. On the **Fleet** screen, click the **Open a folder you have** tile and choose the empty
+   folder. **File → Open Folder… (⌘O)** is the same door and is the one that carries the
+   shortcut — the tile has none of its own, so try both.
    - The panel's message reads "Agents run in this folder and its notebook lives in
      .notebook/."
    - The window enters the project. The rail shows Overview, Board, Agents, Review and
-     Blocks. The top bar is titled **Overview**, and the work area asks
-     **What is yk-smoke for?**
+     Blocks. The **window's title** reads **Overview** with **yk-smoke** under it, and the work
+     area asks **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
 
 ### Intake
 
-2. In the Overview top bar, pick **Claude Code** or **Codex** in the agent switch.
+2. In the window's toolbar, pick **Claude Code** or **Codex** in the agent switch.
 3. Type a small brief into the "This project is…" box, for example: "A single-file Python
    CLI that prints the weather for a city." Then press Return or click **Start session**.
    - A session titled **Notebook Setup** appears under **Agents online** in the list
@@ -47,13 +56,15 @@ haven't been checked against a live CLI.
 4. Answer the agent's questions until it has written `.notebook/`. *(Agent behaviour: the
    prompt tells it to ask a few multiple-choice questions, then write the notebook without
    asking for approval.)*
-   - Within about 2 s of the files landing, **Board** in the rail shows the project's
-     tasks, in chains.
+   - **Board** in the rail shows the project's tasks, in chains, about a third of a second
+     after the last file lands. The folder is watched with FSEvents, not polled, and the
+     watcher holds a burst back by 300 ms so twenty files an agent just wrote are one read.
    - The folder is now a git repository. Once a notebook exists, Yongkang runs `git init`,
      but nothing is staged or committed.
    - `.notebook/team/` is only written when you enter a project that already has a
-     notebook. Click **YK** at the top of the rail, then click the project's card. **Agents**
-     now lists five members under **Team**.
+     notebook. Leave and come back: click **YK** at the top of the rail, or **Go → All
+     Projects (⌘[)**, then click the project's card. **Agents** now lists five members under
+     **Team**.
 
 ### Assign
 
@@ -65,7 +76,7 @@ haven't been checked against a live CLI.
    `designer:` set), the button reads **Assign — design first** instead.
    - The window switches to **Agents** and opens the live terminal of a new
      **Engineering Lead** session. Its row reads "1 task · 0 running".
-   - The top bar has an **Agents | Session** switch. **Agents** opens the lead's
+   - The toolbar has an **Agents | Session** switch. **Agents** opens the lead's
      coordination dashboard.
    - Back on the board, the card has a **wip** pill and can't be picked again.
    - Two other ways in: the ↗ on a card opens the task page, which has its own
@@ -81,7 +92,7 @@ haven't been checked against a live CLI.
    - Open the task's page (↗ on its card). The inspector's **Working on it** section lists
      that specialist with a **Running** pill.
 8. Click that entry under **Working on it**, or the subagent's row in the Agents list.
-   - The window switches to **Agents**. The top bar title becomes the subagent's name, and a
+   - The window switches to **Agents**. The window's title becomes the subagent's name, and a
      **Parent session** button appears.
    - A notice over the lead's terminal reads "Opening child agent…". Yongkang types `/tasks`
      (Claude Code) or `/subagents` (Codex), moves down to the matching row and presses
@@ -116,7 +127,7 @@ haven't been checked against a live CLI.
     Keep the `status:` line: **Mark resolved** rewrites that exact line, and does nothing
     without it. Because there's no `session:` field, the block goes to the newest running
     Engineering Lead.
-    - Within about 2 s, the Blocks rail icon gets an amber dot.
+    - The Blocks rail icon gets an amber dot, on the same watch as step 4.
     - **Blocks** lists the block under **Waiting on you**, with "holds <task-id>" under its
       title.
     - Its page shows a **waiting on you** pill and "Engineering Lead is waiting — holds up
@@ -125,9 +136,10 @@ haven't been checked against a live CLI.
     - The bottom bar has **Mark resolved** and **Do it now**.
 11. Click **Mark resolved**.
     - The file's status line becomes `status: done`.
-    - On the next poll, the window switches to **Agents** on the lead and submits
-      `Unblocked: Smoke test gate. Continue from where you stopped.` to it.
-    - Turn on **Completed** in the Blocks top bar. The block is listed under **Resolved**.
+    - On the next read of the file, the window switches to **Agents** on the lead and
+      submits `Unblocked: Smoke test gate. Continue from where you stopped.` to it.
+    - Turn on **Completed** in the toolbar, or **View → Show Completed**. The block is
+      listed under **Resolved**.
     - **Do it now** would have started an **Unblock Smoke test gate** session with the
       `fde-dev` skill. *(Agent behaviour: that session explains the gate first, then walks
       through the block's `## Steps` one at a time.)*
@@ -164,6 +176,31 @@ haven't been checked against a live CLI.
     - Check the result: `git -C ~/Projects/yk-smoke log -1 --stat` lists only the task's
       files and its run records, and `git status` shows everything else still uncommitted.
       Nothing was pushed.
+
+### The menu bar, and coming back
+
+16. Walk the menus. Nothing here is on a button only, and an item the window cannot act on is
+    disabled rather than hidden — so the shape stays the same on every screen.
+    - **View → Overview…Blocks (⌘1–⌘5)** moves between sections from any screen. Try it with
+      a terminal focused too: that is the case a button-bound shortcut could never answer, and
+      the one this step exists for. *(Unverified: the registry's key monitor passes the event
+      on rather than swallowing it, and `MenuCommandTests` checks the items with no window, but
+      nothing has checked a menu shortcut against a focused SwiftTerm view.)*
+    - **View → Hide List (⌘\)** collapses the list column, and the toolbar's own button
+      agrees with it. The item's title flips to **Show List**.
+    - **Agent → Assign to Lead** is lit only while a task page is open for a task that is
+      neither done nor already with a lead. Open a done task: it greys out.
+    - **Go → All Projects (⌘[)** leaves the project. Every item below **Open Folder…** is now
+      disabled, and **File → New Project… (⌘N)** and **Open Folder… (⌘O)** still work.
+    - There is no **New Window**: the model and its terminals are app-wide, so a second
+      window would take the first one's terminals.
+17. With the project open on a task page, quit Yongkang (⌘Q) and run `make run` again.
+    - The window comes back on the same project, the same section and the same page.
+    - The sessions do not: those PTYs died with the app, and the Agents list is empty.
+    - The list column comes back collapsed if you left it collapsed. Its **width** does not —
+      it opens at its default every launch, which is a known gap (`docs/refactor-plan.md` §8).
+    - Delete the task's file while the app is closed, then relaunch: the window opens the
+      board rather than an empty page.
 
 **Clean up:** right-click each session row and choose **Close Session**. On the Fleet
 screen, right-click the project card and choose **Remove from Fleet**, then delete the
