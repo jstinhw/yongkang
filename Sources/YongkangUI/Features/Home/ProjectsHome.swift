@@ -12,11 +12,11 @@ package struct ProjectsHome: View {
     let create: () -> Void
     /// The other door: a folder that already exists.
     let add: () -> Void
+    /// Removing a project takes it off this screen and nothing else: the folder, its
+    /// notebook and anything an agent left there are untouched, and ⌘O opens it again.
+    /// That is why it asks nothing first. It lives only on the card's right-click menu — a
+    /// × on the card reads as a grid of things to undo.
     let close: (Project) -> Void
-
-    /// The card under the pointer, which is the only one that offers to be removed. A
-    /// permanent × on every card reads as a grid of things to undo.
-    @State private var hovered: Project.ID?
 
     package init(
         projects: [Project],
@@ -56,21 +56,6 @@ package struct ProjectsHome: View {
                                 card(project)
                             }
                             .buttonStyle(.plain)
-                            .overlay(alignment: .topTrailing) {
-                                // Centred on the progress ring, and never overhanging
-                                // the card: a badge outside the frame is outside what
-                                // the pointer is tracked over, so half of it would
-                                // draw but not click.
-                                if hovered == project.id {
-                                    removeTile(project).padding(20)
-                                }
-                            }
-                            .onHover { inside in
-                                hovered =
-                                    inside
-                                    ? project.id
-                                    : (hovered == project.id ? nil : hovered)
-                            }
                             .contextMenu {
                                 Button("Reveal in Finder") {
                                     NSWorkspace.shared.activateFileViewerSelecting([project.directory])
@@ -178,8 +163,7 @@ package struct ProjectsHome: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 16)
         .contentShape(RoundedRectangle(cornerRadius: 12))
-        // One thing, not eight: a name, a path, a ring, four role tiles and two counts. The
-        // remove × is an overlay on the button outside this, so it keeps its own element.
+        // One thing, not eight: a name, a path, a ring, four role tiles and two counts.
         .accessibilityElement(children: .combine)
     }
 
@@ -214,25 +198,6 @@ package struct ProjectsHome: View {
                     .strokeBorder(Theme.controlLine, style: StrokeStyle(lineWidth: 1, dash: [4])))
         }
         .buttonStyle(.plain)
-    }
-
-    /// Removing a project takes it off this screen and nothing else: the folder, its
-    /// notebook and anything an agent left there are untouched, and ⌘O opens it again.
-    /// That is why it asks nothing first — there is nothing to lose by pressing it.
-    private func removeTile(_ project: Project) -> some View {
-        Button {
-            close(project)
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(Theme.tx2)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(Theme.card))
-                .overlay(Circle().strokeBorder(Theme.line2, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .help("Remove \(project.name) from Fleet — the folder stays on disk")
-        .accessibilityLabel("Remove \(project.name) from Fleet")
     }
 
     private func summary(_ project: Project) -> String {

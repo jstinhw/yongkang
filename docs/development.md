@@ -62,9 +62,8 @@ for.
    - The folder is now a git repository. Once a notebook exists, Yongkang runs `git init`,
      but nothing is staged or committed.
    - `.notebook/team/` is only written when you enter a project that already has a
-     notebook. Leave and come back: click **YK** at the top of the rail, or **Go → All
-     Projects (⌘[)**, then click the project's card. **Agents** now lists five members under
-     **Team**.
+     notebook. Leave and come back: **Go → All Projects (⌘[)**, then click the project's
+     card. **Agents** now lists five members under **Team**.
 
 ### Assign
 

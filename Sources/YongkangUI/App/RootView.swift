@@ -14,11 +14,10 @@ struct RootView: View {
     /// Whether the list column is collapsed. It persists: a window you have collapsed once
     /// should come back that way.
     ///
-    /// Its *width* does not, and `@SceneStorage` offers no way to make it: SwiftUI takes
-    /// `min`/`ideal`/`max` for a column and hands back no binding for the width the user
-    /// dragged it to, so there is nothing to store. `Theme.listWidth` is the width it opens
-    /// at, every launch. Reaching into the underlying `NSSplitView` to read the divider would
-    /// be inventing a mechanism, not using one; revisit if SwiftUI ever exposes the width.
+    /// Its *width* does not: `HSplitView` hands back no binding for the width the user dragged
+    /// it to, so there is nothing to store. `Theme.listWidth` is the width it opens at, every
+    /// launch. Reaching into the underlying `NSSplitView` to read the divider would be
+    /// inventing a mechanism, not using one.
     @AppStorage("listHidden") var listHidden = false
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
@@ -110,34 +109,38 @@ struct RootView: View {
             )
         } else if let project = model.entered {
             HStack(spacing: 0) {
-                // The rail stays outside the split view. A native sidebar cannot hold both it
-                // and the list without reading as two sidebars, and the rail is the one piece
-                // of navigation that never changes. It is also drawn above the list column,
-                // because its hover labels hang past its own width.
+                // The rail stays outside the split view: it is the one piece of navigation that
+                // never changes. It is also drawn above the list column, because its hover
+                // labels hang past its own width.
                 Rail(
-                    section: $model.section, badges: badges(for: project), leave: { model.leave() },
+                    section: $model.section, badges: badges(for: project),
                     agentCount: project.value.onlineAgentCount
                 )
                 .zIndex(1)
-                NavigationSplitView(columnVisibility: columns) {
-                    ProjectList(
-                        section: model.section, project: project.value,
-                        selection: $model.selection,
-                        showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
-                        assign: { model.assign($0, in: project, agent: agent) },
-                        closeSession: { model.close($0, in: project) },
-                        remove: { model.remove($0, in: project) }
-                    )
-                    // The three numbers the hand-rolled resizer used to clamp to, handed to
-                    // the split view instead. Nothing adds them up any more: the panes'
-                    // geometry is the containers' own.
-                    .navigationSplitViewColumnWidth(min: 200, ideal: Theme.listWidth, max: 560)
-                    // One toggle, not two: ours carries ⌘\ and sits where the system's did.
-                    .toolbar(removing: .sidebarToggle)
-                } detail: {
+                // `HSplitView`, not `NavigationSplitView`: on macOS 26 a native sidebar floats as
+                // an inset glass panel, 8pt clear of the rail, the top and the bottom, with a
+                // shadow over the screen, and no style turns that off. A plain `NSSplitView`
+                // keeps the draggable divider and puts the three panes edge to edge.
+                HSplitView {
+                    if !listHidden {
+                        ProjectList(
+                            section: model.section, project: project.value,
+                            selection: $model.selection,
+                            showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
+                            assign: { model.assign($0, in: project, agent: agent) },
+                            closeSession: { model.close($0, in: project) },
+                            remove: { model.remove($0, in: project) }
+                        )
+                        // ponytail: min is the opening width, not 200. `HSplitView` ignores an
+                        // ideal width and opens the column at its min, so the list widens from
+                        // where it opens but never narrows. Set the `NSSplitView`'s divider
+                        // position if a narrower list matters.
+                        .frame(minWidth: Theme.listWidth, maxWidth: 560)
+                    }
                     screen(for: project)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Theme.bg)
+                        .layoutPriority(1)
                         .navigationTitle(title(for: project))
                         .navigationSubtitle(subtitle(for: project))
                         .toolbar { toolbar(for: project) }
@@ -162,15 +165,6 @@ struct RootView: View {
                 )
             }
         }
-    }
-
-    /// The split view's state, read and written through the one thing that persists. Collapsing
-    /// by dragging the divider and collapsing with ⌘\ are then the same switch, and neither can
-    /// disagree with what comes back on the next launch.
-    private var columns: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { NavigationSplitViewVisibility(listHidden: listHidden) },
-            set: { listHidden = $0.listHidden })
     }
 
     /// A dot on the rail for the two things that are about the user rather than the work:
@@ -206,18 +200,6 @@ struct RootView: View {
     func persist() {
         openProjects = model.storedProjects
     }
-}
-
-extension NavigationSplitViewVisibility {
-    /// ⌘\ has two positions, and the window only ever has two columns, so the split view's
-    /// four-way state is stored as the one bit that survives a relaunch. `.doubleColumn` is
-    /// what SwiftUI hands back when the divider is dragged open, and means the same as `.all`
-    /// here: the list is showing.
-    init(listHidden: Bool) {
-        self = listHidden ? .detailOnly : .all
-    }
-
-    var listHidden: Bool { self == .detailOnly }
 }
 
 /// One project's "Action required" notices, in their own view so a poll that changes this

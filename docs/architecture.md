@@ -94,34 +94,35 @@ One window, and three things side by side inside it (`RootView.chrome`):
 ```
 HStack
 ├── Rail                       64pt, fixed, outside the split view
-└── NavigationSplitView(columnVisibility:)
-    ├── sidebar: ProjectList   min 200 / ideal 268 / max 560, dragged by the user
-    └── detail:  screen(for:)  .navigationTitle + .navigationSubtitle + .toolbar
+└── HSplitView
+    ├── ProjectList            min 268 / max 560, dragged by the user; absent while listHidden
+    └── screen(for:)           .navigationTitle + .navigationSubtitle + .toolbar
 ```
 
-- **The rail stays outside.** A native sidebar cannot hold both the rail and the list without
-  reading as two sidebars, and the rail is the only navigation that never changes — it is what
+- **The rail stays outside.** The rail is the only navigation that never changes — it is what
   makes the window recognisable. It is also drawn above the list column (`zIndex(1)`), because
   its hover labels hang past its own width.
-- **The list column is the sidebar.** That is where drag-to-resize, the standard collapse
-  animation, full-screen behaviour and a VoiceOver structure that says "sidebar" come from.
-  `Theme.listWidth` is now only the width it opens at.
+- **The list column is a plain split pane, not a native sidebar.** On macOS 26 a
+  `NavigationSplitView` sidebar floats as an inset glass panel — 8pt clear of the rail, the top
+  and the bottom, with a shadow over the screen — and no split view style turns that off, so
+  the window read as having a gap beside the list. `HSplitView` keeps the real divider and puts
+  the panes edge to edge. What went with the native sidebar: the collapse animation, dragging
+  the divider shut, and a VoiceOver structure that says "sidebar". `HSplitView` also ignores an
+  ideal width, so `Theme.listWidth` is both the width it opens at and its minimum.
 - **The top bar is the window's toolbar.** `RootView+Toolbar.swift` builds it: the screen's
   name is `.navigationTitle`, the project (or, in Review, the branch) is `.navigationSubtitle`,
   and what the old bar drew on its right is one `ToolbarItemGroup`. The bar was 56pt; the
   title bar is the system's ~52.
-- **One list toggle, not two.** The split view's automatic one is removed
-  (`.toolbar(removing: .sidebarToggle)`) and `RootView` adds its own in the same place, so the
+- **One list toggle.** `RootView` puts its own in the toolbar's navigation slot, so the
   toggle is ours to label and to disable. The rail's own toggle is gone with it. Both ⌘\ and
   ⌘[ live on their menu items (below), not on these buttons — the buttons keep the `.help` that
   names the shortcut.
 - **No width math.** Nothing adds `railWidth + listWidth` up to position a pane, the way the
   pre-3.4 code did. Each pane is laid out by its container, and the terminal with it.
 - **The inspector is still hand-built** (`Inspector`, in `Rail.swift`), not `.inspector()`.
-  On macOS 26 a native inspector — and a native sidebar — is an
+  On macOS 26 a native inspector is an
   `NSContainerConcentricGlassEffectView` composited by the window server, which
-  `NSView.cacheDisplay` photographs as a white rectangle. The sidebar can live with that
-  (no shot draws a real one; `DesignShots.console` frames the list column itself), but every
+  `NSView.cacheDisplay` photographs as a white rectangle. Every
   screen with an inspector would lose that pane from its shot, and the shots are how this repo
   checks a layout. See the `ponytail:` marker on `Inspector`.
   **Decided in 5.2, not deferred by accident:** keep the pane hand-built while it is the only
@@ -153,8 +154,8 @@ Full Keyboard Access and VoiceOver read an app through.
 - **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it
   carries stays readable and the menu keeps the same shape on every screen.
 - **One binding per shortcut.** ⌘\ came off the toolbar's list toggle and ⌘[ off the rail's
-  "YK" button when those items landed; both buttons keep their `.help`, which still names the
-  shortcut. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
+  "YK" button when those items landed. The toggle keeps its `.help`, which still names the
+  shortcut; the YK button is gone, so Go → All Projects is the only way back. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
 - **Assign to Lead is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
   job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a lead —
@@ -211,7 +212,7 @@ Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
   child agent (`showChild(_:in:)`) go through it too.
 - **`TerminalHost`**, an `NSViewRepresentable`, **re-parents** the registry's view into the work
   area while that session's pane is on screen, and lets go of it when the pane goes. Since 5.2
-  the work area is the split view's detail column, which is a plain hosting view like the
+  the work area is the split view's second pane, which is a plain hosting view like the
   `VStack` before it — the terminal is still pinned to its container's edges by constraints,
   and collapsing the list is one more resize (verdict 3 below).
 

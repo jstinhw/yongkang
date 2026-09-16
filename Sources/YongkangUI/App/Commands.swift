@@ -79,7 +79,7 @@ struct YongkangCommands: Commands {
     // MARK: - Go
 
     @ViewBuilder private var go: some View {
-        // ⌘[ was on the rail's "YK" button, where its `.help` has always said it was.
+        // The only way back to every project since the rail's "YK" button went.
         Button("All Projects") { model.leave() }
             .keyboardShortcut("[")
             .disabled(project == nil)

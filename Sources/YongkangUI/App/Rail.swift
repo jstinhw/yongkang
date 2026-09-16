@@ -30,12 +30,12 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
 }
 
 /// The 64pt icon rail. It is the only navigation that never changes, which is what makes
-/// the rest of the window safe to rearrange per section.
+/// the rest of the window safe to rearrange per section. It holds sections only: the way back
+/// to every project is Go → All Projects (⌘[), not a mark at its top.
 package struct Rail: View {
     @Binding var section: ConsoleSection
     /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
     let badges: [ConsoleSection: Color]
-    let leave: () -> Void
     var agentCount = 0
 
     /// The tab under the pointer, which is the one wearing its name.
@@ -45,37 +45,16 @@ package struct Rail: View {
     /// and would otherwise photograph a rail whose labels never appear.
     package init(
         section: Binding<ConsoleSection>, badges: [ConsoleSection: Color],
-        leave: @escaping () -> Void, agentCount: Int = 0, hovering: ConsoleSection? = nil
+        agentCount: Int = 0, hovering: ConsoleSection? = nil
     ) {
         _section = section
         self.badges = badges
-        self.leave = leave
         self.agentCount = agentCount
         _hovered = State(initialValue: hovering)
     }
 
     package var body: some View {
         VStack(spacing: 4) {
-            Button(action: leave) {
-                Text("YK")
-                    .font(Typography.code(.semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 32, height: 32)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9)
-                            .strokeBorder(Theme.markLine, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            // ⌘[ is Go → All Projects, not this button: a shortcut on a button only answers
-            // while that button is drawn, and a menu item is also what VoiceOver and Full
-            // Keyboard Access find it by.
-            .help("All projects (⌘[)")
-            // The mark is the app's, not a word, so it says what it does for a reader that
-            // cannot see it.
-            .accessibilityLabel("All projects")
-            .padding(.bottom, 12)
-
             ForEach(ConsoleSection.allCases) { item in
                 Button {
                     section = item
@@ -170,29 +149,27 @@ struct ActionBar<Content: View>: View {
     }
 }
 
-/// The column of whatever the current section is a list of. It fills the split view's sidebar,
-/// which owns its width and draws the divider that resizes it — file paths and entry titles
-/// are as long as the project makes them, so the user drags it.
+/// The column of whatever the current section is a list of. It fills the split view's first
+/// pane, which owns its width and draws the divider that resizes it — file paths and entry
+/// titles are as long as the project makes them, so the user drags it.
 struct ListPane<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(spacing: 0) { content }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The sidebar draws its own ground under this. The panel token goes over it, so
-            // the column reads as the console's rather than as the system's.
             .background(Theme.panel)
     }
 }
 
 /// The right-hand column: what you would otherwise have to go and find.
 ///
-/// ponytail: still hand-built, while the list column beside it is now a native sidebar. 5.2
-/// moved the list and the top bar; `.inspector()` is held because on macOS 26 it renders into
-/// an `NSContainerConcentricGlassEffectView` that the window server composites, and the shot
-/// renderer photographs one as a white rectangle — every screen with an inspector would lose
-/// that pane from its shot, and with it the only way this repo checks a layout. Move it when
-/// the shots can see one, or when the screens are checked some other way.
+/// ponytail: still hand-built. 5.2 moved the top bar to the window's toolbar; `.inspector()` is
+/// held because on macOS 26 it renders into an `NSContainerConcentricGlassEffectView` that the
+/// window server composites, and the shot renderer photographs one as a white rectangle —
+/// every screen with an inspector would lose that pane from its shot, and with it the only way
+/// this repo checks a layout. Move it when the shots can see one, or when the screens are
+/// checked some other way.
 struct Inspector<Content: View>: View {
     var width: CGFloat = Theme.inspectorWidth
     @ViewBuilder var content: Content

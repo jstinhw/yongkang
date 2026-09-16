@@ -279,11 +279,8 @@ enum DesignShots {
     /// than a pane floating on its own. There is no bar above the screen any more: what used
     /// to be drawn here is the window's title bar, which no offscreen window has.
     ///
-    /// ponytail: the list column is framed at the width the split view opens its sidebar at,
-    /// rather than drawn through a real `NavigationSplitView`. A native sidebar on macOS 26 is
-    /// an `NSContainerConcentricGlassEffectView` the window server composites, and
-    /// `cacheDisplay` photographs it as a white rectangle — measured, not assumed. Draw the
-    /// real container here when an offscreen capture can see one.
+    /// The list column is framed at the width the split view opens it at, rather than drawn
+    /// through the real `HSplitView`, whose divider a shot has no reason to show.
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
@@ -292,7 +289,7 @@ enum DesignShots {
     ) -> some View {
         HStack(spacing: 0) {
             Rail(
-                section: .constant(section), badges: [.blocks: Theme.amber], leave: {},
+                section: .constant(section), badges: [.blocks: Theme.amber],
                 agentCount: project.onlineAgentCount, hovering: hovering
             )
             .zIndex(1)

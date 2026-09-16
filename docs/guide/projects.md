@@ -6,7 +6,8 @@ Nothing starts until you pick a folder — that keeps macOS from prompting for i
 Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
 A project is a folder. The app opens on the all-projects screen; click a card to enter one,
-and the `YK` mark at the top of the rail — or `Go ▸ All Projects` (⌘[) — to leave. Agents keep
+and `Go ▸ All Projects` (⌘[) to leave. Right-click a card to reveal its folder or remove it
+from the screen; the folder stays on disk. Agents keep
 running while you are away: terminals are hidden, never torn down.
 
 Two tiles sit at the end of the grid, one per door, and the `File` menu opens either from

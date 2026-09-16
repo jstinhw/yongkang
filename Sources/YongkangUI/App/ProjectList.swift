@@ -60,8 +60,6 @@ package struct ProjectList: View {
                 }
                 .padding(.bottom, 14)
             }
-            // The sidebar would otherwise paint the system's own scroll ground over the panel.
-            .scrollContentBackground(.hidden)
             footer
         }
     }
@@ -69,23 +67,13 @@ package struct ProjectList: View {
     // MARK: - Header and footer
 
     private var header: some View {
-        HStack(spacing: 9) {
-            Text("yk")
-                .font(Typography.mono(.semibold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(0.12)))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Theme.accent.opacity(0.28), lineWidth: 1))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx)
-                Text(project.directory.path)
-                    .font(Typography.mono).foregroundStyle(Theme.tx3)
-                    .lineLimit(1).truncationMode(.head)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 1) {
+            Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx)
+            Text(project.directory.path)
+                .font(Typography.mono).foregroundStyle(Theme.tx3)
+                .lineLimit(1).truncationMode(.head)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
