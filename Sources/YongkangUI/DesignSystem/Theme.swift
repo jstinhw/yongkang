@@ -79,6 +79,15 @@ package enum Theme {
     static let red = Color(hex: 0xFF6F6F)  // failed — QA sent it back
     static let violet = Color(hex: 0xA98CFF)  // wip — a lead already holds it
 
+    // MARK: - App icon
+    //
+    // The icon's own ground, lit from the top-left. It is the one surface read at 16 px on
+    // someone else's Dock rather than inside a window, so it needs a gradient the flat
+    // `bg` above cannot give it. Nothing else draws with these.
+
+    static let iconLit = Color(hex: 0x18202E)  // the tile's top-left corner
+    static let iconShade = Color(hex: 0x0C1014)  // its bottom-right
+
     // MARK: - Metrics
 
     static let railWidth: CGFloat = 64
