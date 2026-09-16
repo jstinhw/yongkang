@@ -89,7 +89,7 @@ how to scrub a capture.
    the real reader. A captured trust screen gets a case in `AttentionPromptTests`.
 4. **Outside the folder, only if it applies:**
    - A plan-limits reader like `AgentUsage.claudeQuota`, added to the list in `UsageBoard.load()`.
-   - `providerPicker` in `YongkangUI/App/RootView+TopBar.swift` is a fixed width: widen it for
+   - `providerPicker` in `YongkangUI/App/RootView+Toolbar.swift` is a fixed width: widen it for
      the extra segment.
    - `README.md` and `docs/guide/` list the supported CLIs.
 5. **Check it.** `make check`, render shots before and after (the agent switch changes), and run
