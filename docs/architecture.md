@@ -109,9 +109,10 @@ HStack
   and what the old bar drew on its right is one `ToolbarItemGroup`. The bar was 56pt; the
   title bar is the system's ~52.
 - **One list toggle, not two.** The split view's automatic one is removed
-  (`.toolbar(removing: .sidebarToggle)`) and `RootView` adds its own in the same place, so ⌘\
-  has something to attach to. The rail's own toggle is gone with it. ⌘[ is on the rail's "YK"
-  button, where its `.help` always said it was.
+  (`.toolbar(removing: .sidebarToggle)`) and `RootView` adds its own in the same place, so the
+  toggle is ours to label and to disable. The rail's own toggle is gone with it. Both ⌘\ and
+  ⌘[ live on their menu items (below), not on these buttons — the buttons keep the `.help` that
+  names the shortcut.
 - **No width math.** Nothing adds `railWidth + listWidth` up to position a pane, the way the
   pre-3.4 code did. Each pane is laid out by its container, and the terminal with it.
 - **The inspector is still hand-built** (`Inspector`, in `Rail.swift`), not `.inspector()`.
