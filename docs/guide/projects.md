@@ -5,8 +5,10 @@
 Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud
 Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
-A project is a folder. The app opens on the all-projects screen; click a card to enter one,
-and `Go ▸ All Projects` (⌘[) to leave. Right-click a card to reveal its folder or remove it
+A project is a folder. The app opens on the all-projects screen; click a card to enter one.
+Inside a project, its name at the top of the list is a menu: pick another open project to
+switch to it, or `All Projects` to leave — as does `Go ▸ All Projects` (⌘[), which also works
+while the list is hidden. A project with something waiting on you says so in that menu. Right-click a card to reveal its folder or remove it
 from the screen; the folder stays on disk. Agents keep
 running while you are away: terminals are hidden, never torn down.
 

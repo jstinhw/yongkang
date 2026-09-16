@@ -19,6 +19,10 @@ package struct ProjectList: View {
     let closeSession: (CodeSession) -> Void
     /// Sends a notebook entry to the Trash — the only way work leaves the board.
     let remove: (NotebookCard) -> Void
+    /// Every open project, for the switcher in the header, and the two ways out of this one.
+    let projects: [Project]
+    let open: (Project) -> Void
+    let leave: () -> Void
 
     /// Agent trees start open; this only remembers the roots the user collapsed.
     @State private var collapsed: Set<UUID> = []
@@ -32,7 +36,10 @@ package struct ProjectList: View {
         summary: ChangeSummary,
         assign: @escaping ([NotebookCard]) -> Void,
         closeSession: @escaping (CodeSession) -> Void,
-        remove: @escaping (NotebookCard) -> Void
+        remove: @escaping (NotebookCard) -> Void,
+        projects: [Project],
+        open: @escaping (Project) -> Void,
+        leave: @escaping () -> Void
     ) {
         self.section = section
         self.project = project
@@ -43,6 +50,9 @@ package struct ProjectList: View {
         self.assign = assign
         self.closeSession = closeSession
         self.remove = remove
+        self.projects = projects
+        self.open = open
+        self.leave = leave
     }
 
     package var body: some View {
@@ -66,17 +76,56 @@ package struct ProjectList: View {
 
     // MARK: - Header and footer
 
+    /// The project's name is the switcher: it is where you already look to see which project
+    /// you are in. It goes with the list when ⌘\ hides it, and Go → All Projects (⌘[) is still
+    /// there then. ⌘[ is not repeated on the item below — one binding per shortcut.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx)
-            Text(project.directory.path)
-                .font(Typography.mono).foregroundStyle(Theme.tx3)
-                .lineLimit(1).truncationMode(.head)
+        Menu {
+            Section("Open Projects") {
+                ForEach(projects) { other in
+                    // A Toggle is what draws the check. Choosing the project you are already
+                    // in does nothing: entering it again would drop you back on Overview.
+                    Toggle(
+                        switcherTitle(other),
+                        isOn: Binding(
+                            get: { other.id == project.id },
+                            set: { _ in if other.id != project.id { open(other) } }))
+                }
+            }
+            Divider()
+            Button("All Projects", action: leave)
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx)
+                    Text(project.directory.path)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
+                        .lineLimit(1).truncationMode(.head)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.tx3)
+            }
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // `.button` + `.plain` keeps this label as drawn; `.borderlessButton` flattens it to
+        // one line of text.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .help("Switch project")
+        .accessibilityLabel("Project \(project.name). Switch project")
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
+    }
+
+    /// A menu item cannot carry the amber dot the Fleet cards do, so what is waiting on you
+    /// is said in words.
+    private func switcherTitle(_ other: Project) -> String {
+        let waiting = other.blocks.filter(\.waiting).count
+        return waiting == 0 ? other.name : "\(other.name) — \(waiting) waiting on you"
     }
 
     @ViewBuilder private var footer: some View {

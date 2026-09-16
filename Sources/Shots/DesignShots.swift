@@ -296,7 +296,8 @@ enum DesignShots {
             ProjectList(
                 section: section, project: project, selection: .constant(nil),
                 showDone: false, changes: changes, summary: summary, assign: { _ in },
-                closeSession: { _ in }, remove: { _ in }
+                closeSession: { _ in }, remove: { _ in }, projects: [project], open: { _ in },
+                leave: {}
             )
             .frame(width: Theme.listWidth)
             content()

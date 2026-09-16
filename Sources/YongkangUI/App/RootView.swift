@@ -129,7 +129,10 @@ struct RootView: View {
                             showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
                             assign: { model.assign($0, in: project, agent: agent) },
                             closeSession: { model.close($0, in: project) },
-                            remove: { model.remove($0, in: project) }
+                            remove: { model.remove($0, in: project) },
+                            projects: model.projects.map(\.value),
+                            open: { if let other = model.project($0.id) { model.enter(other) } },
+                            leave: { model.leave() }
                         )
                         // ponytail: min is the opening width, not 200. `HSplitView` ignores an
                         // ideal width and opens the column at its min, so the list widens from
