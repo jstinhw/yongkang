@@ -9,9 +9,29 @@ transcript on screen, and git. It answers with values. **`ProjectModel` is the o
 publishes them**, and only when they differ from what it already holds — an unchanged notebook
 leaves every screen that reads it alone.
 
-- **The poll** is a 2 s timer calling `AppModel.reload()`, which starts the reads and returns.
-  `reloadNow()` is the same poll awaited, for the tests and for the one caller that needs the
-  card it just wrote (`AppModel.add`). FSEvents is PR 4.5.
+- **When it reads.** Each project watches its own folders with FSEvents (`FSEventWatcher`, in
+  `Watching/`) and reads when one of them is written — about 300 ms after the first write of a
+  burst, so the twenty files an agent just wrote are one read. `AppModel.reload()` starts the
+  reads and returns; `reloadNow()` is the same read awaited, for the tests and for the one
+  caller that needs the card it just wrote (`AppModel.add`).
+- **The safety poll** behind the watchers is 30 s (`AppModel.start(polling:)`). FSEvents drops
+  events on network volumes and across sleep, and a board that had quietly stopped updating
+  would be a miserable bug to reproduce. It is also what covers a folder that did not exist
+  when the watch was set up.
+- **What is watched**, per project: its own tree, which holds `.notebook/` and everything git
+  diffs, less `.git/objects` — rewritten by every git command an agent runs, and never a change
+  to what `git status` says; and each live session's transcript folder, which its CLI keeps
+  under its own home rather than in the project. `ProjectReader.watch(of:)` finds them, on each
+  read and when a session is added, and the watcher leaves its stream alone when they come back
+  unchanged.
+- **Teardown is explicit**: `ProjectModel.stopWatching()` when the project is closed,
+  `AppModel.stop()` when the app quits. A `@MainActor` owner's `deinit` is nonisolated, and
+  `isolated deinit` needs macOS 15 while the app targets 14, so nothing else could do it.
+- **git** is asked only while a project is entered, and at most every 6 s: an agent writing a
+  file a second must not mean a repo-wide diff a second.
+- **The usage screen has no beat of its own.** `ProjectReader.watch(of:)` hands back the sizes of
+  the files it reads along with the folders to watch, `ProjectModel` publishes that fingerprint
+  only when it differs, and `UsageBoard` reloads on it.
 - **In flight.** `ProjectModel` keeps one notebook read and one session read at a time. A poll
   landing on top of a notebook read joins it; one landing on top of a session read starts
   nothing. Neither can pile up behind a slow disk.
@@ -26,6 +46,26 @@ leaves every screen that reads it alone.
 `Tests/YongkangUITests/ProjectModelTests.swift` checks the claim rather than asserting it from
 the code's shape: `aReloadDoesItsReadingOffTheMainActor` reads a 401-page notebook to completion
 while the test, itself a main-actor job, spins without once giving the main actor up.
+`FSEventWatcherTests` covers the watcher itself — a burst of forty writes is a handful of
+wake-ups, `stop()` ends the stream and releases the box the C callback reads through, and a
+folder that is missing or deleted while watched is not a crash. `ProjectWatchTests` covers the
+two halves together: a page written into a notebook reaches the board with nothing on a clock,
+and the safety beat still reads when the watch is taken away.
+
+## Diagnostics
+
+`Log` (`Sources/YongkangCore/Diagnostics/`) is `os.Logger` under the subsystem
+`ai.yongkang.Yongkang`, with the four categories D14 names: `notebook`, `git`, `terminal`,
+`providers`. `log show --predicate 'subsystem == "ai.yongkang.Yongkang"'` reads it back. The
+readers that used to swallow a failure with a bare `try?` go through `Log.contents(of:)` or
+their own `catch`, so a parser that stopped matching a new CLI version says so instead of
+drawing an empty pane.
+
+**Only paths, counts, exit statuses and error descriptions are ever logged.** Never a file's
+contents, a prompt body, a transcript line, git's own output or a process's command line, and
+nothing leaves the Mac. Log the unexpected, too: a file a CLI has not written yet, `git status`
+exiting 128 in a folder nobody has made a repo, and a read the window cancelled are the normal
+case on every read and say nothing.
 
 ## Nothing is read while a screen draws
 

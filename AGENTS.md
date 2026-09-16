@@ -12,7 +12,8 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
 
 - **`Sources/YongkangCore/`**: the logic, Foundation only. `Notebook/`, `Project/`,
   `Providers/` (the `AgentProvider` protocol, and one folder per CLI: `ClaudeCode/`, `Codex/`,
-  `Grok/`, `Agy/`), `Git/`, `Review/`, `Services/`, `Skills/`, `Shell/`, `Prompts/`, `Usage/`.
+  `Grok/`, `Agy/`), `Git/`, `Review/`, `Services/`, `Skills/`, `Shell/`, `Prompts/`, `Usage/`,
+  `Watching/` (the FSEvents watcher and the per-project reader), `Diagnostics/` (`Log`).
 - **`Sources/YongkangUI/`**: SwiftUI, AppKit and SwiftTerm. `Model/` (`AppModel` and one
   `ProjectModel` per open project, the `@Observable` state every screen reads, with the
   workflows in `ProjectModel+<concern>.swift` returning where the window goes, and anything

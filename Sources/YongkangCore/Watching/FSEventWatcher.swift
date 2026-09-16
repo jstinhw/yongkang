@@ -113,6 +113,10 @@ package final class FSEventWatcher {
     /// Explicit, and called by the owner when the project is closed or the app quits, rather
     /// than `deinit`: a `@MainActor` owner's `deinit` is nonisolated and could not touch any of
     /// this, and `isolated deinit` needs macOS 15 while the app targets 14.
+    ///
+    /// One way. `changes` is finished for good, so `watch(_:)` after this would run a stream
+    /// nobody can hear. A folder that is opened again gets a new `ProjectModel` and a new
+    /// watcher with it, which is the only way back.
     package func stop() {
         watched = []
         queue.sync { teardown() }
