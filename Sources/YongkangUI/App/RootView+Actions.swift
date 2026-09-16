@@ -66,7 +66,7 @@ extension RootView {
     /// that named it goes straight to the session that writes its notebook — the intake
     /// screen has nothing left to ask.
     func createProject(at directory: URL, prompt: String) {
-        creatingProject = false
+        model.creatingProject = false
         if let existing = model.project(at: directory) {
             model.enter(existing)
             return

@@ -183,14 +183,15 @@ package struct ProjectsHome: View {
     /// The two ways to add one, sitting where a card would rather than in the toolbar:
     /// a folder that does not exist yet is described and built, one that does is opened
     /// as it stands. Picking which comes first, and only then is there a prompt to fill.
+    /// Neither tile carries its shortcut any more: ⌘N is File → New Project and ⌘O is
+    /// File → Open Folder, which answer from inside a project too, where these tiles are
+    /// not on screen at all.
     private var newProjectTile: some View {
         tile("plus", "Describe a new project…", "an agent builds it", action: create)
-            .keyboardShortcut("n")
     }
 
     private var openFolderTile: some View {
         tile("folder", "Open a folder you have", "nothing is created", action: add)
-            .keyboardShortcut("o")
     }
 
     private func tile(

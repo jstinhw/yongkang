@@ -21,6 +21,11 @@ import YongkangCore
     var showDone = false
     /// What the window is telling or asking the user, until they answer it.
     var alert: AlertItem?
+    /// The new-project sheet: a prompt, which is also what says where its folder goes. Here
+    /// rather than in the view because the File menu opens it too, from any screen.
+    var creatingProject = false
+    /// The other door: a folder that already exists, picked in a panel. Same reason.
+    var pickingFolder = false
     private(set) var attention: [UUID: String] = [:]
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.

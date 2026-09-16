@@ -67,7 +67,9 @@ package struct Rail: View {
                             .strokeBorder(Theme.markLine, lineWidth: 1))
             }
             .buttonStyle(.plain)
-            .keyboardShortcut("[", modifiers: .command)
+            // ⌘[ is Go → All Projects, not this button: a shortcut on a button only answers
+            // while that button is drawn, and a menu item is also what VoiceOver and Full
+            // Keyboard Access find it by.
             .help("All projects (⌘[)")
             .padding(.bottom, 12)
 

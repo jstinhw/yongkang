@@ -20,11 +20,6 @@ struct RootView: View {
     @AppStorage("agentKind") var agent = AgentKind.claude
     /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
     @State var addingAgent = false
-    /// The new-project sheet, opened from the Fleet page's own tile: a prompt, which is
-    /// also what says where its folder goes.
-    @State var creatingProject = false
-    /// The Fleet page's other tile: a folder that already exists, picked in a panel.
-    @State private var pickingFolder = false
     /// What the title prompt's field holds while `model.alert` asks for one.
     @State var typedTitle = ""
 
@@ -32,6 +27,15 @@ struct RootView: View {
         ZStack(alignment: .topLeading) {
             Theme.bg.ignoresSafeArea()
             chrome
+        }
+        // The two doors into a project hang on the window, not on the Fleet page that used to
+        // own them, so the File menu can open either from inside a project as well.
+        .fileImporter(isPresented: $model.pickingFolder, allowedContentTypes: [.folder], onCompletion: openProject)
+        .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
+        .sheet(isPresented: $model.creatingProject) {
+            NewProjectForm(
+                parent: projectsParent, create: createProject,
+                cancel: { model.creatingProject = false })
         }
         .alert(model.alert?.title ?? "", isPresented: alertShown, presenting: model.alert) { item in
             alertActions(item)
@@ -83,16 +87,9 @@ struct RootView: View {
             ProjectsHome(
                 projects: model.projects.map(\.value),
                 enter: { if let project = model.project($0.id) { model.enter(project) } },
-                create: { creatingProject = true }, add: { pickingFolder = true },
+                create: { model.creatingProject = true }, add: { model.pickingFolder = true },
                 close: { if let project = model.project($0.id) { close(project) } }
             )
-            .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder], onCompletion: openProject)
-            .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
-            .sheet(isPresented: $creatingProject) {
-                NewProjectForm(
-                    parent: projectsParent, create: createProject,
-                    cancel: { creatingProject = false })
-            }
         } else if let project = model.entered {
             HStack(spacing: 0) {
                 // The rail stays outside the split view. A native sidebar cannot hold both it

@@ -43,14 +43,14 @@ extension RootView {
     }
 
     /// The list column's switch. The split view's own is removed in `RootView` so there is
-    /// only ever one, and this is the one that carries ⌘\.
+    /// only ever one. ⌘\ is not bound here: it is View → Hide List, so it works on a screen
+    /// whose toolbar has scrolled this button out of reach. One binding, one place.
     private var listToggle: some View {
         Button {
             listHidden.toggle()
         } label: {
             Label(listHidden ? "Show list" : "Hide list", systemImage: "sidebar.left")
         }
-        .keyboardShortcut("\\", modifiers: .command)
         .help(listHidden ? "Show list (⌘\\)" : "Hide list (⌘\\)")
     }
 
