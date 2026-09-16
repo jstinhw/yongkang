@@ -127,6 +127,73 @@ HStack
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
   the gate on eleven screens.
 
+## The menu bar
+
+`YongkangCommands` (`Sources/YongkangUI/App/Commands.swift`) is the scene's `.commands`, and
+every keyboard shortcut in the app is one of its items. A shortcut hung on a button only
+answers while that button is drawn, and a toolbar item can scroll out of a narrow window
+taking its shortcut with it; a menu item answers from any screen, and the menu bar is what
+Full Keyboard Access and VoiceOver read an app through.
+
+| Menu | Items | Lit when |
+|---|---|---|
+| **File** | New Project ⌘N · Open Folder ⌘O | always |
+| | Close Project · Reveal in Finder | a project is entered |
+| **View** | Overview ⌘1 · Board ⌘2 · Agents ⌘3 · Review ⌘4 · Blocks ⌘5 | a project is entered |
+| | Hide List ⌘\ · Show Completed | a project is entered |
+| **Go** | All Projects ⌘[ | a project is entered |
+| **Agent** | New Session · Product Review | a project is entered |
+| | Assign to Lead | `AppModel.assignableTask` is not nil |
+
+- **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it
+  carries stays readable and the menu keeps the same shape on every screen.
+- **One binding per shortcut.** ⌘\ came off the toolbar's list toggle and ⌘[ off the rail's
+  "YK" button when those items landed; both buttons keep their `.help`, which still names the
+  shortcut. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
+- **Assign to Lead is the selected task**, not the board's ticked batch. Those ticks are
+  `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
+  job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a lead —
+  and it is the same one `TaskDetail`'s button is disabled by, so `MenuCommandTests` checks it
+  with no window.
+- **Replacing `.newItem` is also what drops New Window,** which is why the group was there
+  before there was anything to put in it.
+- **What is deliberately not here:** a shortcut that means nothing off its own screen. ⌘S
+  saves in `NotebookEditor`, and a sheet's default and cancel actions belong to that sheet.
+  Hoisting those would put a permanently-disabled item in the menu bar for every other
+  screen, which is worse than not having one.
+
+## What comes back after a relaunch
+
+`@AppStorage("openProjects")` reopens the folders. `@SceneStorage` in `RootView` keeps the
+rest of the address — `enteredProject` (a path), `section`, and `route`, which is
+`Route.stored`: the route through `Codable`, as one string. That shape is deliberately not a
+format anything else reads or writes, so a string that no longer decodes is simply no route.
+
+`AppModel.restore(entered:section:route:)` (`Model/AppModel+Restore.swift`) enters the project
+and applies the two. It runs after the first notebook read is awaited, not before: a route
+names a card, a block or a team member, and a `ProjectModel` holds none of those until it has
+read one — validated any earlier, every stored route would look stale on every launch.
+
+**A stale route degrades to the section's default, never to an empty screen.**
+`restorable(_:in:)` is what decides:
+
+- A card, block, entry or team member has to still be there, and a card has to still be the
+  kind the route says.
+- A session route is stale by definition: the agents died with the app.
+- Review, review-task and preview routes count as stale too, because git and service detection
+  have not been read when the window restores. Review's own default re-opens the first task
+  waiting for approval once that read lands, which is the same answer a moment later.
+
+Anything that fails drops the route, and `openSectionDefault()` fills it: the block still
+waiting on you, the first task up for review, the board. `RestorationTests` covers the
+round trip, an unparseable string, a card deleted while the app was closed, a dead session,
+and a resolved block.
+
+The list column's **width** is not restored. SwiftUI takes `min`/`ideal`/`max` for a split
+view column and hands back no binding for the width the user dragged it to, so `@SceneStorage`
+has nothing to store; `Theme.listWidth` is the width it opens at, every launch. Whether it is
+*collapsed* does persist, in `@AppStorage("listHidden")`.
+
 ## Terminal lifetime
 
 Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm

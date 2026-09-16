@@ -26,6 +26,11 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
   (`RootView+Toolbar.swift`, with `.navigationTitle`/`.navigationSubtitle`). Nothing adds
   column widths up any more — a pane's geometry is its container's.
   [`docs/architecture.md`](docs/architecture.md#how-the-window-is-composed) says why.
+- **An app-wide shortcut is a menu item** (`App/Commands.swift`), never a button's
+  `.keyboardShortcut`: a button's only answers while that button is drawn. An item that
+  cannot act is disabled, not hidden. A shortcut that means nothing off its own screen stays
+  there — ⌘S in the notebook editor, a sheet's default and cancel actions.
+  [`docs/architecture.md`](docs/architecture.md#the-menu-bar) has the tree and its rules.
 - **`App/`**: the thin Xcode shell that builds `Yongkang.app` (bundle ID `ai.yongkang.Yongkang`).
   `Yongkang/main.swift` only calls `YongkangMain.run()`; the rest is assets, entitlements and
   `Config/Signing.xcconfig`. Its sources are a synchronized folder, so adding a file never

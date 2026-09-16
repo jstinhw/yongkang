@@ -375,8 +375,11 @@ protocol AgentProvider: Sendable {
   - **Go:** All Projects **⌘[** (fixes the documented-but-missing shortcut).
   - **Agent:** New Session, Assign to Lead, Product Review.
   - **Why:** menu items work from any screen, unlike button-bound shortcuts. They make every action discoverable, and they're also what Full Keyboard Access and VoiceOver use.
+  - **Landed (5.3)** as `YongkangCommands`, with two readings made explicit: "Assign to Lead" hands over the *selected* task, because the board's ticked batch is that view's own state; and every item that needs a project is disabled, not hidden, on the fleet screen. `docs/architecture.md`, "The menu bar".
 - **Accessibility basics:** labels on icon-only buttons (the rail especially), and `.accessibilityElement(children: .combine)` on cards and rows. A full VoiceOver audit waits for testers (§7), but unlabeled icon buttons are cheap to fix now.
+  - **Landed (5.3):** the rail's mark, the two label-less toolbar pickers, five icon-only buttons across Fleet, the board, Review and the list column, and the usage chart's bars; `.combine` on the Fleet card, the board card and every list row.
 - **Window restoration:** `@SceneStorage` for section and route, so relaunch returns you to where you were. Open projects already persist.
+  - **Landed (5.3)**, with the entered project alongside them — section and route mean nothing without it. A route that no longer points at anything opens the section's default rather than an empty screen. The sidebar's dragged width still cannot be stored: SwiftUI exposes no binding for it.
 - **Design tokens, mechanical, no visual change:**
   - Move all 38 stray hex literals into `Theme` as named tokens.
   - Collapse ~19 font sizes into about 6 semantic styles (`title`, `headline`, `body`, `caption`, `mono`, `monoCaption`).
