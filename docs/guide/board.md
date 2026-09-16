@@ -1,5 +1,7 @@
 # Board
 
+![The board, one column per project](../images/board.png)
+
 `Board` is one column per project, its tasks reading downwards in build order. A task sits
 under everything it waits on, so position is the dependency and no card has to spell it
 out — the only `waits on` line left is for an id nothing resolves to, which shows in
@@ -17,5 +19,5 @@ which order it will be built. The roadmap and projects are in the list column be
 board, which no longer repeats the tasks the board is already showing.
 
 Completed projects and tasks are hidden from the list, board and project task lists by
-default. `Completed` in the top bar reveals them everywhere at once. A project counts as
+default. `Completed` in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A project counts as
 finished when its own status says so, or when every task under it is done.

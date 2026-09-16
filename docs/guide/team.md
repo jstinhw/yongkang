@@ -1,5 +1,7 @@
 # The team
 
+![A roster member, with the skill text it is handed](../images/member.png)
+
 The specialists the lead routes to are files, not code: one Markdown file per agent in
 `.notebook/team/`, each with `name`, the `skills` that are its system prompt, and the
 `owns` line the lead routes by. The five shipped agents are written there the first time

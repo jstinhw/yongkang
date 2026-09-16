@@ -1,5 +1,7 @@
 # Notebooks
 
+![A task page in the notebook](../images/task.png)
+
 Every project has a notebook. It stays empty until you add an entry — nothing is
 written to the folder before that, so opening a project never touches your repo.
 
@@ -22,8 +24,9 @@ visible and correctable. The app writes nothing; the agent does. Entries look li
 
 Every entry is Markdown with flat YAML frontmatter (`id`, `kind`, `status`, `depends_on`,
 `roadmap`, `project`, `subject`, `designer`, `external`). Nothing else stores state, so the agents in the console edit
-the notebook by editing files — no bridge, no API. The console re-reads the tree every
-2s, so entries an agent writes show up on their own.
+the notebook by editing files — no bridge, no API. The console watches the folder rather than
+re-reading it on a clock, so entries an agent writes show up on their own, about a third of a
+second after the last one lands.
 
 Roadmaps and memories open as human-readable native pages, like projects and tasks;
 run records stay on disk for agents but are hidden from notebook navigation. Edit opens

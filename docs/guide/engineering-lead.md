@@ -1,5 +1,7 @@
 # Shipping tasks
 
+![The lead's coordination dashboard](../images/agents.png)
+
 Click task cards and `Assign to Engineering Lead` to give a batch to the coordinator.
 `Pick all` on a project's page takes every task of its that is not done or already out
 with a lead, and `Assign all tasks to Engineering Lead` on the project's row in the list
@@ -66,8 +68,9 @@ The engineers are that lead session's own subagents, not sibling terminals. Sepa
 PTYs have no way to report back to a lead, so the review loop only closes inside one
 agent.
 
-Agent rows open the live **Session**; **Transcript** is hidden for now. A task's
-**Check** action and subagent rows open the CLI's live child view. The app opens
+Agent rows open the live **Session**; **Transcript** is hidden for now. Clicking a
+specialist under **Working on it** on a task's page, or its row in the Agents list, opens the
+CLI's live child view. The app opens
 `/tasks` in Claude Code or `/subagents` in Codex and selects the row matching that child's
 ID or task description. If the CLI truncates the identity or changes its picker layout,
 a notice asks you to select the child in the picker. **Parent session** returns to the
@@ -81,8 +84,8 @@ come first, followed by parent tasks and their subtasks. Worker cards show the s
 model and selection reason, dependency waits, reported state, last check-in, token and
 time estimates, observed usage, and the returned result. Finished workers remain
 available. The inspector carries batch progress and context/checkpoint details; the
-roster is secondary to the work. `Check` opens the worker's live CLI view and a block opens
-its existing resolution flow. Its `Agents / Session` switch opens the live terminal.
+roster is secondary to the work. A worker card opens that worker's live CLI view, and a block
+opens its existing resolution flow. Its `Agents / Session` switch opens the live terminal.
 
 The lead writes `.notebook/runs/<session-id>-coordination.md` and one
 `<session-id>-work-<work-id>.md` per attempt, using the schema in the

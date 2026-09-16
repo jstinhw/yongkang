@@ -1,11 +1,14 @@
 # Product review
 
-`Describe New Feature…` in the top bar's `New` menu starts a Product conversation. Describe
+![A Product session's transcript](../images/session.png)
+
+`Describe New Feature…` in the toolbar's `New` menu starts a Product conversation. Describe
 what the user should be able to do; the agent does not research or invent features in this
 mode. It asks only the decisions that change the scope, then writes one project and its
 dependency-ordered tasks directly to the notebook.
 
-`Product Review` on the board starts a session that reads the whole notebook — roadmap,
+`Product review` on the board — or `Agent ▸ Product Review`, which works from any screen —
+starts a session that reads the whole notebook — roadmap,
 projects, tasks, memory, the last run records — inspects the product, researches relevant
 current alternatives when useful, and works out what should come next. It presents at
 most three ranked directions in the Product transcript and asks for feedback there. One

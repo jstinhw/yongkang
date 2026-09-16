@@ -1,5 +1,7 @@
 # Design before code
 
+![A demo waiting for approval, beside the screen it would replace](../images/demo.png)
+
 A task that changes something you can look at is designed, and approved by you, before an
 engineer touches it. Nothing is inferred: Product decides, and writes `designer: <name>`
 into the task's frontmatter. Empty means ordinary work that goes straight to the lead.

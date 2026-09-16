@@ -4,9 +4,10 @@ No agent commits. A task QA passed waits in `Review` with its work uncommitted, 
 decide: approve it, which commits it, or send it back with what to change. The rail's
 Review icon lights green while anything is waiting, and so does each waiting task's row.
 
-A project with a notebook that is not a git repository is made one (`git init`) the first
-time Review looks at it — there is no diff and nowhere to commit without one. Nothing is
-staged or committed by that.
+A project with a notebook that is not a repository is made one (`git init`) the first time
+the app reads git in it — which is on any screen, not only Review, because the rail's Review
+light has to come on while you are looking at the board. There is no diff and nowhere to commit
+without a repository. Nothing is staged or committed by that.
 
 The list column is tasks, not files: **Waiting for you** (done, work still uncommitted),
 **With the agents** (still being built or checked), and **All changes** for the whole
@@ -21,9 +22,10 @@ A task opens on what most reviews need, not on code:
   with model, time and the files it owned. A later attempt shows the comments it was
   answering under **You asked**.
 - **Changes by area** — the task's files grouped as Database, API & services, Frontend,
-  Tests, Config, each with the lines it added and removed. The area is worked out by the
-  app from the path, SQL in the diff, and the owning worker's skill, so a data layer that
-  writes SQL is flagged as Database even with no migration folder.
+  Tests, Config, Docs & other, and Notebook records, each with the lines it added and removed.
+  The area is worked out by the app from the path, SQL in the diff, and the owning worker's
+  skill, so a data layer that writes SQL is flagged as Database even with no migration
+  folder.
 
 A file opens its diff on its own page. Click any line to leave a comment on it; comments and a note for
 anything that is not about one line collect under **Feedback for the agents** until you
@@ -34,8 +36,9 @@ The bar at the bottom is the decision, on the task page and on its diffs alike:
 
 - **Approve and commit** stages and commits only this task's files and its run records —
   whatever else is in the tree or the index is left as it was. Nothing is pushed.
-- **Request changes** types `Changes requested on <task-id>`, your note and every line
-  comment (`path:line`, with the code it is about) into the lead holding the task. With no
+- **Request changes** types `Changes requested on <task-id> — "<task title>".`, your note
+  and every line comment (`path:line`, with the code it is about) into the lead holding the
+  task. With no
   lead running, a new one starts with the task and the comments. The lead sends each
   comment to the owner of that file as a new attempt, reruns QA, and the task comes back
   to **Waiting for you**.
