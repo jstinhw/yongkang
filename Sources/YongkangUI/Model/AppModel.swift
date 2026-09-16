@@ -34,7 +34,11 @@ import YongkangCore
     /// leaving one agent's work under another's name when the two are the same length. The
     /// session's inspector names it too.
     private(set) var transcriptSource: URL?
-    private var ticks = 0
+    /// The safety poll behind the watchers, until `stop()`. See `start(polling:)`.
+    @ObservationIgnored private var poll: Task<Void, Never>?
+    /// When git was last asked, so an agent writing a file a second doesn't mean a repo-wide
+    /// diff a second. See `refreshChanges`.
+    @ObservationIgnored private var lastRepoRead = Date.distantPast
     /// The done tasks the window has already seen in this project. nil until the first
     /// poll seeds it, so opening a project full of finished work does not read as news.
     private var doneTasks: Set<String>?
@@ -80,6 +84,39 @@ import YongkangCore
         }
     }
 
+    // MARK: - Watching
+
+    /// Watches every open project and starts the safety poll behind them. Called once, when the
+    /// window comes up.
+    ///
+    /// Almost everything that changes on screen is an agent writing a file, and FSEvents says so
+    /// within 300 ms; between writes, an idle Mac is asked nothing. The beat behind that is
+    /// slow and deliberate: FSEvents drops events on network volumes and across sleep, and a
+    /// board that had quietly stopped updating would be a miserable bug to reproduce. `every` is
+    /// injected by the tests, which are not going to wait half a minute to see it fire.
+    func start(polling every: Duration = .seconds(30)) {
+        for project in projects { watch(project) }
+        poll?.cancel()
+        poll = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: every)
+                guard !Task.isCancelled, let self else { return }
+                await reloadNow()
+            }
+        }
+    }
+
+    /// Ends every watch and the safety poll: the app quitting, or a test finishing.
+    func stop() {
+        poll?.cancel()
+        poll = nil
+        for project in projects { project.stopWatching() }
+    }
+
+    private func watch(_ project: ProjectModel) {
+        project.startWatching { [weak self] in await self?.reloadNow() }
+    }
+
     // MARK: - Projects
 
     /// The open folders, in order, as `@AppStorage("openProjects")` keeps them.
@@ -104,10 +141,12 @@ import YongkangCore
     func open(_ directory: URL) -> ProjectModel {
         let project = ProjectModel(directory: directory, terminals: terminals)
         projects.append(project)
+        watch(project)
         return project
     }
 
     func close(_ project: ProjectModel) {
+        project.stopWatching()
         for session in project.sessions {
             attentionChanged(nil, session: session, project: project)
             terminals.terminate(session.id)
@@ -259,13 +298,14 @@ import YongkangCore
 
     // MARK: - Reloading
 
-    /// The poll: every project's notebook, then the transcript on screen and git. Every read
+    /// The read: every project's notebook, then the transcript on screen and git. Every read
     /// it starts belongs to a `ProjectReader`, so this returns before any of them land.
+    ///
+    /// Driven by the projects' watchers (`start(polling:)`), and by the safety beat behind them.
     func reload() { Task { await reloadNow() } }
 
-    /// The same poll, awaited — what the tests and anything that needs what it found call.
+    /// The same read, awaited — what the tests and anything that needs what it found call.
     func reloadNow() async {
-        ticks += 1
         for project in projects {
             // The project you are inside pays for reading frontmatter and transcripts; on
             // the fleet screen every project does, because that screen is what it costs.
@@ -316,13 +356,16 @@ import YongkangCore
         }
     }
 
-    /// git is only asked while a screen that shows its answer is open, and then only every
-    /// third tick — a repo-wide diff twice a second is a cost with no reader.
+    /// git is only asked while a screen that shows its answer is open, and no more often than
+    /// every 6 s — an agent writing a file a second must not mean a repo-wide diff a second.
+    /// That was every third 2 s tick before the timer went; it is the same beat, counted in
+    /// seconds now that the reads arrive when the disk says so rather than on a clock.
     func refreshChanges(force: Bool = false) {
         // Every section, not only Review: the rail's light says work is waiting for approval,
         // and it has to come on while you are looking at the board.
         guard let project = entered else { return }
-        guard force || ticks % 3 == 0 else { return }
+        guard force || Date().timeIntervalSince(lastRepoRead) >= 6 else { return }
+        lastRepoRead = Date()
         // Only Overview and Review show line counts, so only they pay for opening untracked
         // files to count them. The light on the rail needs the file list, not its lines.
         let countingLines = section == .overview || section == .review

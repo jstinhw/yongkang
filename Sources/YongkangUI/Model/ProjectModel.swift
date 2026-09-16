@@ -31,6 +31,14 @@ import YongkangCore
     private let terminals: TerminalRegistry?
     /// Every read this project makes, off the main actor. See `ProjectReader`.
     @ObservationIgnored let reader: ProjectReader
+    /// This project's folders, watched rather than polled. See `FSEventWatcher`.
+    @ObservationIgnored private let watcher: FSEventWatcher
+    /// The loop turning what the watcher says into a reload, until `stopWatching()`.
+    @ObservationIgnored private var watch: Task<Void, Never>?
+    /// What the usage screen reads, as one value: its sessions and subagents, and the sizes of
+    /// the files their spend is parsed out of. It is the whole reason that screen no longer
+    /// keeps a two-second `stat` loop of its own — see `ProjectReader.watch(of:)`.
+    private(set) var usageSignature = ""
     /// The poll's read of the notebook, while it is still going.
     @ObservationIgnored private var notebookRead: Task<Void, Never>?
     /// The poll's read of what the sessions spawned and spent, while it is still going.
@@ -48,7 +56,42 @@ import YongkangCore
         self.sessions = sessions
         self.terminals = terminals
         self.reader = ProjectReader(directory: directory)
+        // `.git/objects` is rewritten by every git command an agent runs, and none of it
+        // changes what `git status` says, so those writes never reach the watcher at all.
+        self.watcher = FSEventWatcher(excluding: [directory.appendingPathComponent(".git/objects")])
         resummarize()
+    }
+
+    // MARK: - Watching
+
+    /// Starts watching this project, and calls `changed` whenever anything under it — or under
+    /// a live session's transcript folder — is written.
+    ///
+    /// `changed` is awaited inside the loop, so a burst landing while it runs becomes one more
+    /// call rather than a queue of them. That is what the stream's `.bufferingNewest(1)` is for.
+    /// Starting twice does nothing: the projects restored at launch are already watched.
+    func startWatching(_ changed: @escaping @Sendable @MainActor () async -> Void) {
+        guard watch == nil else { return }
+        // The tree is watchable straight away; the session folders arrive with the first read
+        // that asks each provider where its CLI keeps them.
+        watcher.watch([directory])
+        let changes = watcher.changes
+        watch = Task { for await _ in changes { await changed() } }
+    }
+
+    /// Ends the watch. Explicit, called when the project is closed or the app quits, because a
+    /// `@MainActor` class's `deinit` is nonisolated and could not touch any of this.
+    func stopWatching() {
+        watch?.cancel()
+        watch = nil
+        watcher.stop()
+    }
+
+    /// The folders to watch, asked for again because the sessions changed. Only the watch —
+    /// the reads that go with it are `reloadSessions`', and a session that has just been added
+    /// has nothing on disk to read yet.
+    private func rewatch() {
+        Task { [reader] in self.watcher.watch(await reader.watch(of: self.value).folders) }
     }
 
     /// The project as the one value the screens and Core's readers take. Reading it observes
@@ -124,6 +167,12 @@ import YongkangCore
         sessionsRead = Task { [value, reader] in
             let reads = await reader.sessions(of: value)
             self.apply(reads)
+            // Where each live session's CLI keeps its files is the same question as which
+            // folders to watch and what the usage screen has to notice, so it is asked once.
+            // The watcher leaves its stream alone when the folders come back unchanged.
+            let watch = await reader.watch(of: self.value)
+            self.watcher.watch(watch.folders)
+            if watch.usage != self.usageSignature { self.usageSignature = watch.usage }
             self.sessionsRead = nil
         }
     }
@@ -209,6 +258,10 @@ import YongkangCore
         sessions.append(session)
         resummarize()
         terminals?.start(session)
+        // So the new agent's transcript folder is watched now rather than at the next safety
+        // beat. A CLI that names its transcript after the session id (every one but Codex, which
+        // has to be found by reading its rollouts) is watchable before it has written a byte.
+        rewatch()
     }
 
     /// Ends the session's process along with its row: a closed session has no one to stop it later.

@@ -49,6 +49,11 @@ struct RootView: View {
                 }
             }
         }
+        // Every project's FSEvents stream is torn down by hand: the `@MainActor` models that own
+        // them get a nonisolated `deinit`, and nothing else would ever call `stop()`.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            model.stop()
+        }
         .preferredColorScheme(.dark)
         .frame(minWidth: 1120, minHeight: 680)
         .task { restore() }
@@ -176,6 +181,7 @@ struct RootView: View {
         model.restore(openProjects)
         persist()
         model.reload()
+        model.start()
     }
 
     func persist() {

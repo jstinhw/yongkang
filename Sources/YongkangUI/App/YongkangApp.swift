@@ -1,20 +1,15 @@
-import Combine
 import SwiftUI
 
 package struct YongkangApp: App {
     @State private var model = AppModel()
 
-    // ponytail: poll instead of an FSEvents watcher. The agents in the console write
-    // these files while you watch them; re-listing a few dozen paths every 2s is less
-    // code than a recursive watcher and the tree is tiny. Revisit at thousands of files.
-    private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
-
     package init() {}
 
     package var body: some Scene {
         WindowGroup {
+            // Nothing on a clock here any more: `RootView` starts each project's FSEvents watch
+            // and the 30 s safety poll behind them. See `AppModel.start(polling:)`.
             RootView(model: model)
-                .onReceive(tick) { _ in model.reload() }
         }
         .windowToolbarStyle(.unified)
         // One window: the model and its TerminalRegistry are app-wide, so a second window

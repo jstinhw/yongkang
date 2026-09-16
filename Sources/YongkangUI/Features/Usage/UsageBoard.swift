@@ -7,16 +7,21 @@ import YongkangCore
 /// screen keeps no state of its own to drift out of date.
 package struct UsageBoard: View {
     let project: Project
+    /// What the files this screen reads looked like at the last read of the project: its
+    /// sessions and subagents, and the sizes of the transcripts and the ledger their spend is
+    /// parsed out of. A byte more is a token more, so a change here is something new to show.
+    ///
+    /// It arrives from `ProjectModel`, which has it from the same FSEvents-driven read as
+    /// everything else on screen (`ProjectReader.watch(of:)`). This screen used to `stat` those
+    /// files itself every two seconds; the folders they sit in are exactly the ones the
+    /// project's watcher watches, so the beat that reloads the console reloads this too.
+    let signature: String
     let open: (Route) -> Void
 
     /// Loaded on a change rather than per render: parsing transcripts inside `body` at
     /// 60fps would be the most expensive thing in the app.
     @State private var spends: [AgentSpend] = []
     @State private var quotas: [ProviderQuota] = []
-    /// The sessions' own usage files as the last load found them, watched by `signature`.
-    @State private var sources: [URL] = []
-    /// What the files this screen reads looked like at the last check. See `watch`.
-    @State private var signature = ""
     /// How far back every panel below the plan limits is counting. 24 hours by default:
     /// a day is the span a person actually remembers working, and all time on a machine
     /// that has been running agents for months answers a different question.
@@ -28,8 +33,11 @@ package struct UsageBoard: View {
     /// `range` is only ever passed by the shot renderer, which has no one to click the
     /// picker and would otherwise photograph whichever window happens to be quiet on the
     /// machine it runs on.
-    package init(project: Project, open: @escaping (Route) -> Void, range: UsageRange = .day) {
+    package init(
+        project: Project, signature: String = "", open: @escaping (Route) -> Void, range: UsageRange = .day
+    ) {
         self.project = project
+        self.signature = signature
         self.open = open
         _range = State(initialValue: range)
     }
@@ -74,46 +82,10 @@ package struct UsageBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg)
-        .task { await watch() }
         .task(id: signature) { await load() }
     }
 
-    /// Re-read when an agent appears, finishes, or writes — the sizes of the files this
-    /// screen reads are what change as work happens, and a byte more is a token more.
-    ///
-    /// Checked on the console's own two-second beat rather than in `body`: those sizes are
-    /// `stat` calls, and a render is not the place to touch the disk. Nothing else drives a
-    /// re-read, so a session appearing is seen on the same beat.
-    @MainActor private func watch() async {
-        while !Task.isCancelled {
-            let fresh = await Self.signature(of: project, sources: sources)
-            if fresh != signature { signature = fresh }
-            try? await Task.sleep(for: .seconds(2))
-        }
-    }
-
-    /// `nonisolated` so the `stat`s run off the main actor. Conforming to `View` puts the
-    /// whole type on the main actor, this included, and then the two-second beat would be
-    /// touching the disk from the one place 4.2 took the disk out of.
-    nonisolated private static func signature(of project: Project, sources: [URL]) async -> String {
-        let ledger =
-            (try? UsageLedger.url(root: project.notebookRoot)
-                .resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        // The first load finds these files and changes the signature once more. The re-read it
-        // starts parses nothing new, because each provider remembers how far it has read.
-        let transcripts = sources.compactMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize }
-        return project.sessions.map { session in
-            session.id.uuidString + session.subagents.map { $0.id + "\($0.running)" }.joined()
-        }.joined() + "\(project.sessions.count):\(ledger):\(transcripts)"
-    }
-
     private func load() async {
-        var urls: [URL] = []
-        for session in project.sessions {
-            if let url = await session.agent?.provider.usageURL(session: session.id, project: project.directory) {
-                urls.append(url)
-            }
-        }
         // Live agents are read from their transcripts at full resolution; the ledger fills
         // in every earlier run, whose sessions died with the app that started them.
         let live = await AgentUsage.spends(in: project)
@@ -121,7 +93,6 @@ package struct UsageBoard: View {
         let remembered = await UsageLedger.load(root: project.notebookRoot)
         let limits = [await AgentUsage.claudeQuota(), await AgentUsage.codexQuota()].compactMap { $0 }
         now = Date()
-        sources = urls
         spends = live + remembered.filter { !running.contains($0.id) }
         quotas = limits
     }

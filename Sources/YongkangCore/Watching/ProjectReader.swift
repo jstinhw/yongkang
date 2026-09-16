@@ -70,6 +70,42 @@ package actor ProjectReader {
         return reads
     }
 
+    // MARK: - Watching
+
+    /// The folders this project's state can change in, and the fingerprint of what the usage
+    /// screen reads. Both are answers about the same handful of per-session files, so they are
+    /// found in one pass here rather than by two callers asking each provider separately.
+    ///
+    /// ponytail: each session's file is resolved once here and once more inside
+    /// `AgentUsage.spends`, which doesn't hand back the URLs it used. Two lookups per live
+    /// session per read, and for Codex a lookup is a walk of `~/.codex/sessions`. Make `spends`
+    /// return its sources if that ever shows up in a trace.
+    package func watch(of project: Project) async -> ProjectWatch {
+        var folders = [directory]
+        var sizes: [Int] = []
+        for session in project.sessions {
+            guard let url = await session.agent?.provider.usageURL(session: session.id, project: directory)
+            else { continue }
+            // Only a live session's folder: a finished agent's transcript is never written
+            // again, and its spend is in the ledger by now.
+            if !session.exited { folders.append(url.deletingLastPathComponent()) }
+            sizes.append(Self.size(of: url))
+        }
+        let rows = project.sessions.map { session in
+            session.id.uuidString + session.subagents.map { $0.id + "\($0.running)" }.joined()
+        }
+        return ProjectWatch(
+            folders: folders,
+            usage: rows.joined()
+                + "\(project.sessions.count):\(Self.size(of: UsageLedger.url(root: notebookRoot))):\(sizes)")
+    }
+
+    /// A file's size, or 0 when it isn't there yet. One `stat`, no read: a byte more in a
+    /// transcript is a token more, which is all the usage screen needs to know.
+    private static func size(of url: URL) -> Int {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    }
+
     // MARK: - Transcripts
 
     /// The lines of the one agent on screen. Reading and parsing a whole transcript is the
@@ -89,6 +125,24 @@ package actor ProjectReader {
         }
         guard initializing, await GitClient.initialize(in: directory) == nil else { return RepoStatus() }
         return await RepoStatus.read(in: directory, countingLines: countingLines) ?? RepoStatus()
+    }
+}
+
+/// What one project has to watch, and what the usage screen has to notice. See
+/// `ProjectReader.watch(of:)`.
+package struct ProjectWatch: Equatable, Sendable {
+    /// What `FSEventWatcher` is handed: the project's own tree, which holds `.notebook/` and
+    /// everything git diffs, and each live session's transcript folder, which its CLI keeps
+    /// under its own home rather than in the project.
+    package let folders: [URL]
+    /// The sessions and subagents the usage screen draws rows for, and the sizes of the files
+    /// it reads their spend from. Published only when it differs, which is exactly when that
+    /// screen has something new to show.
+    package let usage: String
+
+    package init(folders: [URL], usage: String) {
+        self.folders = folders
+        self.usage = usage
     }
 }
 
