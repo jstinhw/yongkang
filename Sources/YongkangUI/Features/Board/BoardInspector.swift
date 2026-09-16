@@ -58,13 +58,13 @@ struct BoardInspector: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 7) {
                 StateDot(color: Theme.amber, live: true)
-                Text("demo ready").font(Typo.text(11, .medium)).foregroundStyle(Theme.amber)
+                Text("demo ready").font(Typography.caption(.medium)).foregroundStyle(Theme.amber)
                 Spacer(minLength: 0)
                 if let task = demo.task {
                     Text(task).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
             }
-            Text(demo.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+            Text(demo.title).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
             Button {
@@ -82,7 +82,7 @@ struct BoardInspector: View {
         HStack(spacing: 8) {
             Text("\(index + 1)").font(Typography.mono).foregroundStyle(Theme.tx3)
                 .frame(width: 14, alignment: .leading)
-            Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx).lineLimit(1)
+            Text(card.id).font(Typography.mono).foregroundStyle(Theme.tx).lineLimit(1)
             Spacer(minLength: 4)
             if card.isDesignWork {
                 Text("design first").font(Typography.caption).foregroundStyle(Theme.violet)

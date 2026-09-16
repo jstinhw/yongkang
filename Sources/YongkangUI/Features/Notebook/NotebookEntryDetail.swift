@@ -39,10 +39,10 @@ struct NotebookEntryDetail: View {
                         RoundedRectangle(cornerRadius: 10)
                             .strokeBorder(Theme.line2, lineWidth: 1))
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(card.title).font(Typo.display(21))
+                    Text(card.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
-                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        Text(card.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                         if !badge.isEmpty { NotebookStyle.pill(badge) }
                     }
                 }
@@ -56,7 +56,7 @@ struct NotebookEntryDetail: View {
             }
             if !metadata.isEmpty {
                 Text(metadata.joined(separator: " · "))
-                    .font(Typo.text(11.5))
+                    .font(Typography.body)
                     .foregroundStyle(Theme.tx3)
             }
         }

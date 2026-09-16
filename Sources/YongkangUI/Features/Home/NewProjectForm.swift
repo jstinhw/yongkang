@@ -101,7 +101,7 @@ package struct NewProjectForm: View {
 
     package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New project").font(Typo.display(16)).foregroundStyle(Theme.tx)
+            Text("New project").font(Typography.headline).foregroundStyle(Theme.tx)
 
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel("Describe it", trailing: "an agent builds it")
@@ -109,16 +109,16 @@ package struct NewProjectForm: View {
                     placeholder: "A CLI that…", root: root, absolute: true,
                     text: $text, submit: submit)
                 Text("@ tags a file or folder · Tab completes · ↑↓ picks · Return takes it")
-                    .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
                 // Not a question, an answer: where this one is about to land.
                 if !prompt.isEmpty {
-                    Text(landing).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                    Text(landing).font(Typography.mono).foregroundStyle(Theme.tx2)
                         .lineLimit(1).truncationMode(.head)
                 }
             }
 
             if !failure.isEmpty {
-                Text(failure).font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                Text(failure).font(Typography.body).foregroundStyle(Theme.amber)
                     .fixedSize(horizontal: false, vertical: true)
             }
 

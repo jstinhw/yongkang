@@ -78,7 +78,7 @@ package struct BlockDetail: View {
                     RoundedRectangle(cornerRadius: 11)
                         .strokeBorder(tint.opacity(0.3), lineWidth: 1))
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(block.title).font(Typo.display(21))
+                    Text(block.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
                         NotebookStyle.pill(
@@ -87,13 +87,13 @@ package struct BlockDetail: View {
                                     ? (block.proposalReady ? "ready to create" : "needs your input")
                                     : "waiting on you")
                                 : "done", tint)
-                        Text(subtitle).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                        Text(subtitle).font(Typography.body).foregroundStyle(Theme.tx3)
                     }
                 }
                 Spacer(minLength: 12)
             }
             if !block.resolution.isEmpty {
-                Text(block.resolution).font(Typo.text(12.5)).foregroundStyle(Theme.prose)
+                Text(block.resolution).font(Typography.body).foregroundStyle(Theme.prose)
             }
         }
     }
@@ -120,7 +120,7 @@ package struct BlockDetail: View {
                     HStack(spacing: 10) {
                         NotebookStyle.statusRing(parent.status, progress: 0, size: 16)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(parent.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                            Text(parent.title).font(Typography.body).foregroundStyle(Theme.tx)
                                 .lineLimit(2).multilineTextAlignment(.leading)
                             Text(parent.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                         }
@@ -150,7 +150,7 @@ package struct BlockDetail: View {
                         HStack(spacing: 9) {
                             Image(systemName: "link").font(.system(size: 12))
                                 .foregroundStyle(Theme.accent)
-                            Text(link.absoluteString).font(Typo.mono(10.5))
+                            Text(link.absoluteString).font(Typography.mono)
                                 .foregroundStyle(Theme.accent).lineLimit(2)
                                 .multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
@@ -172,7 +172,7 @@ package struct BlockDetail: View {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "lock.shield").font(.system(size: 12)).foregroundStyle(Theme.red)
                     Text("No secret is ever echoed back to you or written into the notebook.")
-                        .font(Typo.text(11)).foregroundStyle(Theme.problem)
+                        .font(Typography.caption).foregroundStyle(Theme.problem)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(12)

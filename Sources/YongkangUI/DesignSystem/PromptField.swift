@@ -156,7 +156,7 @@ struct PromptField: View {
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(4...14)
-                .font(Typo.text(13))
+                .font(Typography.body)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Theme.card))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line2, lineWidth: 1))
@@ -245,7 +245,7 @@ struct PromptField: View {
                             .foregroundStyle(Theme.tx3)
                         // The name, not the path: the path is already in the box above,
                         // and drilling down makes it long enough to push the row out.
-                        Text(name(of: match)).font(Typo.mono(11))
+                        Text(name(of: match)).font(Typography.mono)
                             .foregroundStyle(index == highlighted ? Theme.tx : Theme.tx2)
                         Spacer(minLength: 8)
                         if index == highlighted {

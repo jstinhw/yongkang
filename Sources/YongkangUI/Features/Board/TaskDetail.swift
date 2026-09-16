@@ -91,7 +91,7 @@ package struct TaskDetail: View {
                     Text(card.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
-                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        Text(card.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                         if !card.status.isEmpty { NotebookStyle.pill(card.status) }
                         if assigned.contains(card.id) { NotebookStyle.pill("wip") }
                     }
@@ -121,7 +121,7 @@ package struct TaskDetail: View {
             }
             HStack(spacing: 6) {
                 StateDot(color: NotebookStyle.color(of: card.status))
-                Text("this task").font(Typo.text(11)).foregroundStyle(Theme.prose)
+                Text("this task").font(Typography.caption).foregroundStyle(Theme.prose)
             }
             .padding(.horizontal, 9)
             .frame(height: 22)
@@ -151,7 +151,7 @@ package struct TaskDetail: View {
                             ? "No agent is on it right now."
                             : "Nobody yet — assign it to a lead."
                     )
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 ForEach(working, id: \.1.id) { session, subagent in
                     Button {
@@ -160,9 +160,9 @@ package struct TaskDetail: View {
                         HStack(spacing: 10) {
                             RoleTile(role: subagent.agentType)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(subagent.displayName).font(Typo.text(11.5))
+                                Text(subagent.displayName).font(Typography.body)
                                     .foregroundStyle(Theme.tx)
-                                Text(session.title).font(Typo.text(10))
+                                Text(session.title).font(Typography.caption)
                                     .foregroundStyle(Theme.tx3).lineLimit(1)
                             }
                             Spacer(minLength: 6)
@@ -216,7 +216,7 @@ package struct TaskDetail: View {
     private var actionBar: some View {
         ActionBar {
             Text(NotebookFormat.relativePath(card.url))
-                .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
             Spacer(minLength: 12)
             if locked {
                 Text(

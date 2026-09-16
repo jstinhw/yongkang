@@ -196,7 +196,7 @@ package struct NotebookBoard: View {
     private func column(_ chain: Chain, inBatch: Set<String>) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(chain.title).font(Typo.display(12.5)).foregroundStyle(Theme.tx)
+                Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
                 Text("\(chain.done)/\(chain.total)")
@@ -306,7 +306,7 @@ package struct NotebookBoard: View {
                 .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(card.title)
-                        .font(Typo.text(12.5))
+                        .font(Typography.body)
                         .foregroundStyle(Theme.tx)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
@@ -372,7 +372,7 @@ package struct NotebookBoard: View {
                         ? "A demo is waiting. Nothing that depends on it starts until you have looked at it."
                         : demo.action
                 )
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                .font(Typography.body).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
@@ -391,7 +391,7 @@ package struct NotebookBoard: View {
         VStack(alignment: .leading, spacing: 8) {
             Divider().overlay(Theme.line2)
             Text("Being designed. Nothing is written to the repo yet.")
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                .font(Typography.body).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 12)
@@ -413,13 +413,13 @@ package struct NotebookBoard: View {
         ActionBar {
             if picked.isEmpty {
                 Text("Pick the work. Full detail is on whatever could start next.")
-                    .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - picked.count
-                Text("\(picked.count) picked").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                Text("\(picked.count) picked").font(Typography.body).foregroundStyle(Theme.tx)
                 if pulled > 0 {
                     Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
             }
             Spacer(minLength: 12)
@@ -455,7 +455,7 @@ package struct NotebookBoard: View {
                     ? "Every task here is done."
                     : "No tasks yet — Product writes them."
             )
-            .font(Typo.text(13)).foregroundStyle(Theme.tx3)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             Button {
                 review()
             } label: {

@@ -200,7 +200,7 @@ package struct UsageBoard: View {
             HStack(spacing: 8) {
                 Image(systemName: quota.provider.systemImage)
                     .font(.system(size: 11)).foregroundStyle(Theme.tx2)
-                Text(quota.provider.displayName).font(Typo.display(13))
+                Text(quota.provider.displayName).font(Typography.headline)
                 if let plan = quota.plan {
                     NotebookStyle.chip(plan.replacingOccurrences(of: "_", with: " "))
                 }
@@ -217,9 +217,9 @@ package struct UsageBoard: View {
             if let credits = quota.credits {
                 Divider().overlay(Theme.line)
                 HStack(spacing: 6) {
-                    Text(credits.label).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text(credits.label).font(Typography.body).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 8)
-                    Text(credits.value).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                    Text(credits.value).font(Typography.mono).foregroundStyle(Theme.tx2)
                 }
             }
         }
@@ -230,13 +230,13 @@ package struct UsageBoard: View {
     private func window(_ window: PlanWindow) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(window.name).font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                Text(window.name).font(Typography.body).foregroundStyle(Theme.tx2)
                 Spacer(minLength: 8)
                 if let until = AgentUsage.until(window.resetsAt) {
                     Text("resets in \(until)").font(Typography.mono).foregroundStyle(Theme.tx4)
                 }
                 Text("\(Int(window.percent.rounded()))%")
-                    .font(Typo.mono(11, .semibold))
+                    .font(Typography.mono(.semibold))
                     .foregroundStyle(AgentUsage.tint(window.percent))
             }
             MeterBar(value: window.percent / 100, tint: AgentUsage.tint(window.percent), height: 5)
@@ -279,12 +279,12 @@ package struct UsageBoard: View {
     private func modelRow(_ model: String, _ tally: TokenTally) -> some View {
         HStack(spacing: 10) {
             Circle().fill(tint(model)).frame(width: 7, height: 7)
-            Text(AgentUsage.modelName(model)).font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
+            Text(AgentUsage.modelName(model)).font(Typography.code).foregroundStyle(Theme.tx)
             Text("\(share(tally))%").font(Typography.mono).foregroundStyle(Theme.tx3)
             Spacer(minLength: 12)
             splitLabels(tally)
             Text(AgentUsage.short(tally.total))
-                .font(Typo.mono(11.5, .semibold)).foregroundStyle(Theme.tx)
+                .font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
                 .frame(width: 56, alignment: .trailing)
         }
     }
@@ -335,7 +335,7 @@ package struct UsageBoard: View {
                 RoleTile(role: spend.role, size: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(person(spend)).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
+                        Text(person(spend)).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
                         if spend.running { StateDot(live: true) }
                     }
                     HStack(spacing: 6) {
@@ -356,7 +356,7 @@ package struct UsageBoard: View {
                 MeterBar(value: fraction(spend.tally(since: since)), tint: RoleTile.color(of: spend.role))
                     .frame(width: 90)
                 Text(AgentUsage.short(spend.tally(since: since).total))
-                    .font(Typo.mono(11.5, .semibold)).foregroundStyle(Theme.tx)
+                    .font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
                     .frame(width: 56, alignment: .trailing)
             }
             .padding(.horizontal, 8)
@@ -374,7 +374,7 @@ package struct UsageBoard: View {
             SectionLabel("This project", trailing: range.caption)
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(AgentUsage.short(total.total)).font(Typo.display(26))
+                    Text(AgentUsage.short(total.total)).font(Typography.title)
                     Text("tokens").font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 ForEach(
@@ -385,23 +385,23 @@ package struct UsageBoard: View {
                     id: \.0
                 ) { label, value in
                     HStack(spacing: 8) {
-                        Text(label).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                        Text(label).font(Typography.body).foregroundStyle(Theme.tx3)
                         Spacer(minLength: 8)
-                        Text(AgentUsage.short(value)).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                        Text(AgentUsage.short(value)).font(Typography.mono).foregroundStyle(Theme.tx2)
                     }
                 }
                 Divider().overlay(Theme.line)
                 HStack(spacing: 8) {
-                    Text("Cache hit rate").font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text("Cache hit rate").font(Typography.body).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 8)
                     Text("\(Int((total.cacheRate * 100).rounded()))%")
-                        .font(Typo.mono(11)).foregroundStyle(Theme.green)
+                        .font(Typography.mono).foregroundStyle(Theme.green)
                 }
                 HStack(spacing: 8) {
-                    Text("Agents").font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text("Agents").font(Typography.body).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 8)
                     Text("\(windowed.filter(\.running).count) running · \(windowed.count) active")
-                        .font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                        .font(Typography.mono).foregroundStyle(Theme.tx2)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -442,7 +442,7 @@ package struct UsageBoard: View {
                 Text("\(mine.count)").font(Typography.mono).foregroundStyle(Theme.tx4)
                 Spacer(minLength: 8)
                 Text(AgentUsage.short(tally.total))
-                    .font(Typo.mono(11, .semibold)).foregroundStyle(Theme.tx2)
+                    .font(Typography.mono(.semibold)).foregroundStyle(Theme.tx2)
             }
             MeterBar(
                 value: peak == 0 ? 0 : Double(tally.total) / Double(peak),
@@ -451,10 +451,10 @@ package struct UsageBoard: View {
                 HStack(spacing: 7) {
                     Image(systemName: row.key.systemImage)
                         .font(.system(size: 9)).foregroundStyle(Theme.tx4).frame(width: 11)
-                    Text(row.key.displayName).font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    Text(row.key.displayName).font(Typography.caption).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 8)
                     Text(AgentUsage.short(row.tally.total))
-                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 .padding(.leading, 29)
             }
@@ -483,7 +483,7 @@ package struct UsageBoard: View {
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface()
     }

@@ -60,4 +60,15 @@ import Testing
         #expect(Typography.monoCaption(.regular) == Typography.monoCaption)
     }
 
+    /// `Typo` is the face plumbing, not a scale: calling it from a screen is how the 0.5 pt
+    /// ramp got built the first time, one reasonable-looking 11.5 at a time. Same shape as
+    /// the `Color(hex:` check above, for the same reason — a reviewer's eye missed it before.
+    @Test func onlyTheDesignSystemReachesPastARole() throws {
+        let strays = try DesignTokenTests.swiftFiles()
+            .filter { $0.deletingLastPathComponent().lastPathComponent != "DesignSystem" }
+            .filter { try String(contentsOf: $0, encoding: .utf8).contains("Typo.") }
+            .map(\.lastPathComponent)
+            .sorted()
+        #expect(strays.isEmpty, "pick a Typography role instead of a raw size here: \(strays)")
+    }
 }

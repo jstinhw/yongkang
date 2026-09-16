@@ -8,7 +8,7 @@ package struct ConsoleButtonStyle: ButtonStyle {
 
     package func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Typo.text(12, primary ? .semibold : .medium))
+            .font(Typography.body(primary ? .semibold : .medium))
             .foregroundStyle(primary ? Theme.bg : (ghost ? Theme.tx2 : Theme.prose))
             .padding(.horizontal, 12)
             .frame(height: 30)

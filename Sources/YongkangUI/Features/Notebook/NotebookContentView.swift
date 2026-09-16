@@ -48,7 +48,7 @@ struct NotebookContentView: View {
     private func blockView(_ block: NotebookContent.Block) -> some View {
         switch block {
         case .paragraph(let text):
-            resolved(text).font(Typo.text(13)).lineSpacing(3).foregroundStyle(Theme.prose)
+            resolved(text).font(Typography.body).lineSpacing(3).foregroundStyle(Theme.prose)
         case .checklist(let items):
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
@@ -59,7 +59,7 @@ struct NotebookContentView: View {
                         resolved(item.text)
                             .foregroundStyle(item.done ? Theme.tx2 : Theme.prose)
                     }
-                    .font(Typo.text(12.5))
+                    .font(Typography.body)
                 }
             }
         case .list(let items):
@@ -69,7 +69,7 @@ struct NotebookContentView: View {
                         Text("•").foregroundStyle(Theme.tx3)
                         resolved(item).foregroundStyle(Theme.prose)
                     }
-                    .font(Typo.text(12.5))
+                    .font(Typography.body)
                 }
             }
         case .numberedList(let items):
@@ -77,17 +77,17 @@ struct NotebookContentView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 6) {
                         Text("\(index + 1).")
-                            .font(Typo.mono(11.5))
+                            .font(Typography.code)
                             .foregroundStyle(Theme.tx3)
                         resolved(item).foregroundStyle(Theme.prose)
                     }
-                    .font(Typo.text(12.5))
+                    .font(Typography.body)
                 }
             }
         case .code(let code):
             ScrollView(.horizontal) {
                 Text(code)
-                    .font(Typo.mono(11.5))
+                    .font(Typography.code)
                     .foregroundStyle(Theme.tx2)
                     .textSelection(.enabled)
                     .padding(10)

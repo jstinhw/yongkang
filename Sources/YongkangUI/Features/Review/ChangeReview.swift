@@ -105,7 +105,7 @@ package struct ChangeReview: View {
                 .font(.system(size: 12)).foregroundStyle(Theme.tx3)
             TextField("Commit message", text: $message)
                 .textFieldStyle(.plain)
-                .font(Typo.mono(11.5))
+                .font(Typography.code)
                 .foregroundStyle(Theme.tx)
                 .padding(.horizontal, 10)
                 .frame(height: 30)
@@ -116,7 +116,7 @@ package struct ChangeReview: View {
                 )
                 .onSubmit(runCommit)
             if !failure.isEmpty {
-                Text(failure).font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                Text(failure).font(Typography.mono).foregroundStyle(Theme.red)
                     .lineLimit(2).frame(maxWidth: 260, alignment: .leading)
             }
             Button(action: runCommit) {
@@ -160,12 +160,12 @@ package struct ChangeReview: View {
             Image(systemName: change.untracked ? "doc.badge.plus" : "doc.text")
                 .font(.system(size: 12))
                 .foregroundStyle(change.untracked ? Theme.green : Theme.tx3)
-            Text(change.path).font(Typo.mono(11.5)).foregroundStyle(Theme.tx).lineLimit(1)
+            Text(change.path).font(Typography.code).foregroundStyle(Theme.tx).lineLimit(1)
                 .truncationMode(.head)
             // An uncounted file already wears the "new file" pill, so it shows no numbers.
             if change.counted {
-                Text("+\(change.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
-                Text("−\(change.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                Text("+\(change.added)").font(Typography.mono).foregroundStyle(Theme.green)
+                Text("−\(change.removed)").font(Typography.mono).foregroundStyle(Theme.red)
             }
             Spacer(minLength: 12)
             if change.untracked {
@@ -196,7 +196,7 @@ package struct ChangeReview: View {
                     ? "Nothing changed since the last commit."
                     : "This file is no longer changed — committed, or reverted."
             )
-            .font(Typo.text(13)).foregroundStyle(Theme.tx3)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -212,14 +212,14 @@ package struct ChangeReview: View {
                 HStack(spacing: 10) {
                     Image(systemName: "arrow.triangle.branch").foregroundStyle(Theme.accent)
                     Text(branch ?? "no branch")
-                        .font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
+                        .font(Typography.code).foregroundStyle(Theme.tx)
                     Spacer(minLength: 8)
                     Text("\(changes.count) file\(changes.count == 1 ? "" : "s")")
-                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 HStack(spacing: 10) {
-                    Text("+\(added)").font(Typo.mono(12)).foregroundStyle(Theme.green)
-                    Text("−\(removed)").font(Typo.mono(12)).foregroundStyle(Theme.red)
+                    Text("+\(added)").font(Typography.code).foregroundStyle(Theme.green)
+                    Text("−\(removed)").font(Typography.code).foregroundStyle(Theme.red)
                     Spacer(minLength: 0)
                 }
                 if let head {
@@ -240,7 +240,7 @@ package struct ChangeReview: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\(saved.path):\(saved.line)").font(Typography.mono).foregroundStyle(Theme.tx3)
                                     .lineLimit(1).truncationMode(.head)
-                                Text(saved.text).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).lineLimit(2)
+                                Text(saved.text).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(2)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .cardSurface(radius: 9, padding: 9, fill: Theme.raised)
@@ -261,7 +261,7 @@ package struct ChangeReview: View {
                         select(file.path)
                     } label: {
                         HStack(spacing: 8) {
-                            Text(file.name).font(Typo.mono(10.5))
+                            Text(file.name).font(Typography.mono)
                                 .foregroundStyle(file.path == path ? Theme.tx : Theme.tx2)
                                 .lineLimit(1).truncationMode(.middle)
                             Spacer(minLength: 6)

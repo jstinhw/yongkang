@@ -104,9 +104,9 @@ package struct TaskReview: View {
                 }
                 NotebookStyle.chip(task.id, mono: true)
                 Text("\(task.files.count) file\(task.files.count == 1 ? "" : "s")")
-                    .font(Typo.mono(12)).foregroundStyle(Theme.tx3)
-                Text("+\(task.added)").font(Typo.mono(12)).foregroundStyle(Theme.green)
-                Text("−\(task.removed)").font(Typo.mono(12)).foregroundStyle(Theme.red)
+                    .font(Typography.code).foregroundStyle(Theme.tx3)
+                Text("+\(task.added)").font(Typography.code).foregroundStyle(Theme.green)
+                Text("−\(task.removed)").font(Typography.code).foregroundStyle(Theme.red)
             }
             if !grouped.isEmpty {
                 HStack(spacing: 8) {
@@ -119,8 +119,8 @@ package struct TaskReview: View {
     private func areaTag(_ area: ReviewArea, count: Int) -> some View {
         HStack(spacing: 6) {
             Image(systemName: area.systemImage).font(.system(size: 11))
-            Text(area.rawValue).font(Typo.text(11.5, .medium))
-            Text("\(count)").font(Typo.mono(10.5)).opacity(0.75)
+            Text(area.rawValue).font(Typography.body(.medium))
+            Text("\(count)").font(Typography.mono).opacity(0.75)
         }
         .foregroundStyle(area.color)
         .padding(.horizontal, 9)
@@ -157,8 +157,8 @@ package struct TaskReview: View {
                 ForEach(Array(reviews.dropFirst().enumerated()), id: \.offset) { _, earlier in
                     HStack(spacing: 8) {
                         StateDot(color: NotebookStyle.color(of: earlier.state))
-                        Text(earlier.id).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
-                        Text(earlier.report).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).lineLimit(1)
+                        Text(earlier.id).font(Typography.mono).foregroundStyle(Theme.tx3)
+                        Text(earlier.report).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                     }
                 }
             } else {
@@ -216,19 +216,19 @@ package struct TaskReview: View {
                     HStack(spacing: 8) {
                         Image(systemName: group.area.systemImage).font(.system(size: 12)).foregroundStyle(
                             group.area.color)
-                        Text(group.area.rawValue).font(Typo.text(12.5, .medium)).foregroundStyle(Theme.tx)
+                        Text(group.area.rawValue).font(Typography.body(.medium)).foregroundStyle(Theme.tx)
                         Spacer(minLength: 8)
                         Text(
                             "+\(group.files.reduce(0) { $0 + $1.added }) −\(group.files.reduce(0) { $0 + $1.removed })"
                         )
-                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
                     }
                     ForEach(group.files) { fileRow($0) }
                 }
             }
             if !task.files.isEmpty {
                 Text("Open a file to read its diff and comment on a line.")
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -244,17 +244,17 @@ package struct TaskReview: View {
             HStack(spacing: 9) {
                 Image(systemName: file.untracked ? "doc.badge.plus" : "doc.text")
                     .font(.system(size: 11)).foregroundStyle(file.untracked ? Theme.green : Theme.tx3)
-                Text(file.path).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                Text(file.path).font(Typography.mono).foregroundStyle(Theme.tx2)
                     .lineLimit(1).truncationMode(.head)
                 if !owner.isEmpty { RoleTile(role: owner, size: 16) }
                 if summary.sharing(file.path, besides: task) != nil { NotebookStyle.pill("shared", Theme.amber) }
                 Spacer(minLength: 8)
                 if comments > 0 { NotebookStyle.pill("\(comments) comment\(comments == 1 ? "" : "s")", Theme.violet) }
                 if file.counted {
-                    Text("+\(file.added)").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
-                    Text("−\(file.removed)").font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                    Text("+\(file.added)").font(Typography.mono).foregroundStyle(Theme.green)
+                    Text("−\(file.removed)").font(Typography.mono).foregroundStyle(Theme.red)
                 } else {
-                    Text("new file").font(Typo.mono(10.5)).foregroundStyle(Theme.green)
+                    Text("new file").font(Typography.mono).foregroundStyle(Theme.green)
                 }
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.tx4)
             }
@@ -293,13 +293,13 @@ package struct TaskReview: View {
                 SectionLabel("This commit")
                 HStack(spacing: 9) {
                     Image(systemName: "arrow.triangle.branch").foregroundStyle(Theme.accent)
-                    Text(branch ?? "no branch").font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
+                    Text(branch ?? "no branch").font(Typography.code).foregroundStyle(Theme.tx)
                     Spacer(minLength: 8)
                     Text("\(task.commitPaths.count) file\(task.commitPaths.count == 1 ? "" : "s")")
-                        .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 Text("Only this task's files and its run records. Nothing is pushed.")
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+                    .font(Typography.body).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
                 if let head {
                     Text("on top of \(head)").font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
                 }
@@ -326,10 +326,10 @@ package struct TaskReview: View {
                     latest.state == "done"
                         ? "QA passed" : latest.state == "failed" ? "QA sent it back" : "QA \(latest.state)"
                 )
-                .font(Typo.text(13.5, .medium)).foregroundStyle(Theme.tx)
+                .font(Typography.headline).foregroundStyle(Theme.tx)
             } else {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(Theme.amber)
-                Text("No QA record").font(Typo.text(13.5, .medium)).foregroundStyle(Theme.amber)
+                Text("No QA record").font(Typography.headline).foregroundStyle(Theme.amber)
             }
             Spacer(minLength: 0)
         }
@@ -337,9 +337,9 @@ package struct TaskReview: View {
 
     private func fact(_ label: String, _ value: String) -> some View {
         HStack {
-            Text(label).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+            Text(label).font(Typography.body).foregroundStyle(Theme.tx3)
             Spacer(minLength: 8)
-            Text(value).font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
+            Text(value).font(Typography.code).foregroundStyle(Theme.tx)
         }
     }
 
@@ -347,7 +347,7 @@ package struct TaskReview: View {
         let lines = files.reduce(0) { $0 + $1.added + $1.removed }
         return HStack(spacing: 8) {
             Image(systemName: area.systemImage).font(.system(size: 11)).foregroundStyle(area.color).frame(width: 14)
-            Text(area.rawValue).font(Typo.text(11.5)).foregroundStyle(Theme.tx2).frame(width: 104, alignment: .leading)
+            Text(area.rawValue).font(Typography.body).foregroundStyle(Theme.tx2).frame(width: 104, alignment: .leading)
             Text("\(files.count)").font(Typography.mono).foregroundStyle(Theme.tx3).frame(width: 16)
             MeterBar(value: Double(lines) / Double(max(1, task.added + task.removed)), tint: area.color, height: 5)
             Text("+\(files.reduce(0) { $0 + $1.added })").font(Typography.mono).foregroundStyle(Theme.green)
@@ -359,7 +359,7 @@ package struct TaskReview: View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 12)).foregroundStyle(Theme.amber)
             Text("\(file.path) is also changed by \(other.title). Its edits in that file go into this commit too.")
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
+                .font(Typography.body).foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 12, border: Theme.amber.opacity(0.26), fill: Theme.amber.opacity(0.06))

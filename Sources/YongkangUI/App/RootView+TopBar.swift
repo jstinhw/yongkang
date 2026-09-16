@@ -73,7 +73,7 @@ extension RootView {
         case .review:
             TopBar(crumbs: [project.repo.branch ?? project.name], title: "Review changes") {
                 if let head = project.repo.head {
-                    Text(head).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    Text(head).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 }
                 Button {
                     model.refreshChanges(force: true)
@@ -93,7 +93,7 @@ extension RootView {
         return HStack(spacing: 9) {
             MeterBar(value: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count))
                 .frame(width: 96)
-            Text("\(done)/\(tasks.count)").font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+            Text("\(done)/\(tasks.count)").font(Typography.mono).foregroundStyle(Theme.tx2)
         }
     }
 

@@ -81,7 +81,7 @@ package struct Overview: View {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz").foregroundStyle(Theme.tx4)
                     Text("No agents running. Pick tasks on the board and assign them.")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 0)
                     Button("Open the board") { go(.board, .board) }
                         .buttonStyle(.console)
@@ -110,7 +110,7 @@ package struct Overview: View {
                 HStack(spacing: 10) {
                     RoleTile(role: subagent.agentType, size: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(subagent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                        Text(subagent.displayName).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                             .lineLimit(1)
                         Text("\(subagent.agentType) · on \(task?.title ?? subagent.taskID ?? "no task")")
                             .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
@@ -152,12 +152,12 @@ package struct Overview: View {
                     .foregroundStyle(changes.isEmpty ? Theme.tx4 : Theme.accent)
                 if changes.isEmpty {
                     Text("Nothing changed since the last commit.")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                 } else {
                     Text("\(changes.count) file\(changes.count == 1 ? "" : "s") changed")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx)
-                    Text("+\(added)").font(Typo.mono(11.5)).foregroundStyle(Theme.green)
-                    Text("−\(removed)").font(Typo.mono(11.5)).foregroundStyle(Theme.red)
+                        .font(Typography.body).foregroundStyle(Theme.tx)
+                    Text("+\(added)").font(Typography.code).foregroundStyle(Theme.green)
+                    Text("−\(removed)").font(Typography.code).foregroundStyle(Theme.red)
                 }
                 Spacer(minLength: 8)
                 Button("Review changes") { go(.review, .review(file: nil)) }
@@ -224,7 +224,7 @@ package struct Overview: View {
             if waiting.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.seal").foregroundStyle(Theme.green)
-                    Text("Nothing waiting on you.").font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                    Text("Nothing waiting on you.").font(Typography.body).foregroundStyle(Theme.tx3)
                     Spacer(minLength: 0)
                 }
                 .cardSurface(padding: 13)
@@ -238,7 +238,7 @@ package struct Overview: View {
                             .font(.system(size: 13))
                             .foregroundStyle(block.isProposal ? Theme.violet : Theme.amber)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(block.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                            Text(block.title).font(Typography.body).foregroundStyle(Theme.tx)
                                 .lineLimit(2).multilineTextAlignment(.leading)
                             Text(
                                 block.isProposal
@@ -279,7 +279,7 @@ package struct Overview: View {
                         "\(workers.count) agent\(workers.count == 1 ? "" : "s") in flight · "
                             + "\(project.assignedTaskIDs.count) assigned"
                     )
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
             }
@@ -296,7 +296,7 @@ package struct Overview: View {
                                 Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2)
                                     .lineLimit(1)
                                 Spacer(minLength: 8)
-                                Text("\(ownDone)/\(own.count)").font(Typo.mono(10.5))
+                                Text("\(ownDone)/\(own.count)").font(Typography.mono)
                                     .foregroundStyle(Theme.tx3)
                             }
                             MeterBar(
@@ -342,7 +342,7 @@ package struct Overview: View {
                     RoleTile(role: running.first?.agentType ?? name)
                     Text(name).font(Typography.body).foregroundStyle(Theme.tx2)
                     Spacer(minLength: 8)
-                    Text("\(running.count)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    Text("\(running.count)").font(Typography.mono).foregroundStyle(Theme.tx3)
                     StateDot(color: Theme.accent, live: true)
                 }
                 .padding(.vertical, 5)

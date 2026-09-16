@@ -34,9 +34,9 @@ struct ChangeSummaryPane: View {
             Text(headlineText).font(Typography.title)
             HStack(spacing: 9) {
                 Text("\(changes.count) file\(changes.count == 1 ? "" : "s")")
-                    .font(Typo.mono(12)).foregroundStyle(Theme.tx3)
-                Text("+\(added)").font(Typo.mono(12)).foregroundStyle(Theme.green)
-                Text("−\(removed)").font(Typo.mono(12)).foregroundStyle(Theme.red)
+                    .font(Typography.code).foregroundStyle(Theme.tx3)
+                Text("+\(added)").font(Typography.code).foregroundStyle(Theme.green)
+                Text("−\(removed)").font(Typography.code).foregroundStyle(Theme.red)
                 if done > 0 {
                     NotebookStyle.pill("\(done) passed QA", Theme.green)
                 }
@@ -86,7 +86,7 @@ struct ChangeSummaryPane: View {
 
     private func bar(_ file: FileChange, peak: Int) -> some View {
         HStack(spacing: 10) {
-            Text(file.name).font(Typo.mono(10.5)).foregroundStyle(Theme.tx2)
+            Text(file.name).font(Typography.mono).foregroundStyle(Theme.tx2)
                 .frame(width: 170, alignment: .leading).lineLimit(1).truncationMode(.middle)
             GeometryReader { geo in
                 HStack(spacing: 2) {
@@ -118,7 +118,7 @@ struct ChangeSummaryPane: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 18)
-                Text(task.title).font(Typo.text(14, .medium)).foregroundStyle(Theme.tx)
+                Text(task.title).font(Typography.headline).foregroundStyle(Theme.tx)
                     .fixedSize(horizontal: false, vertical: true)
                 NotebookStyle.chip(task.id, mono: true)
                 Spacer(minLength: 8)
@@ -133,7 +133,7 @@ struct ChangeSummaryPane: View {
                         : "No files are recorded against this task, so its diff cannot be told "
                             + "apart from the rest."
                 )
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                .font(Typography.body).foregroundStyle(Theme.tx3)
                 .fixedSize(horizontal: false, vertical: true)
             } else {
                 shape(
@@ -148,7 +148,7 @@ struct ChangeSummaryPane: View {
                 ForEach(Array(task.reviews.enumerated()), id: \.offset) { _, work in report(work) }
             } else if task.done {
                 Text("No QA record was filed against this task.")
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                    .font(Typography.body).foregroundStyle(Theme.amber)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,11 +192,11 @@ struct ChangeSummaryPane: View {
                 NotebookStyle.pill(work.state)
             }
             if !work.report.isEmpty {
-                Text(work.report).font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                Text(work.report).font(Typography.body).foregroundStyle(Theme.tx2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !work.reason.isEmpty {
-                Text(work.reason).font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                Text(work.reason).font(Typography.caption).foregroundStyle(Theme.tx3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -211,7 +211,7 @@ struct ChangeSummaryPane: View {
             HStack(spacing: 10) {
                 Image(systemName: "questionmark.circle").font(.system(size: 15))
                     .foregroundStyle(Theme.amber)
-                Text("Not claimed by a task").font(Typo.text(14, .medium)).foregroundStyle(Theme.tx)
+                Text("Not claimed by a task").font(Typography.headline).foregroundStyle(Theme.tx)
                 Spacer(minLength: 8)
                 NotebookStyle.pill(
                     "\(summary.unclaimed.count) file"

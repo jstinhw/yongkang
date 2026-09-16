@@ -82,7 +82,7 @@ package struct SessionTranscript: View {
                 text: $reply
             )
             .textFieldStyle(.plain)
-            .font(Typo.text(12.5))
+            .font(Typography.body)
             .foregroundStyle(Theme.tx)
             .onSubmit(dispatch)
             .disabled(session.exited)
@@ -147,7 +147,7 @@ struct SessionInspector: View {
                     Image(systemName: session.icon).font(.system(size: 13))
                         .foregroundStyle(Theme.tx3)
                     Text(session.agent?.displayName ?? "session")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                        .font(Typography.body).foregroundStyle(Theme.tx)
                     Spacer(minLength: 0)
                     NotebookStyle.pill(
                         session.exited ? "exited" : "live",
@@ -167,7 +167,7 @@ struct SessionInspector: View {
                         } label: {
                             HStack(spacing: 9) {
                                 RoleTile(role: subagent.agentType, size: 20)
-                                Text(subagent.displayName).font(Typo.text(11.5))
+                                Text(subagent.displayName).font(Typography.body)
                                     .foregroundStyle(Theme.tx2).lineLimit(1)
                                 Text(subagent.agentType).font(Typography.monoCaption)
                                     .foregroundStyle(Theme.tx4).lineLimit(1)
@@ -193,7 +193,7 @@ struct SessionInspector: View {
                             HStack(alignment: .top, spacing: 9) {
                                 Image(systemName: "hand.raised").font(.system(size: 12))
                                     .foregroundStyle(Theme.amber)
-                                Text(block.title).font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                                Text(block.title).font(Typography.body).foregroundStyle(Theme.tx2)
                                     .multilineTextAlignment(.leading)
                                 Spacer(minLength: 0)
                             }

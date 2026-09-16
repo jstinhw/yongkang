@@ -18,13 +18,13 @@ struct NotebookEditor: View {
             Group {
                 if isPage {
                     TextEditor(text: $text)
-                        .font(Typo.mono(12))
+                        .font(Typography.code)
                         .scrollContentBackground(.hidden)
                         .padding(.horizontal, 12)
                         .padding(.top, 10)
                 } else {
                     Text("Folder — open a page inside it.")
-                        .font(Typo.text(13))
+                        .font(Typography.body)
                         .foregroundStyle(Theme.tx3)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -32,7 +32,7 @@ struct NotebookEditor: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             ActionBar {
                 Text(entry.url.lastPathComponent)
-                    .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
                 if isPage && text != loaded {
                     NotebookStyle.pill("unsaved", Theme.amber)
                 }

@@ -65,7 +65,7 @@ package struct SubagentViewer: View {
                         openTask(task.id)
                     } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(task.title).font(Typo.text(13)).foregroundStyle(Theme.tx)
+                            Text(task.title).font(Typography.body).foregroundStyle(Theme.tx)
                                 .multilineTextAlignment(.leading)
                             HStack(spacing: 7) {
                                 Text(task.id).font(Typography.mono).foregroundStyle(Theme.tx3)
@@ -88,7 +88,7 @@ package struct SubagentViewer: View {
                                     .font(.system(size: 12))
                                     .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                                     .padding(.top, 1)
-                                Text(item.text).font(Typo.text(11.5))
+                                Text(item.text).font(Typography.body)
                                     .foregroundStyle(item.done ? Theme.prose : Theme.tx3)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -102,7 +102,7 @@ package struct SubagentViewer: View {
                         "This agent's name matches no task in the batch — a review or "
                             + "compaction agent, most likely."
                     )
-                    .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
             }
             Spacer(minLength: 0)
@@ -129,7 +129,7 @@ struct TranscriptHeader: View {
             RoleTile(role: role, size: 36)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(Typography.headline)
-                Text(subtitle).font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                Text(subtitle).font(Typography.caption).foregroundStyle(Theme.tx3)
             }
             Spacer(minLength: 12)
             NotebookStyle.chip("\(TranscriptSteps.steps(lines).count) steps", mono: true)

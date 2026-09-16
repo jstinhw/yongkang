@@ -64,7 +64,7 @@ package struct Rail: View {
         VStack(spacing: 4) {
             Button(action: leave) {
                 Text("YK")
-                    .font(Typo.mono(12, .semibold))
+                    .font(Typography.code(.semibold))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
@@ -113,7 +113,7 @@ package struct Rail: View {
     /// the rail's own width, which is why the rail is drawn above the list column.
     private func flyout(_ item: ConsoleSection) -> some View {
         Text(item.title)
-            .font(Typo.text(11.5))
+            .font(Typography.body)
             .foregroundStyle(Theme.tx)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -148,7 +148,7 @@ package struct Rail: View {
                 )
                 .overlay(alignment: .topTrailing) {
                     if item == .agents {
-                        Text("\(agentCount)").font(Typo.mono(9, .semibold))
+                        Text("\(agentCount)").font(Typography.monoCaption(.semibold))
                             .foregroundStyle(Theme.tx)
                             .padding(.horizontal, 4)
                             .background(Capsule().fill(Theme.panel))
@@ -186,7 +186,7 @@ package struct TopBar<Trailing: View>: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) { path }
                 HStack(spacing: 10) { path.lineLimit(1).truncationMode(.tail) }
-                Text(title).font(Typo.display(14)).lineLimit(1).truncationMode(.tail)
+                Text(title).font(Typography.headline).lineLimit(1).truncationMode(.tail)
             }
             if let pill { pill }
             Spacer(minLength: 12)
@@ -200,12 +200,12 @@ package struct TopBar<Trailing: View>: View {
 
     @ViewBuilder private var path: some View {
         ForEach(Array(crumbs.enumerated()), id: \.offset) { _, crumb in
-            Text(crumb).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+            Text(crumb).font(Typography.mono).foregroundStyle(Theme.tx3)
             Image(systemName: "chevron.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(Theme.tx4)
         }
-        Text(title).font(Typo.display(14))
+        Text(title).font(Typography.headline)
     }
 }
 

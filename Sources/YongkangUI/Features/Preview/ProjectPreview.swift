@@ -33,7 +33,7 @@ struct ProjectPreview: View {
                 if hasFrontend {
                     TextField("http://localhost:3000", text: $address, onCommit: load)
                         .textFieldStyle(.plain)
-                        .font(Typo.mono(11))
+                        .font(Typography.mono)
                         .padding(.horizontal, 10)
                         .frame(width: 260, height: 30)
                         .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
@@ -57,7 +57,7 @@ struct ProjectPreview: View {
                 WebPane(webView: webView).onAppear(perform: load)
             } else {
                 Text("No frontend app among \(repo)'s services — nothing to open here.")
-                    .font(Typo.text(13))
+                    .font(Typography.body)
                     .foregroundStyle(Theme.tx3)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -70,9 +70,9 @@ struct ProjectPreview: View {
         HStack(spacing: 16) {
             ForEach(services, id: \.name) { service in
                 HStack(spacing: 4) {
-                    Text(service.name).font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx2)
+                    Text(service.name).font(Typography.body(.medium)).foregroundStyle(Theme.tx2)
                     Text(service.command ?? "nothing to run")
-                        .font(Typo.mono(10.5))
+                        .font(Typography.mono)
                         .foregroundStyle(service.command == nil ? Theme.amber : Theme.tx3)
                 }
             }

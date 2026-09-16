@@ -81,7 +81,7 @@ package struct EngineeringLeadBoard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(taskIDs.isEmpty ? "Ready for a task" : "Coordination plan")
-                    .font(Typo.display(21)).foregroundStyle(Theme.tx)
+                    .font(Typography.title).foregroundStyle(Theme.tx)
                 Spacer(minLength: 8)
                 if let updated = session.coordination?.updatedAt {
                     Text("Updated \(AgentUsage.ago(updated))").font(Typography.mono).foregroundStyle(Theme.tx3)
@@ -130,7 +130,7 @@ package struct EngineeringLeadBoard: View {
     private func summaryMetric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(Typography.section).tracking(1).foregroundStyle(Theme.tx3)
-            Text(value).font(Typo.mono(11)).foregroundStyle(Theme.tx)
+            Text(value).font(Typography.mono).foregroundStyle(Theme.tx)
         }
     }
 
@@ -147,7 +147,7 @@ package struct EngineeringLeadBoard: View {
                     Button {
                         openTask(taskID)
                     } label: {
-                        Text(card?.title ?? taskID).font(Typo.display(14)).foregroundStyle(Theme.tx)
+                        Text(card?.title ?? taskID).font(Typography.headline).foregroundStyle(Theme.tx)
                             .multilineTextAlignment(.leading)
                     }
                     .buttonStyle(.plain).disabled(card == nil)
@@ -168,7 +168,7 @@ package struct EngineeringLeadBoard: View {
                     card?.status == "done"
                         ? "Accepted. No worker records available." : "Awaiting dispatch after dependencies clear."
                 )
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3).padding(.vertical, 5)
+                .font(Typography.body).foregroundStyle(Theme.tx3).padding(.vertical, 5)
             }
             ForEach(assigned) { worker($0) }
             ForEach(remaining) { legacyWorker($0) }
@@ -177,7 +177,7 @@ package struct EngineeringLeadBoard: View {
                     openBlock(block)
                 } label: {
                     Label(block.title, systemImage: "hand.raised.fill")
-                        .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                        .font(Typography.body).foregroundStyle(Theme.amber)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                         .background(RoundedRectangle(cornerRadius: 7).fill(Theme.amber.opacity(0.08)))
                         .contentShape(Rectangle())
@@ -195,7 +195,7 @@ package struct EngineeringLeadBoard: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(work.title.nonEmpty ?? work.id).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                        Text(work.title.nonEmpty ?? work.id).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                         Text(
                             "\(work.skill.nonEmpty ?? "Skill pending") · \(work.measuredModel ?? work.model.nonEmpty ?? "Model unreported")"
                         )
@@ -230,7 +230,7 @@ package struct EngineeringLeadBoard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 if !work.report.isEmpty {
                     Label(work.report, systemImage: "arrow.turn.down.left")
-                        .font(Typo.text(11)).foregroundStyle(Theme.tx2).lineLimit(2)
+                        .font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(2)
                 }
                 DisclosureGroup(
                     "Why this assignment · check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")"
@@ -240,7 +240,7 @@ package struct EngineeringLeadBoard: View {
                         if !work.report.isEmpty { Text("Report: \(work.report)") }
                         Text("Worker ID: \(work.id)").font(Typography.mono)
                     }
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                    .font(Typography.caption).foregroundStyle(Theme.tx2)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
                 }
                 .font(Typography.caption).foregroundStyle(Theme.tx3).tint(Theme.tx3)
@@ -262,9 +262,9 @@ package struct EngineeringLeadBoard: View {
             HStack(spacing: 10) {
                 RoleTile(role: agent.agentType)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(agent.displayName).font(Typo.display(12)).foregroundStyle(Theme.tx)
+                    Text(agent.displayName).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                     Text(agent.description).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
-                    Text("Plan, estimates and check-in unavailable").font(Typo.text(10)).foregroundStyle(Theme.tx3)
+                    Text("Plan, estimates and check-in unavailable").font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 0)
                 NotebookStyle.pill(
@@ -285,7 +285,7 @@ package struct EngineeringLeadBoard: View {
                         RoleTile(role: member.skills.first ?? member.name)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("\(member.name) · \(member.skills.joined(separator: ", "))")
-                                .font(Typo.text(11.5)).foregroundStyle(Theme.tx2)
+                                .font(Typography.body).foregroundStyle(Theme.tx2)
                             Text(member.owns).font(Typography.caption).foregroundStyle(Theme.tx3)
                         }
                     }
@@ -328,7 +328,7 @@ struct LeadInspector: View {
                     value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green
                 )
                 Text("A returned worker still needs independent QA before its task is accepted.")
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+                    .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
             }
             if !waiting.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
@@ -338,7 +338,7 @@ struct LeadInspector: View {
                             openBlock(block)
                         } label: {
                             Label(block.title, systemImage: "hand.raised")
-                                .font(Typo.text(11.5)).foregroundStyle(Theme.amber)
+                                .font(Typography.body).foregroundStyle(Theme.amber)
                                 .multilineTextAlignment(.leading).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                     }
@@ -348,7 +348,7 @@ struct LeadInspector: View {
                 SectionLabel("Check-ins & memory")
                 if let coordination = session.coordination {
                     if !coordination.contextSummary.isEmpty {
-                        Text(coordination.contextSummary).font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                        Text(coordination.contextSummary).font(Typography.caption).foregroundStyle(Theme.tx2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(coordination.workers) { context($0) }
@@ -365,12 +365,12 @@ struct LeadInspector: View {
                                 openTask(id)
                             } label: {
                                 Text(cards.first { $0.id == id }?.title ?? id)
-                                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                                    .font(Typography.caption).foregroundStyle(Theme.tx2)
                                     .multilineTextAlignment(.leading)
                             }.buttonStyle(.plain)
                         }
                     }.padding(.top, 8)
-                }.font(Typo.text(11.5)).tint(Theme.tx3).foregroundStyle(Theme.tx2)
+                }.font(Typography.body).tint(Theme.tx3).foregroundStyle(Theme.tx2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -380,14 +380,14 @@ struct LeadInspector: View {
         Text(
             "Check-ins, context usage and checkpoints appear when the lead records them. Unknown limits stay unreported."
         )
-        .font(Typo.text(11)).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+        .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
     }
 
     private func context(_ work: LeadWork) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 StateDot(color: LeadDisplay.tint(work), live: work.state == "running" && work.runtimeRunning != false)
-                Text(work.title.nonEmpty ?? work.id).font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx2)
+                Text(work.title.nonEmpty ?? work.id).font(Typography.body(.medium)).foregroundStyle(Theme.tx2)
             }
             Text("Check-in \(work.updatedAt.map { AgentUsage.ago($0) } ?? "unreported")")
                 .font(Typography.mono).foregroundStyle(Theme.tx3)
@@ -402,18 +402,18 @@ struct LeadInspector: View {
                 MeterBar(value: ratio, tint: ratio >= 0.75 ? Theme.red : ratio >= 0.6 ? Theme.amber : Theme.green)
                 if ratio >= 0.6 {
                     Text(ratio >= 0.75 ? "Compaction threshold reached" : "Checkpoint threshold reached")
-                        .font(Typo.text(10)).foregroundStyle(ratio >= 0.75 ? Theme.red : Theme.amber)
+                        .font(Typography.caption).foregroundStyle(ratio >= 0.75 ? Theme.red : Theme.amber)
                 }
             } else {
                 Text("Context: \(LeadDisplay.tokens(work.contextTokens)) / \(LeadDisplay.tokens(work.contextWindow))")
                     .font(Typography.mono).foregroundStyle(Theme.tx3)
             }
             if !work.contextSource.isEmpty {
-                Text(work.contextSource).font(Typo.text(10)).foregroundStyle(Theme.tx3)
+                Text(work.contextSource).font(Typography.caption).foregroundStyle(Theme.tx3)
             }
             DisclosureGroup(work.checkpoint.isEmpty ? "No checkpoint recorded" : "Saved checkpoint") {
                 Text(work.checkpoint.nonEmpty ?? "A checkpoint has not been reported.")
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                    .font(Typography.caption).foregroundStyle(Theme.tx2)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 5)
             }
             .font(Typography.caption).tint(Theme.tx3).foregroundStyle(Theme.tx3)

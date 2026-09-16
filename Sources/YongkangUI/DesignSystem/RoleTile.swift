@@ -8,7 +8,7 @@ struct RoleTile: View {
 
     var body: some View {
         Text(RoleTile.mark(role))
-            .font(Typo.mono(size < 26 ? 9.5 : 11, .semibold))
+            .font(size < 26 ? Typography.monoCaption(.semibold) : Typography.mono(.semibold))
             .foregroundStyle(color)
             .frame(width: size, height: size)
             .background(RoundedRectangle(cornerRadius: size / 3).fill(color.opacity(0.14)))

@@ -26,7 +26,7 @@ package enum NotebookStyle {
     package static func pill(_ text: String, _ color: Color, live: Bool = false) -> some View {
         HStack(spacing: 5) {
             if live { StateDot(color: color, live: true) }
-            Text(text).font(Typo.text(11, .medium))
+            Text(text).font(Typography.caption(.medium))
         }
         .foregroundStyle(color)
         .padding(.horizontal, live ? 9 : 8)
@@ -37,7 +37,7 @@ package enum NotebookStyle {
     /// A chip for a fact rather than a state: an id, a role, a count.
     static func chip(_ text: String, mono: Bool = false) -> some View {
         Text(text)
-            .font(mono ? Typography.mono : Typo.text(11))
+            .font(mono ? Typography.mono : Typography.caption)
             .foregroundStyle(Theme.tx2)
             .padding(.horizontal, 8)
             .frame(height: 22)

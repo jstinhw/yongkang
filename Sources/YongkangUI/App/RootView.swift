@@ -200,8 +200,8 @@ private struct AttentionNotices: View {
             HStack(spacing: 12) {
                 Image(systemName: "exclamationmark.bubble.fill").foregroundStyle(Theme.amber)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Action required · \(project.name) · \(session.title)").font(Typo.text(12, .medium))
-                    Text(model.attention[session.id] ?? "").font(Typo.text(11)).foregroundStyle(Theme.tx2)
+                    Text("Action required · \(project.name) · \(session.title)").font(Typography.body(.medium))
+                    Text(model.attention[session.id] ?? "").font(Typography.caption).foregroundStyle(Theme.tx2)
                 }
                 Spacer()
                 Button("Open session") {

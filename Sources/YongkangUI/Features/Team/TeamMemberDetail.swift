@@ -59,7 +59,7 @@ package struct TeamMemberDetail: View {
                                 "This agent has no skill assigned, so the lead has nothing "
                                     + "to route to it."
                             )
-                            .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                            .font(Typography.body).foregroundStyle(Theme.tx3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .cardSurface()
                         }
@@ -84,7 +84,7 @@ package struct TeamMemberDetail: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(member.name).font(Typography.headline)
                 Text(member.owns.isEmpty ? member.skills.joined(separator: ", ") : member.owns)
-                    .font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
@@ -114,8 +114,8 @@ package struct TeamMemberDetail: View {
                 HStack(alignment: .top, spacing: 11) {
                     RoleTile(role: doc.name, size: 26)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(doc.name).font(Typo.mono(12.5, .semibold)).foregroundStyle(Theme.tx)
-                        Text(summary(of: doc)).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                        Text(doc.name).font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
+                        Text(summary(of: doc)).font(Typography.body).foregroundStyle(Theme.tx3)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
@@ -176,7 +176,7 @@ package struct TeamMemberDetail: View {
             if !member.owns.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionLabel("Owns")
-                    Text(member.owns).font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                    Text(member.owns).font(Typography.body).foregroundStyle(Theme.tx3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -188,7 +188,7 @@ package struct TeamMemberDetail: View {
                             openSubagent(found.session, found.subagent)
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(found.subagent.description).font(Typo.mono(10.5))
+                                Text(found.subagent.description).font(Typography.mono)
                                     .foregroundStyle(Theme.tx2)
                                     .lineLimit(2).multilineTextAlignment(.leading)
                                 Text("in \(found.session.title)").font(Typography.caption)

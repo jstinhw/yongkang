@@ -18,17 +18,17 @@ struct WorkReport: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 RoleTile(role: work.skill, size: 22)
-                if !name.isEmpty { Text(name).font(Typo.text(13, .medium)).foregroundStyle(Theme.tx) }
+                if !name.isEmpty { Text(name).font(Typography.body(.medium)).foregroundStyle(Theme.tx) }
                 Text(work.skill).font(Typography.mono).foregroundStyle(Theme.tx3)
                 Spacer(minLength: 8)
                 if !work.model.isEmpty { NotebookStyle.chip(work.model, mono: true) }
                 if let minutes = work.elapsedMinutes() {
                     Text(minutes < 1 ? "\(Int(minutes * 60))s" : "\(Int(minutes.rounded())) min")
-                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
                 verdict
             }
-            Text(work.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+            Text(work.title).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
             if !work.changeRequest.isEmpty { asked }
             if !work.result.isEmpty {
@@ -47,7 +47,7 @@ struct WorkReport: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "doc.text").font(.system(size: 10))
-                                Text(path).font(Typo.mono(10.5)).lineLimit(1).truncationMode(.head)
+                                Text(path).font(Typography.mono).lineLimit(1).truncationMode(.head)
                             }
                             .foregroundStyle(Theme.tx2)
                             .contentShape(Rectangle())
@@ -101,7 +101,7 @@ struct FeedbackCard: View {
                         Button {
                             openFile(comment.path)
                         } label: {
-                            Text("\(comment.path):\(comment.line)").font(Typo.mono(10.5)).foregroundStyle(Theme.accent)
+                            Text("\(comment.path):\(comment.line)").font(Typography.mono).foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
                         Text(comment.text).font(Typography.body).foregroundStyle(Theme.tx)
@@ -121,13 +121,13 @@ struct FeedbackCard: View {
             TextField("Anything else for the agents — sent with your line comments", text: $draft.note, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(2...6)
-                .font(Typo.text(12.5))
+                .font(Typography.body)
                 .foregroundStyle(Theme.tx)
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bg))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))
             Text("To comment on code, open a file under Changes by area and click a line.")
-                .font(Typo.text(11)).foregroundStyle(Theme.tx3)
+                .font(Typography.caption).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 15)
@@ -153,14 +153,14 @@ struct TaskReviewBar: View {
             Image(systemName: "arrow.triangle.branch").font(.system(size: 12)).foregroundStyle(Theme.tx3)
             TextField("Commit message", text: $message)
                 .textFieldStyle(.plain)
-                .font(Typo.mono(11.5))
+                .font(Typography.code)
                 .foregroundStyle(Theme.tx)
                 .padding(.horizontal, 10)
                 .frame(height: 30)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))
             if !failure.isEmpty {
-                Text(failure).font(Typo.mono(10.5)).foregroundStyle(Theme.red)
+                Text(failure).font(Typography.mono).foregroundStyle(Theme.red)
                     .lineLimit(2).frame(maxWidth: 260, alignment: .leading)
             }
             if draft.isEmpty {

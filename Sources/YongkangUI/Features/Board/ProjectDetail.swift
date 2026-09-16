@@ -80,7 +80,7 @@ struct ProjectDetail: View {
                     Text(card.title).font(Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
-                        Text(card.id).font(Typo.mono(11)).foregroundStyle(Theme.tx3)
+                        Text(card.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                         if !card.status.isEmpty { NotebookStyle.pill(card.status) }
                         if let roadmap = card.roadmap.flatMap({ id in
                             cards.first { $0.id == id && $0.kind == .roadmap }
@@ -112,11 +112,11 @@ struct ProjectDetail: View {
                     )
                     .frame(width: 180)
                     Text("\(done) of \(allTasks.count) done")
-                        .font(Typo.mono(11.5)).foregroundStyle(Theme.tx2)
+                        .font(Typography.code).foregroundStyle(Theme.tx2)
                 }
             }
             if let waits = NotebookStyle.edge("waits on ", card.dependsOn, in: cards) {
-                waits.font(Typo.mono(10.5))
+                waits.font(Typography.mono)
             }
         }
     }
@@ -135,9 +135,9 @@ struct ProjectDetail: View {
                     HStack(spacing: 7) {
                         Image(systemName: missing ? "questionmark.folder" : "folder")
                             .font(.system(size: 11)).foregroundStyle(Theme.tx3)
-                        Text(step.repo).font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                        Text(step.repo).font(Typography.mono).foregroundStyle(Theme.tx2)
                         Text(missing ? "not created yet" : summary(step.services))
-                            .font(Typo.text(11))
+                            .font(Typography.caption)
                             .foregroundStyle(
                                 missing || step.services.allSatisfy { $0.command == nil }
                                     ? Theme.amber : Theme.tx3)
@@ -212,7 +212,7 @@ struct ProjectDetail: View {
                 openTask(task)
             } label: {
                 HStack(spacing: 8) {
-                    Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx).lineLimit(1)
+                    Text(task.title).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
                     if assigned.contains(task.id) { NotebookStyle.pill("wip") }
                     Spacer(minLength: 8)
                     if let waits = NotebookStyle.edge("waits on ", task.dependsOn, in: cards) {
@@ -237,16 +237,16 @@ struct ProjectDetail: View {
         ActionBar {
             if pickedTasks.isEmpty {
                 Text("Click a task's ring, or Pick all, to hand this project to a lead.")
-                    .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - pickedTasks.count
-                Text("\(pickedTasks.count) picked").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                Text("\(pickedTasks.count) picked").font(Typography.body).foregroundStyle(Theme.tx)
                 if pulled > 0 {
                     Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in")
-                        .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 Text(batch.map(\.id).joined(separator: " → "))
-                    .font(Typo.mono(11)).foregroundStyle(Theme.tx3).lineLimit(1)
+                    .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
             }
             Spacer(minLength: 12)
             Button("Pick all") { picked = Set(pickable.map(\.id)) }

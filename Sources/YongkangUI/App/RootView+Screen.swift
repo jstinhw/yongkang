@@ -172,7 +172,7 @@ extension RootView {
                 Image(systemName: model.section.systemImage).font(.system(size: 22))
                     .foregroundStyle(Theme.tx4)
                 Text("Nothing selected in \(model.section.title).")
-                    .font(Typo.text(13)).foregroundStyle(Theme.tx3)
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.bg)

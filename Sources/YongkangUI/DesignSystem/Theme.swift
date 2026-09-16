@@ -36,9 +36,11 @@ package enum Theme {
 
     // MARK: - Edges
     //
-    // ponytail: eight borders across 0x1C–0x2B is a ramp, not a system. Naming them is as
-    // far as a no-visual-change PR can go; 5.2's canvas is where they collapse to three or
-    // four, which is a value change here plus whatever it renames.
+    // ponytail: nine borders across 0x1C–0x2B is a ramp, not a system, and the type ramp it
+    // was named alongside has since collapsed to seven roles. This one has not: 5.2 was
+    // typography and the app icon, and repainting edges in the same PR would have made every
+    // shot unreadable as evidence for either. Collapsing them to three or four is a value
+    // change here plus whatever it renames — the palette PR, with its own before/after shots.
 
     static let wellLine = Color(hex: 0x1E242F)  // a well's edge, and a meter's empty track
     static let line = Color(hex: 0x1C212B)  // column and bar separators

@@ -61,7 +61,7 @@ package struct NewAgentForm: View {
     package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("New agent").font(Typo.display(16)).foregroundStyle(Theme.tx)
+                Text("New agent").font(Typography.headline).foregroundStyle(Theme.tx)
                 Spacer()
                 Picker("", selection: $mode) {
                     ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
@@ -93,7 +93,7 @@ package struct NewAgentForm: View {
             TextField("mobile-dev", text: $name).textFieldStyle(.roundedBorder)
             if clash {
                 Text("An agent named \(slug) already exists.")
-                    .font(Typo.text(11)).foregroundStyle(Theme.red)
+                    .font(Typography.caption).foregroundStyle(Theme.red)
             }
         }
 
@@ -113,7 +113,7 @@ package struct NewAgentForm: View {
                     "No skills installed. Fetch a repo below, or put one in "
                         + ".claude/skills/ in this project."
                 )
-                .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+                .font(Typography.body).foregroundStyle(Theme.tx3)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
@@ -136,10 +136,10 @@ package struct NewAgentForm: View {
                     .disabled(fetching || !Skills.isRemote(remote))
             }
             if !failure.isEmpty {
-                Text(failure).font(Typo.text(11)).foregroundStyle(Theme.red)
+                Text(failure).font(Typography.caption).foregroundStyle(Theme.red)
                     .fixedSize(horizontal: false, vertical: true)
             } else if !fetched.isEmpty {
-                Text(fetched).font(Typo.text(11)).foregroundStyle(Theme.green)
+                Text(fetched).font(Typography.caption).foregroundStyle(Theme.green)
             }
         }
 
@@ -169,7 +169,7 @@ package struct NewAgentForm: View {
             )
         ) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(doc.name).font(Typo.mono(12)).foregroundStyle(Theme.tx2)
+                Text(doc.name).font(Typography.code).foregroundStyle(Theme.tx2)
                 if !doc.summary.isEmpty {
                     Text(doc.summary).font(Typography.caption).foregroundStyle(Theme.tx3)
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true)
@@ -189,12 +189,12 @@ package struct NewAgentForm: View {
                     + "missing, and adds the agent to the roster. It appears here when that "
                     + "session has written it."
             )
-            .font(Typo.text(11.5)).foregroundStyle(Theme.tx3)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             .fixedSize(horizontal: false, vertical: true)
             TextField("An agent that owns database migrations and…", text: $brief, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(5...12)
-                .font(Typo.text(12.5))
+                .font(Typography.body)
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))

@@ -14,7 +14,7 @@ struct ProjectIntake: View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer(minLength: 0)
             Text("What is \(project.name) for?")
-                .font(Typo.display(24))
+                .font(Typography.title)
             Text(
                 """
                 Describe the project: the goal, what you are building and for whom, the \
@@ -23,7 +23,7 @@ struct ProjectIntake: View {
                 waiting for approval — read it on the board and tell it what to change.
                 """
             )
-            .font(Typo.text(13))
+            .font(Typography.body)
             .foregroundStyle(Theme.tx2)
             .lineSpacing(3)
             .fixedSize(horizontal: false, vertical: true)
@@ -34,7 +34,7 @@ struct ProjectIntake: View {
 
             HStack {
                 Text("@ tags a file or folder · Tab completes it · ↑↓ picks · Return to start")
-                    .font(Typo.mono(10.5))
+                    .font(Typography.mono)
                     .foregroundStyle(Theme.tx3)
                 Spacer()
                 // ponytail: Return reaches send() either through the field's onSubmit or,

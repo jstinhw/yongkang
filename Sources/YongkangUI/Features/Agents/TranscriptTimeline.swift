@@ -54,7 +54,7 @@ struct TranscriptTimeline: View {
                             .foregroundStyle(tint(item.kind))
                     }
                     Text(item.text)
-                        .font(Typo.text(12.5))
+                        .font(Typography.body)
                         .foregroundStyle(Theme.prose)
                         .lineSpacing(3)
                         .textSelection(.enabled)
@@ -63,13 +63,13 @@ struct TranscriptTimeline: View {
                 .cardSurface(radius: 11, padding: 13)
             case .skill:
                 HStack(spacing: 8) {
-                    Text(item.text).font(Typo.mono(11.5)).foregroundStyle(Theme.tx)
+                    Text(item.text).font(Typography.code).foregroundStyle(Theme.tx)
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 7)
             case .note:
                 Text(item.text)
-                    .font(Typo.text(11.5))
+                    .font(Typography.body)
                     .foregroundStyle(Theme.tx2)
                     .lineSpacing(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -124,11 +124,11 @@ struct TranscriptTimeline: View {
                     Text(split.map { String(line.text[$0...]) } ?? "")
                         .foregroundStyle(Theme.tx2)
                 }
-                .font(Typo.mono(11))
+                .font(Typography.mono)
                 .textSelection(.enabled)
             } else {
                 Text(line.text)
-                    .font(Typo.mono(10.5))
+                    .font(Typography.mono)
                     .foregroundStyle(line.isError ? Theme.problem : Theme.tx2)
                     .lineSpacing(2)
                     .padding(10)
@@ -184,7 +184,7 @@ struct TranscriptTimeline: View {
     private var empty: some View {
         VStack(spacing: 8) {
             Image(systemName: "hourglass").font(.system(size: 22)).foregroundStyle(Theme.tx4)
-            Text("Nothing recorded yet.").font(Typo.text(13)).foregroundStyle(Theme.tx3)
+            Text("Nothing recorded yet.").font(Typography.body).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

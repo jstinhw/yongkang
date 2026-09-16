@@ -99,7 +99,7 @@ package struct DesignDemo: View {
             }
             Spacer(minLength: 8)
             if !block.branch.isEmpty {
-                Text(block.branch).font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                Text(block.branch).font(Typography.mono).foregroundStyle(Theme.tx3)
                     .lineLimit(1).truncationMode(.head)
             }
         }
@@ -154,7 +154,7 @@ package struct DesignDemo: View {
         } label: {
             HStack(spacing: 6) {
                 Circle().fill(on ? Theme.violet : Theme.tx4).frame(width: 5, height: 5)
-                Text(pass.label).font(Typo.mono(10.5))
+                Text(pass.label).font(Typography.mono)
                     .foregroundStyle(on ? Theme.tx : Theme.tx3)
             }
             .padding(.horizontal, 10)
@@ -226,7 +226,7 @@ package struct DesignDemo: View {
 
     private func empty(_ text: String) -> some View {
         Text(text)
-            .font(Typo.text(12.5)).foregroundStyle(Theme.tx3)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             .multilineTextAlignment(.center)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -246,7 +246,7 @@ package struct DesignDemo: View {
                 HStack(spacing: 10) {
                     NotebookStyle.statusRing(task.status, progress: 0, size: 16)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title).font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                        Text(task.title).font(Typography.body).foregroundStyle(Theme.tx)
                             .lineLimit(2).multilineTextAlignment(.leading)
                         Text(task.id).font(Typography.mono).foregroundStyle(Theme.tx3)
                     }
@@ -304,7 +304,7 @@ package struct DesignDemo: View {
                     ? "Nothing is written to the repo until you build it."
                     : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The lead has it.")"
             )
-            .font(Typo.text(12.5))
+            .font(Typography.body)
             .foregroundStyle(block.waiting ? Theme.tx3 : Theme.green)
             Spacer(minLength: 12)
             Button {

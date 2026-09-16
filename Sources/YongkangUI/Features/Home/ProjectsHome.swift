@@ -92,14 +92,14 @@ package struct ProjectsHome: View {
     private var top: some View {
         HStack(spacing: 14) {
             Text("YK")
-                .font(Typo.mono(12, .semibold))
+                .font(Typography.code(.semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: 9).fill(Theme.mark))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9)
                         .strokeBorder(Theme.markLine, lineWidth: 1))
-            Text("Yongkang").font(Typo.display(14)).tracking(0.3)
+            Text("Yongkang").font(Typography.headline).tracking(0.3)
             Spacer(minLength: 12)
         }
         .padding(.horizontal, 32)
@@ -109,7 +109,7 @@ package struct ProjectsHome: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 11) {
-            Text("Fleet").font(Typo.display(27)).foregroundStyle(Theme.tx)
+            Text("Fleet").font(Typography.title).foregroundStyle(Theme.tx)
             HStack(spacing: 18) {
                 strip(Theme.accent, "\(running) agent\(running == 1 ? "" : "s") online", live: running > 0)
                 strip(Theme.amber, "\(waiting) waiting on you", live: false)
@@ -124,7 +124,7 @@ package struct ProjectsHome: View {
     private func strip(_ color: Color, _ text: String, live: Bool) -> some View {
         HStack(spacing: 7) {
             StateDot(color: color, live: live)
-            Text(text).font(Typo.text(12.5)).foregroundStyle(Theme.tx2)
+            Text(text).font(Typography.body).foregroundStyle(Theme.tx2)
         }
     }
 
@@ -136,9 +136,9 @@ package struct ProjectsHome: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 11) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(project.name).font(Typo.display(16)).foregroundStyle(Theme.tx).lineLimit(1)
+                    Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx).lineLimit(1)
                     Text(project.directory.path)
-                        .font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
                         .lineLimit(1).truncationMode(.head)
                 }
                 Spacer(minLength: 8)
@@ -168,10 +168,10 @@ package struct ProjectsHome: View {
             .padding(.top, 16)
             Rectangle().fill(Theme.line).frame(height: 1).padding(.vertical, 12)
             HStack(spacing: 8) {
-                Text(summary(project)).font(Typo.text(11)).foregroundStyle(Theme.tx3).lineLimit(1)
+                Text(summary(project)).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                 Spacer(minLength: 8)
                 if !tasks.isEmpty {
-                    Text("\(done)/\(tasks.count)").font(Typo.mono(11)).foregroundStyle(Theme.tx2)
+                    Text("\(done)/\(tasks.count)").font(Typography.mono).foregroundStyle(Theme.tx2)
                 }
             }
         }

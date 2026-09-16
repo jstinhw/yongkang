@@ -51,7 +51,7 @@ struct DiffLines: View {
             Text(line.text).foregroundStyle(ink).fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
         }
-        .font(Typo.mono(11))
+        .font(Typography.mono)
         .frame(height: 19)
         .padding(.horizontal, 8)
         .background(wash)
@@ -77,7 +77,7 @@ struct DiffLines: View {
 
     private func note(for saved: ReviewComment) -> some View {
         HStack(alignment: .top, spacing: 9) {
-            Text("You").font(Typo.text(11.5, .medium)).foregroundStyle(Theme.tx)
+            Text("You").font(Typography.body(.medium)).foregroundStyle(Theme.tx)
             NotebookStyle.pill("draft", Theme.violet)
             Text(saved.text).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
@@ -100,7 +100,7 @@ struct DiffLines: View {
             TextField("What should the agent change here?", text: $comment, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(2...6)
-                .font(Typo.text(12.5))
+                .font(Typography.body)
                 .foregroundStyle(Theme.tx)
             HStack(spacing: 6) {
                 Text("\(path):\(Self.number(of: line)) · sent with your review")

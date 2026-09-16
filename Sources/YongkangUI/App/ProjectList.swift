@@ -74,7 +74,7 @@ package struct ProjectList: View {
     private var header: some View {
         HStack(spacing: 9) {
             Text("yk")
-                .font(Typo.mono(10, .semibold))
+                .font(Typography.mono(.semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(0.12)))
@@ -82,7 +82,7 @@ package struct ProjectList: View {
                     RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(Theme.accent.opacity(0.28), lineWidth: 1))
             VStack(alignment: .leading, spacing: 1) {
-                Text(project.name).font(Typo.display(13.5)).foregroundStyle(Theme.tx)
+                Text(project.name).font(Typography.headline).foregroundStyle(Theme.tx)
                 Text(project.directory.path)
                     .font(Typography.mono).foregroundStyle(Theme.tx3)
                     .lineLimit(1).truncationMode(.head)
@@ -208,7 +208,7 @@ package struct ProjectList: View {
                 Image(systemName: item.icon).font(.system(size: 12)).foregroundStyle(Theme.tx3)
                 Text(item.label).font(Typography.body).foregroundStyle(Theme.tx2)
                 Spacer(minLength: 8)
-                Text("\(item.count)").font(Typo.mono(10.5)).foregroundStyle(Theme.tx3)
+                Text("\(item.count)").font(Typography.mono).foregroundStyle(Theme.tx3)
             }
             .padding(.horizontal, 19)
             .padding(.vertical, 6)
@@ -222,7 +222,7 @@ package struct ProjectList: View {
             HStack(spacing: 9) {
                 Image(systemName: "rectangle.split.3x1").font(.system(size: 12))
                     .foregroundStyle(selection == .board ? Theme.accent : Theme.tx3)
-                Text("Board").font(Typo.text(12.5))
+                Text("Board").font(Typography.body)
                     .foregroundStyle(selection == .board ? Theme.tx : Theme.tx2)
             }
         }
@@ -331,7 +331,7 @@ package struct ProjectList: View {
             HStack(spacing: 9) {
                 RoleTile(role: member.skills.first ?? member.name, size: 24)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(member.name).font(Typo.text(12, .medium))
+                    Text(member.name).font(Typography.body(.medium))
                         .foregroundStyle(selection == route ? Theme.tx : Theme.tx2).lineLimit(1)
                     Text(member.skills.joined(separator: ", "))
                         .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
@@ -350,7 +350,7 @@ package struct ProjectList: View {
                     .font(.system(size: 12)).foregroundStyle(Theme.tx2)
                     .frame(width: 24, height: 24)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Usage").font(Typo.text(12, .medium)).foregroundStyle(Theme.tx)
+                    Text("Usage").font(Typography.body(.medium)).foregroundStyle(Theme.tx)
                     Text("Limits, models, roles").font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
                 Spacer(minLength: 6)
@@ -371,7 +371,7 @@ package struct ProjectList: View {
                     RoleTile(role: session.isEngineeringLead ? "lead" : session.title, size: 24)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(session.title).font(Typo.text(12, .medium))
+                    Text(session.title).font(Typography.body(.medium))
                         .foregroundStyle(session.exited ? Theme.tx3 : Theme.tx)
                         .lineLimit(1)
                     Text(subtitle(of: session)).font(Typography.caption).foregroundStyle(Theme.tx3)
@@ -416,7 +416,7 @@ package struct ProjectList: View {
                 HStack(spacing: 8) {
                     RoleTile(role: subagent.agentType, size: 20)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(subagent.displayName).font(Typo.text(12, .medium))
+                        Text(subagent.displayName).font(Typography.body(.medium))
                             .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
                             .lineLimit(1)
                         // The label underneath is still the link to the task: the lead names
@@ -459,7 +459,7 @@ package struct ProjectList: View {
                     .font(.system(size: 12))
                     .foregroundStyle(summary.unclaimed.isEmpty ? Theme.tx3 : Theme.amber)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("All changes").font(Typo.text(12.5)).foregroundStyle(Theme.tx)
+                    Text("All changes").font(Typography.body).foregroundStyle(Theme.tx)
                     Text(
                         summary.unclaimed.isEmpty
                             ? "\(changes.count) files"
@@ -477,7 +477,7 @@ package struct ProjectList: View {
             HStack(alignment: .top, spacing: 10) {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 14).padding(.top, 2)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(task.title).font(Typo.text(12.5))
+                    Text(task.title).font(Typography.body)
                         .foregroundStyle(selection == .reviewTask(task.id) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
                     Text(detail).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
@@ -525,7 +525,7 @@ package struct ProjectList: View {
                 )
                 .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(block.title).font(Typo.text(12.5))
+                    Text(block.title).font(Typography.body)
                         .foregroundStyle(selection == .block(block.id) ? Theme.tx : Theme.tx2)
                         .lineLimit(2).multilineTextAlignment(.leading)
                     if block.isProposal {
