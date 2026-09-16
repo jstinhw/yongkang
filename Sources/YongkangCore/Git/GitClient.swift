@@ -64,9 +64,20 @@ package enum GitClient {
         guard
             let output = await git(
                 ["--no-optional-locks", "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"],
-                in: directory),
-            output.status == 0
+                in: directory)
         else { return nil }
+        guard output.status == 0 else {
+            // 128 is "not a git repository", which `ProjectReader.repo` answers by creating one
+            // and which is otherwise just a folder nobody has made a repo — not news, and it
+            // would be news on every refresh. Anything else is a repo git cannot read, which
+            // shows as an empty Review screen. Never git's own words: they quote the user's
+            // paths and branch names, and the status says enough.
+            if output.status != 128 {
+                Log.git.notice(
+                    "git status in \(directory.path, privacy: .public) exited \(output.status, privacy: .public)")
+            }
+            return nil
+        }
         return parseStatus(output.stdout)
     }
 
@@ -229,16 +240,31 @@ package enum GitClient {
 
     private static func newFileLines(_ change: FileChange, in directory: URL) -> [DiffLine] {
         let url = directory.appendingPathComponent(change.path)
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        // git listed this file a moment ago, so anything but "it was deleted since" is worth
+        // knowing: it is a row in Review that draws as an empty diff.
+        guard let text = Log.contents(of: url, Log.git) else { return [] }
         return text.split(separator: "\n", omittingEmptySubsequences: false)
             .enumerated()
             .map { DiffLine(kind: .add, old: "", new: "\($0.offset + 1)", text: String($0.element)) }
     }
 
     /// Nil when git could not be started, or the caller was cancelled.
+    ///
+    /// A non-zero exit is the caller's to interpret — `numstat` before the first commit is a
+    /// refusal, not a fault — but git failing to *start* at all means every review screen is
+    /// empty with nothing on screen to say why, so it is logged. Cancellation is not: a read
+    /// the window no longer wants is the normal case, on every selection change.
     private static func git(_ arguments: [String], in directory: URL) async -> AsyncProcess.Output? {
-        try? await AsyncProcess.run(
-            URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory, environment: environment)
+        do {
+            return try await AsyncProcess.run(
+                URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory, environment: environment)
+        } catch {
+            guard !(error is CancellationError) else { return nil }
+            Log.git.error(
+                "git \(arguments.first ?? "", privacy: .public) in \(directory.path, privacy: .public) could not run: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     /// The same call, kept for the commands whose failure the user has to be told about:

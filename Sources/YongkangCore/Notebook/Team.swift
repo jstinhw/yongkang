@@ -85,7 +85,7 @@ package enum Team {
     }
 
     static func member(at url: URL) -> TeamMember? {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        guard let text = Log.contents(of: url) else { return nil }
         let fields = NotebookIndex.frontmatter(text)
         let skills = NotebookIndex.list(fields["skills"] ?? "")
         guard !skills.isEmpty else { return nil }
@@ -102,7 +102,16 @@ package enum Team {
     package static func seedIfAbsent(root: URL) {
         let dir = directory(in: root)
         guard !FileManager.default.fileExists(atPath: dir.path) else { return }
-        for member in defaults { try? write(member, root: root) }
+        for member in defaults {
+            do {
+                try write(member, root: root)
+            } catch {
+                // A roster that could not be seeded is an empty Team screen with no explanation.
+                Log.notebook.error(
+                    "could not seed \(member.name, privacy: .public) into \(dir.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
     }
 
     package static func file(for name: String, root: URL) -> URL {

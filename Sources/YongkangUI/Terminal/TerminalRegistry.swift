@@ -100,6 +100,10 @@ import YongkangCore
             guard waitpid(pid, nil, WNOHANG) == 0 else { return }
             usleep(100_000)
         }
+        // A CLI that sits through SIGTERM and a closed PTY for five seconds is a CLI whose next
+        // version may need a different way of being stopped. The pid only, never its command
+        // line: that carries the prompt the agent was started with.
+        Log.terminal.notice("pid \(pid, privacy: .public) ignored SIGTERM for 5s; killed")
         kill(pid, SIGKILL)
         waitpid(pid, nil, 0)
     }

@@ -116,7 +116,7 @@ package enum Blocks {
     /// little wrong still has to reach the user — a block that silently fails to show up
     /// is the one failure this folder exists to prevent.
     static func block(at url: URL) -> UserBlock? {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        guard let text = Log.contents(of: url) else { return nil }
         let fields = NotebookIndex.frontmatter(text)
         let slug = url.deletingPathExtension().lastPathComponent
         let link = fields["url"].flatMap(URL.init(string:))

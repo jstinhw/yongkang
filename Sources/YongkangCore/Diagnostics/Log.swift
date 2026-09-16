@@ -1,3 +1,4 @@
+import Foundation
 import os
 
 /// Where the app says what went wrong when a read or a parser found nothing. The CLIs this
@@ -27,4 +28,27 @@ package enum Log {
     package static let terminal = Logger(subsystem: subsystem, category: "terminal")
     /// The agent CLIs' own files: transcripts, rollouts, usage.
     package static let providers = Logger(subsystem: subsystem, category: "providers")
+
+    /// A text file's contents, or nil with a line saying why. Every reader that used to swallow
+    /// this with a bare `try?` comes through here, so a page that stopped loading has an answer
+    /// on disk instead of being an empty pane.
+    ///
+    /// Only the file's path and the error are logged, never a byte of what was in it.
+    package static func contents(of url: URL, _ logger: Logger = Log.notebook) -> String? {
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            guard !isMissing(error) else { return nil }
+            logger.error("unreadable \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    /// Whether the error is only "there is no such file". A transcript a CLI has not written
+    /// yet, a ledger in a project that has never run an agent, a team folder nobody has seeded:
+    /// all normal, all seen on every read, and none of them worth a line in the log.
+    package static func isMissing(_ error: any Error) -> Bool {
+        let code = (error as NSError).code
+        return code == NSFileNoSuchFileError || code == NSFileReadNoSuchFileError
+    }
 }

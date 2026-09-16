@@ -40,7 +40,18 @@ actor UsageReader {
     /// Whole lines written since this file was last read, advancing the cursor only past
     /// the newline — a half-written last line is left for the next pass rather than parsed.
     private static func newLines(in url: URL, cursor: inout Cursor) -> [String] {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forReadingFrom: url)
+        } catch {
+            // A usage file the CLI has not written yet is normal and says nothing. Anything
+            // else is a live agent whose spend silently stops counting.
+            guard !Log.isMissing(error) else { return [] }
+            Log.providers.error(
+                "unreadable usage file \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()) ?? 0
         guard size != cursor.offset else { return [] }

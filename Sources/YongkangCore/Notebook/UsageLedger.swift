@@ -123,7 +123,17 @@ package enum UsageLedger {
         guard let data = try? Data(contentsOf: url(root: root)) else { return Ledger() }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(Ledger.self, from: data)) ?? Ledger()
+        do {
+            return try decoder.decode(Ledger.self, from: data)
+        } catch {
+            // A ledger on disk that no longer decodes is every earlier run's spend gone from the
+            // usage screen, and the next write silently replaces it. Say so, with the error and
+            // the path — never the file, which is the user's own numbers.
+            Log.notebook.error(
+                "usage ledger at \(url(root: root).path, privacy: .public) did not decode: \(error.localizedDescription, privacy: .public)"
+            )
+            return Ledger()
+        }
     }
 
     private static func write(_ ledger: Ledger, root: URL) -> Bool {
@@ -138,7 +148,15 @@ package enum UsageLedger {
         guard let data = try? encoder.encode(ledger),
             (try? Data(contentsOf: url(root: root))) != data
         else { return false }
-        try? data.write(to: url(root: root), options: .atomic)
+        do {
+            try data.write(to: url(root: root), options: .atomic)
+        } catch {
+            // Every run's spend is recorded here and nowhere else once its session is gone.
+            Log.notebook.error(
+                "could not write the usage ledger to \(url(root: root).path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
         return true
     }
 }

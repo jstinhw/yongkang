@@ -82,7 +82,7 @@ package enum NotebookIndex {
     }
 
     static func card(at url: URL) -> NotebookCard? {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        guard let text = Log.contents(of: url) else { return nil }
         let fields = frontmatter(text)
         let stem = url.deletingPathExtension().lastPathComponent
         let kind = fields["kind"].flatMap(EntryKind.init(rawValue:)) ?? kind(from: url)
@@ -254,7 +254,7 @@ extension NotebookIndex {
     /// The "Done when" boxes on a page, wherever they sit in it. This is the only progress
     /// a task actually records, so it is what the console draws — nothing is inferred.
     package static func checklist(at url: URL) -> [NotebookContent.ChecklistItem] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        guard let text = Log.contents(of: url) else { return [] }
         return NotebookContent.sections(body(text)).flatMap { section in
             section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
                 if case .checklist(let items) = block { return items }

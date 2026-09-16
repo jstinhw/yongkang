@@ -59,7 +59,7 @@ package struct LeadCoordination: Equatable, Sendable {
         var seen: Set<String> = []
         for file in files {
             guard file.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent().path == runs.path,
-                let text = try? String(contentsOf: file, encoding: .utf8)
+                let text = Log.contents(of: file)
             else { continue }
             let fields = NotebookIndex.frontmatter(text)
             guard fields["kind"] == "run", let session = fields["session"].flatMap(UUID.init(uuidString:)),
