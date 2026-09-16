@@ -293,7 +293,10 @@ package struct TaskReview: View {
                 SectionLabel("This commit")
                 HStack(spacing: 9) {
                     Image(systemName: "arrow.triangle.branch").foregroundStyle(Theme.accent)
+                    // Wraps rather than truncates, for the same reason as in `ChangeReview`:
+                    // the tail of a branch name is what identifies it.
                     Text(branch ?? "no branch").font(Typography.code).foregroundStyle(Theme.tx)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     Text("\(task.commitPaths.count) file\(task.commitPaths.count == 1 ? "" : "s")")
                         .font(Typography.body).foregroundStyle(Theme.tx3)

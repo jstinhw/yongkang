@@ -51,7 +51,9 @@ struct DiffLines: View {
             Text(line.text).foregroundStyle(ink).fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
         }
-        .font(Typography.mono)
+        // `code`, not `mono`: a diff is the pane the bigger monospace role exists for. The
+        // gutters ride the same font, so the numbers and the code stay on one baseline.
+        .font(Typography.code)
         .frame(height: 19)
         .padding(.horizontal, 8)
         .background(wash)

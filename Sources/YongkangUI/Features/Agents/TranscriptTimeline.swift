@@ -128,7 +128,8 @@ struct TranscriptTimeline: View {
                 .textSelection(.enabled)
             } else {
                 Text(line.text)
-                    .font(Typography.mono)
+                    // Raw agent output, read line after line: `code`, like a diff.
+                    .font(Typography.code)
                     .foregroundStyle(line.isError ? Theme.problem : Theme.tx2)
                     .lineSpacing(2)
                     .padding(10)

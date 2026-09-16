@@ -211,8 +211,11 @@ package struct ChangeReview: View {
                 SectionLabel("Working tree")
                 HStack(spacing: 10) {
                     Image(systemName: "arrow.triangle.branch").foregroundStyle(Theme.accent)
+                    // A branch name is one long token, so it wraps rather than truncates:
+                    // the tail is the part that tells two worktree branches apart.
                     Text(branch ?? "no branch")
                         .font(Typography.code).foregroundStyle(Theme.tx)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     Text("\(changes.count) file\(changes.count == 1 ? "" : "s")")
                         .font(Typography.body).foregroundStyle(Theme.tx3)
