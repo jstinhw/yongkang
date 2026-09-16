@@ -9,7 +9,9 @@ package struct YongkangApp: App {
     @AppStorage("listHidden") private var listHidden = false
     @AppStorage("agentKind") private var agent = AgentKind.claude
 
-    package init() {}
+    package init() {
+        _ = TextKeys.monitor
+    }
 
     package var body: some Scene {
         WindowGroup {
