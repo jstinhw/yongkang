@@ -11,9 +11,11 @@ leaves every screen that reads it alone.
 
 - **When it reads.** Each project watches its own folders with FSEvents (`FSEventWatcher`, in
   `Watching/`) and reads when one of them is written — about 300 ms after the first write of a
-  burst, so the twenty files an agent just wrote are one read. `AppModel.reload()` starts the
-  reads and returns; `reloadNow()` is the same read awaited, for the tests and for the one
-  caller that needs the card it just wrote (`AppModel.add`).
+  burst, so the twenty files an agent just wrote are one read. `reloadNow()` is the read
+  itself, which the watcher and the safety poll await; `AppModel.reload()` is the same read
+  started and not waited for. Two callers await it on purpose: `AppModel.add`, which needs the
+  card it just wrote before it can open it, and the window's `restore()`, which has no route to
+  validate until a notebook has been read. The tests await it for the same reason.
 - **The safety poll** behind the watchers is 30 s (`AppModel.start(polling:)`). FSEvents drops
   events on network volumes and across sleep, and a board that had quietly stopped updating
   would be a miserable bug to reproduce. It is also what covers a folder that did not exist
@@ -126,7 +128,9 @@ HStack
   version anyone can look at. What would change the answer is a capture path that sees glass,
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
-  the gate on eleven screens.
+  the gate on the ten screens that draw one: the board, a task, a demo, a block, a session, the
+  lead board, a subagent, a team member, and Review's two pages. Overview's right-hand column is
+  not one of them — it is a second column of the screen itself, on the window's own ground.
 
 ## The menu bar
 
