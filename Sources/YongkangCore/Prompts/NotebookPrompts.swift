@@ -1,6 +1,24 @@
 import Foundation
 
 extension NotebookFormat {
+    /// How every plan reaches the user's eyes — a new notebook, a described feature, a
+    /// review's next move — so setup and Product draw the same map. A graph, not the draft's
+    /// lists, because the dependencies are what the user reviews; Mermaid, because any agent
+    /// writes it and it lays the arrows out itself.
+    private static let planGraph = """
+        Whenever a plan with projects and tasks is ready for me under Blocks, and each time it
+        changes, show it to me as a graph: an artifact if you can publish one, otherwise one
+        HTML file in the system temp directory that you open for me. Never ask me to open files.
+
+        Draw it with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
+        roadmap entry holding its projects, a subgraph per project holding its tasks, each task
+        a node with its id and a few words on what it changes, and an arrow from every
+        `depends_on` to what waits on it, between projects as well as tasks. Style design tasks
+        apart, outline the tasks that can start at once, fade what already exists that the plan
+        only builds on, and add a one-line legend. It maps the plan, not the product: no
+        mockups.
+        """
+
     /// Opens the session an empty project starts with, seeded by what the user typed.
     /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
     /// point of an empty project is that nothing has been written to it yet — the
@@ -11,31 +29,17 @@ extension NotebookFormat {
     /// in the draft so `Create project` on it comes back to this conversation.
     package static func onboardingPrompt(description: String, sessionID: UUID) -> String {
         """
-        This project has no notebook yet. We are going to start one.
-
-        Here is what I want to build, in my words:
+        This project has no notebook yet. Help me start one. What I want to build:
 
         \(description)
 
-        First, ask me what you actually need to know — never as an open question. Come
-        with the answers already worked out: two to four concrete options, numbered,
-        your recommendation first and marked as such, so I can answer with a single
-        character. If none of them fit I will tell you.
+        First ask what is missing or ambiguous, one question at a time, each with two to
+        four numbered options and your recommendation first, so I can answer with one
+        character. Write nothing to this folder while we talk, and design nothing: how
+        something looks is settled later, by a design task in the plan.
 
-        Ask about what is missing or ambiguous in what I just told you: who it is for,
-        the features, the constraints, what is out of scope, and what has to happen
-        before what. One question at a time, a handful of them rather than an
-        interrogation, and write no files while we are talking.
-
-        Then draft the plan, before writing any of it, so I know what I am getting and can
-        change it while that is still cheap.
-
-        It all goes into `\(folderName)/` in this folder — every file this produces goes in
-        there and nowhere else. Do not create roadmap/, projects/, tasks/ or runs/ at the
-        project root, and leave everything outside `\(folderName)/` untouched.
-
-        Start with `\(folderName)/\(specFile)`, the format below, verbatim. Then write the
-        draft as one file, `\(folderName)/blocks/plan.md`, with this frontmatter:
+        Then write the format below verbatim to `\(folderName)/\(specFile)`, and draft the
+        plan as `\(folderName)/blocks/plan.md` with this frontmatter:
 
             ---
             id: plan
@@ -49,52 +53,37 @@ extension NotebookFormat {
             updated: YYYY-MM-DD
             ---
 
-        Its body, in this order:
+        The draft, in this order:
 
-        - What I will have once every task has landed, in my words: what someone can do
-          with it, not how it is built.
-        - My goals as roadmap entries, and the projects that get us there, each with its
-          outcome, `depends_on` where one blocks another, and `repos` naming the folders
-          its work lands in.
-        - Every task, grouped by project in build order: its id, one line on what it
-          changes that I could see or check, its `depends_on`, and its Done when.
-        - Which tasks can start together. Order matters more than volume — the
-          dependencies are what I am going to read.
-        - The calls you made where I left something vague, and what is left out.
+        - What I will have once every task lands: what someone can do, not how it is built.
+        - The roadmap entries and their projects, each with its outcome, `depends_on` and
+          `repos`.
+        - Every task, grouped by project in build order: its id, the change I could see or
+          check, its `depends_on`, its `designer` if it is design work, and its Done when.
+        - Which tasks can start together.
+        - The calls you made where I was vague, and what is left out.
 
-        Each task goes to an agent of its own, which gets that task's file and the files of
-        what it depends on, and nothing else. Cut the tasks so that is enough:
+        Each task goes to its own agent, which sees only that task's file and the files it
+        depends on. So a task is the smallest change that can be checked on its own;
+        `depends_on` names only what it uses, and its Context says what it takes from each;
+        tasks with no dependency between them never change the same screen, endpoint or
+        module. A screen, layout or visual style to settle is its own task with
+        `designer: Allen`, and the tasks that build it depend on it.
 
-        - A task is the smallest change someone could see work or check on its own, with a
-          `## Done when` checklist another agent can verify.
-        - `depends_on` names only what a task cannot start without — something another
-          task builds that this one uses — never just the order you would do them in. The
-          task's Context says what it takes from each.
-        - Tasks with no dependency between them never change the same screen, endpoint or
-          module. Where two would, merge them or make one wait on the other.
+        Tell me the draft is under Blocks and wait. Change only the draft when I ask, and say
+        what moved.
 
-        Then stop, tell me the draft is under Blocks, and wait. When I ask for changes,
-        change that file and nothing else, and tell me what moved. Write no roadmap,
-        project or task file until I approve the draft, with its `Create project` button
-        or in my own words.
+        \(planGraph)
 
-        Once I approve, write the files it describes, following the format's frontmatter
-        exactly: the roadmap entries, the projects, each carrying its `roadmap:`,
-        `depends_on` and `repos`, and the tasks, each carrying its `project:` and its own
-        `depends_on`. Record every call you made as one memory entry in the project it
-        affects, saying what you assumed and why. Leave `owner` and any unknown date empty
-        rather than inventing one. Then set the draft's `status: done` with
-        `resolution: "Wrote the notebook."`.
+        Once I approve, with `Create project` or in my own words, write the roadmap, project
+        and task files, and one memory entry per call you made in the project it affects.
+        Set the draft's `status: done` with
+        `resolution: "Wrote the notebook."`, append one run record for this session with the
+        primary roadmap id as `subject`, and tell me in a few lines what you created.
 
-        Before your final reply, append one run record under `.notebook/runs/` for this
-        setup session. Use the primary roadmap id as `subject`, summarize the result in
-        the first body paragraph, and put corrections or unfinished work under
-        `## Handoff`. Do not copy the transcript into it.
+        Everything goes in `\(folderName)/`; leave the rest of this folder untouched.
 
-        When the files are written, stop and tell me in a few lines what you created, then
-        wait for my corrections.
-
-        Here is the format to write verbatim to `\(folderName)/\(specFile)`, and then follow:
+        The format:
 
         \(specText)
         """
@@ -141,10 +130,13 @@ extension NotebookFormat {
     /// Product writes its session id into the Blocks notification, making that row a link
     /// back to the transcript where the proposal is discussed.
     package static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
-        agent.skill(
-            "product",
-            arguments: arguments
-                + "\nSession id: \(sessionID.uuidString.lowercased())")
+        productSkill(arguments + "\nSession id: \(sessionID.uuidString.lowercased())", agent: agent)
+    }
+
+    /// Every way into Product — a review, a described feature, a proposal reopened from
+    /// Blocks — shows its plan as the same graph setup does.
+    private static func productSkill(_ arguments: String, agent: AgentKind) -> String {
+        agent.skill("product", arguments: arguments) + "\n\n" + planGraph
     }
 
     /// Opens the session that walks the user through one block — a forward-deployed
@@ -155,7 +147,9 @@ extension NotebookFormat {
     /// The resumable prompt for a block. Live proposals route directly to their Product
     /// transcript; this is also the fallback when that Product session has exited.
     package static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
-        agent.skill(block.isProposal ? "product" : "fde-dev", arguments: relativePath(block.url))
+        block.isProposal
+            ? productSkill(relativePath(block.url), agent: agent)
+            : agent.skill("fde-dev", arguments: relativePath(block.url))
     }
 
     /// Incubate mode's opening prompt: the description of an agent that does not exist

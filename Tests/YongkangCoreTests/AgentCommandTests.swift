@@ -75,6 +75,7 @@ import Testing
             "the plan is drafted as a ready proposal that Create project brings back to this session")
         #expect(prompt.contains("author's problem"), "the spec's apostrophes are what break quoting")
         #expect(prompt.contains("append one run record"), "setup sessions must leave a handoff")
+        #expect(prompt.contains("design nothing"), "setup plans design as tasks; the page it shows is the plan")
         #expect(try echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")
         #expect(try echo(AgentCommand.quoted("/a b'c")) == "/a b'c")
     }
@@ -121,6 +122,15 @@ import Testing
         #expect(
             productPrompt.contains("Session id: \(Self.sid.uuidString.lowercased())"),
             "Product needs its session id so Blocks can return to its transcript")
+    }
+
+    @Test func setupAndProductShowThePlanAsTheSameGraph() {
+        let setup = NotebookFormat.onboardingPrompt(description: "a site", sessionID: Self.sid)
+        let product = NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex)
+        for prompt in [setup, product] {
+            #expect(prompt.contains("`flowchart LR`"), "the dependencies are drawn, not listed")
+            #expect(prompt.contains("temp directory"), "agents without artifacts still open the graph")
+        }
     }
 
     @Test func bundledSkillIsSelfContained() {

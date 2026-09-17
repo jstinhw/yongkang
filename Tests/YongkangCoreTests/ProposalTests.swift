@@ -34,6 +34,7 @@ import Testing
         #expect(
             approval.contains("product") && approval.contains(".notebook/blocks/add-checkout.md"),
             "a proposal can be resumed by product, not an engineer")
+        #expect(approval.contains("`flowchart LR`"), "a reopened proposal still shows its plan as a graph")
     }
 
     @Test func onlyAFinalizedProposalIsReady() throws {
