@@ -26,10 +26,17 @@ enum DesignShots {
         write(
             NewProjectForm(
                 parent: project.directory.deletingLastPathComponent(), agent: .claude,
-                create: { _, _ in }, cancel: {}
+                found: [.claude, .codex], lookUp: {}, create: { _, _, _ in }, cancel: {}
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
             "new-project", into: directory, width: 900)
+
+        // The agent picker's list, which a popover draws in a window of its own, so the sheet's
+        // shot never has it open. Two of the four found, so the fold below them shows.
+        write(
+            AgentList(agent: .constant(.claude), found: [.claude, .codex], close: {})
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
+            "agent-picker", into: directory, width: 900)
 
         write(
             console(project, section: .overview) {

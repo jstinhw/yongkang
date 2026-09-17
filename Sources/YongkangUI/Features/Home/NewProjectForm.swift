@@ -52,28 +52,34 @@ enum ProjectLocation {
 /// New project as a prompt: say what to build, tag whatever it should look at with `@`,
 /// and the folder is created and handed to an agent that writes the notebook. Where it
 /// goes is worked out rather than asked for at all — a path named in the prompt wins,
-/// otherwise it lands beside the projects already open, under a name the selected agent
-/// chooses from the description once Return is pressed. No path is shown before then;
-/// naming one in the prompt is how you choose it yourself.
+/// otherwise it lands beside the projects already open, under a name the agent picked in
+/// the sheet chooses from the description once Return is pressed. No path is shown before
+/// then; naming one in the prompt is how you choose it yourself.
 package struct NewProjectForm: View {
     /// Where a project lands when its prompt does not name anywhere.
     let parent: URL
-    /// The CLI that names the folder: the one about to write its notebook.
-    let agent: AgentKind
-    let create: (URL, String) -> Void
+    /// `AppModel.foundAgents`, and the look that refreshes it, for the agent picker.
+    let found: Set<AgentKind>?
+    let lookUp: () -> Void
+    let create: (URL, String, AgentKind) -> Void
     let cancel: () -> Void
 
+    /// The CLI that names the folder and writes its notebook. It opens on the toolbar's
+    /// choice but belongs to this one session: picking another here leaves the toolbar alone.
+    @State private var agent: AgentKind
     @State private var text = ""
     @State private var failure = ""
     /// The agent choosing a name, while it does. Cancel ends it, and the CLI with it.
     @State private var naming: Task<Void, Never>?
 
     package init(
-        parent: URL, agent: AgentKind, create: @escaping (URL, String) -> Void,
-        cancel: @escaping () -> Void
+        parent: URL, agent: AgentKind, found: Set<AgentKind>?, lookUp: @escaping () -> Void,
+        create: @escaping (URL, String, AgentKind) -> Void, cancel: @escaping () -> Void
     ) {
         self.parent = parent
-        self.agent = agent
+        self.found = found
+        self.lookUp = lookUp
+        _agent = State(initialValue: agent)
         self.create = create
         self.cancel = cancel
     }
@@ -90,7 +96,16 @@ package struct NewProjectForm: View {
 
     package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New project").font(Typography.headline).foregroundStyle(Theme.tx)
+            HStack {
+                Text("New project").font(Typography.headline).foregroundStyle(Theme.tx)
+                Spacer()
+                AgentPicker(
+                    agent: $agent, found: found, lookUp: lookUp, purpose: "Agent for this project's session"
+                )
+                // The CLI already asked keeps naming; switching under it would hand the
+                // notebook to a different one than the line below says.
+                .disabled(naming != nil)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel("Describe it", trailing: "an agent builds it")
@@ -174,6 +189,6 @@ package struct NewProjectForm: View {
             failure = "Could not create \(directory.path): \(error.localizedDescription)"
             return
         }
-        create(directory, Mention.rebased(description, from: root, to: directory))
+        create(directory, Mention.rebased(description, from: root, to: directory), agent)
     }
 }

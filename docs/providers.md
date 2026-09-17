@@ -7,13 +7,14 @@ fixtures.
 
 ## The protocol
 
-`AgentKind` is what persists: a session row's `agent`, the agent switch's `@AppStorage`. Its raw
-value is the executable's name on PATH. `AgentKind.provider` is the one switch that maps a kind
-to its `AgentProvider` (`Providers/AgentProvider.swift`):
+`AgentKind` is what persists: a session row's `agent`, the agent picker's `@AppStorage`. Its raw
+value is the executable's name on PATH, which `AgentKind.installed` looks for.
+`AgentKind.provider` is the one switch that maps a kind to its `AgentProvider`
+(`Providers/AgentProvider.swift`):
 
 | Member | What it answers | Who asks |
 |---|---|---|
-| `kind`, `displayName`, `systemImage` | Identity, the agent switch's label, the row's SF Symbol | `AgentKind` forwards the last two |
+| `kind`, `displayName`, `systemImage` | Identity, and the agent picker's label and icon, which are the row's too | `AgentKind` forwards the last two |
 | `skillPrefix` | What starts a skill in a prompt: `$` for Codex, `/` for the rest | `AgentKind.skillInvocation` |
 | `launch(prompt:sessionID:brief:noCommit:)` | The words after the executable: the session id strategy, the brief flag, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
 | `ask(prompt:)` | The words that make the CLI answer one prompt on stdout and exit: `-p`, or `exec --skip-git-repo-check` for Codex | `ProjectNaming.ask`, which names a described project's folder before its session starts |
@@ -93,8 +94,6 @@ how to scrub a capture.
    the real reader. A captured trust screen gets a case in `AttentionPromptTests`.
 4. **Outside the folder, only if it applies:**
    - A plan-limits reader like `AgentUsage.claudeQuota`, added to the list in `UsageBoard.load()`.
-   - `providerPicker` in `YongkangUI/App/RootView+Toolbar.swift` is a fixed width: widen it for
-     the extra segment.
    - `README.md` and `docs/guide/` list the supported CLIs.
-5. **Check it.** `make check`, render shots before and after (the agent switch changes), and run
+5. **Check it.** `make check`, render shots before and after (`agent-picker.png` lists the new CLI), and run
    the [smoke script](development.md#manual-smoke-script) with the new CLI selected.

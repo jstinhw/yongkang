@@ -14,7 +14,7 @@ struct YongkangCommands: Commands {
     /// The list column's switch, shared with `RootView` through UserDefaults rather than
     /// copied: `@AppStorage` is a view of one key, so both are the same switch.
     @Binding var listHidden: Bool
-    /// The provider the toolbar's picker is on, for the sessions this menu starts.
+    /// The default agent, which the toolbar's picker sets, for the sessions this menu starts.
     let agent: AgentKind
 
     var body: some Commands {
@@ -91,6 +91,12 @@ struct YongkangCommands: Commands {
         Button("New Session") {
             guard let project else { return }
             model.selection = project.addSession(agent)
+            model.section = .agents
+        }
+        .disabled(project == nil)
+        OtherAgentMenu(title: "New Session With", agent: agent, found: model.foundAgents) { other in
+            guard let project else { return }
+            model.selection = project.addSession(other)
             model.section = .agents
         }
         .disabled(project == nil)

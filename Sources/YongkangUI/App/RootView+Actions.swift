@@ -65,7 +65,7 @@ extension RootView {
     /// A project described rather than opened: the folder is new and empty, so the prompt
     /// that named it goes straight to the session that writes its notebook — the intake
     /// screen has nothing left to ask.
-    func createProject(at directory: URL, prompt: String) {
+    func createProject(at directory: URL, prompt: String, agent: AgentKind) {
         model.creatingProject = false
         if let existing = model.project(at: directory) {
             model.enter(existing)

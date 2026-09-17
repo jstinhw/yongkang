@@ -44,8 +44,8 @@ struct RootView: View {
         .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
         .sheet(isPresented: $model.creatingProject) {
             NewProjectForm(
-                parent: projectsParent, agent: agent, create: createProject,
-                cancel: { model.creatingProject = false })
+                parent: projectsParent, agent: agent, found: model.foundAgents, lookUp: model.lookUpAgents,
+                create: createProject, cancel: { model.creatingProject = false })
         }
         .alert(model.alert?.title ?? "", isPresented: alertShown, presenting: model.alert) { item in
             alertActions(item)
@@ -196,6 +196,7 @@ struct RootView: View {
         model.restore(openProjects)
         persist()
         model.start()
+        model.lookUpAgents()
         await model.reloadNow()
         model.restore(entered: enteredProject, section: storedSection, route: Route(stored: storedRoute))
     }

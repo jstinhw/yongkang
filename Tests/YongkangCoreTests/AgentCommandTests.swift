@@ -145,4 +145,14 @@ import Testing
             BundledSkills.load("product")?.contains("name: product") == true,
             "the packaged app must carry its Product skill")
     }
+
+    /// What the agent picker sorts on. The stand-in shell ignores the script it is handed and
+    /// prints what a login shell with a chatty rc file and two of the CLIs would.
+    @Test func installedReadsOnlyTheMarkedLines() async {
+        let shell = [
+            "/bin/sh", "-c", "printf 'codex is great\\nyongkang-found:codex\\nyongkang-found:agy\\n'", "sh",
+        ]
+        #expect(await AgentKind.installed(shell: shell) == [.codex, .agy])
+        #expect(await AgentKind.installed(shell: ["/nonexistent/shell", "-c"]) == nil, "no shell is not no CLIs")
+    }
 }

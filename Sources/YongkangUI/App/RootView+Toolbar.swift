@@ -147,14 +147,9 @@ extension RootView {
         }
     }
 
-    /// Labelled rather than titled: the four CLI names say what the control is to anyone
-    /// looking at it, and nothing but a reader needs the word.
     private var providerPicker: some View {
-        Picker("", selection: $agent) {
-            ForEach(AgentKind.allCases) { Text($0.displayName).tag($0) }
-        }
-        .pickerStyle(.segmented).labelsHidden().frame(width: 320)
-        .accessibilityLabel("Agent for new sessions")
+        AgentPicker(
+            agent: $agent, found: model.foundAgents, lookUp: model.lookUpAgents, purpose: "Agent for new sessions")
     }
 
     private var completedToggle: some View {
@@ -173,6 +168,10 @@ extension RootView {
             Section("Session") {
                 Button(agent.displayName, systemImage: agent.systemImage) {
                     model.selection = project.addSession(agent)
+                    model.section = .agents
+                }
+                OtherAgentMenu(title: "Other Agent", agent: agent, found: model.foundAgents) { other in
+                    model.selection = project.addSession(other)
                     model.section = .agents
                 }
             }

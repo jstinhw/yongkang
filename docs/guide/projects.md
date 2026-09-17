@@ -17,8 +17,12 @@ anywhere, including from inside another project. `Describe a new project…` (`F
 Project…`, ⌘N) opens a prompt: say what to build and tag anything it should read with `@`. Where the folder
 goes is worked out from the prompt — `~/code/todo` in it is enough. Otherwise it lands beside
 the projects you already have (`~/Projects` on a first run), and when you press Return the
-agent selected in the toolbar reads the description and names it: a few seconds for Claude
-Code, longer for some CLIs. No path is shown before you press Return. If the
+agent picked at the top of the box reads the description and names it: a few seconds for Claude
+Code, longer for some CLIs. That agent also runs the session that writes the notebook. The
+picker starts on the toolbar's default, and changing it here changes only this project's
+session. It lists the CLIs found on your login shell's PATH first; the rest fold under **Not
+found on this Mac** and cannot be picked. Type to filter, ↑↓ and Return to take one. No path is
+shown before you press Return. If the
 agent cannot answer — not signed in, no network — the box says why and nothing is created;
 naming a path in the prompt skips the question. The folder is
 created and the prompt goes straight to the session that writes its notebook.

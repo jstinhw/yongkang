@@ -148,7 +148,7 @@ Full Keyboard Access and VoiceOver read an app through.
 | **View** | Overview ⌘1 · Board ⌘2 · Agents ⌘3 · Review ⌘4 · Blocks ⌘5 | a project is entered |
 | | Hide List ⌘\ · Show Completed | a project is entered |
 | **Go** | All Projects ⌘[ | a project is entered |
-| **Agent** | New Session · Product Review | a project is entered |
+| **Agent** | New Session · New Session With ▸ · Product Review | a project is entered |
 | | Assign to Lead | `AppModel.assignableTask` is not nil |
 
 - **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it

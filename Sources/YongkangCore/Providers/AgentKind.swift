@@ -48,3 +48,26 @@ package enum AgentKind: String, CaseIterable, Identifiable, Sendable {
             """
     }
 }
+
+extension AgentKind {
+    /// Which CLIs the login shell finds on PATH: the shell a session starts in, so a CLI that is
+    /// only on Terminal's PATH still counts. Nil when the shell could not be run, which is not
+    /// the same answer as none found.
+    ///
+    /// One shell asks for all of them, because an interactive zsh can take a second to start
+    /// and that second should be paid once. Each hit is printed behind a marker, so whatever the
+    /// user's rc files print on the way in is not read as a CLI.
+    package static func installed(shell: [String] = ["/bin/zsh", "-ilc"]) async -> Set<AgentKind>? {
+        let marker = "yongkang-found:"
+        let script = allCases.map { "command -v \($0.command) >/dev/null 2>&1 && echo \(marker)\($0.command)" }
+            .joined(separator: "; ")
+        guard
+            let output = try? await AsyncProcess.run(
+                URL(fileURLWithPath: shell[0]), Array(shell.dropFirst()) + [script])
+        else { return nil }
+        return Set(
+            output.text.split(whereSeparator: \.isNewline).compactMap { line in
+                line.hasPrefix(marker) ? AgentKind(rawValue: String(line.dropFirst(marker.count))) : nil
+            })
+    }
+}

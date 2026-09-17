@@ -45,7 +45,9 @@ for.
 
 ### Intake
 
-2. In the window's toolbar, pick **Claude Code** or **Codex** in the agent switch.
+2. In the window's toolbar, open the agent picker and pick **Claude Code** or **Codex**. Both
+   are listed under **On this Mac** if they are installed; a CLI that is not sits under **Not
+   found on this Mac** and cannot be picked.
 3. Type a small brief into the "This project is…" box, for example: "A single-file Python
    CLI that prints the weather for a city." Then press Return or click **Start session**.
    - A session titled **Notebook Setup** appears under **Agents online** in the list

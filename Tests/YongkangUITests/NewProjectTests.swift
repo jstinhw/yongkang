@@ -5,8 +5,20 @@ import Testing
 @testable import YongkangUI
 
 /// What the new-project prompt has to get right: an `@` tags something that is really
-/// there, and a folder named in the prompt is where the project lands.
+/// there, a folder named in the prompt is where the project lands, and the agent picker in its
+/// header lists what can run.
 @Suite struct NewProjectTests {
+
+    @Test func agentPickerListsWhatIsFoundFirstAndFiltersBoth() {
+        let found: Set<AgentKind> = [.claude, .agy]
+        #expect(AgentPicker.rows("", found: found) == ([.claude, .agy], [.codex, .grok]))
+        #expect(
+            AgentPicker.rows("", found: nil) == (AgentKind.allCases, []), "before the look is back, nothing is missing")
+        #expect(AgentPicker.rows("CODE", found: found) == ([.claude], [.codex]), "a name matches, in any case")
+        #expect(
+            AgentPicker.rows(" gro ", found: found) == ([], [.grok]),
+            "an executable matches, and typing reaches into the fold")
+    }
 
     /// The folder the prompt box tags from:
     /// `SPEC.md .hidden design-notes.md designs/{logo.png, type/BODY.md} cases/{Alpha.md, alpha-two.md} cases-old.md`

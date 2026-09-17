@@ -26,6 +26,10 @@ import YongkangCore
     var creatingProject = false
     /// The other door: a folder that already exists, picked in a panel. Same reason.
     var pickingFolder = false
+    /// The agent CLIs the login shell finds on PATH, which the agent picker lists first. Nil
+    /// until the first look comes back, and while it is nil no agent is shown as missing.
+    private(set) var foundAgents: Set<AgentKind>?
+    @ObservationIgnored private var agentLookup: Task<Void, Never>?
     private(set) var attention: [UUID: String] = [:]
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.
@@ -74,6 +78,20 @@ import YongkangCore
             // A service runner's output is nobody's question.
             guard let self, let found = self.session(id), found.session.agent != nil else { return }
             self.attentionChanged(reason, session: found.session, project: found.project)
+        }
+    }
+
+    /// Looks for the agent CLIs again: at launch, and each time the picker opens, so a CLI
+    /// installed while the app runs shows up without a relaunch. A look already under way
+    /// answers for both.
+    func lookUpAgents() {
+        guard agentLookup == nil else { return }
+        agentLookup = Task { [weak self] in
+            let found = await AgentKind.installed()
+            guard let self else { return }
+            // A shell that would not start says nothing about what is installed.
+            if let found { foundAgents = found }
+            agentLookup = nil
         }
     }
 
