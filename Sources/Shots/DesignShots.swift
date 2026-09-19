@@ -103,36 +103,55 @@ enum DesignShots {
                     send: { _ in })
             }, "session", into: directory)
 
-        write(
-            console(project, section: .agents) {
-                EngineeringLeadBoard(
-                    session: lead, cards: project.cards, blocks: project.blocks,
-                    openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
-            }, "agents", into: directory)
+        // A session's result, as a click on its green row opens it: the chain's tasks along the
+        // top, on the one waiting for review. Fixture files rather than this repo's, so the
+        // docs' copy of this shot changes only when the screen does.
+        let result = finished(project, task: "pull-blockers", in: directory)
+        let resultSummary = ChangeSummary.of(
+            result,
+            changes: [
+                FileChange(
+                    path: "Sources/YongkangCore/Notebook/LeadCoordination.swift", added: 46, removed: 9,
+                    untracked: false),
+                FileChange(path: "Sources/YongkangCore/Git/GitClient.swift", added: 12, removed: 3, untracked: false),
+            ])
+        let resultLead = result.sessions[0]
+        func review(_ task: SummaryTask) -> TaskReview {
+            TaskReview(
+                task: task, summary: resultSummary, directory: result.directory, cards: result.cards,
+                team: Team.defaults, branch: "feature/agent-tree", head: "51b0740 Show all agents",
+                draft: .constant(ReviewDraft()),
+                blocks: result.blocks.filter { $0.waiting && !$0.isProposal && $0.task == task.id },
+                openFile: { _ in }, openBlock: { _ in }, startBlock: { _ in },
+                approve: { _ in nil }, requestChanges: {})
+        }
+        // The narrow one also hovers a rail item, whose label draws over the list column.
+        for (name, width, hovering) in [("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.blocks)]
+        {
+            write(
+                console(
+                    result, section: .agents, summary: resultSummary, hovering: hovering,
+                    selection: .session(resultLead.id, pane: .review)
+                ) {
+                    SessionReview(session: resultLead, summary: resultSummary, review: review)
+                }, name, into: directory, width: width)
+        }
 
-        write(
-            console(project, section: .agents, hovering: .blocks) {
-                EngineeringLeadBoard(
-                    session: lead, cards: project.cards, blocks: project.blocks,
-                    openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
-            }, "agents-narrow", into: directory, width: 1180)
+        // A task held up by something only the user can do: the block's steps open the page.
+        // Its brief is set here rather than in `pages`, whose files Overview would list as news.
+        if var blocked = resultSummary.tasks.first(where: { $0.id == "deploy-to-vercel" }) {
+            blocked.body = """
+                Put the console's landing page on Vercel, so the download link has somewhere to live.
 
-        var legacyLead = lead
-        legacyLead.coordination = nil
-        write(
-            console(project, section: .agents) {
-                EngineeringLeadBoard(
-                    session: legacyLead, cards: project.cards, blocks: project.blocks,
-                    openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
-            }, "agents-legacy", into: directory)
+                ## Done when
 
-        write(
-            console(project, section: .agents) {
-                EngineeringLeadBoard(
-                    session: CodeSession(title: "Codex", icon: "sparkles", line: "codex"),
-                    cards: [], blocks: [],
-                    openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
-            }, "agents-standby", into: directory)
+                - [ ] The project deploys from main
+                - [ ] The download link resolves to the latest build
+                """
+            write(
+                console(result, section: .agents, summary: resultSummary) { review(blocked) },
+                "agents-blocked", into: directory)
+        }
 
         write(
             console(project, section: .agents) {
@@ -218,7 +237,8 @@ enum DesignShots {
                     TaskReview(
                         task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
                         team: Team.defaults, branch: status.branch, head: status.head,
-                        draft: .constant(draft), openFile: { _ in }, approve: { _ in nil }, requestChanges: {})
+                        draft: .constant(draft), blocks: [], openFile: { _ in }, openBlock: { _ in },
+                        startBlock: { _ in }, approve: { _ in nil }, requestChanges: {})
                 }, "handover", into: directory)
         }
 
@@ -289,7 +309,7 @@ enum DesignShots {
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
-        hovering: ConsoleSection? = nil,
+        hovering: ConsoleSection? = nil, selection: Route? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         HStack(spacing: 0) {
@@ -299,7 +319,7 @@ enum DesignShots {
             )
             .zIndex(1)
             ProjectList(
-                section: section, project: project, selection: .constant(nil),
+                section: section, project: project, selection: .constant(selection),
                 showDone: false, changes: changes, summary: summary, agent: .claude,
                 found: Set(AgentKind.allCases), assign: { _, _ in },
                 closeSession: { _ in }, remove: { _ in }, projects: [project], open: { _ in },

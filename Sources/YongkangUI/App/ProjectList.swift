@@ -135,7 +135,7 @@ package struct ProjectList: View {
             return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents:
             return
-                "Select any agent or subagent to view its live session transcript. Completed agents stay available here."
+                "A working session opens on its terminal. A green one has work waiting for your review, and opens on its result."
         case .blocks:
             return
                 "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
@@ -153,7 +153,11 @@ package struct ProjectList: View {
             .padding(.bottom, 6)
     }
 
-    private func row<Content: View>(_ route: Route, @ViewBuilder content: () -> Content) -> some View {
+    /// `selected` is for a row that stands for more than one route — a session, on either of
+    /// its panes. Every other row is selected when the selection is its own route.
+    private func row<Content: View>(
+        _ route: Route, selected: Bool? = nil, @ViewBuilder content: () -> Content
+    ) -> some View {
         Button {
             selection = route
         } label: {
@@ -168,7 +172,7 @@ package struct ProjectList: View {
                 .accessibilityElement(children: .combine)
         }
         .buttonStyle(.plain)
-        .rowSelection(selection == route)
+        .rowSelection(selected ?? (selection == route))
         .padding(.horizontal, 8)
         .padding(.bottom, 2)
     }
@@ -386,9 +390,10 @@ package struct ProjectList: View {
     }
 
     private func sessionRow(_ session: CodeSession) -> some View {
-        // Agent and service rows open their live sessions.
         let running = session.activeSubagents.count
-        return row(.session(session.id)) {
+        let review = summary.waiting(for: session).count
+        // Either pane is this row: the toolbar switches between them.
+        return row(summary.route(to: session), selected: selection?.pane(of: session.id) != nil) {
             HStack(spacing: 9) {
                 if session.agent == nil {
                     Image(systemName: session.icon).font(.system(size: 12))
@@ -401,7 +406,8 @@ package struct ProjectList: View {
                     Text(session.title).font(Typography.body(.medium))
                         .foregroundStyle(session.exited ? Theme.tx3 : Theme.tx)
                         .lineLimit(1)
-                    Text(subtitle(of: session)).font(Typography.caption).foregroundStyle(Theme.tx3)
+                    Text(subtitle(of: session)).font(Typography.caption)
+                        .foregroundStyle(review > 0 ? Theme.green : Theme.tx3)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
@@ -420,7 +426,7 @@ package struct ProjectList: View {
                 }
                 StateDot(
                     color: session.exited ? Theme.tx4 : (running > 0 ? Theme.accent : Theme.green),
-                    live: running > 0)
+                    live: running > 0 || review > 0)
             }
         }
     }
@@ -431,6 +437,8 @@ package struct ProjectList: View {
             return session.exited ? "exited" : agent.displayName
         }
         let running = session.activeSubagents.count
+        let review = summary.waiting(for: session).count
+        guard review == 0 else { return "\(review) ready for review" + (running > 0 ? " · \(running) running" : "") }
         return "\(session.taskIDs.count) task\(session.taskIDs.count == 1 ? "" : "s") · \(running) running"
     }
 

@@ -2,8 +2,8 @@ import SwiftUI
 import YongkangCore
 
 /// One agent's part in a task, in its own words: the work record's `## Result` when it
-/// wrote one, its one-line report when it did not, and — on a later attempt — the user's
-/// comments quoted for it, so a reply reads under the question it answers.
+/// wrote one, and its one-line report when it did not. What the user asked for on a later
+/// attempt is read in Feedback, beside the agent's answer to it.
 struct WorkReport: View {
     let work: LeadWork
     /// The roster name, empty when no roster member runs this skill.
@@ -28,7 +28,6 @@ struct WorkReport: View {
             }
             Text(work.title).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
-            if !work.changeRequest.isEmpty { asked }
             if !work.result.isEmpty {
                 NotebookContentView(sections: NotebookContent.sections(work.result), cards: cards)
             } else if !work.report.isEmpty {
@@ -59,28 +58,61 @@ struct WorkReport: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(radius: 10, padding: 12, fill: Theme.raised)
     }
+}
 
-    private var asked: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("You asked")
-            NotebookContentView(sections: NotebookContent.sections(work.changeRequest), cards: cards)
+/// Something only the user can do for this task, with the block's own instructions read here
+/// on the review rather than one click away in Blocks. The block's page keeps the rest — a
+/// demo's approval, marking a block done.
+struct NeedsYouCard: View {
+    let block: UserBlock
+    let cards: [NotebookCard]
+    let open: (UserBlock) -> Void
+    let start: (UserBlock) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: block.isDemo ? "rectangle.on.rectangle" : "hand.raised.fill")
+                    .font(.system(size: 12)).foregroundStyle(Theme.amber)
+                SectionLabel("Needs you", trailing: NotebookFormat.relativePath(block.url))
+            }
+            Text(block.title).font(Typography.headline).foregroundStyle(Theme.tx)
+                .fixedSize(horizontal: false, vertical: true)
+            if !block.action.isEmpty {
+                Text(block.action).font(Typography.body).foregroundStyle(Theme.prose)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            NotebookContentView(sections: NotebookContent.sections(block.body), cards: cards)
+            HStack(spacing: 8) {
+                if block.isDemo {
+                    Button("Open the demo") { open(block) }.buttonStyle(.consolePrimary)
+                } else {
+                    Button("Walk me through it") { start(block) }.buttonStyle(.consolePrimary)
+                    Button("Open the block") { open(block) }.buttonStyle(.console)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(radius: 9, padding: 10, border: Theme.amber.opacity(0.24), fill: Theme.amber.opacity(0.05))
+        .cardSurface(padding: 15, border: Theme.amber.opacity(0.4), fill: Theme.amber.opacity(0.05))
     }
 }
 
-/// Everything the user wants the agents to change, before it is sent: the comments left on
-/// diff lines, and a note for anything that is not about one line.
+/// The review's conversation with the agent: each earlier round — what the user asked and
+/// what the agent said it did about it — then what goes in the next one, the comments left on
+/// diff lines and a note for anything that is not about one line.
 struct FeedbackCard: View {
     @Binding var draft: ReviewDraft
+    /// The attempts that answered a change request, oldest first.
+    let history: [LeadWork]
+    let cards: [NotebookCard]
     let openFile: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel(
-                "Feedback for the agents",
+                "Feedback",
                 trailing: draft.comments.isEmpty ? nil : "\(draft.comments.count) on lines")
+            ForEach(history) { round($0) }
             ForEach(draft.comments) { comment in
                 HStack(alignment: .top, spacing: 9) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -113,11 +145,40 @@ struct FeedbackCard: View {
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bg))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))
-            Text("To comment on code, open a file under Changes by area and click a line.")
+            Text("To comment on code, unfold a file under Code changes and click a line.")
                 .font(Typography.caption).foregroundStyle(Theme.tx3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(padding: 15)
+    }
+
+    private func round(_ work: LeadWork) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            speaker("You asked", Theme.amber) {
+                NotebookContentView(sections: NotebookContent.sections(work.changeRequest), cards: cards)
+            }
+            speaker("Agent", Theme.accent) {
+                if !work.report.isEmpty {
+                    Text(work.report).font(Typography.body).foregroundStyle(Theme.prose)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if !work.result.isEmpty {
+                    NotebookContentView(sections: NotebookContent.sections(work.result), cards: cards)
+                } else {
+                    Text("No answer filed yet.").font(Typography.body).foregroundStyle(Theme.tx3)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(radius: 9, padding: 10, fill: Theme.well)
+    }
+
+    private func speaker<Content: View>(
+        _ name: String, _ tint: Color, @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(name).font(Typography.caption(.semibold)).foregroundStyle(tint).frame(width: 64, alignment: .leading)
+            content().frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

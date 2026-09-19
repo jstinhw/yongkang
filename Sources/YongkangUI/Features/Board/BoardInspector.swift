@@ -15,7 +15,7 @@ struct BoardInspector: View {
     let picked: Set<String>
     let openDemo: (UserBlock) -> Void
     /// Folded into the board itself when the window is too narrow to carry a fourth
-    /// column — the same move the work board makes.
+    /// column.
     var inline = false
 
     private var designCount: Int { batch.filter(\.isDesignWork).count }

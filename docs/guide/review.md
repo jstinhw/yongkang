@@ -15,22 +15,26 @@ working tree, including edits no task claims.
 
 A task opens on what most reviews need, not on code:
 
+- **Needs you** — only while a block or demo holds the task: its title, what is needed and
+  the steps, with **Walk me through it** (or **Open the demo**) and **Open the block**.
 - **The task** — its brief and `Done when`, read from the task file.
-- **How it was checked** — the `## Verification` the agent wrote on its latest attempt:
-  the commands it ran and what they printed. A done task with none says nobody but you has
+- **What changed** — each attempt in the agent's own words (`## Result`, or its report),
+  with time and the files it changed.
+- **Self-review** — the `## Verification` the agent wrote on its latest attempt: the
+  commands it ran and what they printed. A done task with none says nobody but you has
   checked it.
-- **What the agents did** — each attempt in the agent's own words (`## Result`, or its
-  report), with time and the files it changed. A later attempt shows the comments it was
-  answering under **You asked**.
-- **Changes by area** — the task's files grouped as Database, API & services, Frontend,
+- **Code changes** — the task's files grouped as Database, API & services, Frontend,
   Tests, Config, Docs & other, and Notebook records, each with the lines it added and removed.
   The area is worked out by the app from the path, SQL in the diff, and the owning agent's
   skill, so a data layer that writes SQL is flagged as Database even with no migration
-  folder.
+  folder. Every file starts folded; clicking one unfolds its diff in place.
+- **Feedback** — each earlier round, what you asked and what the agent said it did about
+  it, then what goes in the next one.
 
-A file opens its diff on its own page. Click any line to leave a comment on it; comments and a note for
-anything that is not about one line collect under **Feedback for the agents** until you
-send them. The inspector carries the verdict, the areas, what the commit will hold, and a
+Click any line of an unfolded diff to leave a comment on it; comments and a note for
+anything that is not about one line collect under **Feedback** until you send them. The same
+page is a session's result in `Agents`, which is where a session with work waiting on you
+opens — see [Shipping tasks](engineering-lead.md). The inspector carries the verdict, the areas, what the commit will hold, and a
 warning when a file is also changed by another task still waiting.
 
 The bar at the bottom is the decision, on the task page and on its diffs alike:

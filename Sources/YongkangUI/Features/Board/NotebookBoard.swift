@@ -60,8 +60,7 @@ package struct NotebookBoard: View {
     package var body: some View {
         GeometryReader { geometry in
             // Below this the window cannot carry a fourth column: the inspector folds into
-            // the board rather than squeezing the chains into a strip. Same threshold the
-            // work board uses, so the two screens fold at the same drag.
+            // the board rather than squeezing the chains into a strip.
             let narrow = geometry.size.width < 950
             VStack(spacing: 0) {
                 HStack(spacing: 0) {

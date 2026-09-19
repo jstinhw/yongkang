@@ -129,9 +129,10 @@ HStack
   version anyone can look at. What would change the answer is a capture path that sees glass,
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
-  the gate on the ten screens that draw one: the board, a task, a demo, a block, a session, the
-  work board, a subagent, a team member, and Review's two pages. Overview's right-hand column is
-  not one of them — it is a second column of the screen itself, on the window's own ground.
+  the gate on the nine screens that draw one: the board, a task, a demo, a block, a session, a
+  subagent, a team member, and Review's two pages — the task one also being a session's result.
+  Overview's right-hand column is not one of them — it is a second column of the screen
+  itself, on the window's own ground.
 
 ## The menu bar
 
@@ -200,7 +201,8 @@ and a resolved block.
 The list column's **width** is not restored. SwiftUI takes `min`/`ideal`/`max` for a split
 view column and hands back no binding for the width the user dragged it to, so `@SceneStorage`
 has nothing to store; `Theme.listWidth` is the width it opens at, every launch. Whether it is
-*collapsed* does persist, in `@AppStorage("listHidden")`.
+*collapsed* does persist, in `@AppStorage("listHidden")` — until a rail icon is clicked, which
+asks for that section's list and so brings the column back.
 
 ## Terminal lifetime
 

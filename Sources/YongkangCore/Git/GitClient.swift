@@ -19,6 +19,15 @@ package struct FileChange: Identifiable, Equatable, Sendable {
 
     package var name: String { (path as NSString).lastPathComponent }
     var directory: String { (path as NSString).deletingLastPathComponent }
+
+    /// Spelled out for the shots, which draw a finished task's files without a repo to read.
+    package init(path: String, added: Int, removed: Int, untracked: Bool, bytes: Int? = nil) {
+        self.path = path
+        self.added = added
+        self.removed = removed
+        self.untracked = untracked
+        self.bytes = bytes
+    }
 }
 
 /// One row of a unified diff.

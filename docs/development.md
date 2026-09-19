@@ -82,7 +82,8 @@ for.
    - The window switches to **Agents** and opens the live terminal of a new session on the
      agent you picked, named after the task. Its row reads "1 task · 0 running".
    - The toolbar's agent is unchanged.
-   - The toolbar has an **Agents | Session** switch. **Agents** opens the session's work board.
+   - The toolbar has a **Result** button. It opens the session's result, where it becomes
+     **Session**, which goes back to the terminal.
    - Back on the board, the card has a **wip** pill and can't be picked again.
    - Two other ways in: the ↗ on a card opens the task page, which has its own picker and
      **Assign** button; right-clicking a project row gives **Assign all tasks to <agent>**
@@ -168,16 +169,18 @@ for.
       and the only commit button is **Commit all changes**.
 13. Open the task.
     - The header pill reads **Ready for your review**.
-    - The cards, in order: **The task**, **How it was checked**, **What the agents did**,
-      **Changes by area**, **Feedback for the agents**. There's no diff on this page.
+    - The cards, in order: **The task**, **What changed**, **Self-review**,
+      **Code changes**, **Feedback**. Every file under **Code changes** is folded.
+    - In **Agents**, the session's row is green and reads "1 ready for review". Clicking it
+      opens the same page as its result; the toolbar's **Session** goes to its terminal.
     - The inspector shows **Verdict** ("Checked by the agent") and **This commit** ("Only this task's
       files and its run records. Nothing is pushed.").
-14. Optional: click a file under **Changes by area**, click a line, type a comment and click
-    **Add comment**.
-    - The diff has its own page, with a "‹ <task title>" button that goes back to the task.
+14. Optional: click a file under **Code changes**, click a line of the diff it unfolds, type
+    a comment and click **Add comment**.
+    - The diff unfolds in place, under the file's row.
     - The bar's primary button becomes **Request changes · 1**.
-    - Delete the comment with its × under **Feedback for the agents**. Approving with
-      feedback still unsent would discard it.
+    - Delete the comment with its × under **Feedback**. Approving with feedback still
+      unsent would discard it.
 15. Check the commit message, which starts as the task title, then click
     **Approve and commit**.
     - The page moves to the next waiting task, or to **All changes** if none is left.
@@ -196,7 +199,8 @@ for.
       items with no window, but nothing has checked a menu shortcut against a focused SwiftTerm
       view.)*
     - **View → Hide List**, `⌘\`, collapses the list column, and the toolbar's own button
-      agrees with it. The item's title flips to **Show List**.
+      agrees with it. The item's title flips to **Show List**. Clicking any rail icon, the
+      current one included, brings the list back.
     - **Agent → Assign Task** and **Assign Task To ▸** are lit only while a task page is open
       for a task that is neither done nor already with a session. Open a done task: they grey
       out.

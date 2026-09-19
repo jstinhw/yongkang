@@ -271,7 +271,7 @@ import YongkangCore
                     (project.sessions.first { $0.holdsTasks }
                     ?? project.sessions.first { $0.agent != nil }
                     ?? project.sessions.first)
-                    .map { .session($0.id) }
+                    .map(project.summary.route(to:))
             }
         case .review:
             // A task, not a file: what the agents did is the thing to read before any of

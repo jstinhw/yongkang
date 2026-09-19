@@ -1,10 +1,12 @@
 import SwiftUI
 import YongkangCore
 
-/// One finished task, read the way a person decides whether to accept it: what it was
-/// for, how the agent checked it, and what each attempt did. The code is one click further —
-/// collapsed under Changes, each file opening its diff — because the verdict and the
-/// reports are what most reviews need, and the diff is there for the ones that do not.
+/// One finished task, read the way a person decides whether to accept it: anything only the
+/// user can do first, then what it was for, what changed and how the agent checked it. The
+/// code is folded under Code changes, each file unfolding its own diff, because the verdict
+/// and the reports are what most reviews need, and the diff is there for the ones that do not.
+///
+/// The same page on Review's list and on a session's result, so the two cannot drift apart.
 package struct TaskReview: View {
     let task: SummaryTask
     let summary: ChangeSummary
@@ -14,7 +16,12 @@ package struct TaskReview: View {
     let branch: String?
     let head: String?
     @Binding var draft: ReviewDraft
+    /// What only the user can do for this task: open blocks and demos naming it.
+    let blocks: [UserBlock]
     let openFile: (String) -> Void
+    let openBlock: (UserBlock) -> Void
+    /// Starts the session that walks the user through a block.
+    let startBlock: (UserBlock) -> Void
     let approve: (String) async -> String?
     let requestChanges: () -> Void
 
@@ -22,6 +29,9 @@ package struct TaskReview: View {
     /// Worked out from each file's diff once the page opens, so a data layer with SQL in
     /// it is flagged as Database before the reviewer expands anything.
     @State private var areas: [String: ReviewArea] = [:]
+    /// The same read's lines, kept for the files the reviewer unfolds.
+    @State private var diffs: [String: [DiffLine]] = [:]
+    @State private var unfolded: Set<String> = []
 
     package init(
         task: SummaryTask,
@@ -32,7 +42,10 @@ package struct TaskReview: View {
         branch: String?,
         head: String?,
         draft: Binding<ReviewDraft>,
+        blocks: [UserBlock],
         openFile: @escaping (String) -> Void,
+        openBlock: @escaping (UserBlock) -> Void,
+        startBlock: @escaping (UserBlock) -> Void,
         approve: @escaping (String) async -> String?,
         requestChanges: @escaping () -> Void
     ) {
@@ -44,7 +57,10 @@ package struct TaskReview: View {
         self.branch = branch
         self.head = head
         self._draft = draft
+        self.blocks = blocks
         self.openFile = openFile
+        self.openBlock = openBlock
+        self.startBlock = startBlock
         self.approve = approve
         self.requestChanges = requestChanges
     }
@@ -69,11 +85,14 @@ package struct TaskReview: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         header
+                        ForEach(blocks) { NeedsYouCard(block: $0, cards: cards, open: openBlock, start: startBlock) }
                         taskCard
-                        checkedCard
                         agentsCard
+                        checkedCard
                         changesCard
-                        FeedbackCard(draft: $draft, openFile: openFile)
+                        FeedbackCard(
+                            draft: $draft, history: task.work.filter { !$0.changeRequest.isEmpty },
+                            cards: cards, openFile: openFile)
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -150,7 +169,7 @@ package struct TaskReview: View {
     /// printed — so what is already verified is read before anything is run again.
     private var checkedCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("How it was checked")
+            SectionLabel("Self-review")
             if task.verification.isEmpty {
                 Text(
                     task.done
@@ -170,7 +189,7 @@ package struct TaskReview: View {
 
     private var agentsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("What the agents did", trailing: task.work.isEmpty ? nil : "\(task.work.count)")
+            SectionLabel("What changed", trailing: task.work.count > 1 ? "\(task.work.count) rounds" : nil)
             if task.work.isEmpty {
                 Text("No work records were filed against this task.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
@@ -191,12 +210,12 @@ package struct TaskReview: View {
 
     // MARK: - Changes
 
-    /// The task's files by area, with how many lines each changed. The code itself is a
-    /// click away on the file's own page, where a line can be commented on.
+    /// The task's files by area, with how many lines each changed. The code stays folded: a
+    /// file unfolds its diff in place, where a line can be commented on.
     private var changesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel(
-                "Changes by area",
+                "Code changes",
                 trailing: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
                     + "+\(task.added) −\(task.removed)")
             if task.files.isEmpty {
@@ -219,7 +238,7 @@ package struct TaskReview: View {
                 }
             }
             if !task.files.isEmpty {
-                Text("Open a file to read its diff and comment on a line.")
+                Text("Unfold a file to read its diff, then click a line to comment on it.")
                     .font(Typography.caption).foregroundStyle(Theme.tx3)
             }
         }
@@ -228,12 +247,35 @@ package struct TaskReview: View {
     }
 
     private func fileRow(_ file: FileChange) -> some View {
+        let open = unfolded.contains(file.path)
+        return VStack(alignment: .leading, spacing: 0) {
+            fileHeader(file, open: open)
+            if open {
+                Group {
+                    if let lines = diffs[file.path] {
+                        ScrollView(.horizontal) {
+                            DiffLines(path: file.path, lines: lines, draft: $draft).padding(.vertical, 6)
+                        }
+                    } else {
+                        Text("Reading the diff…").font(Typography.body).foregroundStyle(Theme.tx3).padding(10)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.panel)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func fileHeader(_ file: FileChange, open: Bool) -> some View {
         let comments = draft.comments.filter { $0.path == file.path }.count
         let owner = task.work.first { $0.paths.contains(file.path) }?.skill ?? ""
         return Button {
-            openFile(file.path)
+            if open { unfolded.remove(file.path) } else { unfolded.insert(file.path) }
         } label: {
             HStack(spacing: 9) {
+                Image(systemName: open ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3).frame(width: 10)
                 Image(systemName: file.untracked ? "doc.badge.plus" : "doc.text")
                     .font(.system(size: 11)).foregroundStyle(file.untracked ? Theme.green : Theme.tx3)
                 Text(file.path).font(Typography.mono).foregroundStyle(Theme.tx2)
@@ -248,15 +290,15 @@ package struct TaskReview: View {
                 } else {
                     Text("new file").font(Typography.mono).foregroundStyle(Theme.green)
                 }
-                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Theme.tx4)
             }
             .padding(.horizontal, 10)
             .frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.raised))
+            .background(Theme.raised)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Open the diff")
+        .help(open ? "Fold the diff" : "Unfold the diff")
+        .accessibilityLabel("\(file.path), \(open ? "unfolded" : "folded")")
     }
 
     // MARK: - Inspector
@@ -269,6 +311,7 @@ package struct TaskReview: View {
                 if !checklist.isEmpty {
                     fact("Done when", "\(checklist.filter(\.done).count) / \(checklist.count)")
                 }
+                if !blocks.isEmpty { fact("Needs you", "\(blocks.count)") }
                 fact("Your comments", "\(draft.comments.count)")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -359,13 +402,15 @@ package struct TaskReview: View {
 
     private func load() async {
         var found: [String: ReviewArea] = [:]
+        var lines: [String: [DiffLine]] = [:]
         for file in task.files {
             let owner = task.work.first { $0.paths.contains(file.path) }?.skill ?? ""
-            found[file.path] = ReviewArea.of(
-                file.path, skill: owner, diff: await GitClient.diff(of: file, in: directory))
+            lines[file.path] = await GitClient.diff(of: file, in: directory)
+            found[file.path] = ReviewArea.of(file.path, skill: owner, diff: lines[file.path] ?? [])
         }
         // The files changed while git was diffing, and a newer load has them.
         guard !Task.isCancelled else { return }
         areas = found
+        diffs = lines
     }
 }

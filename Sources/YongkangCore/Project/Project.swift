@@ -120,7 +120,7 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
 }
 
 extension CodeSession {
-    /// A session assigned tasks, which is what gets a work board and is refused commits.
+    /// A session assigned tasks, which is what has a result to review and is refused commits.
     /// Not the title: a session is named after its work, and work can be called anything.
     package var holdsTasks: Bool { !taskIDs.isEmpty }
 }

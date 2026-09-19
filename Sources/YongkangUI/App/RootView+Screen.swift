@@ -60,19 +60,10 @@ extension RootView {
             .id(card.id)
         } else if let watched = model.selectedAgent(in: project) {
             switch model.selection?.pane(of: watched.id) {
-            case .lanes:
-                EngineeringLeadBoard(
-                    session: watched, cards: project.cards, blocks: project.snapshot.blocks,
-                    openTask: {
-                        model.section = .board
-                        model.selection = .task($0)
-                    },
-                    openSubagent: { subagent in model.selection = .subagent(session: watched.id, id: subagent.id) },
-                    openBlock: {
-                        model.section = .blocks
-                        model.selection = .block($0.id)
-                    }
-                )
+            case .review:
+                SessionReview(session: watched, summary: project.summary) { task in
+                    taskReview(task, in: project, staying: true)
+                }
             case .session:
                 terminal(for: watched)
             default:
@@ -129,15 +120,7 @@ extension RootView {
             )
             .id(block.id)
         } else if let task = reviewedTask(in: project) {
-            TaskReview(
-                task: task, summary: project.summary,
-                directory: project.directory, cards: project.cards, team: project.snapshot.team,
-                branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
-                openFile: { model.selection = .review(file: $0) },
-                approve: { await approve(task, message: $0, in: project) },
-                requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) }
-            )
-            .id(task.id)
+            taskReview(task, in: project, staying: false).id(task.id)
         } else if let path = reviewPath {
             let summary = project.summary
             // A file a task's worker claimed is reviewed as part of that task: comments on
@@ -215,17 +198,30 @@ extension RootView {
         )
     }
 
-    // MARK: - Selection
-
-    func agentPane(_ session: CodeSession) -> Binding<AgentPane> {
-        Binding(
-            get: { model.selection?.pane(of: session.id) ?? .session },
-            set: {
-                model.selection = .session(session.id, pane: $0)
-                model.reloadAgentTranscript()
-            }
+    /// One task's review wherever it opens: Review's own page, or a session's result. From a
+    /// session it stays put once approved — the next task waiting may be another session's,
+    /// and jumping to it would leave the Agents list pointing at nothing.
+    private func taskReview(_ task: SummaryTask, in project: ProjectModel, staying: Bool) -> some View {
+        TaskReview(
+            task: task, summary: project.summary,
+            directory: project.directory, cards: project.cards, team: project.snapshot.team,
+            branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
+            blocks: project.snapshot.blocks.filter { $0.waiting && !$0.isProposal && $0.task == task.id },
+            openFile: {
+                model.section = .review
+                model.selection = .review(file: $0)
+            },
+            openBlock: {
+                model.section = .blocks
+                model.selection = .block($0.id)
+            },
+            startBlock: { model.go(to: project.startUnblock($0, agent: agent)) },
+            approve: { await approve(task, message: $0, in: project, staying: staying) },
+            requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) }
         )
     }
+
+    // MARK: - Selection
 
     /// A project with no notebook and no agent yet — the one case that starts a chat.
     private var needsIntake: ProjectModel? {

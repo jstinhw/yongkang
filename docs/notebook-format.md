@@ -108,7 +108,7 @@ names the `session`, `task`, `work_id`, `title`, `status`, the `paths` it change
 a one-line `report`, `started_at` and `finished_at`; its body is `## Result` and
 `## Verification`, and `## Change request` quotes what the user sent back. Work
 states running/blocked/done/failed are separate from task states. These records
-stay out of notebook navigation and appear on the session's work board and in Review.
+stay out of notebook navigation and appear on the session's result and in Review.
 Keep raw transcripts outside the notebook. Never store secrets, environment
 values or machine-local transcript paths.
 

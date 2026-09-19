@@ -1,6 +1,6 @@
 # Shipping tasks
 
-![An assigned session's work, one lane per task](../images/agents.png)
+![A session's result, opened from its green row in Agents](../images/agents.png)
 
 Every Assign button has an agent picker beside it — Claude Code, Codex, Grok or Agy —
 starting on the toolbar's agent. Picking one there is for that assignment only; the
@@ -62,14 +62,18 @@ session it was assigned to, and any subagent working it. Clicking the session op
 transcript; clicking a subagent opens the CLI's live child view. Overview's **Running now**
 is the same set for the whole project, one card per agent with the task it is on.
 
-The session's **Agents** pane is its work board: one lane per task with its report and
-the subagents it started, and progress and anything waiting on you beside it. A subagent is linked to its task
-by its own name, which the prompt asks to be the task id; Claude keeps
-that as the subagent's description and Codex slugs it into the spawned thread's name, and
-the app matches it back either way. Clicking a subagent, here or under **Working on it** on
-a task's page, opens the CLI's live child view: the app opens `/tasks` in Claude Code or
-`/subagents` in Codex and selects the matching row. **Parent session** returns to the
-session. Its `Agents / Session` switch opens the live terminal.
+A session opens on its live terminal while it works. Once a task of its is done and its
+files wait for your approval, its row turns green — "1 ready for review" — and opens on its
+**result** instead: the same page as the task's in [Review](review.md), anything waiting on
+you first, with a strip of the chain's tasks along the top when the session holds several.
+One toolbar button switches between the two: **Result** from the terminal, **Session** back.
+
+A subagent is linked to its task by its own name, which the prompt asks to be the task id;
+Claude keeps that as the subagent's description and Codex slugs it into the spawned thread's
+name, and the app matches it back either way. Clicking a subagent, in the Agents list or
+under **Working on it** on a task's page, opens the CLI's live child view: the app opens
+`/tasks` in Claude Code or `/subagents` in Codex and selects the matching row. **Parent
+session** returns to the session.
 
 Claude subagents are read from
 `~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id

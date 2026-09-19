@@ -4,7 +4,7 @@ import Testing
 @testable import YongkangCore
 @testable import YongkangUI
 
-// A session is several selections, not one: its own transcript, a lead's lanes, and the
+// A session is several selections, not one: its own transcript, its result, and the
 // live terminal its PTY is already mounted on.
 @Suite struct SessionSelectionTests {
     @Test func claudePickerRowMatchesOnlyItsOwnIdentity() throws {
@@ -30,7 +30,7 @@ import Testing
         #expect(
             Route.session(paneSession, pane: .transcript).pane(of: paneSession) == .transcript,
             "an agent row lands on its transcript, the way a subagent row does")
-        #expect(Route.session(paneSession, pane: .lanes).pane(of: paneSession) == .lanes)
+        #expect(Route.session(paneSession, pane: .review).pane(of: paneSession) == .review)
         #expect(
             Route.session(paneSession).pane(of: paneSession) == .session,
             "the session stays reachable for anyone who wants to type at it")
@@ -43,12 +43,5 @@ import Testing
         #expect(
             Route.subagent(session: paneSession, id: "a1").pane(of: paneSession) == nil,
             "a subagent of this session is not one of its panes")
-    }
-
-    @Test func onlyALeadHasLanes() {
-        #expect(
-            AgentPane.cases(holdsTasks: true) == [.lanes, .session]
-                && AgentPane.cases(holdsTasks: false) == [.session],
-            "Transcript is hidden; only a lead has specialist lanes")
     }
 }

@@ -209,3 +209,67 @@ struct SessionInspector: View {
         }
     }
 }
+
+/// The transcript's column for a session holding tasks: how far it has got and what it has
+/// left waiting on the user. It scrolls independently when a chain gets long.
+struct LeadInspector: View {
+    let session: CodeSession
+    let cards: [NotebookCard]
+    let blocks: [UserBlock]
+    let openTask: (String) -> Void
+    let openBlock: (UserBlock) -> Void
+
+    var body: some View {
+        ScrollView { content.padding(18) }
+            .frame(width: Theme.inspectorWidth)
+            .background(Theme.panel)
+            .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 1) }
+    }
+
+    private var content: some View {
+        let done = session.taskIDs.filter { id in cards.contains { $0.id == id && $0.status == "done" } }.count
+        let waiting = blocks.filter { $0.waiting && session.taskIDs.contains($0.task ?? "") }
+        return VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel("Progress")
+                Text("\(done) / \(session.taskIDs.count) tasks done").font(Typography.headline)
+                    .foregroundStyle(Theme.tx)
+                MeterBar(
+                    value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green
+                )
+                Text("A task is done when the agent has checked its Done when. You review and commit it.")
+                    .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
+            }
+            if !waiting.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel("Needs attention", trailing: "\(waiting.count)")
+                    ForEach(waiting) { block in
+                        Button {
+                            openBlock(block)
+                        } label: {
+                            Label(block.title, systemImage: "hand.raised")
+                                .font(Typography.body).foregroundStyle(Theme.amber)
+                                .multilineTextAlignment(.leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+            if !session.taskIDs.isEmpty {
+                DisclosureGroup("Assigned tasks") {
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(session.taskIDs, id: \.self) { id in
+                            Button {
+                                openTask(id)
+                            } label: {
+                                Text(cards.first { $0.id == id }?.title ?? id)
+                                    .font(Typography.caption).foregroundStyle(Theme.tx2)
+                                    .multilineTextAlignment(.leading)
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(.top, 8)
+                }.font(Typography.body).tint(Theme.tx3).foregroundStyle(Theme.tx2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

@@ -97,6 +97,18 @@ package struct ChangeSummary: Equatable, Sendable {
     /// Finished tasks whose work is still uncommitted — what is waiting on the user.
     package var waiting: [SummaryTask] { tasks.filter { $0.done && !$0.files.isEmpty } }
 
+    /// The part of that one session holds: what turns its row in the Agents list green, and
+    /// what makes it open on its result rather than its terminal.
+    package func waiting(for session: CodeSession) -> [SummaryTask] {
+        waiting.filter { session.taskIDs.contains($0.id) }
+    }
+
+    /// Where a session opens, from its row or from the Agents tab picking it: on its result
+    /// while work of its waits on the user, on its terminal while it is still at it.
+    package func route(to session: CodeSession) -> Route {
+        .session(session.id, pane: waiting(for: session).isEmpty ? .session : .review)
+    }
+
     /// Another task that changed the same file, which approving this one would carry along.
     package func sharing(_ path: String, besides task: SummaryTask) -> SummaryTask? {
         tasks.first { $0.id != task.id && !$0.commitPaths.isEmpty && $0.files.contains { $0.path == path } }

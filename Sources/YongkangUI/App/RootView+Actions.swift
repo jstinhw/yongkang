@@ -87,9 +87,13 @@ extension RootView {
     // MARK: - Review
 
     /// The failure is shown under the button rather than in an alert, so it comes back as text.
-    func approve(_ task: SummaryTask, message: String, in project: ProjectModel) async -> String? {
+    /// `staying` keeps the window where it is rather than moving on to the next review.
+    func approve(
+        _ task: SummaryTask, message: String, in project: ProjectModel, staying: Bool = false
+    ) async -> String? {
         do {
-            model.selection = try await project.approve(task, message: message)
+            let next = try await project.approve(task, message: message)
+            if !staying { model.selection = next }
             return nil
         } catch {
             return error.reason

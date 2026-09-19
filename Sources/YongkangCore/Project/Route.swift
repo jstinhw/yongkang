@@ -81,16 +81,12 @@ package enum Route: Hashable, Sendable, Codable {
 }
 
 /// The available agent panes. Transcript remains implemented but is hidden for now.
-package enum AgentPane: String, CaseIterable, Identifiable, Sendable, Codable {
+///
+/// A session holding tasks has two: its terminal while it works, and its result — the review
+/// of each task — once one waits on the user. Which it opens on follows that state, and one
+/// toolbar button switches to the other; there is no picker of panes.
+package enum AgentPane: String, Sendable, Codable {
     case transcript = "Transcript"
-    case lanes = "Agents"
+    case review = "Result"
     case session = "Session"
-
-    package var id: Self { self }
-
-    /// The panes a session actually has. Only a session holding tasks has lanes to show
-    /// its work in.
-    package static func cases(holdsTasks: Bool) -> [AgentPane] {
-        holdsTasks ? [.lanes, .session] : [.session]
-    }
 }

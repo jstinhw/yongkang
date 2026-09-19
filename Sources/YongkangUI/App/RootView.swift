@@ -112,8 +112,15 @@ struct RootView: View {
                 // The rail stays outside the split view: it is the one piece of navigation that
                 // never changes. It is also drawn above the list column, because its hover
                 // labels hang past its own width.
+                // Picking a section is asking for its list, so a click brings a hidden list
+                // back — even on the section already showing, where nothing else would change.
                 Rail(
-                    section: $model.section, badges: badges(for: project),
+                    section: Binding(
+                        get: { model.section },
+                        set: {
+                            model.section = $0
+                            listHidden = false
+                        }), badges: badges(for: project),
                     agentCount: project.value.onlineAgentCount
                 )
                 .zIndex(1)

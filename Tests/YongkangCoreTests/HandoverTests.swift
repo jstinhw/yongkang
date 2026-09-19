@@ -54,6 +54,22 @@ import Testing
         return (project, lead)
     }
 
+    // What turns a session's row green and opens it on its result rather than its terminal.
+    @Test func aSessionWaitsOnTheUserOnlyForItsOwnFinishedWork() {
+        let (project, lead) = Self.leadProject()
+        let summary = ChangeSummary.of(project, changes: Self.tree)
+        #expect(
+            summary.waiting(for: lead).map(\.id) == ["read-blockers"],
+            "its finished, uncommitted task; wire-auth is still running")
+        let other = CodeSession(title: "Other", icon: "", line: "", agent: .claude, taskIDs: ["wire-auth"])
+        #expect(summary.waiting(for: other).isEmpty, "another session's finished work is not this one's")
+        #expect(
+            ChangeSummary.of(project).waiting(for: lead).isEmpty,
+            "work already committed leaves nothing to review")
+        #expect(summary.route(to: lead) == .session(lead.id, pane: .review), "it opens on its result")
+        #expect(summary.route(to: other) == .session(other.id), "a session still working opens on its terminal")
+    }
+
     @Test func noBatchNothingToSummarise() {
         #expect(
             ChangeSummary.of(Project(directory: Self.directory, entries: [])).isEmpty,
