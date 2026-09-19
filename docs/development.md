@@ -90,13 +90,16 @@ for.
 
 ### Subagent Check
 
-7. Assign a project with several tasks, and wait for the session to start a subagent.
-   - A row appears under the session in the Agents list, named after its task id, with a
-     live dot. *(Agent behaviour: a session may do small batches itself.)* The Agents rail icon gets an
+7. Right-click the project's row and assign every task. Tasks that wait on nothing get a
+   session each; a task and its blockers share one. Then wait for a session with several
+   tasks to start a subagent.
+   - A row appears under that session in the Agents list, named after its task id, with a
+     live dot. *(Agent behaviour: a session may work down a short chain itself.)* The Agents rail icon gets an
      accent dot.
    - Open the task's page (↗ on its card). The inspector's **Working on it** section lists
-     that subagent with a **Running** pill.
-8. Click that entry under **Working on it**, or the subagent's row in the Agents list.
+     the session that holds it, as "its session", and that subagent under it, both with a
+     **Running** pill. Clicking the session row opens the session.
+8. Click the subagent under **Working on it**, or its row in the Agents list.
    - The window switches to **Agents**. The window's title becomes the subagent's name, and a
      **Parent session** button appears.
    - A notice over the session's terminal reads "Opening child agent…". Yongkang types `/tasks`

@@ -128,7 +128,7 @@ extension AppModel {
     /// the selection names; picking several is still the board's job.
     var assignableTask: NotebookCard? {
         guard let project = entered, case .task(let id)? = selection,
-            let card = project.snapshot.cards.first(where: { $0.id == id && $0.kind == .task }),
+            let card = project.cards.first(where: { $0.id == id && $0.kind == .task }),
             card.status != "done", !project.assignedTaskIDs.contains(card.id)
         else { return nil }
         return card

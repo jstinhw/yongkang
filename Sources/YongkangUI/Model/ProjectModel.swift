@@ -98,14 +98,19 @@ import YongkangCore
     /// this project's notebook and sessions, and nothing of any other project.
     var value: Project {
         Project(
-            id: id, directory: directory, entries: snapshot.entries, cards: snapshot.cards,
+            id: id, directory: directory, entries: snapshot.entries, cards: cards,
             blocks: snapshot.blocks, team: snapshot.team, sessions: sessions, records: snapshot.records)
     }
+
+    /// What the screens draw, rather than what the files say: the snapshot's cards with any
+    /// task nobody is on any more settled back into the queue. See `NotebookIndex.settled`.
+    /// The snapshot itself stays as it was read, so the poll still compares like with like.
+    var cards: [NotebookCard] { NotebookIndex.settled(snapshot.cards, assigned: assignedTaskIDs) }
 
     var name: String { value.name }
     var notebookRoot: URL { value.notebookRoot }
     var hasNotebook: Bool { value.hasNotebook }
-    var assignedTaskIDs: Set<String> { value.assignedTaskIDs }
+    var assignedTaskIDs: Set<String> { Project.assignedTaskIDs(in: sessions) }
 
     /// What the agents just finished, derived from the notebook, the sessions and git —
     /// never in a view body. Re-derived here whenever one of those three changes, which is

@@ -7,7 +7,8 @@ package struct NotebookCard: Identifiable, Equatable, Sendable {
     package let url: URL
     package let kind: EntryKind
     package let title: String
-    package let status: String
+    /// What the file says, until `NotebookIndex.settled` has an agent's word against it.
+    package var status: String
     package let project: String?
     package let dependsOn: [String]
     /// Projects only: the folders this work lands in, so the board can say what it touches
@@ -66,6 +67,28 @@ package struct NotebookCard: Identifiable, Equatable, Sendable {
 package enum NotebookIndex {
     package static func visible(_ cards: [NotebookCard], showDone: Bool) -> [NotebookCard] {
         showDone ? cards : cards.filter { $0.status != "done" }
+    }
+
+    /// The cards as they read now rather than as the files say. `status: active` means an
+    /// agent is on it, and only the agent ever writes that field, so a session that was
+    /// killed — by a quit, a crash, or being closed — never gets to unset it: the task would
+    /// read as worked-on for good, with nothing running. A task no live session holds is
+    /// handed its queue status back, once here, rather than in every screen that draws one.
+    ///
+    /// Tasks only. A project card's `active` is about its own tasks, which `assigned` says
+    /// nothing about.
+    package static func settled(_ cards: [NotebookCard], assigned: Set<String>) -> [NotebookCard] {
+        func stale(_ card: NotebookCard) -> Bool {
+            card.kind == .task && card.status == "active" && !assigned.contains(card.id)
+        }
+        // The common case is that nothing is stale, and this is read from view bodies.
+        guard cards.contains(where: stale) else { return cards }
+        return cards.map { card in
+            guard stale(card) else { return card }
+            var settled = card
+            settled.status = "todo"
+            return settled
+        }
     }
 
     /// A project is finished when its own status says so, or when every task filed under
@@ -216,6 +239,35 @@ package enum NotebookIndex {
 
     package static func ordered(_ subset: [NotebookCard]) -> [NotebookCard] {
         waves(subset).flatMap { $0 }
+    }
+
+    /// The batch split into what can be worked on at the same time: tasks joined by
+    /// `depends_on` — directly, or through another task in the batch — stay together, because
+    /// one cannot start while its blocker is still being written next door. Each group comes
+    /// back in build order, and the groups in the order their first task would start.
+    // ponytail: a walk over the edges, no union-find. A batch is a handful of cards.
+    package static func chains(_ subset: [NotebookCard]) -> [[NotebookCard]] {
+        let byID = Dictionary(subset.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var joined: [String: Set<String>] = [:]
+        for card in subset {
+            for blocker in card.dependsOn where byID[blocker] != nil {
+                joined[card.id, default: []].insert(blocker)
+                joined[blocker, default: []].insert(card.id)
+            }
+        }
+        var seen: Set<String> = []
+        var groups: [[NotebookCard]] = []
+        for card in ordered(subset) where seen.insert(card.id).inserted {
+            var group: [NotebookCard] = []
+            var queue = [card.id]
+            while let id = queue.popLast() {
+                guard let found = byID[id] else { continue }
+                group.append(found)
+                for next in joined[id] ?? [] where seen.insert(next).inserted { queue.append(next) }
+            }
+            groups.append(ordered(group))
+        }
+        return groups
     }
 
     /// The same sort, kept in levels: everything in a wave can start once the waves before

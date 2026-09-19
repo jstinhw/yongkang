@@ -164,7 +164,9 @@ package struct NotebookBoard: View {
         // is waiting on the user rather than on the work in front of it, so collapsing it
         // into the queue would hide the thing most worth acting on.
         if card.status == "blocked" { return .blocked }
-        if assigned.contains(card.id) || card.status == "active" { return .active }
+        // `active` on its own is not enough: `NotebookIndex.settled` has already dropped the
+        // word from any task no live session holds, so what is left agrees with `assigned`.
+        if assigned.contains(card.id) { return .active }
         return NotebookBoard.isReady(card, in: cards) ? .ready : .later
     }
 
@@ -191,6 +193,11 @@ package struct NotebookBoard: View {
     /// anything a still-open session already has.
     private var batch: [NotebookCard] {
         NotebookIndex.withBlockers(picked, in: cards, excluding: assigned)
+    }
+
+    /// Everything that could start now, which is what the button runs when nothing is picked.
+    private var ready: [NotebookCard] {
+        tasks.filter { lane(of: $0) == .ready }
     }
 
     // MARK: - Columns
@@ -414,12 +421,16 @@ package struct NotebookBoard: View {
 
     /// Design work in a batch changes what the button promises, because the agent hands
     /// those tasks to a designer, and the tasks behind them wait on the user.
-    private var designCount: Int { batch.filter(\.isDesignWork).count }
+    private var designCount: Int { work.filter(\.isDesignWork).count }
+
+    /// The picks and their blockers or, with nothing picked, every ready task — each one its
+    /// own session, since none of them waits on another.
+    private var work: [NotebookCard] { picked.isEmpty ? ready : batch }
 
     private var assignBar: some View {
         ActionBar {
             if picked.isEmpty {
-                Text("Pick the work. Full detail is on whatever could start next.")
+                Text("Pick the work, or run everything that could start now.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - picked.count
@@ -442,9 +453,10 @@ package struct NotebookBoard: View {
             }
             .buttonStyle(.console)
             AssignButton(
-                title: designCount > 0 ? "Assign — design first" : "Assign", choice: agents,
-                disabled: batch.isEmpty
-            ) { assign(batch, $0) }
+                title: (picked.isEmpty ? "Run \(work.count) ready" : "Assign")
+                    + (designCount > 0 ? " — design first" : ""),
+                choice: agents, disabled: work.isEmpty
+            ) { assign(work, $0) }
         }
     }
 

@@ -128,4 +128,23 @@ import Testing
         #expect(card.status == "")
         #expect(card.dependsOn.isEmpty)
     }
+
+    /// The agent that wrote `active` died with the app, so nothing is on that task any more.
+    @Test func settlingDropsActiveNoSessionHolds() {
+        func card(_ id: String, _ kind: EntryKind, _ status: String) -> NotebookCard {
+            NotebookCard(
+                id: id, url: URL(fileURLWithPath: "/tmp/\(id).md"), kind: kind, title: id,
+                status: status, project: nil, dependsOn: [])
+        }
+        let cards = [
+            card("held", .task, "active"), card("dropped", .task, "active"),
+            card("waiting", .task, "blocked"), card("console", .project, "active"),
+        ]
+
+        let settled = NotebookIndex.settled(cards, assigned: ["held"])
+        #expect(settled.map(\.status) == ["active", "todo", "blocked", "active"])
+        #expect(
+            NotebookIndex.settled(cards, assigned: ["held", "dropped"]) == cards,
+            "nothing stale, nothing to settle")
+    }
 }

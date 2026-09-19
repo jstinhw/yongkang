@@ -16,7 +16,7 @@ extension RootView {
         switch model.section {
         case .overview: return "Overview"
         case .board:
-            let scoped = model.selection?.card(in: project.snapshot.cards)
+            let scoped = model.selection?.card(in: project.cards)
             return scoped?.title ?? selectedBlock(in: project).flatMap { $0.isDemo ? $0.title : nil } ?? "Board"
         case .agents:
             guard model.selection != .usage else { return "Usage" }
@@ -91,7 +91,7 @@ extension RootView {
                     demo.waiting ? "demo · waiting on you" : "approved",
                     demo.waiting ? Theme.amber : Theme.green, live: demo.waiting)
             }
-            if let scoped = model.selection?.card(in: project.snapshot.cards), scoped.kind == .project {
+            if let scoped = model.selection?.card(in: project.cards), scoped.kind == .project {
                 boardProgress(scoped, in: project)
             }
             completedToggle
@@ -138,7 +138,7 @@ extension RootView {
     }
 
     private func boardProgress(_ card: NotebookCard, in project: ProjectModel) -> some View {
-        let tasks = project.snapshot.cards.filter { $0.kind == .task && $0.project == card.id }
+        let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
         let done = tasks.filter { $0.status == "done" }.count
         return HStack(spacing: 9) {
             MeterBar(value: tasks.isEmpty ? 0 : Double(done) / Double(tasks.count))

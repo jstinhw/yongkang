@@ -101,9 +101,9 @@ extension NotebookFormat {
         }.joined(separator: "\n")
     }
 
-    /// What an assigned session is told: the tasks, and the few things the app reads back —
-    /// status, a report per task, blocks, no commits. How to do the work is left to the
-    /// agent; one task is one session, and several are its to split among its own subagents.
+    /// What an assigned session is told: its chain of tasks, and the few things the app reads
+    /// back — status, a report per task, blocks, no commits. How to do the work is left to the
+    /// agent. Work that could run beside this chain is another session's, not this one's.
     ///
     /// The session id goes in so a block or demo says who is waiting on it, and so a report
     /// is filed under the session that wrote it. The report's shape is what Review reads:
@@ -125,10 +125,10 @@ extension NotebookFormat {
             Session id: \(id)
             \(asked)
             Read each task file, what it depends on and its project's memory; the Done when list
-            is the contract. With several tasks, go in `depends_on` order and run independent ones
-            at once with your own subagents if you have them — one writer per file, each subagent
-            named after its task id. Set a task `status: active` when you start it and `done` once
-            you have checked every item of its Done when.
+            is the contract. Several tasks here are one chain: go in `depends_on` order, and only
+            run two at once — with your own subagents, one writer per file, each named after its
+            task id — where neither waits on the other. Set a task `status: active` when you start
+            it and `done` once you have checked every item of its Done when.
             \(design)
             When only I can unblock something — an account, a secret, a payment — write
             `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`, `session: \(id)`,

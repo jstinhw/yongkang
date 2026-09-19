@@ -172,8 +172,8 @@ enum DesignShots {
                 TaskDetail(
                     card: project.cards.first { $0.id == "show-agent-tree" }!,
                     cards: project.cards, assigned: ["show-agent-tree"],
-                    working: [(lead, worker)], open: { _ in }, agents: agents, assign: { _, _ in },
-                    check: { _, _ in })
+                    working: [TaskAgent(session: lead), TaskAgent(session: lead, subagent: worker)],
+                    open: { _ in }, agents: agents, assign: { _, _ in }, check: { _ in })
             }, "task", into: directory)
 
         write(

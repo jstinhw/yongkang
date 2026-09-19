@@ -42,7 +42,7 @@ import Testing
 
     // MARK: - Assign
 
-    @Test func assigningStartsASessionOnTheBatchAndItsBlockers() async throws {
+    @Test func assigningStartsOneSessionOnTheTaskAndItsBlockers() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
@@ -53,11 +53,29 @@ import Testing
         await project.reloadNotebook(frontmatter: true, records: true)
 
         let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .codex))
-        let lead = try #require(project.sessions.first)
-        #expect(lead.holdsTasks && lead.agent == .codex, "a new session, on the agent picked beside the button")
-        #expect(Set(lead.taskIDs) == ["wire-auth", "ship-it"], "the blocker comes along with the task picked")
-        #expect(destination == Destination(section: .agents, route: .session(lead.id)))
-        #expect(lead.line.contains(lead.id.uuidString.lowercased()), "the prompt names the session it starts")
+        let session = try #require(project.sessions.first)
+        #expect(project.sessions.count == 1, "a task and its blocker are one chain, so one session")
+        #expect(session.holdsTasks && session.agent == .codex, "on the agent picked beside the button")
+        #expect(session.taskIDs == ["wire-auth", "ship-it"], "the blocker comes along, and goes first")
+        #expect(destination == Destination(section: .agents, route: .session(session.id)))
+        #expect(session.line.contains(session.id.uuidString.lowercased()), "the prompt names the session")
+    }
+
+    @Test func twoTasksThatWaitOnNothingStartTwoSessions() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
+
+        let destination = try #require(
+            project.assign([try card("wire-auth", in: project), try card("ship-it", in: project)], agent: .claude))
+        #expect(project.sessions.count == 2, "independent work is not queued behind one agent")
+        #expect(
+            project.sessions.map(\.taskIDs) == [["ship-it"], ["wire-auth"]],
+            "one session per task, in the notebook's order, each named and prompted for its own")
+        #expect(project.sessions.map(\.title) == ["Ship it", "Wire auth"])
+        #expect(
+            destination == Destination(section: .agents, route: .session(project.sessions[0].id)),
+            "the window opens on the first, with the rest beside it in the Agents list")
     }
 
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {

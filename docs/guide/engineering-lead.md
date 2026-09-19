@@ -6,18 +6,22 @@ Every Assign button has an agent picker beside it — Claude Code, Codex, Grok o
 starting on the toolbar's agent. Picking one there is for that assignment only; the
 toolbar keeps its default.
 
-- **A task:** `Assign` on its page starts one session on that task, with any unfinished
-  blockers it waits on.
+What you assign is split into chains, and each chain gets a session of its own, named
+after its work:
+
+- **A task:** `Assign` on its page starts one session on that task, together with any
+  unfinished tasks it waits on — those cannot run beside it, so they share its session and
+  go first.
 - **A project:** `Pick all` on the project's page, or `Assign all tasks to` on its row in
-  the list, starts one session on all of its open tasks. That session decides how to split
-  them, and runs independent ones at once with its own subagents if its CLI has them.
-- **A batch:** tasks picked on the board go to one session the same way.
+  the list, takes every open task of its. Tasks that wait on nothing start side by side,
+  one session each; a chain of dependent tasks is one session that works down it.
+- **A batch:** tasks picked on the board are split the same way.
 
-Each assignment is a new session named after its work. A session already running is never
-handed more, because its agent may not be the one you picked; a task a session already
-holds cannot be assigned again until that session exits.
+The window opens on the first session; the rest are in the Agents list beside it. A session
+already running is never handed more, because its agent may not be the one you picked, and
+a task a session already holds cannot be assigned again until that session exits.
 
-There are no specialist roles. The agent reads the task, what it depends on and the
+There are no specialist roles. Each session reads its tasks, what they depend on and the
 project's memory, and does the work; the prompt only carries what the app reads back:
 
 - set a task `active` when it starts and `done` once every item of its `Done when` is
@@ -31,15 +35,15 @@ project's memory, and does the work; the prompt only carries what the app reads 
 
 ```mermaid
 flowchart TD
-    A[Assign a task or a project, on the agent you pick] --> B[One session]
-    B -->|one task| C[Does it]
-    B -->|several| D[Its own subagents, in depends_on order]
+    A[Assign a task or a project, on the agent you pick] --> B{Split into chains}
+    B -->|a task waiting on nothing| C[Its own session]
+    B -->|a task and what it waits on| D[One session, in depends_on order]
     C --> E[Report per task: Result, Verification, paths]
     D --> E
-    B -->|design task| F[designer skill, demo in Blocks]
-    F -->|you approve| B
-    B -->|only you can do it| G[Block]
-    G -->|resolved| B
+    C -->|design task| F[designer skill, demo in Blocks]
+    F -->|you approve| E
+    C -->|only you can do it| G[Block]
+    G -->|resolved| C
     E --> H[Report page for you, work waits in Review]
 ```
 
@@ -50,9 +54,16 @@ reads and what approving a task commits beside its code. When it stops, done or 
 on you, it shows the same report as a page: an artifact where the agent can publish one,
 otherwise an HTML file in the temp folder that it opens for you.
 
+`Agents` in the rail lists every session in the project, live or exited, with what each one
+has spawned under it — so several sessions working at once are one list, and clicking a row
+opens that session. A task's own page names who is on it under **Working on it**: the
+session it was assigned to, and any subagent working it. Clicking the session opens its
+transcript; clicking a subagent opens the CLI's live child view. Overview's **Running now**
+is the same set for the whole project, one card per agent with the task it is on.
+
 The session's **Agents** pane is its work board: one lane per task with its report and
-the subagents it started, and progress and anything waiting on you beside it. A subagent is
-linked to its task by its own name, which the prompt asks to be the task id; Claude keeps
+the subagents it started, and progress and anything waiting on you beside it. A subagent is linked to its task
+by its own name, which the prompt asks to be the task id; Claude keeps
 that as the subagent's description and Codex slugs it into the spawned thread's name, and
 the app matches it back either way. Clicking a subagent, here or under **Working on it** on
 a task's page, opens the CLI's live child view: the app opens `/tasks` in Claude Code or

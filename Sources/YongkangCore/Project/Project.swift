@@ -53,7 +53,11 @@ package struct Project: Identifiable, Equatable, Sendable {
     package var pageCount: Int { NotebookLoader.pageCount(entries) }
     /// Tasks an open session already has. The WIP set: assigning again while a session is
     /// still on a task would just hand it to a second one.
-    package var assignedTaskIDs: Set<String> {
+    package var assignedTaskIDs: Set<String> { Project.assignedTaskIDs(in: sessions) }
+
+    /// The same set off a bare session list, for a caller that is still building the project
+    /// its cards go into — see `ProjectModel.value`.
+    package static func assignedTaskIDs(in sessions: [CodeSession]) -> Set<String> {
         Set(sessions.filter { !$0.exited }.flatMap(\.taskIDs))
     }
 }

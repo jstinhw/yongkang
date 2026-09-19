@@ -31,9 +31,9 @@ package struct Overview: View {
         self.assign = assign
     }
 
-    private var workers: [(session: CodeSession, subagent: SubagentStatus)] {
-        project.sessions.flatMap { session in session.activeSubagents.map { (session, $0) } }
-    }
+    /// Sessions on assigned work and the subagents they started, which is everything
+    /// working: with one session per chain, most work has no subagent under it at all.
+    private var workers: [TaskAgent] { project.runningAgents }
 
     package var body: some View {
         ScrollView {
@@ -69,14 +69,14 @@ package struct Overview: View {
 
     private var signature: String {
         project.cards.map { "\($0.id):\($0.status)" }.joined()
-            + workers.map(\.subagent.id).joined()
+            + workers.map(\.id).joined()
     }
 
     // MARK: - Running now
 
     private var runningNow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Running now", trailing: workers.isEmpty ? nil : "on assigned work")
+            SectionLabel("Running now", trailing: workers.isEmpty ? nil : "\(workers.count)")
             if workers.isEmpty {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz").foregroundStyle(Theme.tx4)
@@ -92,31 +92,30 @@ package struct Overview: View {
                     columns: [GridItem(.adaptive(minimum: 240), spacing: 12)],
                     alignment: .leading, spacing: 12
                 ) {
-                    ForEach(workers, id: \.subagent.id) { worker in
-                        workerCard(worker.session, worker.subagent)
-                    }
+                    ForEach(workers) { workerCard($0) }
                 }
             }
         }
     }
 
-    private func workerCard(_ session: CodeSession, _ subagent: SubagentStatus) -> some View {
-        let task = subagent.taskID.flatMap { id in project.cards.first { $0.id == id } }
-        let bars = subagent.taskID.flatMap { checklists[$0] }
+    private func workerCard(_ worker: TaskAgent) -> some View {
+        let task = worker.taskID.flatMap { id in project.cards.first { $0.id == id } }
+        let bars = worker.taskID.flatMap { checklists[$0] }
+        let what = worker.subagent?.agentType ?? worker.session.agent?.displayName ?? "session"
         return Button {
-            go(.agents, .subagent(session: session.id, id: subagent.id))
+            go(.agents, worker.route)
         } label: {
             VStack(alignment: .leading, spacing: 11) {
                 HStack(spacing: 10) {
-                    RoleTile(role: subagent.agentType, size: 26)
+                    RoleTile(role: worker.role, size: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(subagent.displayName).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                        Text(worker.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                             .lineLimit(1)
-                        Text("\(subagent.agentType) · on \(task?.title ?? subagent.taskID ?? "no task")")
+                        Text("\(what) · on \(task?.title ?? worker.taskID ?? "no task")")
                             .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
                     Spacer(minLength: 6)
-                    NotebookStyle.pill(wrote(subagent), Theme.accent, live: true)
+                    NotebookStyle.pill(wrote(worker), Theme.accent, live: true)
                 }
                 if let bars {
                     VStack(alignment: .leading, spacing: 6) {
@@ -133,10 +132,10 @@ package struct Overview: View {
         .buttonStyle(.plain)
     }
 
-    /// A subagent has no clock of its own; its transcript's last write is when it last did
+    /// An agent has no clock of its own; its transcript's last write is when it last did
     /// anything, which is the honest version of "how long has this been going".
-    private func wrote(_ subagent: SubagentStatus) -> String {
-        guard let at = lastWrote[subagent.id] else { return "running" }
+    private func wrote(_ worker: TaskAgent) -> String {
+        guard let at = lastWrote[worker.id] else { return "running" }
         return Overview.ago(at)
     }
 
@@ -318,7 +317,7 @@ package struct Overview: View {
     private var team: some View {
         // Keyed by who is running, not by the skill: two dispatches of Allen are Allen
         // twice over, and the skill is still what the tile beside the name is drawn from.
-        let dispatched = Dictionary(grouping: workers.map(\.subagent), by: \.displayName)
+        let dispatched = Dictionary(grouping: workers.compactMap(\.subagent), by: \.displayName)
         return VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Team").padding(.bottom, 6)
             ForEach(project.sessions.filter { $0.agent != nil }) { session in
@@ -362,8 +361,9 @@ package struct Overview: View {
 
         var wrote: [String: Date] = [:]
         for worker in workers {
-            let values = try? worker.subagent.transcriptURL.resourceValues(forKeys: [.contentModificationDateKey])
-            if let date = values?.contentModificationDate { wrote[worker.subagent.id] = date }
+            guard let url = worker.subagent?.transcriptURL else { continue }
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            if let date = values?.contentModificationDate { wrote[worker.id] = date }
         }
         lastWrote = wrote
 

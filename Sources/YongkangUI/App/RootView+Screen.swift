@@ -30,7 +30,7 @@ extension RootView {
                 open: { model.selection = $0 })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
-                card: card, cards: project.snapshot.cards, repos: project.services(of: card),
+                card: card, cards: project.cards, repos: project.services(of: card),
                 assigned: project.assignedTaskIDs, showDone: model.showDone,
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
                 agents: agentChoice,
@@ -41,20 +41,20 @@ extension RootView {
             .id(card.id)
         } else if let card = scopedCard(in: project, kind: .task) {
             TaskDetail(
-                card: card, cards: project.snapshot.cards, assigned: project.assignedTaskIDs,
+                card: card, cards: project.cards, assigned: project.assignedTaskIDs,
                 working: workers(on: card.id, in: project),
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
                 agents: agentChoice,
                 assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
-                check: { session, subagent in
+                check: { worker in
                     model.section = .agents
-                    model.selection = .subagent(session: session.id, id: subagent.id)
+                    model.selection = worker.route
                 }
             )
             .id(card.id)
         } else if let card = scopedPageCard(in: project) {
             NotebookEntryDetail(
-                card: card, cards: project.snapshot.cards,
+                card: card, cards: project.cards,
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) }
             )
             .id(card.id)
@@ -62,7 +62,7 @@ extension RootView {
             switch model.selection?.pane(of: watched.id) {
             case .lanes:
                 EngineeringLeadBoard(
-                    session: watched, cards: project.snapshot.cards, blocks: project.snapshot.blocks,
+                    session: watched, cards: project.cards, blocks: project.snapshot.blocks,
                     openTask: {
                         model.section = .board
                         model.selection = .task($0)
@@ -77,7 +77,7 @@ extension RootView {
                 terminal(for: watched)
             default:
                 SessionTranscript(
-                    session: watched, cards: project.snapshot.cards, blocks: project.snapshot.blocks,
+                    session: watched, cards: project.cards, blocks: project.snapshot.blocks,
                     lines: model.agentTranscript,
                     source: model.transcriptSource,
                     openTask: {
@@ -107,7 +107,7 @@ extension RootView {
             .id(member.id)
         } else if let block = selectedBlock(in: project), block.isDemo {
             DesignDemo(
-                block: block, cards: project.snapshot.cards,
+                block: block, cards: project.cards,
                 waiting: project.waitingSession(for: block),
                 approve: { revision in
                     model.go(to: project.approveDemo(block, revision: revision))
@@ -118,7 +118,7 @@ extension RootView {
             .id(block.id)
         } else if let block = selectedBlock(in: project) {
             BlockDetail(
-                block: block, cards: project.snapshot.cards,
+                block: block, cards: project.cards,
                 waiting: project.waitingSession(for: block),
                 start: { model.go(to: project.startUnblock(block, agent: agent)) },
                 revise: { model.go(to: project.openProposal(block, approve: false, agent: agent)) },
@@ -131,7 +131,7 @@ extension RootView {
         } else if let task = reviewedTask(in: project) {
             TaskReview(
                 task: task, summary: project.summary,
-                directory: project.directory, cards: project.snapshot.cards, team: project.snapshot.team,
+                directory: project.directory, cards: project.cards, team: project.snapshot.team,
                 branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
                 openFile: { model.selection = .review(file: $0) },
                 approve: { await approve(task, message: $0, in: project) },
@@ -202,7 +202,7 @@ extension RootView {
 
     private func boardView(for project: ProjectModel) -> some View {
         NotebookBoard(
-            cards: project.snapshot.cards,
+            cards: project.cards,
             blocks: project.snapshot.blocks,
             assigned: project.assignedTaskIDs,
             showDone: model.showDone,
@@ -243,12 +243,12 @@ extension RootView {
         case (.project(let scoped)?, .project), (.task(let scoped)?, .task): id = scoped
         default: return nil
         }
-        return project.snapshot.cards.first { $0.id == id && $0.kind == kind }
+        return project.cards.first { $0.id == id && $0.kind == kind }
     }
 
     private func scopedPageCard(in project: ProjectModel) -> NotebookCard? {
         guard case .page(let id) = model.selection else { return nil }
-        return project.snapshot.cards.first { $0.id == id }
+        return project.cards.first { $0.id == id }
     }
 
     /// The agents running this member's skill right now, wherever they were dispatched
@@ -263,12 +263,10 @@ extension RootView {
         }
     }
 
-    /// Every subagent in this project that was dispatched for one task, whichever session
-    /// spawned it. The link is the subagent's own name, matched when it is read off disk.
-    private func workers(on taskID: String, in project: ProjectModel) -> [(CodeSession, SubagentStatus)] {
-        project.sessions.flatMap { session in
-            session.subagents.filter { $0.taskID == taskID }.map { (session, $0) }
-        }
+    /// Everyone on one task: the session it was assigned to, and any subagent that session
+    /// dispatched for it — matched by the subagent's own name when it is read off disk.
+    private func workers(on taskID: String, in project: ProjectModel) -> [TaskAgent] {
+        project.value.agents(on: taskID)
     }
 
     func selectedBlock(in project: ProjectModel) -> UserBlock? {

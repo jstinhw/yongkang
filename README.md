@@ -41,15 +41,15 @@ writes what the agents write, and no agent commits without your approval in Revi
 
 ```mermaid
 flowchart TD
-    A[Assign a task or a project, on the agent you pick] --> B[One session]
-    B -->|one task| C[Does it]
-    B -->|several| D[Its own subagents, in depends_on order]
+    A[Assign a task or a project, on the agent you pick] --> B{Split into chains}
+    B -->|a task waiting on nothing| C[Its own session]
+    B -->|a task and what it waits on| D[One session, in depends_on order]
     C --> E[Report per task: Result, Verification, paths]
     D --> E
-    B -->|design task| F[designer skill, demo in Blocks]
-    F -->|you approve| B
-    B -->|only you can do it| G[Block]
-    G -->|resolved| B
+    C -->|design task| F[designer skill, demo in Blocks]
+    F -->|you approve| E
+    C -->|only you can do it| G[Block]
+    G -->|resolved| C
     E --> H[Report page for you, work waits in Review]
 ```
 

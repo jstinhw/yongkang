@@ -9,12 +9,12 @@ package struct TaskDetail: View {
     let cards: [NotebookCard]
     /// Whether a still-open session already has this task.
     let assigned: Set<String>
-    /// The subagents dispatched for this task, with the session that spawned each.
-    let working: [(CodeSession, SubagentStatus)]
+    /// Who is on this task: the session it was assigned to, and any subagent working it.
+    let working: [TaskAgent]
     let open: (URL) -> Void
     let agents: AgentChoice
     let assign: ([NotebookCard], AgentKind) -> Void
-    let check: (CodeSession, SubagentStatus) -> Void
+    let check: (TaskAgent) -> Void
 
     @State private var content: [NotebookContent.Section] = []
 
@@ -22,11 +22,11 @@ package struct TaskDetail: View {
         card: NotebookCard,
         cards: [NotebookCard],
         assigned: Set<String>,
-        working: [(CodeSession, SubagentStatus)],
+        working: [TaskAgent],
         open: @escaping (URL) -> Void,
         agents: AgentChoice,
         assign: @escaping ([NotebookCard], AgentKind) -> Void,
-        check: @escaping (CodeSession, SubagentStatus) -> Void
+        check: @escaping (TaskAgent) -> Void
     ) {
         self.card = card
         self.cards = cards
@@ -156,22 +156,23 @@ package struct TaskDetail: View {
                     )
                     .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
-                ForEach(working, id: \.1.id) { session, subagent in
+                ForEach(working) { worker in
                     Button {
-                        check(session, subagent)
+                        check(worker)
                     } label: {
                         HStack(spacing: 10) {
-                            RoleTile(role: subagent.agentType)
+                            RoleTile(role: worker.role)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(subagent.displayName).font(Typography.body)
+                                Text(worker.title).font(Typography.body)
                                     .foregroundStyle(Theme.tx)
-                                Text(session.title).font(Typography.caption)
+                                Text(worker.subagent == nil ? "its session" : worker.session.title)
+                                    .font(Typography.caption)
                                     .foregroundStyle(Theme.tx3).lineLimit(1)
                             }
                             Spacer(minLength: 6)
                             NotebookStyle.pill(
-                                subagent.running ? "Running" : "Done",
-                                subagent.running ? Theme.accent : Theme.green)
+                                worker.running ? "Running" : "Done",
+                                worker.running ? Theme.accent : Theme.green)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .cardSurface(radius: 10, padding: 11)
