@@ -80,13 +80,9 @@ package enum Route: Hashable, Sendable, Codable {
     }
 }
 
-/// The available agent panes. Transcript remains implemented but is hidden for now.
-///
-/// A session holding tasks has two: its terminal while it works, and its result — the review
-/// of each task — once one waits on the user. Which it opens on follows that state, and one
-/// toolbar button switches to the other; there is no picker of panes.
+/// The available agent panes. Transcript remains implemented but is hidden for now, so a
+/// session shows its terminal; what it did is its tasks' reviews, each a row under it.
 package enum AgentPane: String, Sendable, Codable {
     case transcript = "Transcript"
-    case review = "Result"
     case session = "Session"
 }

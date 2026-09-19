@@ -21,6 +21,7 @@ extension RootView {
         case .agents:
             guard model.selection != .usage else { return "Usage" }
             return model.selectedSubagent(in: project)?.subagent.description
+                ?? reviewedTask(in: project)?.title
                 ?? model.selectedAgent(in: project)?.title
                 ?? model.selectedSession(in: project)?.title
                 ?? model.selectedMember(in: project)?.name ?? "Agents"
@@ -104,20 +105,6 @@ extension RootView {
             .buttonStyle(.console)
         case .agents:
             addMenu(for: project)
-            // A session's one switch: from its result to its terminal and back. Which it opens
-            // on follows its state — see `ProjectList.sessionRow`.
-            if let watched = model.selectedAgent(in: project), watched.holdsTasks {
-                let reviewing = model.selection?.pane(of: watched.id) == .review
-                Button {
-                    model.selection = .session(watched.id, pane: reviewing ? .session : .review)
-                } label: {
-                    reviewing
-                        ? Label("Session", systemImage: "terminal")
-                        : Label("Result", systemImage: "checkmark.seal")
-                }
-                .buttonStyle(.console)
-                .help(reviewing ? "Show the session’s terminal" : "Show what the session did, for your review")
-            }
             if let found = model.selectedSubagent(in: project) {
                 Button {
                     model.selection = .session(found.session.id)

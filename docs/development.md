@@ -82,8 +82,7 @@ for.
    - The window switches to **Agents** and opens the live terminal of a new session on the
      agent you picked, named after the task. Its row reads "1 task · 0 running".
    - The toolbar's agent is unchanged.
-   - The toolbar has a **Result** button. It opens the session's result, where it becomes
-     **Session**, which goes back to the terminal.
+   - Under the session's row is a row for the task. It opens the task and its review.
    - Back on the board, the card has a **wip** pill and can't be picked again.
    - Two other ways in: the ↗ on a card opens the task page, which has its own picker and
      **Assign** button; right-clicking a project row gives **Assign all tasks to <agent>**
@@ -94,7 +93,7 @@ for.
 7. Right-click the project's row and assign every task. Tasks that wait on nothing get a
    session each; a task and its blockers share one. Then wait for a session with several
    tasks to start a subagent.
-   - A row appears under that session in the Agents list, named after its task id, with a
+   - A row appears under its task's row in the Agents list, named after the task id, with a
      live dot. *(Agent behaviour: a session may work down a short chain itself.)* The Agents rail icon gets an
      accent dot.
    - Open the task's page (↗ on its card). The inspector's **Working on it** section lists
@@ -171,8 +170,8 @@ for.
     - The header pill reads **Ready for your review**.
     - The cards, in order: **The task**, **What changed**, **Self-review**,
       **Code changes**, **Feedback**. Every file under **Code changes** is folded.
-    - In **Agents**, the session's row is green and reads "1 ready for review". Clicking it
-      opens the same page as its result; the toolbar's **Session** goes to its terminal.
+    - In **Agents**, the session's row reads "1 ready for review" and the task's row under it
+      is green. Clicking the task opens this same page; clicking the session, its terminal.
     - The inspector shows **Verdict** ("Checked by the agent") and **This commit** ("Only this task's
       files and its run records. Nothing is pushed.").
 14. Optional: click a file under **Code changes**, click a line of the diff it unfolds, type

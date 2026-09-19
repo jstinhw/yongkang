@@ -54,7 +54,7 @@ import Testing
         return (project, lead)
     }
 
-    // What turns a session's row green and opens it on its result rather than its terminal.
+    // What turns a session's row in the Agents list green.
     @Test func aSessionWaitsOnTheUserOnlyForItsOwnFinishedWork() {
         let (project, lead) = Self.leadProject()
         let summary = ChangeSummary.of(project, changes: Self.tree)
@@ -66,8 +66,6 @@ import Testing
         #expect(
             ChangeSummary.of(project).waiting(for: lead).isEmpty,
             "work already committed leaves nothing to review")
-        #expect(summary.route(to: lead) == .session(lead.id, pane: .review), "it opens on its result")
-        #expect(summary.route(to: other) == .session(other.id), "a session still working opens on its terminal")
     }
 
     @Test func noBatchNothingToSummarise() {

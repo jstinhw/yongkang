@@ -1,6 +1,6 @@
 # Shipping tasks
 
-![A session's result, opened from its green row in Agents](../images/agents.png)
+![A task's review, opened from its row under its session in Agents](../images/agents.png)
 
 Every Assign button has an agent picker beside it — Claude Code, Codex, Grok or Agy —
 starting on the toolbar's agent. Picking one there is for that assignment only; the
@@ -55,18 +55,18 @@ reads and what approving a task commits beside its code. When it stops, done or 
 on you, it shows the same report as a page: an artifact where the agent can publish one,
 otherwise an HTML file in the temp folder that it opens for you.
 
-`Agents` in the rail lists every session in the project, live or exited, with what each one
-has spawned under it — so several sessions working at once are one list, and clicking a row
-opens that session. A task's own page names who is on it under **Working on it**: the
+`Agents` in the rail lists every session in the project, live or exited, with the tasks it
+holds under it and, under each task, the subagents it dispatched for that task — so several
+sessions working at once are one list. A task's own page names who is on it under **Working on it**: the
 session it was assigned to, and any subagent working it. Clicking the session opens its
 transcript; clicking a subagent opens the CLI's live child view. Overview's **Running now**
 is the same set for the whole project, one card per agent with the task it is on.
 
-A session opens on its live terminal while it works. Once a task of its is done and its
-files wait for your approval, its row turns green — "1 ready for review" — and opens on its
-**result** instead: the same page as the task's in [Review](review.md), anything waiting on
-you first, with a strip of the chain's tasks along the top when the session holds several.
-One toolbar button switches between the two: **Result** from the terminal, **Session** back.
+Clicking a session opens its live terminal. Clicking a task under it opens the task and its
+review: the same page as the task's in [Review](review.md), anything waiting on you first.
+Once a task is done and its files wait for your approval, its row turns green — "ready for
+review" — and so does the line under its session's name. Approving from here stays on the
+task.
 
 A subagent is linked to its task by its own name, which the prompt asks to be the task id;
 Claude keeps that as the subagent's description and Codex slugs it into the spawned thread's

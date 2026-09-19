@@ -60,10 +60,6 @@ extension RootView {
             .id(card.id)
         } else if let watched = model.selectedAgent(in: project) {
             switch model.selection?.pane(of: watched.id) {
-            case .review:
-                SessionReview(session: watched, summary: project.summary) { task in
-                    taskReview(task, in: project, staying: true)
-                }
             case .session:
                 terminal(for: watched)
             default:
@@ -120,7 +116,9 @@ extension RootView {
             )
             .id(block.id)
         } else if let task = reviewedTask(in: project) {
-            taskReview(task, in: project, staying: false).id(task.id)
+            // Under a session in Agents, approving stays on the task: the next one waiting may
+            // be another session's, and Review's list is not the one on screen.
+            taskReview(task, in: project, staying: model.section == .agents).id(task.id)
         } else if let path = reviewPath {
             let summary = project.summary
             // A file a task's worker claimed is reviewed as part of that task: comments on
@@ -198,9 +196,7 @@ extension RootView {
         )
     }
 
-    /// One task's review wherever it opens: Review's own page, or a session's result. From a
-    /// session it stays put once approved — the next task waiting may be another session's,
-    /// and jumping to it would leave the Agents list pointing at nothing.
+    /// One task's review, from Review's list or from the task's row under its session.
     private func taskReview(_ task: SummaryTask, in project: ProjectModel, staying: Bool) -> some View {
         TaskReview(
             task: task, summary: project.summary,
@@ -283,7 +279,7 @@ extension RootView {
         return Service.dedupedByDirectory(project.services).first { $0.directory.path == directory.path }
     }
 
-    private func reviewedTask(in project: ProjectModel) -> SummaryTask? {
+    func reviewedTask(in project: ProjectModel) -> SummaryTask? {
         guard case .reviewTask(let id) = model.selection else { return nil }
         return project.summary.tasks.first { $0.id == id }
     }

@@ -33,8 +33,8 @@ A task opens on what most reviews need, not on code:
 
 Click any line of an unfolded diff to leave a comment on it; comments and a note for
 anything that is not about one line collect under **Feedback** until you send them. The same
-page is a session's result in `Agents`, which is where a session with work waiting on you
-opens — see [Shipping tasks](engineering-lead.md). The inspector carries the verdict, the areas, what the commit will hold, and a
+page opens from the task's row under its session in `Agents` — see
+[Shipping tasks](engineering-lead.md). The inspector carries the verdict, the areas, what the commit will hold, and a
 warning when a file is also changed by another task still waiting.
 
 The bar at the bottom is the decision, on the task page and on its diffs alike:

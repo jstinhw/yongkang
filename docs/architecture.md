@@ -130,7 +130,7 @@ HStack
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
   the gate on the nine screens that draw one: the board, a task, a demo, a block, a session, a
-  subagent, a team member, and Review's two pages — the task one also being a session's result.
+  subagent, a team member, and Review's two pages — the task one also opening from Agents.
   Overview's right-hand column is not one of them — it is a second column of the screen
   itself, on the window's own ground.
 

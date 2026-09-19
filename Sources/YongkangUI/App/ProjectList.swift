@@ -135,7 +135,7 @@ package struct ProjectList: View {
             return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents:
             return
-                "A working session opens on its terminal. A green one has work waiting for your review, and opens on its result."
+                "A session opens its terminal. Each task under it opens its review; a green one is waiting for you."
         case .blocks:
             return
                 "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
@@ -229,7 +229,7 @@ package struct ProjectList: View {
             ForEach(online) { session in
                 sessionRow(session)
                 ForEach(session.activeSubagents) { subagent in
-                    subagentRow(subagent, in: session)
+                    subagentRow(subagent, in: session, depth: 1)
                 }
             }
         }
@@ -341,11 +341,20 @@ package struct ProjectList: View {
         usageRow
         group("Sessions", "\(project.onlineAgentCount) online")
         if project.sessions.isEmpty { empty("Nothing running") }
+        // Each session, then the tasks it holds, then the subagents each task dispatched: a
+        // session row opens its terminal, a task row that task's review.
         ForEach(project.sessions) { session in
             sessionRow(session)
                 .contextMenu { Button("Close Session") { closeSession(session) } }
             if !collapsed.contains(session.id) {
-                ForEach(session.subagents.sorted { $0.running && !$1.running }) { subagentRow($0, in: session) }
+                let tasks = tasks(of: session)
+                ForEach(tasks) { task in
+                    taskRow(task)
+                    ForEach(subagents(of: session, on: [task.id])) { subagentRow($0, in: session, depth: 2) }
+                }
+                ForEach(subagents(of: session, besides: Set(tasks.map(\.id)))) {
+                    subagentRow($0, in: session, depth: 1)
+                }
             }
         }
         if !project.team.isEmpty {
@@ -392,8 +401,7 @@ package struct ProjectList: View {
     private func sessionRow(_ session: CodeSession) -> some View {
         let running = session.activeSubagents.count
         let review = summary.waiting(for: session).count
-        // Either pane is this row: the toolbar switches between them.
-        return row(summary.route(to: session), selected: selection?.pane(of: session.id) != nil) {
+        return row(.session(session.id), selected: selection?.pane(of: session.id) != nil) {
             HStack(spacing: 9) {
                 if session.agent == nil {
                     Image(systemName: session.icon).font(.system(size: 12))
@@ -411,7 +419,7 @@ package struct ProjectList: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                if !session.subagents.isEmpty {
+                if session.holdsTasks || !session.subagents.isEmpty {
                     Button {
                         toggle(session)
                     } label: {
@@ -422,7 +430,7 @@ package struct ProjectList: View {
                     .buttonStyle(.borderless)
                     .accessibilityLabel(
                         collapsed.contains(session.id)
-                            ? "Show \(session.title)’s agents" : "Hide \(session.title)’s agents")
+                            ? "Show \(session.title)’s tasks and agents" : "Hide \(session.title)’s tasks and agents")
                 }
                 StateDot(
                     color: session.exited ? Theme.tx4 : (running > 0 ? Theme.accent : Theme.green),
@@ -446,10 +454,67 @@ package struct ProjectList: View {
         if collapsed.contains(session.id) { collapsed.remove(session.id) } else { collapsed.insert(session.id) }
     }
 
-    private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession) -> some View {
+    /// The tasks a session holds, in the order it was handed them — its chain's build order.
+    private func tasks(of session: CodeSession) -> [SummaryTask] {
+        session.taskIDs.compactMap { id in summary.tasks.first { $0.id == id } }
+    }
+
+    /// A session's subagents named for one of `tasks`, running ones first.
+    private func subagents(of session: CodeSession, on tasks: Set<String>) -> [SubagentStatus] {
+        session.subagents.filter { tasks.contains($0.taskID ?? "") }.sorted { $0.running && !$1.running }
+    }
+
+    /// The rest, which sit under the session itself: named for no task it has a row for.
+    private func subagents(of session: CodeSession, besides tasks: Set<String>) -> [SubagentStatus] {
+        session.subagents.filter { !tasks.contains($0.taskID ?? "") }.sorted { $0.running && !$1.running }
+    }
+
+    /// A row `depth` levels under its session, with a guide line for each level.
+    private func nested<Content: View>(_ depth: Int, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 0) {
+            ForEach(0..<depth, id: \.self) { _ in
+                Rectangle().fill(Theme.line).frame(width: 1).padding(.leading, 25)
+            }
+            content()
+        }
+    }
+
+    /// One task under the session holding it. It opens the task's review — the brief, what
+    /// the agent did and how it checked it — which is the same page Review opens.
+    private func taskRow(_ task: SummaryTask) -> some View {
+        let route = Route.reviewTask(task.id)
+        let waiting = task.done && !task.files.isEmpty
+        let (state, tint) = Self.state(of: task)
+        return nested(1) {
+            row(route) {
+                HStack(spacing: 9) {
+                    NotebookStyle.statusRing(task.status, progress: 0, size: 14)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(task.title).font(Typography.body)
+                            .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
+                            .lineLimit(1)
+                        Text(state).font(Typography.caption).foregroundStyle(tint).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if waiting { StateDot(color: Theme.green, live: true).help("Waiting for your review") }
+                }
+            }
+        }
+    }
+
+    /// What a task row says under its title: waiting on the user, finished, or still with the
+    /// agent.
+    private static func state(of task: SummaryTask) -> (String, Color) {
+        if task.done {
+            return task.files.isEmpty ? ("done", Theme.tx3) : ("ready for review · +\(task.added)", Theme.green)
+        }
+        if task.status == "blocked" { return ("blocked", Theme.amber) }
+        return (task.status.isEmpty ? "queued" : task.status, Theme.tx3)
+    }
+
+    private func subagentRow(_ subagent: SubagentStatus, in session: CodeSession, depth: Int) -> some View {
         let route = Route.subagent(session: session.id, id: subagent.id)
-        return HStack(spacing: 0) {
-            Rectangle().fill(Theme.line).frame(width: 1).padding(.leading, 25)
+        return nested(depth) {
             row(route) {
                 HStack(spacing: 8) {
                     RoleTile(role: subagent.agentType, size: 20)

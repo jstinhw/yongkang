@@ -103,9 +103,9 @@ enum DesignShots {
                     send: { _ in })
             }, "session", into: directory)
 
-        // A session's result, as a click on its green row opens it: the chain's tasks along the
-        // top, on the one waiting for review. Fixture files rather than this repo's, so the
-        // docs' copy of this shot changes only when the screen does.
+        // A task under its session in Agents, as a click on its green row opens it: its review,
+        // with the session's other tasks beside it in the list. Fixture files rather than this
+        // repo's, so the docs' copy of this shot changes only when the screen does.
         let result = finished(project, task: "pull-blockers", in: directory)
         let resultSummary = ChangeSummary.of(
             result,
@@ -115,7 +115,6 @@ enum DesignShots {
                     untracked: false),
                 FileChange(path: "Sources/YongkangCore/Git/GitClient.swift", added: 12, removed: 3, untracked: false),
             ])
-        let resultLead = result.sessions[0]
         func review(_ task: SummaryTask) -> TaskReview {
             TaskReview(
                 task: task, summary: resultSummary, directory: result.directory, cards: result.cards,
@@ -126,15 +125,16 @@ enum DesignShots {
                 approve: { _ in nil }, requestChanges: {})
         }
         // The narrow one also hovers a rail item, whose label draws over the list column.
-        for (name, width, hovering) in [("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.blocks)]
-        {
-            write(
-                console(
-                    result, section: .agents, summary: resultSummary, hovering: hovering,
-                    selection: .session(resultLead.id, pane: .review)
-                ) {
-                    SessionReview(session: resultLead, summary: resultSummary, review: review)
-                }, name, into: directory, width: width)
+        if let waiting = resultSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
+            for (name, width, hovering) in [
+                ("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.blocks),
+            ] {
+                write(
+                    console(
+                        result, section: .agents, summary: resultSummary, hovering: hovering,
+                        selection: .reviewTask(waiting.id)
+                    ) { review(waiting) }, name, into: directory, width: width)
+            }
         }
 
         // A task held up by something only the user can do: the block's steps open the page.
