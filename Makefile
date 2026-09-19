@@ -1,4 +1,4 @@
-.PHONY: check format run shots icon archive help
+.PHONY: check format run shots icon archive dmg help
 
 DIR ?= docs/images
 IDENTITY = $(shell sed -n 's/^CODE_SIGN_IDENTITY *= *//p' App/Config/Signing.xcconfig)
@@ -42,6 +42,15 @@ archive: ## Signed Release build; prints the .app path.
 	@$(XCODEBUILD) -configuration Release -destination generic/platform=macOS \
 		-archivePath .build/xcode/Yongkang.xcarchive archive
 	@echo "built $(CURDIR)/.build/xcode/Yongkang.xcarchive/Products/Applications/Yongkang.app"
+
+# The app beside an Applications link, so opening the image shows where to drag it. Archives
+# first, so the image never holds a stale build.
+dmg: archive ## Release disk image to drag into Applications; prints the .dmg path.
+	@rm -rf .build/dmg && mkdir -p .build/dmg .build/release
+	@ditto .build/xcode/Yongkang.xcarchive/Products/Applications/Yongkang.app .build/dmg/Yongkang.app
+	@ln -s /Applications .build/dmg/Applications
+	@hdiutil create -quiet -ov -volname Yongkang -srcfolder .build/dmg -format UDZO .build/release/Yongkang.dmg
+	@echo "built $(CURDIR)/.build/release/Yongkang.dmg"
 
 help: ## List the targets.
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 10
