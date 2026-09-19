@@ -17,7 +17,8 @@ after its work:
   one session each; a chain of dependent tasks is one session that works down it.
 - **A batch:** tasks picked on the board are split the same way.
 
-The window opens on the first session; the rest are in the Agents list beside it. A session
+One session opens in the window. Several go to Overview, whose **Running now** lists each
+of them, so they are all in sight even with the list hidden. A session
 already running is never handed more, because its agent may not be the one you picked, and
 a task a session already holds cannot be assigned again until that session exits.
 

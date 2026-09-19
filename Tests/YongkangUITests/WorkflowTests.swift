@@ -74,8 +74,8 @@ import Testing
             "one session per task, in the notebook's order, each named and prompted for its own")
         #expect(project.sessions.map(\.title) == ["Ship it", "Wire auth"])
         #expect(
-            destination == Destination(section: .agents, route: .session(project.sessions[0].id)),
-            "the window opens on the first, with the rest beside it in the Agents list")
+            destination == Destination(section: .overview, route: .overview),
+            "Overview's Running now shows both, even with the Agents list hidden")
     }
 
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {

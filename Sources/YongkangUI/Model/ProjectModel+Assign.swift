@@ -12,23 +12,24 @@ extension ProjectModel {
     /// list and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work an open session already has, so a task never goes to two at once.
     ///
-    /// The window goes to the first session started; the rest are in the Agents list beside
-    /// it. Nil when there is nothing left to assign: every task is already done, or already
-    /// has a session on it.
+    /// One session opens in the window. Several go to Overview, whose Running now lists every
+    /// one of them: opening the first would leave the rest in the Agents list, which the
+    /// user may have hidden, and "Run 3 ready" would look like it ran one. Nil when there is
+    /// nothing left to assign: every task is already done, or already has a session on it.
     func assign(_ tasks: [NotebookCard], agent: AgentKind) -> Destination? {
         let batch = NotebookIndex.withBlockers(tasks, in: snapshot.cards, excluding: assignedTaskIDs)
         guard !batch.isEmpty else { return nil }
-        var opened: Route?
-        for chain in NotebookIndex.chains(batch) {
+        let routes = NotebookIndex.chains(batch).map { chain in
             // The id is minted here so the prompt can carry it: a session that knows its own
             // id files its reports under it, and a block it raises finds its way back here.
             let id = UUID()
-            let route = addSession(
+            return addSession(
                 agent, id: id, prompt: NotebookFormat.workPrompt(tasks: chain, sessionID: id),
                 title: title(of: chain), taskIDs: chain.map(\.id))
-            if opened == nil { opened = route }
         }
-        return Destination(section: .agents, route: opened)
+        return routes.count == 1
+            ? Destination(section: .agents, route: routes[0])
+            : Destination(section: .overview, route: .overview)
     }
 
     /// A session is named after its work: the task, the project its chain belongs to, or how
