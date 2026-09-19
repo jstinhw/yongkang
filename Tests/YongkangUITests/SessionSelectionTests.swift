@@ -47,8 +47,8 @@ import Testing
 
     @Test func onlyALeadHasLanes() {
         #expect(
-            AgentPane.cases(lead: true) == [.lanes, .session]
-                && AgentPane.cases(lead: false) == [.session],
+            AgentPane.cases(holdsTasks: true) == [.lanes, .session]
+                && AgentPane.cases(holdsTasks: false) == [.session],
             "Transcript is hidden; only a lead has specialist lanes")
     }
 }

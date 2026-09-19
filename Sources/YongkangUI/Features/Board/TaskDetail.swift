@@ -7,12 +7,13 @@ import YongkangCore
 package struct TaskDetail: View {
     let card: NotebookCard
     let cards: [NotebookCard]
-    /// Whether a still-open Engineering Lead session already has this task.
+    /// Whether a still-open session already has this task.
     let assigned: Set<String>
-    /// The subagents dispatched for this task, with the lead session that spawned each.
+    /// The subagents dispatched for this task, with the session that spawned each.
     let working: [(CodeSession, SubagentStatus)]
     let open: (URL) -> Void
-    let assign: ([NotebookCard]) -> Void
+    let agents: AgentChoice
+    let assign: ([NotebookCard], AgentKind) -> Void
     let check: (CodeSession, SubagentStatus) -> Void
 
     @State private var content: [NotebookContent.Section] = []
@@ -23,7 +24,8 @@ package struct TaskDetail: View {
         assigned: Set<String>,
         working: [(CodeSession, SubagentStatus)],
         open: @escaping (URL) -> Void,
-        assign: @escaping ([NotebookCard]) -> Void,
+        agents: AgentChoice,
+        assign: @escaping ([NotebookCard], AgentKind) -> Void,
         check: @escaping (CodeSession, SubagentStatus) -> Void
     ) {
         self.card = card
@@ -31,6 +33,7 @@ package struct TaskDetail: View {
         self.assigned = assigned
         self.working = working
         self.open = open
+        self.agents = agents
         self.assign = assign
         self.check = check
     }
@@ -109,7 +112,7 @@ package struct TaskDetail: View {
     }
 
     /// Where the task sits in the chain, as chips rather than a sentence: this is what the
-    /// lead dispatches from, so it should read at a glance.
+    /// agent works from, so it should read at a glance.
     private var graph: some View {
         let blocks = NotebookStyle.dependents(of: card, in: cards)
         return HStack(spacing: 8) {
@@ -149,7 +152,7 @@ package struct TaskDetail: View {
                     Text(
                         locked
                             ? "No agent is on it right now."
-                            : "Nobody yet — assign it to a lead."
+                            : "Nobody yet — assign it to an agent."
                     )
                     .font(Typography.body).foregroundStyle(Theme.tx3)
                 }
@@ -222,22 +225,14 @@ package struct TaskDetail: View {
                 Text(
                     card.status == "done"
                         ? "Done — nothing to assign."
-                        : "An Engineering Lead already has this task."
+                        : "A session already has this task."
                 )
                 .font(Typography.body).foregroundStyle(Theme.tx3)
             } else if batch.count > 1 {
                 Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             }
-            Button {
-                assign([card])
-            } label: {
-                Label(
-                    "Assign to Engineering Lead",
-                    systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            .buttonStyle(.consolePrimary)
-            .disabled(locked)
+            AssignButton(title: "Assign", choice: agents, disabled: locked) { assign([card], $0) }
         }
     }
 

@@ -2,35 +2,40 @@ import Foundation
 import YongkangCore
 
 extension ProjectModel {
+    /// Every assignment is a session of its own, on the agent picked beside the button: one
+    /// task is one session, and a project or a picked batch is one session that splits the
+    /// work among its own subagents. Nothing is typed into a session already running — its
+    /// agent may not be the one picked this time.
+    ///
     /// Blockers come along whichever way the tasks were picked — expanding here means the
     /// list and the board cannot disagree about what a batch is. Also the one place that
-    /// excludes work a still-open lead session already has, so a task never goes to two
-    /// leads at once.
-    ///
-    /// A lead that is still running is talked to, not duplicated: the new batch is typed
-    /// into its own terminal as a follow-up message, the same as telling a person who is
-    /// already working "also pick these up" rather than hiring a second lead.
+    /// excludes work an open session already has, so a task never goes to two at once.
     ///
     /// Nil when there is nothing left to assign: every task is already done, or already has
-    /// a lead on it.
+    /// a session on it.
     func assign(_ tasks: [NotebookCard], agent: AgentKind) -> Destination? {
         let batch = NotebookIndex.withBlockers(tasks, in: snapshot.cards, excluding: assignedTaskIDs)
         guard !batch.isEmpty else { return nil }
-        if let lead = sessions.first(where: { $0.isEngineeringLead && !$0.exited }) {
-            appendTaskIDs(batch.map(\.id), to: lead.id)
-            return Destination(
-                section: .agents, route: .session(lead.id),
-                input: NotebookFormat.additionalTasksPrompt(
-                    tasks: batch, sessionID: lead.id, agent: lead.agent ?? .claude))
-        }
-        // The id is minted here so the prompt can carry it: a lead that knows its own
-        // session id can write it into any block it raises, and the answer comes back here.
+        // The id is minted here so the prompt can carry it: a session that knows its own id
+        // files its reports under it, and a block it raises finds its way back here.
         let id = UUID()
         return Destination(
             section: .agents,
             route: addSession(
-                agent, id: id,
-                prompt: NotebookFormat.engineeringPrompt(tasks: batch, sessionID: id, agent: agent),
-                title: "Engineering Lead", taskIDs: batch.map(\.id)))
+                agent, id: id, prompt: NotebookFormat.workPrompt(tasks: batch, sessionID: id),
+                title: title(of: batch), taskIDs: batch.map(\.id)))
+    }
+
+    /// A session is named after its work: the task, the project its tasks all belong to, or
+    /// how many there are when a batch spans projects.
+    private func title(of batch: [NotebookCard]) -> String {
+        if batch.count == 1, let only = batch.first { return only.title }
+        let projects = Set(batch.map(\.project))
+        if projects.count == 1, let id = projects.first ?? nil,
+            let project = snapshot.cards.first(where: { $0.kind == .project && $0.id == id })
+        {
+            return project.title
+        }
+        return "\(batch.count) tasks"
     }
 }

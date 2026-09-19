@@ -16,10 +16,9 @@ package struct ClaudeCodeProvider: AgentProvider {
 
     /// `--session-id` names the transcript after the app's row. `=` keeps the variadic
     /// `--disallowedTools` from swallowing the prompt after it.
-    package func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String] {
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
         let denied = AgentCommand.quoted(AgentCommand.commitRules.joined(separator: ","))
         let words: [String?] = [
-            brief ? "--brief" : nil,
             noCommit ? "--disallowedTools=\(denied)" : nil,
             sessionID.map { "--session-id \($0.uuidString.lowercased())" },
             prompt.map(AgentCommand.quoted),

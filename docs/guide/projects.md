@@ -39,5 +39,6 @@ Everything on it is read from the notebook, the transcripts and git — the app 
 state of its own to drift.
 
 Inside a project, use the Agent switch in the window's toolbar to choose Claude Code, Codex,
-Grok, or Agy. The choice is remembered and applies to new notebook setup, Product, Engineering
-Lead, unblock, and plain sessions; sessions already running keep their original agent.
+Grok, or Agy. The choice is remembered and applies to new notebook setup, Product, unblock, and plain
+sessions, and is where every Assign button's own picker starts; sessions already running
+keep their original agent.

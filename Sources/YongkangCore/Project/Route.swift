@@ -22,7 +22,7 @@ package enum Route: Hashable, Sendable, Codable {
     case entry(String)
 
     /// An agent session on one of its panes. The terminal is the default: a service runner
-    /// has no other pane, and switching a lead to its terminal is the same selection a
+    /// has no other pane, and switching an assigned session to its terminal is the same selection a
     /// terminal row makes.
     case session(UUID, pane: AgentPane = .session)
     /// A subagent by its provider's id, which is only unique inside the session that spawned it.
@@ -88,9 +88,9 @@ package enum AgentPane: String, CaseIterable, Identifiable, Sendable, Codable {
 
     package var id: Self { self }
 
-    /// The panes a session actually has. Only a lead dispatches specialists, so only a
-    /// lead has lanes to show them in.
-    package static func cases(lead: Bool) -> [AgentPane] {
-        lead ? [.lanes, .session] : [.session]
+    /// The panes a session actually has. Only a session holding tasks has lanes to show
+    /// its work in.
+    package static func cases(holdsTasks: Bool) -> [AgentPane] {
+        holdsTasks ? [.lanes, .session] : [.session]
     }
 }

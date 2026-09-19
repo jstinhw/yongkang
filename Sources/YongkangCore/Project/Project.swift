@@ -12,12 +12,12 @@ package struct Project: Identifiable, Equatable, Sendable {
     package var cards: [NotebookCard] = []
     /// What the agents need from the user before they can go on, read the same way.
     package var blocks: [UserBlock] = []
-    /// The Engineering Lead's named specialists, from `.notebook/team/` (shipped defaults
-    /// until that folder exists). Read the same way — the folder tree is the state.
+    /// The project's named agents, from `.notebook/team/` (shipped defaults until that
+    /// folder exists). Read the same way — the folder tree is the state.
     package var team: [TeamMember] = Team.defaults
     package var sessions: [CodeSession] = []
-    /// Every lead's run records on disk, by session id — including leads that are closed or
-    /// ran before a relaunch, whose finished work may still be waiting for review.
+    /// Every assigned session's reports on disk, by session id — including sessions that are
+    /// closed or ran before a relaunch, whose finished work may still be waiting for review.
     package var records: [UUID: LeadCoordination] = [:]
 
     package init(
@@ -51,7 +51,7 @@ package struct Project: Identifiable, Equatable, Sendable {
     /// No `.notebook` on disk means no entries — the folder is left untouched.
     package var hasNotebook: Bool { !entries.isEmpty }
     package var pageCount: Int { NotebookLoader.pageCount(entries) }
-    /// Tasks an open session already has. The WIP set: assigning again while a lead is
+    /// Tasks an open session already has. The WIP set: assigning again while a session is
     /// still on a task would just hand it to a second one.
     package var assignedTaskIDs: Set<String> {
         Set(sessions.filter { !$0.exited }.flatMap(\.taskIDs))
@@ -81,17 +81,17 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     /// Nil for service terminals; agent sessions keep their provider so follow-up skill
     /// prompts still use the right syntax after the toolbar selection changes.
     package let agent: AgentKind?
-    /// Tasks this session was handed, in the order it was given them. Empty for anything
-    /// that is not an Engineering Lead — a plain session was not assigned work.
+    /// Tasks this session was handed, in the order it was given them. Empty for a session
+    /// nobody assigned work to.
     package var taskIDs: [String] = []
     /// Set once the underlying process exits — a dead session is never routed more work.
     package var exited: Bool = false
     /// Descendants discovered from the provider's on-disk transcripts.
     package var subagents: [SubagentStatus] = []
-    /// The lead's plan and durable worker reports, including completed work.
+    /// The reports this session filed against its tasks, including completed work.
     package var coordination: LeadCoordination? = nil
 
-    /// The ones still working. A finished agent has nothing left to watch, so the lead's
+    /// The ones still working. A finished agent has nothing left to watch, so the session's
     /// lists drop it; its transcript stays reachable from the task it was dispatched for.
     package var activeSubagents: [SubagentStatus] { subagents.filter(\.running) }
 
@@ -116,5 +116,7 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
 }
 
 extension CodeSession {
-    package var isEngineeringLead: Bool { title.hasPrefix("Engineering Lead") }
+    /// A session assigned tasks, which is what gets a work board and is refused commits.
+    /// Not the title: a session is named after its work, and work can be called anything.
+    package var holdsTasks: Bool { !taskIDs.isEmpty }
 }

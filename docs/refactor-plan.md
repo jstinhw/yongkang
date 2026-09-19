@@ -516,7 +516,7 @@ yongkang/
 │   ├── Config/Signing.xcconfig
 │   └── Yongkang/{main.swift, Assets.xcassets, Yongkang.entitlements}
 ├── Skills/                                # shipped role skills (source of truth)
-│   └── engineering-lead/ product/ designer/ frontend-dev/ backend-dev/ qa-dev/ sre-dev/ fde-dev/ incubate-agent/
+│   └── product/ designer/ incubate-agent/
 ├── .claude/skills → ../Skills             # symlinks, for dogfooding
 ├── .agents/skills → ../Skills
 ├── docs/

@@ -49,11 +49,11 @@ import Testing
         #expect(block.body.contains("Generate the token"), "the checklist is what the user reads")
         #expect(
             block.body.contains("Authenticate the GitHub MCP"),
-            "SRE's procedure rides along for the FDE to deliver one step at a time")
+            "the procedure rides along for the agent to deliver one step at a time")
         let guide = NotebookFormat.unblockPrompt(block: block, agent: .claude)
         #expect(
-            guide.contains("fde-dev") && guide.contains(".notebook/blocks/github-token.md"),
-            "the guiding session is the FDE skill, pointed at the file it flips to done")
+            guide.contains(".notebook/blocks/github-token.md") && guide.contains("`status: done`"),
+            "the guiding session is pointed at the file it flips to done")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }

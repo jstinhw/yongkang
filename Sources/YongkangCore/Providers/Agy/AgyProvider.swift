@@ -10,7 +10,7 @@ package struct AgyProvider: AgentProvider {
     package var skillPrefix: String { "/" }
 
     /// No session id and no deny flag. A prompted session starts with `--prompt-interactive`.
-    package func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String] {
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
         prompt.map { ["--prompt-interactive", AgentCommand.quoted($0)] } ?? []
     }
 

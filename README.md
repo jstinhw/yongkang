@@ -41,25 +41,16 @@ writes what the agents write, and no agent commits without your approval in Revi
 
 ```mermaid
 flowchart TD
-    A[Assigned task contracts] --> B[Lead: split scope and map dependencies]
-    B --> C[Choose skills, models, estimates and parallel capacity]
-    C --> D[Dispatch independent ready work]
-    D --> E[Specialist A]
-    D --> F[Specialist B]
-    E --> G[Report to lead: changes, evidence, usage, remaining work]
-    F --> G
-    G --> H[Independent QA]
-    H -->|Pass| I[Accept subtask and unlock dependents]
-    H -->|Fail| J[Return reproductions to owner]
-    J --> D
-    I -->|More work| D
-    I -->|All parent criteria met| K[Task done, waits uncommitted for your review]
-    E -->|User gate| L[SRE block, FDE assistance]
-    L -->|Resolved| D
-    G --> M[Check estimates, live status and context]
-    M -->|Context threshold| N[Save checkpoint and durable memory]
-    N --> O[Native compaction or fresh worker handoff]
-    O --> D
+    A[Assign a task or a project, on the agent you pick] --> B[One session]
+    B -->|one task| C[Does it]
+    B -->|several| D[Its own subagents, in depends_on order]
+    C --> E[Report per task: Result, Verification, paths]
+    D --> E
+    B -->|design task| F[designer skill, demo in Blocks]
+    F -->|you approve| B
+    B -->|only you can do it| G[Block]
+    G -->|resolved| B
+    E --> H[Report page for you, work waits in Review]
 ```
 
 ## Docs
@@ -67,9 +58,9 @@ flowchart TD
 - [Projects](docs/guide/projects.md) — folders, the all-projects screen, the Agent switch
 - [Notebooks](docs/guide/notebook.md) — the `.notebook/` entries and how they're edited
 - [Board](docs/guide/board.md) — the dependency-ordered task board
-- [Design before code](docs/guide/design-gate.md) — the designer gate before engineering
+- [Design before code](docs/guide/design-gate.md) — the designer gate before the build
 - [Product review](docs/guide/product.md) — describing features and reviewing the product
-- [Shipping tasks](docs/guide/engineering-lead.md) — the Engineering Lead and its subagents
+- [Shipping tasks](docs/guide/engineering-lead.md) — assigning work to the agent you pick
 - [The team](docs/guide/team.md) — the roster in `.notebook/team/`
 - [Review](docs/guide/review.md) — approving and committing agent work
 - [Blocks](docs/guide/blocks.md) — gates only you can clear

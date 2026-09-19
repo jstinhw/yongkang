@@ -1,9 +1,9 @@
 import SwiftUI
 import YongkangCore
 
-/// One standing member of the Engineering Lead's team, opened from the roster: who it is,
+/// One standing member of the project's team, opened from the roster: who it is,
 /// what it owns, and — the part that is actually hard to find otherwise — the skill text
-/// that *is* its job, read from the same file the lead hands the agent when it dispatches.
+/// that *is* its job, read from the same file an agent is handed when work goes to it.
 ///
 /// Nothing here is live. A member is a file in `.notebook/team/`, not a session; the only
 /// moving part is the list of its agents running right now, which is a way back into them.
@@ -56,7 +56,7 @@ package struct TeamMemberDetail: View {
                         }
                         if docs.isEmpty {
                             Text(
-                                "This agent has no skill assigned, so the lead has nothing "
+                                "This agent has no skill assigned, so there is nothing "
                                     + "to route to it."
                             )
                             .font(Typography.body).foregroundStyle(Theme.tx3)

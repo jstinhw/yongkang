@@ -302,7 +302,7 @@ package struct DesignDemo: View {
             Text(
                 block.waiting
                     ? "Nothing is written to the repo until you build it."
-                    : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The lead has it.")"
+                    : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The agent has it.")"
             )
             .font(Typography.body)
             .foregroundStyle(block.waiting ? Theme.tx3 : Theme.green)

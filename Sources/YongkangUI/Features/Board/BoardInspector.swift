@@ -15,7 +15,7 @@ struct BoardInspector: View {
     let picked: Set<String>
     let openDemo: (UserBlock) -> Void
     /// Folded into the board itself when the window is too narrow to carry a fourth
-    /// column — the same move the lead's board makes.
+    /// column — the same move the work board makes.
     var inline = false
 
     private var designCount: Int { batch.filter(\.isDesignWork).count }
@@ -110,21 +110,21 @@ struct BoardInspector: View {
             }
             Text(
                 designCount > 0
-                    ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the engineering tasks waiting on it can start."
-                    : "No design tasks in this batch, so it goes straight to the lead."
+                    ? "\(designCount) of these are design tasks. A designer builds each one onto the same demo, and you approve it, before the tasks waiting on it can start."
+                    : "No design tasks in this batch, so it goes straight to the agent."
             )
             .font(Typography.body).foregroundStyle(Theme.tx2)
             .fixedSize(horizontal: false, vertical: true)
             if designCount > 0 {
                 VStack(alignment: .leading, spacing: 9) {
                     step(
-                        1, "Product writes design as its own task, and the engineering tasks on that screen wait on it."
+                        1, "Product writes design as its own task, and the tasks that build that screen wait on it."
                     )
                     step(
                         2,
                         "The designer builds it onto the project's demo — one change at a time, so you review one at a time."
                     )
-                    step(3, "You approve it, or say what to change. Only then do the engineers start.")
+                    step(3, "You approve it, or say what to change. Only then does the work on that screen start.")
                 }
             }
         }

@@ -1,19 +1,19 @@
 import Foundation
 
 /// What the agents just finished, in the form a reviewer needs it: which tasks closed,
-/// the sentence explaining how the work was split, what each specialist reported and what
-/// QA said about it.
+/// the sentence explaining how the work was split, what each agent reported and how it
+/// checked it.
 ///
-/// Nothing here is written for this screen. It is the lead's own run records, read the way
+/// Nothing here is written for this screen. It is the agents' own reports, read the way
 /// a person reads them before a commit — so a summary can never claim work the notebook
 /// does not show.
 package struct ChangeSummary: Equatable, Sendable {
     package var tasks: [SummaryTask] = []
-    /// One line per lead: how it chose to split the batch. The only design decision the
+    /// One line per session: how it chose to split the batch. The only design decision the
     /// app can quote rather than infer.
     var strategies: [String] = []
 
-    /// Changed files no task reported owning: hand edits, or a lead that recorded no
+    /// Changed files no task reported owning: hand edits, or an agent that recorded no
     /// paths. Never silently folded into a task — an unattributed file is a thing to know.
     package var unclaimed: [FileChange] = []
     /// The longest bar on the screen, so a file's bar means the same thing under every
@@ -41,7 +41,7 @@ package struct ChangeSummary: Equatable, Sendable {
         strategies + tasks.flatMap(\.work).map(\.checkpoint).filter { !$0.isEmpty }
     }
 
-    /// Every task a lead in this project was handed, done ones first, each carrying the
+    /// Every task a session in this project was handed, done ones first, each carrying the
     /// work records filed against it and the files those workers reported owning.
     package static func of(_ project: Project, changes: [FileChange] = []) -> ChangeSummary {
         var work: [String: [LeadWork]] = [:]
@@ -51,7 +51,7 @@ package struct ChangeSummary: Equatable, Sendable {
             if !strategy.isEmpty && !strategies.contains(strategy) { strategies.append(strategy) }
             for worker in coordination.workers { work[worker.taskID, default: []].append(worker) }
         }
-        // Attempts in the order they ran, across leads, so the last QA pass is the verdict.
+        // Attempts in the order they ran, across sessions, so the last one is the verdict.
         work = work.mapValues { attempts in
             attempts.enumerated().sorted { a, b in
                 let (left, right) = (a.element.startedAt ?? .distantFuture, b.element.startedAt ?? .distantFuture)
@@ -126,7 +126,7 @@ package struct ChangeSummary: Equatable, Sendable {
     }
 }
 
-/// One task in the summary, with the specialists that built it and the ones that reviewed it.
+/// One task in the summary, with the reports of the agents that built it.
 package struct SummaryTask: Identifiable, Equatable, Sendable {
     package let id: String
     package var title: String
@@ -149,8 +149,7 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     package var done: Bool { status == "done" }
     package var added: Int { files.reduce(0) { $0 + $1.added } }
     package var removed: Int { files.reduce(0) { $0 + $1.removed } }
-    /// QA is the one specialist whose report is a verdict on someone else's work, so it
-    /// reads apart from the builds it accepted.
-    package var reviews: [LeadWork] { work.filter { $0.skill.lowercased().contains("qa") } }
-    package var builds: [LeadWork] { work.filter { !$0.skill.lowercased().contains("qa") } }
+    /// How the latest attempt says it checked the work: what the reviewer reads before
+    /// running anything themselves. Empty when nobody but the reviewer has checked it.
+    package var verification: String { work.last?.verification ?? "" }
 }

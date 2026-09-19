@@ -11,8 +11,8 @@ package enum NotebookStyle {
         case "active", "running": return Theme.accent
         case "blocked", "partial", "waiting": return Theme.amber
         case "failed": return Theme.red
-        // Design and QA share violet the way SRE and FDE share amber: both are somebody
-        // holding the work who is not building it.
+        // Violet is somebody holding the work who is not building it yet: a session that has
+        // it, or a designer waiting on your approval.
         case "wip", "assigned", "designing": return Theme.violet
         default: return Theme.tx2
         }

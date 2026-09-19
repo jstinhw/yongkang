@@ -9,7 +9,7 @@ package struct SubagentStatus: Identifiable, Equatable, Sendable {
     package let running: Bool
     package let transcriptURL: URL
     /// The task this subagent was dispatched for, matched off its own label. Nil when the
-    /// label names no task in the batch — a compaction or review subagent, or a lead that
+    /// label names no task in the batch — a compaction or review subagent, or a session that
     /// ignored the naming rule.
     package var taskID: String? = nil
     /// The roster name of the team member whose skill this subagent runs, filled in when
@@ -54,7 +54,7 @@ package struct SubagentStatus: Identifiable, Equatable, Sendable {
 }
 
 /// The subagents attached to one assigned task, including an empty group while that task
-/// waits for a dependency or for the lead to dispatch its first specialist.
+/// waits for a dependency or for its session to get to it.
 struct SubagentTaskGroup: Identifiable {
     let id: String
     let subagents: [SubagentStatus]
@@ -80,8 +80,8 @@ package struct TranscriptLine: Identifiable, Sendable {
 }
 
 /// What both providers share: neither CLI records which notebook task a subagent is for,
-/// so the link is the subagent's own label. The engineering-lead skill puts the task id in
-/// every name it spawns; Claude keeps that as the Agent call's `description`, Codex slugs
+/// so the link is the subagent's own label. The work prompt asks for the task id in
+/// every name a session spawns; Claude keeps that as the Agent call's `description`, Codex slugs
 /// it into `agent_path`, and normalizing both to the same shape matches them either way.
 enum Subagents {
     static func normalize(_ text: String) -> String {

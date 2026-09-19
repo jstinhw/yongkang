@@ -14,6 +14,7 @@ enum DesignShots {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         writeFixturePages()
         let project = sample()
+        let agents = AgentChoice(initial: .claude, found: [.claude, .codex], lookUp: {})
         let lead = project.sessions[0]
         let worker = lead.subagents[0]
 
@@ -49,8 +50,8 @@ enum DesignShots {
             console(project, section: .board) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], showDone: false,
-                    assign: { _ in }, review: {}, openCard: { _ in },
+                    assigned: ["show-agent-tree"], showDone: false, agents: agents,
+                    assign: { _, _ in }, review: {}, openCard: { _ in },
                     openDemo: { _ in }, remove: { _ in })
             }, "board", into: directory)
 
@@ -60,8 +61,8 @@ enum DesignShots {
             console(project, section: .board) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], showDone: false,
-                    assign: { _ in }, review: {}, openCard: { _ in },
+                    assigned: ["show-agent-tree"], showDone: false, agents: agents,
+                    assign: { _, _ in }, review: {}, openCard: { _ in },
                     openDemo: { _ in }, remove: { _ in })
             }, "board-narrow", into: directory, width: 1120)
 
@@ -106,7 +107,6 @@ enum DesignShots {
             console(project, section: .agents) {
                 EngineeringLeadBoard(
                     session: lead, cards: project.cards, blocks: project.blocks,
-                    team: Team.defaults,
                     openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
             }, "agents", into: directory)
 
@@ -114,7 +114,6 @@ enum DesignShots {
             console(project, section: .agents, hovering: .blocks) {
                 EngineeringLeadBoard(
                     session: lead, cards: project.cards, blocks: project.blocks,
-                    team: Team.defaults,
                     openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
             }, "agents-narrow", into: directory, width: 1180)
 
@@ -124,15 +123,14 @@ enum DesignShots {
             console(project, section: .agents) {
                 EngineeringLeadBoard(
                     session: legacyLead, cards: project.cards, blocks: project.blocks,
-                    team: Team.defaults,
                     openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
             }, "agents-legacy", into: directory)
 
         write(
             console(project, section: .agents) {
                 EngineeringLeadBoard(
-                    session: CodeSession(title: "Engineering Lead", icon: "sparkles", line: "codex"),
-                    cards: [], blocks: [], team: Team.defaults,
+                    session: CodeSession(title: "Codex", icon: "sparkles", line: "codex"),
+                    cards: [], blocks: [],
                     openTask: { _ in }, openSubagent: { _ in }, openBlock: { _ in })
             }, "agents-standby", into: directory)
 
@@ -142,7 +140,7 @@ enum DesignShots {
                 // default, and a single-skill member would prove nothing about that.
                 TeamMemberDetail(
                     member: TeamMember(
-                        name: "Allen", skills: ["frontend-dev", "qa-dev"],
+                        name: "Allen", skills: ["designer", "product"],
                         owns: Team.defaults[0].owns,
                         notes: "Prefers the repo's own components over "
                             + "anything new."),
@@ -174,7 +172,7 @@ enum DesignShots {
                 TaskDetail(
                     card: project.cards.first { $0.id == "show-agent-tree" }!,
                     cards: project.cards, assigned: ["show-agent-tree"],
-                    working: [(lead, worker)], open: { _ in }, assign: { _ in },
+                    working: [(lead, worker)], open: { _ in }, agents: agents, assign: { _, _ in },
                     check: { _, _ in })
             }, "task", into: directory)
 
@@ -204,8 +202,8 @@ enum DesignShots {
                     select: { _ in }, commit: { _ in nil })
             }, "review", into: directory)
 
-        // The screen the console lands on when a task finishes: the task, QA's verdict and
-        // what each agent did, over a real diff of this repo claimed by the fixture batch.
+        // The screen the console lands on when a task finishes: the task, how the agent
+        // checked it and what it did, over a real diff of this repo claimed by the fixture batch.
         let reviewed = finished(here, task: "pull-blockers", in: directory)
         let reviewedSummary = ChangeSummary.of(reviewed, changes: changes)
         if let task = reviewedSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
@@ -275,7 +273,7 @@ enum DesignShots {
         project.sessions = files.enumerated().compactMap { index, url in
             guard let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent) else { return nil }
             return CodeSession(
-                id: id, title: index == 0 ? "Engineering Lead" : "Claude Code \(index + 1)",
+                id: id, title: index == 0 ? "Claude Code" : "Claude Code \(index + 1)",
                 icon: "sparkles", line: "claude", agent: .claude,
                 subagents: ClaudeTranscripts.subagents(sessionID: id, projectDirectory: repo))
         }
@@ -302,7 +300,8 @@ enum DesignShots {
             .zIndex(1)
             ProjectList(
                 section: section, project: project, selection: .constant(nil),
-                showDone: false, changes: changes, summary: summary, assign: { _ in },
+                showDone: false, changes: changes, summary: summary, agent: .claude,
+                found: Set(AgentKind.allCases), assign: { _, _ in },
                 closeSession: { _ in }, remove: { _ in }, projects: [project], open: { _ in },
                 leave: {}
             )
@@ -349,13 +348,13 @@ enum DesignShots {
         "show-agent-tree": """
         # Show all agents via tree expansion
 
-        An agent that finishes drops out of the lead's list, so a batch mid-flight reads \
+        An agent that finishes drops out of its session's list, so a batch mid-flight reads \
         as though nothing is running. Keep every affiliated agent reachable under its \
-        lead and let the tree expand instead of filtering by completion.
+        session and let the tree expand instead of filtering by completion.
 
         ## Done when
 
-        - [x] Every affiliated agent stays visible under its lead
+        - [x] Every affiliated agent stays visible under its session
         - [x] Collapsed roots are remembered, not completion statuses
         - [x] Codex descendants resolve through the full ancestor chain
         - [ ] The self-test covers the expansion state
@@ -363,15 +362,15 @@ enum DesignShots {
         "vercel-token": """
         # Vercel project token
 
-        sre-dev needs a project-scoped token before it can deploy. It is holding until \
-        this is cleared.
+        The deploy needs a project-scoped token. The session is holding until this is \
+        cleared.
 
         ## Steps
 
         1. Open the Vercel dashboard and pick the yongkang project
         2. Settings, then Tokens, then Create token — scope it to the project
-        3. Paste it when the forward-deployed engineer asks for it
-        4. It verifies the deploy and releases sre-dev
+        3. Paste it when the agent asks for it
+        4. It verifies the deploy and carries on
         """,
     ]
 
@@ -388,8 +387,8 @@ enum DesignShots {
 
     // MARK: - Sample notebook
 
-    /// The fixture with one task through QA: its card done, a real task file to read, and
-    /// its QA pass filed with the verdict a reviewer would read.
+    /// The fixture with one task finished: its card done, a real task file to read, and its
+    /// report filed with the verification a reviewer would read.
     private static func finished(_ project: Project, task id: String, in directory: URL) -> Project {
         var project = project
         let url = directory.appendingPathComponent("\(id).md")
@@ -398,7 +397,7 @@ enum DesignShots {
 
             ## Done when
 
-            - [x] A block names the task it holds and the lead session waiting on it
+            - [x] A block names the task it holds and the session waiting on it
             - [x] Assigning a task pulls in every unfinished blocker
             - [x] The board and the list agree on what a batch is
             """
@@ -417,16 +416,12 @@ enum DesignShots {
                 var work = work
                 work.state = "done"
                 work.runtimeRunning = false
-                if work.skill == "qa-dev" {
-                    work.result =
-                        "Verdict **pass**. `make check` green; 281 tests, 12 known issues.\n\n"
-                        + "Assigned a task with two open blockers: both joined the batch in dependency order. "
-                        + "Not exercised: two leads racing for the same blocker."
-                } else {
-                    work.result =
-                        "Blocks now carry `task` and `session`; the loader resolves both and the "
-                        + "batch expands through them. Self-test covers a missing and a cyclic blocker."
-                }
+                work.result =
+                    "Blocks now carry `task` and `session`; the loader resolves both and the "
+                    + "batch expands through them. Self-test covers a missing and a cyclic blocker."
+                work.verification =
+                    "`make check` green; 281 tests, 12 known issues.\n\n"
+                    + "Assigned a task with two open blockers: both joined the batch in dependency order."
                 return work
             }
             project.sessions[index].coordination = plan
@@ -468,7 +463,7 @@ enum DesignShots {
                 "design-review-pane", .task, "Design the review pane's verdict", "designing",
                 project: "build-ui-foundation", dependsOn: ["design-task-diff"], designer: "Allen"),
             card(
-                "review-pane", .task, "Review pane with a QA verdict", "todo",
+                "review-pane", .task, "Review pane with the agent's verification", "todo",
                 project: "build-ui-foundation", dependsOn: ["design-review-pane", "task-diff"]),
             card(
                 "deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
@@ -499,80 +494,46 @@ enum DesignShots {
         let leadID = UUID()
         let transcript = URL(fileURLWithPath: "/tmp/agent.jsonl")
         var lead = CodeSession(
-            id: leadID, title: "Engineering Lead", icon: "sparkles",
+            id: leadID, title: "Build UI foundation", icon: "sparkles",
             line: "claude", agent: .claude,
             taskIDs: ["show-agent-tree", "pull-blockers", "deploy-to-vercel"])
         lead.subagents = [
             SubagentStatus(
-                id: "fe", description: "show-agent-tree-frontend-dev",
-                agentType: "frontend-dev", running: true, transcriptURL: transcript,
+                id: "tree", description: "show-agent-tree",
+                agentType: "general-purpose", running: true, transcriptURL: transcript,
                 taskID: "show-agent-tree"),
             SubagentStatus(
-                id: "qa", description: "pull-blockers-qa-dev", agentType: "qa-dev",
-                running: true, transcriptURL: transcript, taskID: "pull-blockers"),
-            SubagentStatus(
-                id: "be", description: "pull-blockers-backend-dev",
-                agentType: "backend-dev", running: false, transcriptURL: transcript,
+                id: "blockers", description: "pull-blockers",
+                agentType: "general-purpose", running: false, transcriptURL: transcript,
                 taskID: "pull-blockers"),
             SubagentStatus(
-                id: "sre", description: "deploy-to-vercel-sre-dev", agentType: "sre-dev",
+                id: "deploy", description: "deploy-to-vercel", agentType: "general-purpose",
                 running: false, transcriptURL: transcript, taskID: "deploy-to-vercel"),
         ].map { $0.named(in: project.team) }
-        // Explicit preview observations; these context windows are fixture metadata,
-        // never a claim about a model's capacity or a fallback used by the live app.
+        // Reports as the work prompt asks for them. Token counts are fixture observations,
+        // never a claim about a model.
         let now = Date()
         lead.coordination = LeadCoordination(
-            strategy:
-                "Split three tasks into five subtasks. Run UI and blocker work together; queue each QA pass after its build. Deployment waits for setup.",
-            parallelLimit: 2, estimatedTokens: 42000, estimatedMinutes: 24, updatedAt: now.addingTimeInterval(-35),
-            contextSummary:
-                "Keep task contracts, decisions and next steps. Save a checkpoint before replacing a worker’s context.",
             workers: [
                 LeadWork(
-                    id: "show-agent-tree-ui", taskID: "show-agent-tree", title: "Keep every worker visible",
-                    skill: "frontend-dev", model: "gpt-5.6-terra",
-                    reason:
-                        "Allen owns the native UI. Bounded SwiftUI work suits the standard coding model; no shared files with the blocker reader.",
+                    id: "show-agent-tree", taskID: "show-agent-tree", title: "Keep every agent visible",
                     paths: ["Sources/Yongkang/ChangeSummary.swift", "Sources/Yongkang/ChangeReview.swift"],
-                    state: "running", agentID: "fe", estimatedTokens: 16000, estimatedMinutes: 14,
+                    state: "running", agentID: "tree",
                     startedAt: now.addingTimeInterval(-540), updatedAt: now.addingTimeInterval(-35),
-                    contextTokens: 43000, contextWindow: 128000, contextSource: "Preview runtime metadata",
-                    checkpoint:
-                        "Preserve finished workers. Board and rail use session.subagents. Next: verify collapsed roots and narrow layout.",
-                    measuredTokens: 9800, measuredModel: "gpt-5.6-terra", runtimeRunning: true),
+                    measuredTokens: 9800, measuredModel: "claude-sonnet-5", runtimeRunning: true),
                 LeadWork(
-                    id: "show-agent-tree-qa", taskID: "show-agent-tree", title: "Verify expansion and return states",
-                    skill: "qa-dev", model: "gpt-5.6-luna",
-                    reason: "David runs the existing checks and inspects the screenshots after UI work returns.",
-                    dependsOn: ["show-agent-tree-ui"], estimatedTokens: 6000, estimatedMinutes: 5),
-                LeadWork(
-                    id: "pull-blockers-reader", taskID: "pull-blockers", title: "Link blockers to the assigned batch",
-                    skill: "backend-dev", model: "gpt-5.6-terra",
-                    reason: "Ben owns notebook loading; the reader is independent of the UI files.",
+                    id: "pull-blockers", taskID: "pull-blockers", title: "Link blockers to the assigned batch",
                     paths: [
                         "Sources/YongkangCore/Notebook/LeadCoordination.swift",
                         "Sources/YongkangCore/Git/GitClient.swift",
                     ],
-                    state: "review", agentID: "be", estimatedTokens: 11000, estimatedMinutes: 10,
+                    state: "done", agentID: "blockers",
                     startedAt: now.addingTimeInterval(-600), finishedAt: now.addingTimeInterval(-120),
                     updatedAt: now.addingTimeInterval(-120), actualTokens: 7900,
-                    checkpoint: "Reader complete. Self-test passes; David is checking cross-session routing.",
-                    report: "Returned: blocker reader and self-test pass. Independent QA is in progress."),
+                    report: "Blocker reader and self-test pass."),
                 LeadWork(
-                    id: "pull-blockers-qa", taskID: "pull-blockers", title: "Check blocker routing",
-                    skill: "qa-dev", model: "gpt-5.6-luna",
-                    reason: "Focused verification uses the smaller model and the existing self-test.",
-                    dependsOn: ["pull-blockers-reader"], paths: ["Sources/Yongkang/NotebookSelfTest.swift"],
-                    state: "running", agentID: "qa",
-                    estimatedTokens: 5000, estimatedMinutes: 5,
-                    startedAt: now.addingTimeInterval(-90), updatedAt: now.addingTimeInterval(-20),
-                    contextTokens: 19000, contextWindow: 128000, contextSource: "Preview runtime metadata",
-                    measuredTokens: 1700, measuredModel: "gpt-5.6-luna", runtimeRunning: true),
-                LeadWork(
-                    id: "deploy-to-vercel-setup", taskID: "deploy-to-vercel", title: "Prepare deployment",
-                    skill: "sre-dev", model: "gpt-5.6-terra",
-                    reason: "Chris owns deployment. Work pauses until the project token is configured.",
-                    state: "blocked", agentID: "sre", estimatedTokens: 4000, estimatedMinutes: 5,
+                    id: "deploy-to-vercel", taskID: "deploy-to-vercel", title: "Prepare deployment",
+                    state: "blocked", agentID: "deploy",
                     startedAt: now.addingTimeInterval(-720), finishedAt: now.addingTimeInterval(-600),
                     updatedAt: now.addingTimeInterval(-600), actualTokens: 2100,
                     report: "Blocked: Vercel project token. Setup steps are ready in Blocks."),
@@ -589,7 +550,7 @@ enum DesignShots {
                 task: "deploy-to-vercel", resolution: "",
                 body: "## Steps\n\n1. Open the Vercel dashboard and pick the project\n"
                     + "2. Settings, then Tokens, then Create token\n"
-                    + "3. Paste it when the engineer asks — it is never written down\n",
+                    + "3. Paste it when the agent asks — it is never written down\n",
                 before: nil, branch: "", revisions: []),
             UserBlock(
                 id: "/tmp/offline.md", url: URL(fileURLWithPath: "/tmp/offline.md"),
@@ -634,14 +595,8 @@ enum DesignShots {
         var lines: [TranscriptLine] = [
             TranscriptLine(
                 label: "Task",
-                text: "Agents disappear from the lead once they finish, "
-                    + "so a batch mid-flight reads as empty. Keep every affiliated agent reachable."),
-            TranscriptLine(label: "Tool", text: "Skill(skill: qa-dev)"),
-            TranscriptLine(
-                label: "Task",
-                text: "Base directory for this skill: "
-                    + "/Users/you/.claude/skills/qa-dev\n\nYou are QA on work that is claiming to "
-                    + "be finished. Verify it against the task's own \"Done when\" list…"),
+                text: "Agents disappear from their session once they finish, "
+                    + "so a batch mid-flight reads as empty. Keep every affiliated agent reachable.")
         ]
         for file in ["App.swift", "ProjectList.swift", "Rail.swift", "Theme.swift"] {
             lines.append(TranscriptLine(label: "Tool", text: "Read(file_path: Sources/\(file))"))
@@ -651,7 +606,7 @@ enum DesignShots {
             TranscriptLine(label: "Grep", text: ""),
             TranscriptLine(
                 label: "Reply",
-                text: "The list column and the lead board both show "
+                text: "The list column and the work board both show "
                     + "subagents, so the filter belongs on the session itself rather than in each view."),
             TranscriptLine(label: "Tool", text: "Edit(file_path: Sources/Project.swift)"),
             TranscriptLine(label: "Result", text: "+4 −0"),
@@ -662,7 +617,7 @@ enum DesignShots {
             TranscriptLine(
                 label: "Reply",
                 text: "Four files changed and the self-test passes. "
-                    + "Handing the task file and the diff to qa-dev — I do not review my own work."),
+                    + "Every Done when item is checked; the report is filed for your review."),
         ]
         return lines.filter { $0.label != "Grep" }
     }

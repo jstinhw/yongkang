@@ -38,7 +38,7 @@ struct ChangeSummaryPane: View {
                 Text("+\(added)").font(Typography.code).foregroundStyle(Theme.green)
                 Text("−\(removed)").font(Typography.code).foregroundStyle(Theme.red)
                 if done > 0 {
-                    NotebookStyle.pill("\(done) passed QA", Theme.green)
+                    NotebookStyle.pill("\(done) done", Theme.green)
                 }
                 if flight > 0 {
                     NotebookStyle.pill("\(flight) still in flight", Theme.accent)
@@ -140,14 +140,11 @@ struct ChangeSummaryPane: View {
                     task.files, label: "What it changed",
                     trailing: "+\(task.added) −\(task.removed)")
             }
-            // Positional ids: two leads that ran the same task in turn can file the same
+            // Positional ids: two sessions that ran the same task in turn can file the same
             // work id twice, and a summary must not drop the second one.
-            ForEach(Array(task.builds.enumerated()), id: \.offset) { _, work in report(work) }
-            if !task.reviews.isEmpty {
-                SectionLabel("Reviewed by QA")
-                ForEach(Array(task.reviews.enumerated()), id: \.offset) { _, work in report(work) }
-            } else if task.done {
-                Text("No QA record was filed against this task.")
+            ForEach(Array(task.work.enumerated()), id: \.offset) { _, work in report(work) }
+            if task.done && task.verification.isEmpty {
+                Text("No verification was recorded against this task.")
                     .font(Typography.body).foregroundStyle(Theme.amber)
             }
         }
@@ -155,18 +152,17 @@ struct ChangeSummaryPane: View {
         .cardSurface(padding: 15)
     }
 
-    /// How the task actually ran: each specialist in build-then-review order with the state
-    /// it ended in — the shape of the batch, not a sentence about it.
+    /// How the task actually ran: each attempt in order with the state it ended in — the
+    /// shape of the work, not a sentence about it.
     private func pipeline(_ task: SummaryTask) -> some View {
-        let ordered = task.builds + task.reviews
-        return HStack(spacing: 7) {
-            ForEach(Array(ordered.enumerated()), id: \.offset) { index, work in
+        HStack(spacing: 7) {
+            ForEach(Array(task.work.enumerated()), id: \.offset) { index, work in
                 if index > 0 {
                     Image(systemName: "arrow.right").font(.system(size: 10))
                         .foregroundStyle(Theme.tx4)
                 }
                 HStack(spacing: 6) {
-                    RoleTile(role: work.skill, size: 18)
+                    RoleTile(role: work.skill.isEmpty ? "work" : work.skill, size: 18)
                     Text(work.skill.isEmpty ? work.id : work.skill)
                         .font(Typography.mono).foregroundStyle(Theme.tx2)
                     StateDot(
@@ -181,7 +177,7 @@ struct ChangeSummaryPane: View {
         }
     }
 
-    /// One specialist in its own words: what it was for, and what it reported back.
+    /// One attempt in the agent's own words: what it was for, and what it reported back.
     private func report(_ work: LeadWork) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {

@@ -130,7 +130,7 @@ HStack
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
   the gate on the ten screens that draw one: the board, a task, a demo, a block, a session, the
-  lead board, a subagent, a team member, and Review's two pages. Overview's right-hand column is
+  work board, a subagent, a team member, and Review's two pages. Overview's right-hand column is
   not one of them — it is a second column of the screen itself, on the window's own ground.
 
 ## The menu bar
@@ -149,7 +149,7 @@ Full Keyboard Access and VoiceOver read an app through.
 | | Hide List ⌘\ · Show Completed | a project is entered |
 | **Go** | All Projects ⌘[ | a project is entered |
 | **Agent** | New Session · New Session With ▸ · Product Review | a project is entered |
-| | Assign to Lead | `AppModel.assignableTask` is not nil |
+| | Assign Task · Assign Task To ▸ | `AppModel.assignableTask` is not nil |
 
 - **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it
   carries stays readable and the menu keeps the same shape on every screen.
@@ -158,9 +158,9 @@ Full Keyboard Access and VoiceOver read an app through.
   shortcut. The YK button is gone; the project menu — the list header, or a toolbar item
   beside the list toggle while the list is hidden — has an All Projects item that carries
   no shortcut of its own, so ⌘[ stays bound once. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
-- **Assign to Lead is the selected task**, not the board's ticked batch. Those ticks are
+- **Assign Task is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
-  job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a lead —
+  job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a session —
   and it is the same one `TaskDetail`'s button is disabled by, so `MenuCommandTests` checks it
   with no window.
 - **Replacing `.newItem` is also what drops New Window,** which is why the group was there

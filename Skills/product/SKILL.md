@@ -114,11 +114,7 @@ The ready proposal must be detailed enough that approval is mechanical:
   content if that is part of the plan.
 - Project: id, outcome, done-when criteria, approach, dependencies, and repos.
 - Tasks in build order, cut by **Shaping tasks**: id, outcome, the area it changes,
-  `depends_on`, specialist owner, and verifiable done-when criteria. Then which tasks can
-  start together.
-- Agent resources: `engineering-lead` coordinates the work; which of `designer`,
-  `frontend-dev`, `backend-dev`, and `sre-dev` each task needs and why; and how `qa-dev`
-  verifies completed tasks. Include only specialist roles actually needed.
+  `depends_on`, and verifiable done-when criteria. Then which tasks can start together.
 - The design tasks, who designs each, and which engineering tasks each one blocks — see
   **Design work** below.
 - Assumptions, risks, and the nearest adjacent work deliberately excluded.
@@ -148,10 +144,10 @@ Approval must be explicit: the user says the ready proposal is good, or the app 
    the gap and leave it open.
 2. Create or update the roadmap entry only when the approved proposal explicitly includes
    that change.
-3. For each project, write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, `depends_on`, and
-   `owner:`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
-4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`,
-   `depends_on`, and `owner:` set to the specialist named in the proposal. Design is a task
+3. For each project, write `.notebook/projects/<id>/project.md` with `roadmap:`, `repos:`, and
+   `depends_on`. Its body contains Outcome, Done when, Approach, Tasks, and Decisions.
+4. Write each task under `.notebook/tasks/<id>.md` with `project:`, `status: todo`, and
+   `depends_on`. The user picks the agent that builds it when they assign it. Design is a task
    of its own that blocks the engineering tasks on its screen — see **Design work** below.
    Write each task as the proposal cut it — see **Shaping tasks** below.
 5. Record material assumptions or user decisions as one fact per memory file under the

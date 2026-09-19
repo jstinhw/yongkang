@@ -239,9 +239,7 @@ import YongkangCore
             id: id, title: title ?? agent.displayName, icon: agent.systemImage,
             line: AgentCommand.line(
                 directory: directory.path,
-                agent: agent, prompt: prompt, sessionID: id,
-                brief: title?.hasPrefix("Engineering Lead") == true,
-                noCommit: title?.hasPrefix("Engineering Lead") == true),
+                agent: agent, prompt: prompt, sessionID: id, noCommit: !taskIDs.isEmpty),
             agent: agent, taskIDs: taskIDs)
         return .session(id)
     }
@@ -250,8 +248,8 @@ import YongkangCore
         id: UUID, title: String, icon: String, line: String,
         agent: AgentKind? = nil, taskIDs: [String] = []
     ) {
-        // Second "Engineering Lead" becomes "Engineering Lead 2" — identical rows are
-        // unusable, and several leads at once is a normal thing to want.
+        // A second "Product" becomes "Product 2" — identical rows are unusable, and two
+        // sessions on the same kind of work at once is a normal thing to want.
         let taken = sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         let session = CodeSession(id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
@@ -279,22 +277,17 @@ import YongkangCore
         return true
     }
 
-    func appendTaskIDs(_ ids: [String], to id: UUID) {
-        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
-        sessions[index].taskIDs += ids
-        resummarize()
-    }
-
     /// The session this block is holding up. A block names its own session, so the answer
-    /// reaches the lead that asked even with several running; one written without a
-    /// session id falls back to the newest live lead, which is the single-lead case.
+    /// reaches the one that asked even with several running; one written without a session
+    /// id falls back to the newest live session holding the task it names, then any.
     func waitingSession(for block: UserBlock) -> CodeSession? {
-        // A proposal links to Product, but does not block an engineering session.
+        // A proposal links to Product, but does not block an assigned session.
         guard !block.isProposal else { return nil }
         if let id = block.session {
             return sessions.first { $0.id == id && !$0.exited }
         }
-        return sessions.last { $0.isEngineeringLead && !$0.exited }
+        let live = sessions.filter { $0.holdsTasks && !$0.exited }
+        return live.last { session in block.task.map { session.taskIDs.contains($0) } ?? false } ?? live.last
     }
 }
 

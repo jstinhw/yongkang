@@ -33,7 +33,8 @@ extension RootView {
                 card: card, cards: project.snapshot.cards, repos: project.services(of: card),
                 assigned: project.assignedTaskIDs, showDone: model.showDone,
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
-                assign: { tasks in model.assign(tasks, in: project, agent: agent) },
+                agents: agentChoice,
+                assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
                 run: { card in model.runServices(project.services(of: card), in: project) },
                 openTask: { task in model.selection = .task(task.id) }
             )
@@ -43,7 +44,8 @@ extension RootView {
                 card: card, cards: project.snapshot.cards, assigned: project.assignedTaskIDs,
                 working: workers(on: card.id, in: project),
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
-                assign: { tasks in model.assign(tasks, in: project, agent: agent) },
+                agents: agentChoice,
+                assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
                 check: { session, subagent in
                     model.section = .agents
                     model.selection = .subagent(session: session.id, id: subagent.id)
@@ -61,7 +63,6 @@ extension RootView {
             case .lanes:
                 EngineeringLeadBoard(
                     session: watched, cards: project.snapshot.cards, blocks: project.snapshot.blocks,
-                    team: project.snapshot.team,
                     openTask: {
                         model.section = .board
                         model.selection = .task($0)
@@ -194,13 +195,19 @@ extension RootView {
         }
     }
 
+    /// Every Assign button starts on the toolbar's agent and can pick another for itself.
+    private var agentChoice: AgentChoice {
+        AgentChoice(initial: agent, found: model.foundAgents, lookUp: model.lookUpAgents)
+    }
+
     private func boardView(for project: ProjectModel) -> some View {
         NotebookBoard(
             cards: project.snapshot.cards,
             blocks: project.snapshot.blocks,
             assigned: project.assignedTaskIDs,
             showDone: model.showDone,
-            assign: { tasks in model.assign(tasks, in: project, agent: agent) },
+            agents: agentChoice,
+            assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
             review: { model.go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
             openDemo: { demo in model.selection = .block(demo.id) },
@@ -256,7 +263,7 @@ extension RootView {
         }
     }
 
-    /// Every subagent in this project that was dispatched for one task, whichever lead
+    /// Every subagent in this project that was dispatched for one task, whichever session
     /// spawned it. The link is the subagent's own name, matched when it is read off disk.
     private func workers(on taskID: String, in project: ProjectModel) -> [(CodeSession, SubagentStatus)] {
         project.sessions.flatMap { session in

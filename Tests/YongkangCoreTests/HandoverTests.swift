@@ -22,29 +22,27 @@ import Testing
             project: project, dependsOn: [])
     }
 
-    /// An Engineering Lead on two tasks: `read-blockers` built and passed QA, `wire-auth`
+    /// A session on two tasks: `read-blockers` took two attempts and was checked, `wire-auth`
     /// still has an endpoint running.
     private static func leadProject(wireAuth: String = "active") -> (project: Project, lead: CodeSession) {
         var lead = CodeSession(
-            title: "Engineering Lead", icon: "", line: "", agent: .claude,
+            title: "Launch", icon: "", line: "", agent: .claude,
             taskIDs: ["wire-auth", "read-blockers"])
         lead.coordination = LeadCoordination(
-            strategy: "Two builds in parallel, QA after each.",
+            strategy: "Both tasks in parallel.",
             contextSummary: "",
             workers: [
                 LeadWork(
                     id: "a", taskID: "read-blockers", title: "Reader",
-                    skill: "backend-dev",
                     paths: ["Sources/Loader.swift", "Sources/Gone.swift"], state: "done",
                     checkpoint: "Reader owns the loader; the UI never parses.",
                     report: "Reader landed."),
                 LeadWork(
-                    id: "b", taskID: "read-blockers", title: "Check it",
-                    skill: "qa-dev", paths: ["Sources/Loader.swift", "Tests/Loader.swift"],
-                    state: "done", report: "Passed."),
+                    id: "b", taskID: "read-blockers", title: "Test the reader",
+                    paths: ["Sources/Loader.swift", "Tests/Loader.swift"],
+                    state: "done", report: "Tested.", verification: "`swift test` passed."),
                 LeadWork(
-                    id: "c", taskID: "wire-auth", title: "Endpoint",
-                    skill: "backend-dev", state: "running"),
+                    id: "c", taskID: "wire-auth", title: "Endpoint", state: "running"),
             ])
         var project = Project(directory: directory, entries: [])
         project.cards = [
@@ -68,16 +66,19 @@ import Testing
             summary.tasks.map(\.id) == ["read-blockers", "wire-auth"],
             "finished work reads first, and a project card is not a task")
         #expect(summary.finished.map(\.id) == ["read-blockers"])
-        #expect(summary.tasks[0].builds.map(\.id) == ["a"], "QA is separated from the build it accepted")
-        #expect(summary.tasks[0].reviews.map(\.id) == ["b"], "QA is separated from the build it accepted")
+        #expect(summary.tasks[0].work.map(\.id) == ["a", "b"], "every attempt at a task, in order")
+        #expect(
+            summary.tasks[0].verification == "`swift test` passed.",
+            "the latest attempt's check is the one the reviewer reads")
+        #expect(summary.tasks[1].verification.isEmpty, "work still running has checked nothing")
         #expect(
             summary.decisions == [
-                "Two builds in parallel, QA after each.",
+                "Both tasks in parallel.",
                 "Reader owns the loader; the UI never parses.",
             ])
         #expect(
             summary.commitMessage == "Read blockers",
-            "the subject names what passed QA, never work still running")
+            "the subject names what is done, never work still running")
         #expect(
             summary.tasks[0].files.map(\.path) == ["Sources/Loader.swift", "Tests/Loader.swift"],
             "a file two workers on one task both claim is listed once, and a path that is not in the working tree is not invented into a row"
@@ -123,7 +124,7 @@ import Testing
         relaunched.records = [lead.id: try #require(lead.coordination)]
         #expect(
             ChangeSummary.of(relaunched, changes: Self.tree).waiting.map(\.id) == ["read-blockers"],
-            "records on disk keep work waiting for review after its lead session is gone")
+            "records on disk keep work waiting for review after its session is gone")
     }
 
     @Test func resultIsItsOwnSection() {

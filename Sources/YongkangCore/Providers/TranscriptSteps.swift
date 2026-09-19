@@ -34,7 +34,7 @@ package enum TranscriptSteps {
         func flushRun() {
             let calls = run.filter { $0.label == "Tool" }
             // Results with no call in front of them are the tail of a run that has already
-            // been summarised — a skill's "Launching skill: qa-dev", most often. There is
+            // been summarised — a skill's "Launching skill: designer", most often. There is
             // nothing to say about them, so they do not get a line of their own.
             guard !calls.isEmpty else {
                 run = []
@@ -84,7 +84,7 @@ package enum TranscriptSteps {
     /// What a user message after the brief is worth showing, or nil when it is the harness
     /// rather than a person. Invoking a skill pastes the whole skill document in as a user
     /// message; so do system notifications and an MCP server's instructions. None of that
-    /// is news — the `Skill(qa-dev)` line above it already says what happened, and the
+    /// is news — the `Skill(designer)` line above it already says what happened, and the
     /// document behind it is context the agent was given, not something it did.
     ///
     /// Anything else is kept: a message the lead sent mid-flight is the second most
@@ -160,7 +160,7 @@ package enum TranscriptSteps {
         String(call.prefix(while: { $0 != "(" })).trimmingCharacters(in: .whitespaces)
     }
 
-    /// `Skill(args: …, skill: qa-dev)` → `Skill(qa-dev)`, which is how Claude Code names it.
+    /// `Skill(args: …, skill: designer)` → `Skill(designer)`, which is how Claude Code names it.
     /// The field is looked up by name rather than taken as the first one: a call's arguments
     /// arrive alphabetised, so `args` usually sits in front of the name and reading position
     /// one names the agent after its task.

@@ -38,8 +38,8 @@ extension AppModel {
             guard !tasks.isEmpty else { return }
             alert = .message(
                 "Nothing to assign",
-                detail: "Every task here is already done, or already has an Engineering "
-                    + "Lead on it — wait for that session to finish, or close it, before assigning again.")
+                detail: "Every task here is already done, or already has a session on it — "
+                    + "wait for that session to finish, or close it, before assigning again.")
             return
         }
         go(to: destination)

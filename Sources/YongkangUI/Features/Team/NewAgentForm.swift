@@ -1,11 +1,11 @@
 import SwiftUI
 import YongkangCore
 
-/// Adding one agent to the Engineering Lead's team, two ways.
+/// Adding one agent to the project's team, two ways.
 ///
 /// **Manual** writes `.notebook/team/<name>.md` here and now: a name, the skill(s) that
 /// become its system prompt — every skill this project can already load, plus anything
-/// you fetch from a git repo — and a line on what it owns so the lead can route to it.
+/// you fetch from a git repo — and a line on what it owns so work can be routed to it.
 ///
 /// **Incubate** writes nothing. You describe the agent you want and a session goes and
 /// finds the skills for it, the same rule the notebook follows: the app does not write
@@ -144,7 +144,7 @@ package struct NewAgentForm: View {
         }
 
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Owns", trailing: "how the lead routes to it")
+            SectionLabel("Owns", trailing: "what work goes to it")
             TextField("the kind of task that routes to it", text: $owns)
                 .textFieldStyle(.roundedBorder)
         }

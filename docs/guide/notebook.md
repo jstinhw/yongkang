@@ -35,4 +35,4 @@ run records stay on disk for agents but are hidden from notebook navigation. Edi
 the underlying Markdown. A save is refused if an agent changed
 the file after the editor loaded it, so concurrent work cannot be silently overwritten.
 The first body paragraph is the short human brief. Durable facts remain project memory;
-managed sessions record their result and handoff under runs; engineering leads also keep a coordination plan and subtask attempt records there.
+managed sessions record their result and handoff under runs; a session assigned tasks also files one report per attempt at a task there.

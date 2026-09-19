@@ -9,11 +9,11 @@ package struct NotebookSnapshot: Equatable, Sendable {
     package let cards: [NotebookCard]
     /// What the agents need from the user before they can go on, read the same way.
     package let blocks: [UserBlock]
-    /// The Engineering Lead's named specialists, from `.notebook/team/` (shipped defaults
-    /// until that folder exists).
+    /// The project's named agents, from `.notebook/team/` (shipped defaults until that
+    /// folder exists).
     package let team: [TeamMember]
-    /// Every lead's run records on disk, by session id — including leads that are closed or
-    /// ran before a relaunch, whose finished work may still be waiting for review.
+    /// Every assigned session's reports on disk, by session id — including sessions that are
+    /// closed or ran before a relaunch, whose finished work may still be waiting for review.
     package let records: [UUID: LeadCoordination]
 
     package init(

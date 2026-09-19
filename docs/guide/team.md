@@ -2,11 +2,12 @@
 
 ![A roster member, with the skill text it is handed](../images/member.png)
 
-The specialists the lead routes to are files, not code: one Markdown file per agent in
+Ordinary work goes straight to the agent you assign it to; the team is for agents with a
+skill of their own. They are files, not code: one Markdown file per agent in
 `.notebook/team/`, each with `name`, the `skills` that are its system prompt, and the
-`owns` line the lead routes by. The five shipped agents are written there the first time
-a lead starts in a project with a notebook; after that the folder is the truth, so
-editing a file — or deleting one — changes who gets dispatched. `Agents` in the rail
+`owns` line work is routed by. The one shipped agent, Allen, runs `designer` for design
+tasks, and is written there the first time a project with a notebook is opened; after that
+the folder is the truth, so editing a file — or deleting one — changes who gets dispatched. `Agents` in the rail
 lists the roster under the running sessions, and opening one shows the skill text the
 agent is actually handed plus its agents running right now.
 

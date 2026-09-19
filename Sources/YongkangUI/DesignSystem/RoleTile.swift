@@ -19,26 +19,15 @@ struct RoleTile: View {
 
     static func mark(_ role: String) -> String {
         let r = role.lowercased()
-        // Before frontend: the same agent runs both skills, and the design pass is the one
-        // that has to be told apart on the board.
         if r.contains("design") { return "ds" }
-        if r.contains("frontend") { return "fe" }
-        if r.contains("backend") { return "be" }
-        if r.contains("qa") { return "qa" }
-        if r.contains("sre") { return "sre" }
-        if r.contains("fde") { return "fde" }
         if r.contains("product") { return "pr" }
-        if r.contains("lead") { return "EL" }
         return String(r.prefix(2))
     }
 
     static func color(of role: String) -> Color {
         let r = role.lowercased()
         if r.contains("design") { return Theme.violet }
-        if r.contains("frontend") { return Theme.accent }
-        if r.contains("backend") { return Theme.green }
-        if r.contains("qa") { return Theme.violet }
-        if r.contains("sre") || r.contains("fde") { return Theme.amber }
+        if r.contains("work") { return Theme.accent }
         return Theme.tx2
     }
 

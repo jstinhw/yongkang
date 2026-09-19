@@ -11,7 +11,6 @@ import Testing
         let agent: AgentKind
         let prompt: String?
         var sessionID: UUID? = nil
-        var brief = false
         var noCommit = false
         let expected: String
         var why: Comment? = nil
@@ -35,18 +34,14 @@ import Testing
             agent: .claude, prompt: nil, sessionID: sid,
             expected: "cd '/a' && exec claude --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
         LineCase(
-            agent: .claude, prompt: "lead", sessionID: sid, brief: true,
-            expected: "cd '/a' && exec claude --brief --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
-            why: "engineering leads can notify the user without changing ordinary sessions"),
-        LineCase(
-            agent: .grok, prompt: "lead", sessionID: sid, noCommit: true,
+            agent: .grok, prompt: "work", sessionID: sid, noCommit: true,
             expected: "cd '/a' && exec grok --deny 'Bash(git commit:*)' --deny 'Bash(git push:*)' "
-                + "--deny 'Bash(gh pr create:*)' --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'lead'",
-            why: "a lead cannot commit — approving in Review is what commits"),
+                + "--deny 'Bash(gh pr create:*)' --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'work'",
+            why: "an assigned session cannot commit — approving in Review is what commits"),
         LineCase(
-            agent: .claude, prompt: "lead", noCommit: true,
+            agent: .claude, prompt: "work", noCommit: true,
             expected: "cd '/a' && exec claude --disallowedTools='Bash(git commit:*),Bash(git push:*),"
-                + "Bash(gh pr create:*)' 'lead'",
+                + "Bash(gh pr create:*)' 'work'",
             why: "the = form, or the variadic flag eats the prompt as a tool name"),
     ]
 
@@ -85,7 +80,7 @@ import Testing
         #expect(
             AgentCommand.line(
                 directory: c.directory, agent: c.agent, prompt: c.prompt, sessionID: c.sessionID,
-                brief: c.brief, noCommit: c.noCommit) == c.expected, c.why)
+                noCommit: c.noCommit) == c.expected, c.why)
     }
 
     @Test func codexCarriesTheSessionIDInItsPrompt() {

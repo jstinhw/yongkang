@@ -1,99 +1,63 @@
 # Shipping tasks
 
-![The lead's coordination dashboard](../images/agents.png)
+![An assigned session's work, one lane per task](../images/agents.png)
 
-Click task cards and `Assign to Engineering Lead` to give a batch to the coordinator.
-`Pick all` on a project's page takes every task of its that is not done or already out
-with a lead, and `Assign all tasks to Engineering Lead` on the project's row in the list
-does the same without opening it.
-It reads the task contracts and code boundaries, chooses the smallest useful split,
-and selects a roster specialist, available model and reasoning level for every subtask.
-Independent work starts in parallel; shared files and unfinished prerequisites wait.
-The lead adjusts concurrency to the runtime's free slots and the work that is ready.
+Every Assign button has an agent picker beside it — Claude Code, Codex, Grok or Agy —
+starting on the toolbar's agent. Picking one there is for that assignment only; the
+toolbar keeps its default.
 
-Every worker reports to the lead at start, milestones, blockers and completion. A
-returned build enters `review`; independent QA accepts it or sends reproductions back
-to its owner. Only integrated work that meets the parent task's full acceptance criteria
-makes that task `done`. Nobody in the batch commits, pushes, branches or opens a PR —
-the work waits uncommitted for you in `Review`, and a lead session is refused those
-commands outright (`--disallowedTools` for Claude Code, `--deny` for Grok).
+- **A task:** `Assign` on its page starts one session on that task, with any unfinished
+  blockers it waits on.
+- **A project:** `Pick all` on the project's page, or `Assign all tasks to` on its row in
+  the list, starts one session on all of its open tasks. That session decides how to split
+  them, and runs independent ones at once with its own subagents if its CLI has them.
+- **A batch:** tasks picked on the board go to one session the same way.
+
+Each assignment is a new session named after its work. A session already running is never
+handed more, because its agent may not be the one you picked; a task a session already
+holds cannot be assigned again until that session exits.
+
+There are no specialist roles. The agent reads the task, what it depends on and the
+project's memory, and does the work; the prompt only carries what the app reads back:
+
+- set a task `active` when it starts and `done` once every item of its `Done when` is
+  checked;
+- a task with `designer:` set goes through the `designer` skill, and nothing waiting on it
+  starts until you approve the demo — see [Design before code](design-gate.md);
+- anything only you can do becomes a block — see [Blocks](blocks.md);
+- nobody commits, pushes, branches or opens a PR. A session holding tasks is refused
+  those commands outright (`--disallowedTools` for Claude Code, `--deny` for Grok), and
+  the work waits uncommitted for you in [Review](review.md).
 
 ```mermaid
 flowchart TD
-    A[Assigned task contracts] --> B[Lead: split scope and map dependencies]
-    B --> C[Choose skills, models, estimates and parallel capacity]
-    C --> D[Dispatch independent ready work]
-    D --> E[Specialist A]
-    D --> F[Specialist B]
-    E --> G[Report to lead: changes, evidence, usage, remaining work]
-    F --> G
-    G --> H[Independent QA]
-    H -->|Pass| I[Accept subtask and unlock dependents]
-    H -->|Fail| J[Return reproductions to owner]
-    J --> D
-    I -->|More work| D
-    I -->|All parent criteria met| K[Task done, waits uncommitted for your review]
-    E -->|User gate| L[SRE block, FDE assistance]
-    L -->|Resolved| D
-    G --> M[Check estimates, live status and context]
-    M -->|Context threshold| N[Save checkpoint and durable memory]
-    N --> O[Native compaction or fresh worker handoff]
-    O --> D
+    A[Assign a task or a project, on the agent you pick] --> B[One session]
+    B -->|one task| C[Does it]
+    B -->|several| D[Its own subagents, in depends_on order]
+    C --> E[Report per task: Result, Verification, paths]
+    D --> E
+    B -->|design task| F[designer skill, demo in Blocks]
+    F -->|you approve| B
+    B -->|only you can do it| G[Block]
+    G -->|resolved| B
+    E --> H[Report page for you, work waits in Review]
 ```
 
-The lead compares total token estimates (including planning, repeated context and QA)
-with the elapsed time of the scheduled dependency path. It uses fewer agents when a
-split adds overhead without a useful speed gain. Model choices come from the running
-provider's available options, so a model that cannot be selected is never promised.
-This uses the native parent/child reporting mechanism described in the
-[Codex subagent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents).
+For every task it writes `.notebook/runs/<session-id>-work-<work-id>.md` — the task id,
+then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a one-line
+`report`, and `## Result` and `## Verification` in the body. That record is what Review
+reads and what approving a task commits beside its code. When it stops, done or waiting
+on you, it shows the same report as a page: an artifact where the agent can publish one,
+otherwise an HTML file in the temp folder that it opens for you.
 
-Context budgets are workflow policy: a fresh handoff aims for at most 8K tokens or 10%
-of the effective model window, whichever is smaller; checkpoint/compact at 60% and
-hand off before further bulk reads at 75%. Runtime warnings take precedence. Unknown
-capacity stays unknown. The lead keeps volatile checkpoints in run records and promotes
-only durable facts to project memory; saving a summary is followed by actual native
-compaction or a fresh worker when supported.
-
-The roles are skills in `Skills/`: `product`, `engineering-lead`, `designer`,
-`frontend-dev`, `backend-dev`, `qa-dev`, `sre-dev`, `fde-dev`. One roster member runs both
-`designer` and `frontend-dev` — the same agent settles what a screen looks like and then
-builds it, in that order. `.claude/skills/` and `.agents/skills/` link to that folder,
-so Claude Code and Codex working on this repo read the same files. The app bundles the exact skill text into every
-managed session. Install the same role folders in `~/.claude/skills/` and
-`~/.agents/skills/` only for specialist subagents, which start outside the app's launcher
-(symlinks to one shared folder are fine).
-
-The engineers are that lead session's own subagents, not sibling terminals. Separate
-PTYs have no way to report back to a lead, so the review loop only closes inside one
-agent.
-
-Agent rows open the live **Session**; **Transcript** is hidden for now. Clicking a
-specialist under **Working on it** on a task's page, or its row in the Agents list, opens the
-CLI's live child view. The app opens
-`/tasks` in Claude Code or `/subagents` in Codex and selects the row matching that child's
-ID or task description. If the CLI truncates the identity or changes its picker layout,
-a notice asks you to select the child in the picker. **Parent session** returns to the
-lead. Queued messages for the lead wait while a child view is open. The task link
-is the subagent's own name: the lead names each one `<task-id>-<subtask>-<attempt>-<role>`, Claude keeps that
-as the subagent's description and Codex slugs it into the spawned thread's name, and the
-app matches them back to the task either way. `Agents` in the rail shows that hierarchy
-directly: Engineering Lead is the parent and every `<task-id>-<subtask>-<attempt>-<role>` agent is its child.
-The lead's **Agents** pane opens the coordination dashboard. The plan and parallel capacity
-come first, followed by parent tasks and their subtasks. Worker cards show the skill,
-model and selection reason, dependency waits, reported state, last check-in, token and
-time estimates, observed usage, and the returned result. Finished workers remain
-available. The inspector carries batch progress and context/checkpoint details; the
-roster is secondary to the work. A worker card opens that worker's live CLI view, and a block
-opens its existing resolution flow. Its `Agents / Session` switch opens the live terminal.
-
-The lead writes `.notebook/runs/<session-id>-coordination.md` and one
-`<session-id>-work-<work-id>.md` per attempt, using the schema in the
-[engineering-lead skill](../../Skills/engineering-lead/SKILL.md). The app reads them on
-its existing poll; it does not schedule agents itself. These run records stay hidden
-from ordinary notebook navigation. Legacy sessions still show their transcript-linked
-workers, with missing estimates/context shown as unknown. Provider token measurements
-are separate from lead estimates; elapsed wall time does not claim to be CPU time.
+The session's **Agents** pane is its work board: one lane per task with its report and
+the subagents it started, and progress and anything waiting on you beside it. A subagent is
+linked to its task by its own name, which the prompt asks to be the task id; Claude keeps
+that as the subagent's description and Codex slugs it into the spawned thread's name, and
+the app matches it back either way. Clicking a subagent, here or under **Working on it** on
+a task's page, opens the CLI's live child view: the app opens `/tasks` in Claude Code or
+`/subagents` in Codex and selects the matching row. **Parent session** returns to the
+session. Its `Agents / Session` switch opens the live terminal.
 
 Claude subagents are read from
 `~/.claude/projects/<slug>/<session-id>/subagents/`; Codex, which picks its own thread id

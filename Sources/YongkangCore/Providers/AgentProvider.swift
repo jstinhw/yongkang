@@ -19,9 +19,9 @@ package protocol AgentProvider: Sendable {
     /// What follows the executable on the command line, already shell-quoted and joined with
     /// spaces by `AgentCommand.line`, ending with the opening prompt when there is one.
     /// `sessionID` is the app's id for the row, for a CLI that can be handed it or made to
-    /// record it. `brief` is asked for a lead. `noCommit` denies `AgentCommand.commitRules`,
+    /// record it. `noCommit` denies `AgentCommand.commitRules`,
     /// where the CLI has a flag for it.
-    func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String]
+    func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String]
     /// The words that make the CLI answer one prompt on stdout and exit, with no session, for
     /// what has to be asked before a session exists. Already shell-quoted, like `launch`.
     func ask(prompt: String) -> [String]

@@ -38,8 +38,8 @@ package struct TokenTally: Equatable, Sendable {
 }
 
 /// One agent — a session, or a subagent it spawned — and what it has spent, per model.
-/// A session and its subagents are separate rows: the lead's own spend is its planning,
-/// and the specialists' is the work, and the two are worth telling apart.
+/// A session and its subagents are separate rows: a session splitting a project spends on
+/// planning, and its subagents on the work, and the two are worth telling apart.
 package struct AgentSpend: Identifiable, Sendable {
     package let id: String
     /// The route that opens this agent, so a row in the usage screen goes straight to the
@@ -163,18 +163,15 @@ package struct ProviderQuota: Sendable {
 
 package enum AgentUsage {
 
-    /// What a lead's runs are filed under. Named, because it is also what the usage screen
-    /// matches on to call those runs by the lead's name rather than a numbered title.
-    package static let leadRole = "lead"
-
     // MARK: - Per-agent spend
 
     /// A session's role, for the panel that groups spend by one. The console names a
-    /// session after what it started it for — "Engineering Lead", "Product", "Unblock
-    /// <block>" — and numbers the second of each, so the first word is the role and the
-    /// number is not. A subagent needs none of this: it already carries its agent type.
+    /// session after what it started it for — "Product", "New Agent" — and numbers the second
+    /// of each, so the first word is the role and the number is not. An assigned session is
+    /// named after its task, which says nothing about its role, so it is all "work". A
+    /// subagent needs none of this: it already carries its agent type.
     static func role(of session: CodeSession) -> String {
-        guard !session.isEngineeringLead else { return leadRole }
+        guard !session.holdsTasks else { return "work" }
         return session.title.split(separator: " ").first.map { $0.lowercased() } ?? "session"
     }
 

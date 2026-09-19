@@ -100,9 +100,14 @@ struct YongkangCommands: Commands {
             model.section = .agents
         }
         .disabled(project == nil)
-        Button("Assign to Lead") {
+        Button("Assign Task") {
             guard let project, let task = model.assignableTask else { return }
             model.assign([task], in: project, agent: agent)
+        }
+        .disabled(model.assignableTask == nil)
+        OtherAgentMenu(title: "Assign Task To", agent: agent, found: model.foundAgents) { other in
+            guard let project, let task = model.assignableTask else { return }
+            model.assign([task], in: project, agent: other)
         }
         .disabled(model.assignableTask == nil)
         Button("Product Review") {
@@ -114,8 +119,8 @@ struct YongkangCommands: Commands {
 }
 
 extension AppModel {
-    /// What "Assign to Lead" would hand over: the task the window has open, while it is
-    /// neither finished nor already with a lead — the same rule `TaskDetail`'s own button is
+    /// What "Assign Task" would hand over: the task the window has open, while it is
+    /// neither finished nor already with a session — the same rule `TaskDetail`'s own button is
     /// disabled by.
     ///
     /// The board's Assign button sends the batch the user ticked, and those ticks are the

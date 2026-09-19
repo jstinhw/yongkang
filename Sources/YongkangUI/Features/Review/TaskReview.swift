@@ -2,7 +2,7 @@ import SwiftUI
 import YongkangCore
 
 /// One finished task, read the way a person decides whether to accept it: what it was
-/// for, what the reviewer said, and what each agent did. The code is one click further —
+/// for, how the agent checked it, and what each attempt did. The code is one click further —
 /// collapsed under Changes, each file opening its diff — because the verdict and the
 /// reports are what most reviews need, and the diff is there for the ones that do not.
 package struct TaskReview: View {
@@ -70,7 +70,7 @@ package struct TaskReview: View {
                     VStack(alignment: .leading, spacing: 16) {
                         header
                         taskCard
-                        reviewerCard
+                        checkedCard
                         agentsCard
                         changesCard
                         FeedbackCard(draft: $draft, openFile: openFile)
@@ -144,30 +144,22 @@ package struct TaskReview: View {
         .cardSurface(padding: 15)
     }
 
-    // MARK: - Reviewer
+    // MARK: - Checked
 
-    /// The latest QA pass in full — its verdict is the one that counts — and any earlier
-    /// attempts as one line each, so a task that failed first reads as having failed first.
-    private var reviewerCard: some View {
-        let reviews = Array(task.reviews.reversed())
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Reviewer", trailing: reviews.count > 1 ? "\(reviews.count) passes" : nil)
-            if let latest = reviews.first {
-                WorkReport(work: latest, name: name(of: latest), cards: cards, openFile: nil)
-                ForEach(Array(reviews.dropFirst().enumerated()), id: \.offset) { _, earlier in
-                    HStack(spacing: 8) {
-                        StateDot(color: NotebookStyle.color(of: earlier.state))
-                        Text(earlier.id).font(Typography.mono).foregroundStyle(Theme.tx3)
-                        Text(earlier.report).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
-                    }
-                }
-            } else {
+    /// How the latest attempt says it checked the work — the commands it ran and what they
+    /// printed — so what is already verified is read before anything is run again.
+    private var checkedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("How it was checked")
+            if task.verification.isEmpty {
                 Text(
                     task.done
-                        ? "No QA record was filed against this task — nobody but you has checked it."
-                        : "QA has not run yet."
+                        ? "No verification was recorded against this task — nobody but you has checked it."
+                        : "Not checked yet."
                 )
                 .font(Typography.body).foregroundStyle(task.done ? Theme.amber : Theme.tx3)
+            } else {
+                NotebookContentView(sections: NotebookContent.sections(task.verification), cards: cards)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -178,12 +170,12 @@ package struct TaskReview: View {
 
     private var agentsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("What the agents did", trailing: task.builds.isEmpty ? nil : "\(task.builds.count)")
-            if task.builds.isEmpty {
+            SectionLabel("What the agents did", trailing: task.work.isEmpty ? nil : "\(task.work.count)")
+            if task.work.isEmpty {
                 Text("No work records were filed against this task.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             }
-            ForEach(Array(task.builds.enumerated()), id: \.offset) { _, work in
+            ForEach(Array(task.work.enumerated()), id: \.offset) { _, work in
                 WorkReport(work: work, name: name(of: work), cards: cards, openFile: openFile)
             }
         }
@@ -321,18 +313,15 @@ package struct TaskReview: View {
     }
 
     @ViewBuilder private var verdictLine: some View {
-        let latest = task.reviews.last
         HStack(spacing: 9) {
-            if let latest {
+            if let latest = task.work.last, !task.verification.isEmpty {
                 NotebookStyle.statusRing(latest.state, progress: 0, size: 16)
-                Text(
-                    latest.state == "done"
-                        ? "QA passed" : latest.state == "failed" ? "QA sent it back" : "QA \(latest.state)"
-                )
-                .font(Typography.headline).foregroundStyle(Theme.tx)
+                Text(latest.state == "failed" ? "Failed its own check" : "Checked by the agent")
+                    .font(Typography.headline).foregroundStyle(Theme.tx)
             } else {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(Theme.amber)
-                Text("No QA record").font(Typography.headline).foregroundStyle(Theme.amber)
+                Text(task.work.isEmpty ? "No report" : "Not verified")
+                    .font(Typography.headline).foregroundStyle(Theme.amber)
             }
             Spacer(minLength: 0)
         }

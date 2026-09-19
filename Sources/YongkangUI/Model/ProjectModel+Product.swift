@@ -10,8 +10,7 @@ extension ProjectModel {
     }
 
     /// One product voice per project. A second session would propose against a board the
-    /// first one is already rewriting, so a running one is talked to instead — the same
-    /// rule the Engineering Lead follows for a second batch.
+    /// first one is already rewriting, so a running one is talked to instead.
     func startProduct(_ arguments: String, agent: AgentKind) -> Destination {
         if let running = sessions.first(where: { $0.isProduct && !$0.exited }) {
             return Destination(
@@ -50,6 +49,7 @@ extension ProjectModel {
 }
 
 extension CodeSession {
-    /// "Product 2" too: a second Product session is numbered like a second lead.
-    var isProduct: Bool { title == "Product" || title.hasPrefix("Product ") }
+    /// "Product 2" too: a second Product session is numbered like any other. A session holding
+    /// tasks is never Product, whatever its task happens to be called.
+    var isProduct: Bool { taskIDs.isEmpty && (title == "Product" || title.hasPrefix("Product ")) }
 }

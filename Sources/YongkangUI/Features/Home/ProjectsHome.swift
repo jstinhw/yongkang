@@ -129,7 +129,7 @@ package struct ProjectsHome: View {
                 // Four tiles is what fits beside the badge; the rest become a count, which
                 // is all a card needs to say before you have even opened the project.
                 let roles =
-                    agents.map { $0.isEngineeringLead ? "lead" : $0.title }
+                    agents.map { $0.holdsTasks ? "work" : $0.title }
                     + agents.flatMap(\.activeSubagents).map(\.agentType)
                 ForEach(Array(roles.prefix(4).enumerated()), id: \.offset) { _, role in
                     RoleTile(role: role, size: 22)

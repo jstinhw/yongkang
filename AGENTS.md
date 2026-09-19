@@ -101,7 +101,7 @@ A handoff needs all of these:
 - **Design before SwiftUI.** UI or design work goes through Claude Code's native `/design`
   skill (a design canvas) before any SwiftUI is written. Don't use the gstack `design-*`
   skills for this, and shots don't count as a design step.
-- **Review opens on outcomes.** A review screen shows the task, the QA verdict and what the
+- **Review opens on outcomes.** A review screen shows the task, how the agent checked it and what the
   agents did first. The diff is one click away.
 - **No file over 800 lines.**
 - **The notebook files are the only state.** The app never writes what agents write, and

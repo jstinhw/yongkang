@@ -152,7 +152,7 @@ package struct SessionRead: Sendable {
     package let id: UUID
     /// What the session has spawned, or nil when it had already exited and nothing was scanned.
     package let subagents: [SubagentStatus]?
-    /// The lead's plan as its run records now read. Nil means there are none.
+    /// The session's reports as its run records now read. Nil means there are none.
     package let coordination: LeadCoordination?
     /// Whether the records were read at all. A session handed no tasks has none to read, and
     /// its coordination must be left as it is rather than cleared by a nil above.

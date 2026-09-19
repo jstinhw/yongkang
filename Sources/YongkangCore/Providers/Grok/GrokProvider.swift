@@ -15,7 +15,7 @@ package struct GrokProvider: AgentProvider {
     package var skillPrefix: String { "/" }
 
     /// `--session-id` like Claude Code; the commit rules are denied one `--deny` at a time.
-    package func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String] {
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
         let denied = AgentCommand.commitRules.map { "--deny \(AgentCommand.quoted($0))" }
         let words: [String?] = [
             noCommit ? denied.joined(separator: " ") : nil,

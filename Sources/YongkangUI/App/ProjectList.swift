@@ -15,7 +15,11 @@ package struct ProjectList: View {
     /// What those changes mean, derived by the model rather than here: this column redraws on
     /// every poll, and `ChangeSummary.of` walks every card and every run record.
     let summary: ChangeSummary
-    let assign: ([NotebookCard]) -> Void
+    /// The toolbar's agent, which a project's context menu assigns to first, and what the
+    /// shell found, so the other agents are offered but a missing one cannot be picked.
+    let agent: AgentKind
+    let found: Set<AgentKind>?
+    let assign: ([NotebookCard], AgentKind) -> Void
     let closeSession: (CodeSession) -> Void
     /// Sends a notebook entry to the Trash — the only way work leaves the board.
     let remove: (NotebookCard) -> Void
@@ -34,7 +38,9 @@ package struct ProjectList: View {
         showDone: Bool,
         changes: [FileChange],
         summary: ChangeSummary,
-        assign: @escaping ([NotebookCard]) -> Void,
+        agent: AgentKind,
+        found: Set<AgentKind>?,
+        assign: @escaping ([NotebookCard], AgentKind) -> Void,
         closeSession: @escaping (CodeSession) -> Void,
         remove: @escaping (NotebookCard) -> Void,
         projects: [Project],
@@ -47,6 +53,8 @@ package struct ProjectList: View {
         self.showDone = showDone
         self.changes = changes
         self.summary = summary
+        self.agent = agent
+        self.found = found
         self.assign = assign
         self.closeSession = closeSession
         self.remove = remove
@@ -257,11 +265,11 @@ package struct ProjectList: View {
             let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
             cardRow(card, route: .project(card.id))
                 .contextMenu {
-                    Button("Assign all tasks to Engineering Lead") { assign(tasks) }
-                        .disabled(
-                            tasks.allSatisfy {
-                                $0.status == "done" || project.assignedTaskIDs.contains($0.id)
-                            })
+                    let finished = tasks.allSatisfy { $0.status == "done" || project.assignedTaskIDs.contains($0.id) }
+                    Button("Assign all tasks to \(agent.displayName)") { assign(tasks, agent) }
+                        .disabled(finished || found?.contains(agent) == false)
+                    OtherAgentMenu(title: "Assign all tasks to", agent: agent, found: found) { assign(tasks, $0) }
+                        .disabled(finished)
                     menu(for: card)
                 }
         }
@@ -288,7 +296,7 @@ package struct ProjectList: View {
         CardMenu(card: card, busy: isBusy(card), remove: remove)
     }
 
-    /// A project is busy while any of its tasks is out with a lead.
+    /// A project is busy while any of its tasks is out with a session.
     private func isBusy(_ card: NotebookCard) -> Bool {
         guard card.kind == .project else { return project.assignedTaskIDs.contains(card.id) }
         return project.cards.contains {
@@ -342,7 +350,7 @@ package struct ProjectList: View {
         }
     }
 
-    /// A standing member of the Engineering Lead's team — a name and the skill it runs.
+    /// A standing member of the project's team — a name and the skill it runs.
     /// Not a session: opening one reads the agent itself, not a transcript.
     private func teamRow(_ member: TeamMember) -> some View {
         let route = Route.member(member.name)
@@ -387,7 +395,7 @@ package struct ProjectList: View {
                         .foregroundStyle(session.exited ? Theme.tx4 : Theme.tx2)
                         .frame(width: 24, height: 24)
                 } else {
-                    RoleTile(role: session.isEngineeringLead ? "lead" : session.title, size: 24)
+                    RoleTile(role: session.holdsTasks ? "work" : session.title, size: 24)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(session.title).font(Typography.body(.medium))
@@ -419,7 +427,7 @@ package struct ProjectList: View {
 
     private func subtitle(of session: CodeSession) -> String {
         guard let agent = session.agent else { return session.exited ? "exited" : "service" }
-        guard session.isEngineeringLead else {
+        guard session.holdsTasks else {
             return session.exited ? "exited" : agent.displayName
         }
         let running = session.activeSubagents.count
@@ -441,8 +449,8 @@ package struct ProjectList: View {
                         Text(subagent.displayName).font(Typography.body(.medium))
                             .foregroundStyle(selection == route ? Theme.tx : Theme.tx2)
                             .lineLimit(1)
-                        // The label underneath is still the link to the task: the lead names
-                        // every subagent `<task-id>-<skill>`, and that is what matches it back.
+                        // The label underneath is still the link to the task: a session names
+                        // every subagent after its task id, and that is what matches it back.
                         Text(subagent.description).font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                             .lineLimit(1).truncationMode(.middle)
                     }
@@ -466,7 +474,7 @@ package struct ProjectList: View {
             reviewRow(
                 task,
                 detail: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
-                    + (task.reviews.isEmpty ? "no QA record" : "QA passed"))
+                    + (task.verification.isEmpty ? "not verified" : "verified"))
         }
         if !flight.isEmpty {
             group("With the agents", "\(flight.count)")

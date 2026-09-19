@@ -10,12 +10,12 @@ struct ProjectDetail: View {
     /// This project's repos and what runs under each, detected by the poll. Never read from
     /// disk here: the page draws them.
     let repos: [ServicePlan]
-    /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
-    /// pickable for a new batch.
+    /// Tasks a still-open session already has — shown as WIP and not pickable for a new batch.
     let assigned: Set<String>
     let showDone: Bool
     let open: (URL) -> Void
-    let assign: ([NotebookCard]) -> Void
+    let agents: AgentChoice
+    let assign: ([NotebookCard], AgentKind) -> Void
     let run: (NotebookCard) -> Void
     /// Opens a task's own page — separate from picking it, which the ring does.
     let openTask: (NotebookCard) -> Void
@@ -236,7 +236,7 @@ struct ProjectDetail: View {
     private var assignBar: some View {
         ActionBar {
             if pickedTasks.isEmpty {
-                Text("Click a task's ring, or Pick all, to hand this project to a lead.")
+                Text("Click a task's ring, or Pick all, to hand this project to an agent.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - pickedTasks.count
@@ -255,15 +255,7 @@ struct ProjectDetail: View {
             Button("Clear") { picked.removeAll() }
                 .buttonStyle(.consoleGhost)
                 .disabled(picked.isEmpty)
-            Button {
-                assign(batch)
-            } label: {
-                Label(
-                    "Assign to Engineering Lead",
-                    systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            .buttonStyle(.consolePrimary)
-            .disabled(batch.isEmpty)
+            AssignButton(title: "Assign", choice: agents, disabled: batch.isEmpty) { assign(batch, $0) }
         }
     }
 

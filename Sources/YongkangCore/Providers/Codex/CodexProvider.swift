@@ -17,9 +17,9 @@ package struct CodexProvider: AgentProvider {
     package var systemImage: String { "chevron.left.forwardslash.chevron.right" }
     package var skillPrefix: String { "$" }
 
-    /// Only the prompt: Codex has no `--session-id`, no deny flag and no brief mode. A prompted
+    /// Only the prompt: Codex has no `--session-id`, and no deny flag. A prompted
     /// session's id rides at the end of the prompt instead, as `marker`.
-    package func launch(prompt: String?, sessionID: UUID?, brief: Bool, noCommit: Bool) -> [String] {
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
         prompt.map { text in [AgentCommand.quoted(sessionID.map { "\(text)\n\n\(Self.marker($0))" } ?? text)] } ?? []
     }
 

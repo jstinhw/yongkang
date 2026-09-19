@@ -8,7 +8,7 @@ import YongkangCore
 /// worth reading. A run opens when you click it, so nothing is lost; it is just not all
 /// shouted at once.
 ///
-/// Shared by every agent the console can watch: a dispatched subagent and the lead that
+/// Shared by every agent the console can watch: a dispatched subagent and the session that
 /// dispatched it are the same kind of file and read the same way.
 struct TranscriptTimeline: View {
     let lines: [TranscriptLine]

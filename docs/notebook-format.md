@@ -101,14 +101,14 @@ agent must rely on into durable memory.
 
 Ordinary sessions append one handoff record with an RFC-3339 timestamp in the
 filename and frontmatter, then a brief and Handoff, Completed, Verification,
-Changed and Learned sections as applicable. Engineering Lead sessions keep one
-mutable `<session-id>-coordination.md` plan and one
-`<session-id>-work-<work-id>.md` record per subtask attempt, all `kind: run`.
-The engineering-lead skill defines their flat frontmatter: dependencies, model,
-estimates, observed usage, status, report and checkpoint. Only that lead writes
-its coordination records. Work states queued/running/blocked/review/done/failed
-are separate from task states; a returned build awaits independent QA. These
-records stay out of notebook navigation and appear on the lead dashboard.
+Changed and Learned sections as applicable. A session assigned tasks keeps one
+`<session-id>-work-<work-id>.md` report per attempt at a task, `kind: run`, where
+the work id is the task id with `-2`, `-3` for a later attempt. Its flat frontmatter
+names the `session`, `task`, `work_id`, `title`, `status`, the `paths` it changed,
+a one-line `report`, `started_at` and `finished_at`; its body is `## Result` and
+`## Verification`, and `## Change request` quotes what the user sent back. Work
+states running/blocked/done/failed are separate from task states. These records
+stay out of notebook navigation and appear on the session's work board and in Review.
 Keep raw transcripts outside the notebook. Never store secrets, environment
 values or machine-local transcript paths.
 

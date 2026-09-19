@@ -8,11 +8,11 @@ import Testing
         members.map { [$0.name, $0.skills.joined(separator: ","), $0.owns] }
     }
 
-    private let mobileDev = TeamMember(
-        name: "mobile-dev", skills: ["frontend-dev"],
-        owns: "Native app screens", notes: "Ships the iOS target.")
+    private let brandDesigner = TeamMember(
+        name: "brand-designer", skills: ["designer"],
+        owns: "Marketing screens", notes: "Works from the brand kit.")
 
-    // The team the lead routes by: shipped defaults, then `.notebook/team/` files win.
+    // The team work is routed by: shipped defaults, then `.notebook/team/` files win.
     @Test func shippedRosterThenFilesWin() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -25,19 +25,19 @@ import Testing
             "seeding writes the shipped roster verbatim")
         Team.seedIfAbsent(root: root)
         #expect(Team.load(root: root).count == Team.defaults.count, "seeding a populated folder is a no-op")
-        try Team.write(mobileDev, root: root)
+        try Team.write(brandDesigner, root: root)
         let roster = Team.load(root: root)
         #expect(
             roster.contains {
-                $0.name == "mobile-dev" && $0.skills == ["frontend-dev"]
-                    && $0.notes == "Ships the iOS target."
+                $0.name == "brand-designer" && $0.skills == ["designer"]
+                    && $0.notes == "Works from the brand kit."
             },
             "a hand-written agent file joins the roster, body and all")
         #expect(roster.count == Team.defaults.count + 1)
     }
 
-    // Who a running agent is: the lead names it `<task-id>-<skill>`, and the skill in
-    // that name is what puts a person's face on every screen that shows the agent.
+    // Who a running agent is: a subagent named after its skill carries that skill in its
+    // label, and that is what puts a person's face on every screen that shows the agent.
     private func running(_ label: String, _ type: String, in team: [TeamMember] = Team.defaults) -> SubagentStatus {
         SubagentStatus(
             id: label, description: label, agentType: type, running: true,
@@ -54,11 +54,13 @@ import Testing
     }
 
     @Test(arguments: [
-        Identity(label: "edit-todo-frontend-dev", type: "frontend-dev", displayName: "Allen", why: nil),
-        Identity(label: "deploy-to-vercel-sre-dev", type: "sre-dev", displayName: "Chris", why: nil),
+        Identity(label: "design-todo-designer", type: "designer", displayName: "Allen", why: nil),
         Identity(
-            label: "qa-dev: edit-todo", type: "qa-dev", displayName: "David",
-            why: "a label the lead punctuated its own way still names the right agent"),
+            label: "designer: edit-todo", type: "designer", displayName: "Allen",
+            why: "a label punctuated its own way still names the right agent"),
+        Identity(
+            label: "deploy-to-vercel", type: "general-purpose", displayName: "general-purpose",
+            why: "a subagent named after its task, with no skill, is nobody on the team"),
         Identity(
             label: "Compact conversation", type: "general-purpose", displayName: "general-purpose",
             why: "an agent no one on the team owns keeps its own name"),
@@ -72,20 +74,20 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let root = NotebookFormat.root(in: tmp)
         Team.seedIfAbsent(root: root)
-        try Team.write(mobileDev, root: root)
+        try Team.write(brandDesigner, root: root)
         let roster = Team.load(root: root)
 
         #expect(
-            running("edit-todo-frontend-dev", "frontend-dev").named(in: roster).member == "Allen",
+            running("design-todo-designer", "designer").named(in: roster).member == "Allen",
             "a hand-added agent sharing a skill never outranks the one shipped with it")
     }
 
     // Codex nicknames a thread it spawns; the skill in the label is what the run is
     // filed under, so the tile has a colour and the ledger row groups under a person.
     @Test func codexNicknameNeverSurvivesAsARole() {
-        let nicknamed = running("render_task_groups_frontend_dev", "Dewey")
+        let nicknamed = running("design_task_groups_designer", "Dewey")
         #expect(
-            nicknamed.displayName == "Allen" && nicknamed.agentType == "frontend-dev",
+            nicknamed.displayName == "Allen" && nicknamed.agentType == "designer",
             "a provider's nickname never survives as an agent's role")
     }
 

@@ -29,55 +29,55 @@ import Testing
         return String(data: data, encoding: .utf8) ?? ""
     }
 
-    // Picked tasks reach the lead as links, without duplicating their page descriptions.
-    @Test func pickedTasksReachTheLeadAsLinks() throws {
+    // Picked tasks reach the agent as links, without duplicating their page descriptions,
+    // with what the app reads back: its session id, a report per task, and no commits.
+    @Test func pickedTasksReachTheAgentAsLinks() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let picked = try pickedTasks(in: tmp)
         try #require(picked.count >= 2)
-        let leadID = UUID()
-        let brief = NotebookFormat.engineeringPrompt(tasks: picked, sessionID: leadID, agent: .claude)
+        let sessionID = UUID()
+        let id = sessionID.uuidString.lowercased()
+        let brief = NotebookFormat.workPrompt(tasks: picked, sessionID: sessionID)
 
-        #expect(
-            brief.contains(leadID.uuidString.lowercased()),
-            "a lead has to know its own session id to route a block's answer back")
-        #expect(brief.contains("engineering-lead"), "task batches invoke the dispatcher skill")
+        #expect(brief.contains("Session id: \(id)"), "a block or demo has to name the session waiting on it")
         for task in picked {
             #expect(brief.contains(task.id) && !brief.contains(task.title))
             #expect(
                 brief.contains(".notebook/tasks/\(task.url.deletingPathExtension().lastPathComponent).md"),
-                "the lead needs a path it can open from the project root")
+                "the agent needs a path it can open from the project root")
         }
         #expect(
-            brief.contains("Session id: \(leadID.uuidString.lowercased())"),
-            "the lead needs its session id for blocks")
+            brief.contains(".notebook/runs/\(id)-work-<work id>.md") && brief.contains("## Verification"),
+            "each task's report is filed where Review reads it, with how it was checked")
+        #expect(brief.contains("Never stage, commit"), "the user commits each task from Review")
+        #expect(!brief.contains("designer"), "no design task, no designer")
         let echoed = try echo(AgentCommand.quoted(brief))
         #expect(echoed == brief, "task brief mangled by the shell")
     }
 
-    // A follow-up batch reinvokes the same dispatcher with the same task detail.
-    @Test func followUpBatchUsesTheSameDispatcher() throws {
-        let tmp = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        let picked = try pickedTasks(in: tmp)
-        let follow = NotebookFormat.additionalTasksPrompt(tasks: picked, sessionID: UUID(), agent: .claude)
-
-        for task in picked {
-            #expect(follow.contains(task.id) && !follow.contains(task.title))
-        }
-        #expect(follow.contains("engineering-lead"), "follow-ups use the dispatcher skill too")
+    // A design task is the one thing still handed to a skill, and it gates what waits on it.
+    @Test func designTasksGoToTheDesigner() throws {
+        let design = NotebookCard(
+            id: "design-home", url: URL(fileURLWithPath: "/p/.notebook/tasks/design-home.md"),
+            kind: .task, title: "Design the home page", status: "todo", project: nil, dependsOn: [],
+            designer: "Allen")
+        let brief = NotebookFormat.workPrompt(tasks: [design], sessionID: UUID())
+        #expect(
+            brief.contains("`designer` skill") || brief.contains("designer skill at"),
+            "design work follows the designer skill")
+        #expect(brief.contains("until I approve its demo"))
     }
 
-    // The always-on lead: an empty batch is a standby brief, still carrying the id.
-    @Test func emptyBatchIsAStandbyBrief() throws {
-        let leadID = UUID()
-        let standby = NotebookFormat.engineeringPrompt(tasks: [], sessionID: leadID, agent: .claude)
-        #expect(
-            standby.contains("engineering-lead") && standby.contains("stand by"),
-            "no tasks means the lead confirms the team and waits")
-        #expect(standby.contains("Session id: \(leadID.uuidString.lowercased())"))
-        let echoed = try echo(AgentCommand.quoted(standby))
-        #expect(echoed == standby, "standby brief mangled by the shell")
+    // A change request with no session left on the task starts a fresh one with the comments.
+    @Test func changeRequestCarriesTheComments() throws {
+        let task = NotebookCard(
+            id: "wire-auth", url: URL(fileURLWithPath: "/p/.notebook/tasks/wire-auth.md"),
+            kind: .task, title: "Wire auth", status: "done", project: nil, dependsOn: [])
+        let asked = "Changes requested on wire-auth — \"Wire auth\"."
+        let brief = NotebookFormat.workPrompt(tasks: [task], sessionID: UUID(), message: asked)
+        #expect(brief.contains(asked) && brief.contains("wire-auth"))
+        #expect(try echo(AgentCommand.quoted(brief)) == brief, "change request mangled by the shell")
     }
 
     // Incubate mode: the app writes no agent, the session does — so the prompt is the

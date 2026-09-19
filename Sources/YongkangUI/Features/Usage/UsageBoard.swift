@@ -311,7 +311,7 @@ package struct UsageBoard: View {
 
     // MARK: - Every run
 
-    /// One row per run — a session, or one dispatch of a specialist. The panel beside it
+    /// One row per run — a session, or one subagent it dispatched. The panel beside it
     /// sums these by who they belong to; this is the list you click through to a transcript.
     private var runs: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -320,7 +320,7 @@ package struct UsageBoard: View {
                 note(
                     spends.isEmpty
                         ? "No agent has a transcript on disk yet. Assign work on the board and "
-                            + "the lead's specialists show up here as they run."
+                            + "its agents show up here as they run."
                         : "No agent spent anything in the \(range.caption).")
             } else {
                 VStack(spacing: 0) {
@@ -344,7 +344,7 @@ package struct UsageBoard: View {
                     }
                     HStack(spacing: 6) {
                         // The run's own label, when it says more than the name above does —
-                        // which dispatch of a specialist this row is.
+                        // which dispatch of a subagent this row is.
                         if spend.name != person(spend) {
                             Text(spend.name).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                                 .lineLimit(1).truncationMode(.middle)
@@ -413,7 +413,7 @@ package struct UsageBoard: View {
         }
     }
 
-    /// Spend by who it belongs to rather than by which run spent it: a specialist
+    /// Spend by who it belongs to rather than by which run spent it: a team member
     /// dispatched five times is one member of the team spending five times, and their name
     /// is the number worth reading. Split by provider underneath, because the same agent
     /// runs under either CLI and the two plans are metered apart.
@@ -465,11 +465,10 @@ package struct UsageBoard: View {
         }
     }
 
-    /// Whose spend a run is. A specialist is the team member whose skill it ran; a session
-    /// is itself, except a lead — the console numbers a second one, and both are the lead.
+    /// Whose spend a run is. A team member's subagent is that member, by the skill it ran;
+    /// anything else is itself.
     private func person(_ spend: AgentSpend) -> String {
-        if spend.role == AgentUsage.leadRole { return "Engineering Lead" }
-        return Team.running(spend.role, in: project.team)?.member.name ?? spend.name
+        Team.running(spend.role, in: project.team)?.member.name ?? spend.name
     }
 
     // MARK: - Shared

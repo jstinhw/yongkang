@@ -1,14 +1,18 @@
 import Foundation
 
 extension NotebookFormat {
+    /// Where anything the user has to look at goes. Not every CLI can publish an artifact,
+    /// and a file path in a terminal is something the user has to go and open.
+    private static let page =
+        "an artifact if you can publish one, otherwise one HTML file in the system temp directory that you open for me"
+
     /// How every plan reaches the user's eyes — a new notebook, a described feature, a
     /// review's next move — so setup and Product draw the same map. A graph, not the draft's
     /// lists, because the dependencies are what the user reviews; Mermaid, because any agent
     /// writes it and it lays the arrows out itself.
     private static let planGraph = """
         Whenever a plan with projects and tasks is ready for me under Blocks, and each time it
-        changes, show it to me as a graph: an artifact if you can publish one, otherwise one
-        HTML file in the system temp directory that you open for me. Never ask me to open files.
+        changes, show it to me as a graph: \(page). Never ask me to open files.
 
         Draw it with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
         roadmap entry holding its projects, a subgraph per project holding its tasks, each task
@@ -97,34 +101,68 @@ extension NotebookFormat {
         }.joined(separator: "\n")
     }
 
-    /// The reusable skill owns orchestration; the opening prompt only carries the batch.
-    /// The session id goes in so a block this lead writes says who is waiting on it —
-    /// with two leads running, the answer has to come back to the right one. An empty
-    /// batch is a lead started with no work: it confirms the team and waits.
-    package static func engineeringPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
-        let id = "Session id: \(sessionID.uuidString.lowercased())"
-        let batch =
-            tasks.isEmpty
-            ? "\(id)\n(No tasks yet — stand by: confirm the team roster and wait for a batch.)"
-            : "\(id)\n\(taskList(tasks))"
-        return agent.skill("engineering-lead", arguments: batch)
-    }
+    /// What an assigned session is told: the tasks, and the few things the app reads back —
+    /// status, a report per task, blocks, no commits. How to do the work is left to the
+    /// agent; one task is one session, and several are its to split among its own subagents.
+    ///
+    /// The session id goes in so a block or demo says who is waiting on it, and so a report
+    /// is filed under the session that wrote it. The report's shape is what Review reads:
+    /// `paths` is what lets approving one task commit only its files.
+    package static func workPrompt(tasks: [NotebookCard], sessionID: UUID, message: String = "") -> String {
+        let id = sessionID.uuidString.lowercased()
+        let designer =
+            BundledSkills.url("designer").map { "the designer skill at `\($0.path)`" } ?? "the `designer` skill"
+        let design =
+            tasks.contains(where: \.isDesignWork)
+            ? "\nA task with `designer:` set is design work: follow \(designer) for it, and start "
+                + "nothing that depends on it until I approve its demo.\n"
+            : ""
+        let asked = message.isEmpty ? "" : "\n\(message)\n"
+        return """
+            Build \(tasks.count == 1 ? "this task" : "these tasks") from the notebook in `\(folderName)/`.
 
-    /// A change request with no lead left to type it into: a fresh lead gets the task and
-    /// the user's comments together, and the skill tells it to read the earlier records.
-    package static func changeRequestPrompt(
-        task: NotebookCard, message: String, sessionID: UUID,
-        agent: AgentKind
-    ) -> String {
-        agent.skill(
-            "engineering-lead",
-            arguments: "Session id: \(sessionID.uuidString.lowercased())\n"
-                + "\(taskList([task]))\n\n\(message)")
-    }
+            \(taskList(tasks))
+            Session id: \(id)
+            \(asked)
+            Read each task file, what it depends on and its project's memory; the Done when list
+            is the contract. With several tasks, go in `depends_on` order and run independent ones
+            at once with your own subagents if you have them — one writer per file, each subagent
+            named after its task id. Set a task `status: active` when you start it and `done` once
+            you have checked every item of its Done when.
+            \(design)
+            When only I can unblock something — an account, a secret, a payment — write
+            `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`, `session: \(id)`,
+            `task`, `title`, `url`, `action`, `created` and `updated`, then `## Needed from you` and
+            the `## Steps` to get there. Carry on with the rest until I say it is unblocked.
 
-    /// Reinvoke the same dispatcher for a later batch in the existing lead session.
-    package static func additionalTasksPrompt(tasks: [NotebookCard], sessionID: UUID, agent: AgentKind) -> String {
-        engineeringPrompt(tasks: tasks, sessionID: sessionID, agent: agent)
+            Never stage, commit, push, stash or switch branches: I review each task and commit it.
+
+            Report each task in `\(folderName)/runs/\(id)-work-<work id>.md`, where the work id is
+            the task id, with `-2`, `-3` for a later attempt at it:
+
+                ---
+                kind: run
+                session: \(id)
+                task: <task id>
+                work_id: <work id>
+                title: "<what you did, in a few words>"
+                status: running | blocked | done | failed
+                paths: [<every file you changed, repo-relative>]
+                report: "<one line>"
+                started_at: <RFC-3339>
+                finished_at: <RFC-3339>
+                ---
+
+                ## Result
+                What changed that I can see or check.
+
+                ## Verification
+                The commands you ran and what they printed.
+
+            When you stop — all done, or waiting on me — show me the report as a page: \(page).
+            One section per task: its status, what changed, how you checked it, the files, the
+            calls you made, and what is left. Put what needs me first.
+            """
     }
 
     /// Product writes its session id into the Blocks notification, making that row a link
@@ -139,17 +177,19 @@ extension NotebookFormat {
         agent.skill("product", arguments: arguments) + "\n\n" + planGraph
     }
 
-    /// Opens the session that walks the user through one block — a forward-deployed
-    /// engineer, whose skill owns how to guide. The prompt only says which block, because
-    /// the file already carries the rest: SRE's step-by-step procedure to deliver one step
-    /// at a time, and the way back — setting `status: done` in it releases the session
-    /// waiting behind it.
-    /// The resumable prompt for a block. Live proposals route directly to their Product
-    /// transcript; this is also the fallback when that Product session has exited.
+    /// The session that clears one block with the user. The file carries what is needed and
+    /// the steps; the way back is setting `status: done` in it, which the app reads and
+    /// types into the session waiting behind it. A proposal instead goes to Product — live
+    /// ones route to their transcript directly, so this is the fallback when it has exited.
     package static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
-        block.isProposal
-            ? productSkill(relativePath(block.url), agent: agent)
-            : agent.skill("fde-dev", arguments: relativePath(block.url))
+        guard !block.isProposal else { return productSkill(relativePath(block.url), agent: agent) }
+        return """
+            Help me clear the block in `\(relativePath(block.url))`. Do every step that does not need \
+            me first. Then say in a few lines what it unblocks, and take the rest one step at a \
+            time: open the page for that step yourself, give one instruction, wait, and verify it \
+            before the next. Never echo a secret I paste or write one anywhere the repo tracks. \
+            When it is done, set the block's `status: done` with a one-line `resolution`.
+            """
     }
 
     /// Incubate mode's opening prompt: the description of an agent that does not exist

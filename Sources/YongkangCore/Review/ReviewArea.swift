@@ -28,10 +28,10 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
     }
 
     /// Rules in order, first match wins: records, tests, database, config, API, frontend,
-    /// then the owning worker's skill. Tests go before the database so a test that seeds
+    /// then the owning agent's skill. Tests go before the database so a test that seeds
     /// rows reads as the test it is.
     /// ponytail: name and folder heuristics, not a parser — a repo with its own layout gets
-    /// the skill fallback, which is the lead's own routing and rarely far off.
+    /// the skill fallback, and a report with no skill falls to Other.
     package static func of(_ path: String, skill: String = "", diff: [DiffLine] = []) -> ReviewArea {
         let lower = path.lowercased()
         let folders = Set(lower.split(separator: "/").dropLast().map(String.init))
@@ -126,9 +126,8 @@ package struct ReviewDraft: Equatable {
 
     package var isEmpty: Bool { comments.isEmpty && note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    /// Typed into the lead's terminal, so it opens with the exact words the lead skill
-    /// listens for and closes with what to do — the lead routes each comment to the owner
-    /// of that file.
+    /// Typed into the session that holds the task, or opening a fresh one, so it closes with
+    /// what to do: the comments go on the record beside the attempt that answers them.
     package func message(taskID: String, title: String) -> String {
         var lines = ["Changes requested on \(taskID) — \"\(title)\"."]
         let said = note.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -142,8 +141,8 @@ package struct ReviewDraft: Equatable {
         }
         lines += [
             "",
-            "Quote these under ## Change request in the new attempt's Work file, send them to the "
-                + "owner of each file, rerun QA, and mark the task done again. Do not commit.",
+            "Quote these under ## Change request in a new attempt's report, make the changes, check "
+                + "the Done when again, and mark the task done again. Do not commit.",
         ]
         return lines.joined(separator: "\n")
     }

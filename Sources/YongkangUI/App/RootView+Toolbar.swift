@@ -106,7 +106,7 @@ extension RootView {
             addMenu(for: project)
             let watched = model.selectedAgent(in: project) ?? model.selectedSubagent(in: project)?.session
             if let watched, model.selectedSubagent(in: project) == nil {
-                let panes = AgentPane.cases(lead: watched.isEngineeringLead)
+                let panes = AgentPane.cases(holdsTasks: watched.holdsTasks)
                 Picker("", selection: agentPane(watched)) {
                     ForEach(panes) { Text($0.rawValue).tag($0) }
                 }

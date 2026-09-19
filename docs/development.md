@@ -68,7 +68,7 @@ for.
      but nothing is staged or committed.
    - `.notebook/team/` is only written when you enter a project that already has a
      notebook. Leave and come back: **Go → All Projects (⌘[)**, then click the project's
-     card. **Agents** now lists five members under **Team**.
+     card. **Agents** now lists one member, Allen, under **Team**.
 
 ### Assign
 
@@ -76,47 +76,48 @@ for.
    Tasks further down the chain are one-line rows. Clicking toggles the pick.
    - The card gets an accent outline, and the bottom bar reads "1 picked". If the task
      waits on other tasks, the bar adds "· N blockers pulled in".
-6. Click **Assign to Engineering Lead**. If the batch includes a design task (one with
+6. Beside **Assign** is the agent it assigns to, starting on the toolbar's. Pick a different
+   one there, then click **Assign**. If the batch includes a design task (one with
    `designer:` set), the button reads **Assign — design first** instead.
-   - The window switches to **Agents** and opens the live terminal of a new
-     **Engineering Lead** session. Its row reads "1 task · 0 running".
-   - The toolbar has an **Agents | Session** switch. **Agents** opens the lead's
-     coordination dashboard.
+   - The window switches to **Agents** and opens the live terminal of a new session on the
+     agent you picked, named after the task. Its row reads "1 task · 0 running".
+   - The toolbar's agent is unchanged.
+   - The toolbar has an **Agents | Session** switch. **Agents** opens the session's work board.
    - Back on the board, the card has a **wip** pill and can't be picked again.
-   - Two other ways in: the ↗ on a card opens the task page, which has its own
-     **Assign to Engineering Lead** button; right-clicking a project row gives
-     **Assign all tasks to Engineering Lead**.
+   - Two other ways in: the ↗ on a card opens the task page, which has its own picker and
+     **Assign** button; right-clicking a project row gives **Assign all tasks to <agent>**
+     and an **Assign all tasks to** submenu with the others.
 
 ### Subagent Check
 
-7. Wait for the lead to dispatch its first specialist.
-   - A row appears under **Engineering Lead** in the Agents list, named
-     `<task-id>-<subtask>-<attempt>-<role>`, with a live dot. The Agents rail icon gets an
+7. Assign a project with several tasks, and wait for the session to start a subagent.
+   - A row appears under the session in the Agents list, named after its task id, with a
+     live dot. *(Agent behaviour: a session may do small batches itself.)* The Agents rail icon gets an
      accent dot.
    - Open the task's page (↗ on its card). The inspector's **Working on it** section lists
-     that specialist with a **Running** pill.
+     that subagent with a **Running** pill.
 8. Click that entry under **Working on it**, or the subagent's row in the Agents list.
    - The window switches to **Agents**. The window's title becomes the subagent's name, and a
      **Parent session** button appears.
-   - A notice over the lead's terminal reads "Opening child agent…". Yongkang types `/tasks`
+   - A notice over the session's terminal reads "Opening child agent…". Yongkang types `/tasks`
      (Claude Code) or `/subagents` (Codex), moves down to the matching row and presses
      Return. The child's live view opens.
    - If it can't find the row, the notice reads "Could not select this child
      automatically. Select it in the CLI picker below." or "Child not found in the CLI
      picker. Select it below if it is still available." Pick the row by hand.
-   - If you had typed something into the lead's prompt first, the notice reads "Submit or
+   - If you had typed something into the session's prompt first, the notice reads "Submit or
      clear the CLI draft before switching agents."
    - *(Unverified: `ChildAgentPicker` recognises the picker from the text on screen, as each
      provider's `childView` describes it. It hasn't been checked against Claude Code 2.1.272 or
      Codex 0.154.0.)*
 9. Click **Parent session**.
-   - You're back in the lead's own view. Claude Code gets Esc to close the child view;
+   - You're back in the session's own view. Claude Code gets Esc to close the child view;
      Codex gets `/subagents` again, and Yongkang selects **Main [default]**.
 
 ### Block
 
 10. Wait for an agent to write `.notebook/blocks/<slug>.md`, or force a block by creating
-    this file yourself while the lead is running:
+    this file yourself while the session is running:
 
     ```markdown
     ---
@@ -130,43 +131,43 @@ for.
 
     Keep the `status:` line: **Mark resolved** rewrites that exact line, and does nothing
     without it. Because there's no `session:` field, the block goes to the newest running
-    Engineering Lead.
+    session holding that task.
     - The Blocks rail icon gets an amber dot, on the same watch as step 4.
     - **Blocks** lists the block under **Waiting on you**, with "holds <task-id>" under its
       title.
-    - Its page shows a **waiting on you** pill and "Engineering Lead is waiting — holds up
+    - Its page shows a **waiting on you** pill and "<session title> is waiting — holds up
       <task title>". The inspector shows **Holds up**, **Waiting agent** with a **blocked**
       pill, and the notice that no secret is echoed back.
     - The bottom bar has **Mark resolved** and **Do it now**.
 11. Click **Mark resolved**.
     - The file's status line becomes `status: done`.
-    - On the next read of the file, the window switches to **Agents** on the lead and
+    - On the next read of the file, the window switches to **Agents** on the session and
       submits `Unblocked: Smoke test gate. Continue from where you stopped.` to it.
     - Turn on **Completed** in the toolbar, or **View → Show Completed**. The block is
       listed under **Resolved**.
-    - **Do it now** would have started an **Unblock Smoke test gate** session with the
-      `fde-dev` skill. *(Agent behaviour: that session explains the gate first, then walks
-      through the block's `## Steps` one at a time.)*
+    - **Do it now** would have started an **Unblock Smoke test gate** session. *(Agent
+      behaviour: that session does what it can itself, then walks through the block's
+      `## Steps` with you one at a time.)*
 
 ### Approve
 
-12. Wait for the lead to finish the task: QA passes it, and the lead sets `status: done` in
-    the task file.
+12. Wait for the session to finish the task: it checks the `Done when`, sets `status: done`
+    in the task file, writes its report and opens a report page for you.
     - The Review rail icon lights green.
     - If no terminal is on screen at that moment, the window opens **Review** on the task by
       itself. If a terminal is up, the window stays where it is, because the terminal has
       the keyboard.
-    - **Review** lists the task under **Waiting for you**, as "N files · QA passed" or
-      "N files · no QA record".
-    - A done task only counts as waiting if the lead's work records list its files in
+    - **Review** lists the task under **Waiting for you**, as "N files · verified" or
+      "N files · not verified".
+    - A done task only counts as waiting if the session's report lists its files in
       `paths`. *(Agent behaviour.)* If they don't, the task isn't under
       **Waiting for you**, its files show as "not claimed by a task" under **All changes**,
       and the only commit button is **Commit all changes**.
 13. Open the task.
     - The header pill reads **Ready for your review**.
-    - The cards, in order: **The task**, **Reviewer**, **What the agents did**,
+    - The cards, in order: **The task**, **How it was checked**, **What the agents did**,
       **Changes by area**, **Feedback for the agents**. There's no diff on this page.
-    - The inspector shows **Verdict** ("QA passed") and **This commit** ("Only this task's
+    - The inspector shows **Verdict** ("Checked by the agent") and **This commit** ("Only this task's
       files and its run records. Nothing is pushed.").
 14. Optional: click a file under **Changes by area**, click a line, type a comment and click
     **Add comment**.
@@ -193,8 +194,9 @@ for.
       view.)*
     - **View → Hide List**, `⌘\`, collapses the list column, and the toolbar's own button
       agrees with it. The item's title flips to **Show List**.
-    - **Agent → Assign to Lead** is lit only while a task page is open for a task that is
-      neither done nor already with a lead. Open a done task: it greys out.
+    - **Agent → Assign Task** and **Assign Task To ▸** are lit only while a task page is open
+      for a task that is neither done nor already with a session. Open a done task: they grey
+      out.
     - **Go → All Projects**, `⌘[`, leaves the project. Every item that needs one is now
       disabled — the rest of File, and all of View, Go and Agent — while
       **File → New Project…** (`⌘N`) and **Open Folder…** (`⌘O`) still work.
@@ -240,7 +242,7 @@ its own `fixture()`, which reads the same folder:
 | Claude Code | `~/.claude/projects/<project path, "/" → "-">/<session-id>.jsonl`, the session's transcript and usage | `ClaudeTranscripts`, `ClaudeCodeProvider.usage` |
 | | `…/<session-id>/subagents/agent-<id>.jsonl` and `agent-<id>.meta.json` | `ClaudeTranscripts.subagents` |
 | | `~/.claude.json`, the cached plan and limits | `AgentUsage.claudeQuota` |
-| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. The first line is `session_meta`; a subagent's `source` carries `subagent.thread_spawn.parent_thread_id`. A lead's rollout is the one whose opening prompt quotes `CodexProvider.marker`. | `CodexTranscripts`, `CodexProvider.usage` |
+| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`. The first line is `session_meta`; a subagent's `source` carries `subagent.thread_spawn.parent_thread_id`. A session's rollout is the one whose opening prompt quotes `CodexProvider.marker`. | `CodexTranscripts`, `CodexProvider.usage` |
 | Grok | `~/.grok/sessions/<percent-encoded project path>/<session-id>/chat_history.jsonl` and `updates.jsonl` | `GrokTranscripts`, `GrokProvider.usage` |
 | Agy | Nothing is read. Agy runs in its live terminal only. | — |
 

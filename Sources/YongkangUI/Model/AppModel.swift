@@ -35,7 +35,7 @@ import YongkangCore
     /// closing the session or its project ends it; nothing on screen does either.
     let terminals: TerminalRegistry
     /// The lines of whichever agent `selection` currently points at — a subagent, or the
-    /// lead itself. Kept apart from `CodeSession.subagents`, which only ever holds each
+    /// session itself. Kept apart from `CodeSession.subagents`, which only ever holds each
     /// one's status, because reading and parsing a whole transcript is only worth doing
     /// for the one actually on screen.
     private(set) var agentTranscript: [TranscriptLine] = []
@@ -185,12 +185,12 @@ import YongkangCore
         selection = .overview
         reload()
         refreshChanges(force: true)
-        // The lead is started by an assignment, not by opening the project — an empty
-        // project opens on Overview. One already running from an earlier batch is still
-        // live, standing by, so the project opens on it.
+        // Work starts from an assignment, not from opening the project — an empty project
+        // opens on Overview. A session still on assigned work is what the project is doing
+        // right now, so it opens on that.
         guard project.hasNotebook else { return }
         Team.seedIfAbsent(root: project.notebookRoot)
-        guard project.sessions.contains(where: { $0.isEngineeringLead && !$0.exited }) else { return }
+        guard project.sessions.contains(where: { $0.holdsTasks && !$0.exited }) else { return }
         section = .agents
         openSectionDefault()
     }
@@ -265,10 +265,10 @@ import YongkangCore
                 && selectedSession(in: project) == nil && selectedMember(in: project) == nil
                 && selection != .usage
             {
-                // A lead first, then any agent — and a service runner only if that is all
+                // Assigned work first, then any agent — and a service runner only if that is all
                 // there is, on its terminal, because it has no transcript to open.
                 selection =
-                    (project.sessions.first { $0.isEngineeringLead }
+                    (project.sessions.first { $0.holdsTasks }
                     ?? project.sessions.first { $0.agent != nil }
                     ?? project.sessions.first)
                     .map { .session($0.id) }
@@ -279,7 +279,7 @@ import YongkangCore
             openReview(in: project)
         case .blocks:
             // A block already open stays open, the way a card or a session does above. This
-            // runs on every section change, so without it opening one block from a lead's
+            // runs on every section change, so without it opening one block from a session's
             // board — or restoring the one you quit on — would slide straight off it onto
             // whichever block happens to be waiting first.
             guard !project.snapshot.blocks.contains(where: { selection == .block($0.id) }) else { return }

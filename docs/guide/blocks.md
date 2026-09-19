@@ -7,18 +7,16 @@ section of the rail — a product proposal waiting for your opinion, a design wa
 your approval, or an agent that
 needs a token, a consent screen, an approval and is sitting there until it has one. The
 row says what is being asked and what it holds up; the button sends it to whoever can act
-on it, which for a proposal is product and for a gate is an engineer.
+on it, which for a proposal is product and for a gate is a session of its own.
 
-A gate is written by the agent that hit it, and it keeps waiting. SRE writes the procedure into
-the block under `## Steps`, addressed to an engineer rather than to you, and asks you
-nothing itself.
+A gate is written by the agent that hit it, and it keeps waiting. It writes the procedure
+into the block under `## Steps` and carries on with whatever does not need it.
 
-`Do it now` starts a forward-deployed engineer whose only job is that gate. It opens no
-browser tab: first it says what is being set up and what it unblocks, and waits for you
-to say go. Then it takes SRE's steps and sits with you through them one at a time — the
-page for this step opened with the instruction that needs it, one reply, the
-configuration and verification done for you between them, and never a secret echoed back
-or written down. You never see the list.
+`Do it now` starts a session whose only job is that gate, on the toolbar's agent. It does
+every step that does not need you first, then says what it unblocks and takes the rest
+with you one step at a time — the page for that step opened for you with the one
+instruction that needs it, verified before the next, and never a secret echoed back or
+written down.
 
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark resolved` if you did it yourself. The app sees it on the

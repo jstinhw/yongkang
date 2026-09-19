@@ -135,7 +135,7 @@ package struct BlockDetail: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Waiting agent")
                     HStack(spacing: 10) {
-                        RoleTile(role: waiting.isEngineeringLead ? "lead" : waiting.title)
+                        RoleTile(role: waiting.holdsTasks ? "work" : waiting.title)
                         Text(waiting.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                         Spacer(minLength: 0)
                         NotebookStyle.pill("blocked", Theme.amber)

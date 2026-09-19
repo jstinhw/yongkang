@@ -24,3 +24,7 @@ checkpoint: API contract agreed.
 report: API ready for QA.
 ---
 Durable details.
+
+## Verification
+
+`swift test` passed.

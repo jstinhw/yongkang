@@ -42,7 +42,7 @@ import Testing
 
     // MARK: - Assign
 
-    @Test func assigningWithNoLeadStartsOneOnTheBatchAndItsBlockers() async throws {
+    @Test func assigningStartsASessionOnTheBatchAndItsBlockers() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
@@ -54,27 +54,27 @@ import Testing
 
         let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .codex))
         let lead = try #require(project.sessions.first)
-        #expect(lead.isEngineeringLead && lead.agent == .codex, "a new lead, on the provider picked in the top bar")
+        #expect(lead.holdsTasks && lead.agent == .codex, "a new session, on the agent picked beside the button")
         #expect(Set(lead.taskIDs) == ["wire-auth", "ship-it"], "the blocker comes along with the task picked")
         #expect(destination == Destination(section: .agents, route: .session(lead.id)))
         #expect(lead.line.contains(lead.id.uuidString.lowercased()), "the prompt names the session it starts")
     }
 
-    @Test func assigningToARunningLeadQueuesAFollowUpAndRoutesToItsSession() async throws {
+    @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth", "Ship it"], in: tmp)
-        let lead = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
+        let first = running("Wire auth", in: project, taskIDs: ["wire-auth"])
 
-        let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .claude))
-        #expect(project.sessions.count == 1, "the running lead is talked to, not duplicated")
-        #expect(project.sessions[0].taskIDs == ["wire-auth", "ship-it"])
-        #expect(destination.section == .agents && destination.route == .session(lead))
-        #expect(destination.input?.contains("Task id: ship-it") == true, "the new batch is typed into its terminal")
+        let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .codex))
+        let second = try #require(project.sessions.last)
+        #expect(second.id != first, "a running session is never handed more work")
+        #expect(second.agent == .codex && second.taskIDs == ["ship-it"] && second.title == "Ship it")
+        #expect(destination == Destination(section: .agents, route: .session(second.id)))
 
         #expect(
             project.assign([try card("wire-auth", in: project)], agent: .claude) == nil,
-            "a task a lead already holds is not assigned again, and there is nowhere to go")
+            "a task a session already holds is not assigned again, and there is nowhere to go")
         #expect(project.assign([], agent: .claude) == nil)
     }
 
@@ -260,13 +260,13 @@ import Testing
             "only the approved task's files went in, as the repo read after the commit shows")
     }
 
-    @Test func sendingATaskBackGoesToTheLeadThatHoldsItOrStartsOne() async throws {
+    @Test func sendingATaskBackGoesToTheSessionThatHoldsItOrStartsOne() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth"], in: tmp)
         let task = SummaryTask(id: "wire-auth", title: "Wire auth", status: "done")
-        let other = running("Engineering Lead", in: project, taskIDs: ["ship-it"])
-        let holder = running("Engineering Lead", in: project, taskIDs: ["wire-auth"])
+        let other = running("Ship it", in: project, taskIDs: ["ship-it"])
+        let holder = running("Wire auth", in: project, taskIDs: ["wire-auth"])
         #expect(project.requestChanges(on: task, agent: .claude) == nil, "nothing written, nothing to send")
 
         let draft = ReviewDraft(note: "Handle an expired token")
@@ -275,20 +275,17 @@ import Testing
         #expect(
             project.requestChanges(on: task, agent: .claude)
                 == Destination(section: .agents, route: .session(holder), input: message),
-            "the comments go to the lead holding the task, not the first one running")
+            "the comments go to the session holding the task, not the first one running")
         #expect(project.reviewDrafts[task.id] == nil, "a draft that was sent is gone")
 
         _ = project.markExited(holder)
         project.reviewDrafts[task.id] = draft
-        #expect(project.requestChanges(on: task, agent: .claude)?.route == .session(other))
-        #expect(project.sessions[0].taskIDs == ["ship-it", "wire-auth"], "a lead that takes it over now holds it")
-
-        _ = project.markExited(other)
-        project.reviewDrafts[task.id] = draft
         let fresh = try #require(project.requestChanges(on: task, agent: .codex))
         let started = try #require(project.sessions.last)
-        #expect(started.isEngineeringLead && started.agent == .codex && started.taskIDs == [task.id])
-        #expect(started.line.contains("Handle an expired token"), "a fresh lead starts with the comments")
+        #expect(
+            started.id != other && started.holdsTasks && started.agent == .codex && started.taskIDs == [task.id],
+            "a session on other work is not handed it; a fresh one starts")
+        #expect(started.line.contains("Handle an expired token"), "a fresh session starts with the comments")
         #expect(fresh == Destination(section: .agents, route: .session(started.id)))
     }
 

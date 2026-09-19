@@ -16,7 +16,7 @@ value is the executable's name on PATH, which `AgentKind.installed` looks for.
 |---|---|---|
 | `kind`, `displayName`, `systemImage` | Identity, and the agent picker's label and icon, which are the row's too | `AgentKind` forwards the last two |
 | `skillPrefix` | What starts a skill in a prompt: `$` for Codex, `/` for the rest | `AgentKind.skillInvocation` |
-| `launch(prompt:sessionID:brief:noCommit:)` | The words after the executable: the session id strategy, the brief flag, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
+| `launch(prompt:sessionID:noCommit:)` | The words after the executable: the session id strategy, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
 | `ask(prompt:)` | The words that make the CLI answer one prompt on stdout and exit: `-p`, or `exec --skip-git-repo-check` for Codex | `ProjectNaming.ask`, which names a described project's folder before its session starts |
 | `transcriptURL(session:project:) async` | The session's own transcript, or nil | `AppModel.reloadAgentTranscript`, `AgentUsage.spends` (through `usageURL`) |
 | `usageURL(session:project:) async` | Where token usage is written. Defaults to the transcript; Grok overrides it | `AgentUsage.spends`, `UsageBoard` |

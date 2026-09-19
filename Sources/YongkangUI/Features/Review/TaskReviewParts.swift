@@ -3,21 +3,19 @@ import YongkangCore
 
 /// One agent's part in a task, in its own words: the work record's `## Result` when it
 /// wrote one, its one-line report when it did not, and — on a later attempt — the user's
-/// comments the lead quoted for it, so a reply reads under the question it answers.
+/// comments quoted for it, so a reply reads under the question it answers.
 struct WorkReport: View {
     let work: LeadWork
     /// The roster name, empty when no roster member runs this skill.
     let name: String
     let cards: [NotebookCard]
-    /// Nil for QA, which owns no files; otherwise a file opens its diff.
+    /// A file opens its diff.
     let openFile: ((String) -> Void)?
-
-    private var isQA: Bool { work.skill.lowercased().contains("qa") }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                RoleTile(role: work.skill, size: 22)
+                RoleTile(role: work.skill.isEmpty ? "work" : work.skill, size: 22)
                 if !name.isEmpty { Text(name).font(Typography.body(.medium)).foregroundStyle(Theme.tx) }
                 Text(work.skill).font(Typography.mono).foregroundStyle(Theme.tx3)
                 Spacer(minLength: 8)
@@ -26,7 +24,7 @@ struct WorkReport: View {
                     Text(minutes < 1 ? "\(Int(minutes * 60))s" : "\(Int(minutes.rounded())) min")
                         .font(Typography.mono).foregroundStyle(Theme.tx3)
                 }
-                verdict
+                NotebookStyle.pill(work.state, NotebookStyle.color(of: work.state), live: work.runtimeRunning == true)
             }
             Text(work.title).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
@@ -60,18 +58,6 @@ struct WorkReport: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(radius: 10, padding: 12, fill: Theme.raised)
-    }
-
-    /// QA's state is a verdict on someone else's work, so it reads as pass or fail; a
-    /// builder's is just where its own work stands.
-    @ViewBuilder private var verdict: some View {
-        if isQA && work.state == "done" {
-            NotebookStyle.pill("pass", Theme.green)
-        } else if isQA && work.state == "failed" {
-            NotebookStyle.pill("fail", Theme.red)
-        } else {
-            NotebookStyle.pill(work.state, NotebookStyle.color(of: work.state), live: work.runtimeRunning == true)
-        }
     }
 
     private var asked: some View {

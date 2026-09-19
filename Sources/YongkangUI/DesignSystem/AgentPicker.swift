@@ -230,3 +230,46 @@ struct OtherAgentMenu: View {
         }
     }
 }
+
+/// What an Assign button needs to offer a choice of agent: the one it starts on — the
+/// toolbar's default — and what the shell found, for the list.
+package struct AgentChoice {
+    let initial: AgentKind
+    let found: Set<AgentKind>?
+    let lookUp: () -> Void
+
+    package init(initial: AgentKind, found: Set<AgentKind>?, lookUp: @escaping () -> Void) {
+        self.initial = initial
+        self.found = found
+        self.lookUp = lookUp
+    }
+}
+
+/// Assign, with the agent it assigns to beside it. Every assignment is a session of its own,
+/// so which CLI runs it is picked where the work is handed over. The pick belongs to this
+/// button and leaves the toolbar's default alone, the way the New Project sheet's does.
+struct AssignButton: View {
+    let title: String
+    let choice: AgentChoice
+    let disabled: Bool
+    let assign: (AgentKind) -> Void
+
+    @State private var chosen: AgentKind?
+
+    var body: some View {
+        let agent = Binding {
+            chosen ?? choice.initial
+        } set: {
+            chosen = $0
+        }
+        AgentPicker(agent: agent, found: choice.found, lookUp: choice.lookUp, purpose: "Agent to assign to")
+            .disabled(disabled)
+        Button {
+            assign(agent.wrappedValue)
+        } label: {
+            Label(title, systemImage: "point.3.connected.trianglepath.dotted")
+        }
+        .buttonStyle(.consolePrimary)
+        .disabled(disabled || choice.found?.contains(agent.wrappedValue) == false)
+    }
+}

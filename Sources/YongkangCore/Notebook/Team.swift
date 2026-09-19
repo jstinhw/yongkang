@@ -1,13 +1,11 @@
 import Foundation
 
-/// One member of the Engineering Lead's team: a name, the skill(s) that are its system
-/// prompt, and a line on what it owns so the lead can route a task to it by name rather
-/// than spawning a general subagent and telling it which skill to load.
+/// One named agent on a project's team: a name, the skill(s) that are its system prompt, and
+/// a line on what it owns, so an agent working a task can hand it to the member that owns
+/// that kind of work.
 ///
 /// Provider-neutral on purpose. The files live in `.notebook/team/`, not `.claude/agents/`
-/// (which only Claude Code reads) — the lead routes by these files whether it is Claude
-/// Code or Codex, and hands each skill to the specialist the same way a top-level session
-/// gets one.
+/// (which only Claude Code reads), so the roster reads the same whichever CLI is working.
 package struct TeamMember: Identifiable, Equatable, Sendable {
     package var name: String
     package var skills: [String]
@@ -27,34 +25,20 @@ package struct TeamMember: Identifiable, Equatable, Sendable {
 package enum Team {
     static let folder = "team"
 
-    /// The roster shipped with the app. Written to `.notebook/team/` the first time a lead
-    /// starts in a project that has a notebook; after that the files on disk are the truth.
+    /// The roster shipped with the app. Written to `.notebook/team/` the first time a project
+    /// with a notebook is opened; after that the files on disk are the truth. Only design has
+    /// a member of its own: the rest of the work goes straight to the coding agent assigned it.
     package static let defaults: [TeamMember] = [
-        // Two skills, in the order they run: Allen settles what a screen looks like and
-        // the user approves it, then Allen builds it.
         TeamMember(
-            name: "Allen", skills: ["designer", "frontend-dev"],
-            owns: "Screens, components, styling, client state — anything the user sees, designed before it is built"),
-        TeamMember(
-            name: "Ben", skills: ["backend-dev"],
-            owns: "Endpoints, schemas, migrations, jobs, server-side auth — anything behind an API"),
-        TeamMember(
-            name: "Chris", skills: ["sre-dev"],
-            owns: "Deploying, hosting, CI, DNS, env vars, secrets, monitoring — anything needing an off-machine account"
-        ),
-        TeamMember(
-            name: "David", skills: ["qa-dev"],
-            owns: "Verifying finished work against its \u{201C}Done when\u{201D} list"),
-        TeamMember(
-            name: "Eric", skills: ["fde-dev"],
-            owns: "Walking the user through a gate — started from Blocks, never dispatched by the lead"),
+            name: "Allen", skills: ["designer"],
+            owns: "Settling what a screen looks like, as a demo you approve before it is built")
     ]
 
     static func directory(in notebookRoot: URL) -> URL {
         notebookRoot.appendingPathComponent(folder)
     }
 
-    /// The roster the app shows and the lead routes by. Files on disk win; with no `team/`
+    /// The roster the app shows and assigned agents route by. Files on disk win; with no `team/`
     /// folder yet, the shipped defaults stand in so the roster is never empty. Shipped
     /// agents keep their canonical order; anything hand-added sorts after them by name.
     package static func load(root: URL) -> [TeamMember] {
@@ -71,7 +55,7 @@ package enum Team {
     }
 
     /// Who is running an agent with this label, and which of their skills it is running.
-    /// The lead names every subagent `<task-id>-<skill>`, so the skill inside the label is
+    /// A subagent named after its skill carries that skill inside the label, which is
     /// what links a live agent back to a person on the roster — and the skill it matched is
     /// worth handing back, because a provider does not always say which one it spawned.
     package static func running(_ label: String, in team: [TeamMember]) -> (member: TeamMember, skill: String)? {

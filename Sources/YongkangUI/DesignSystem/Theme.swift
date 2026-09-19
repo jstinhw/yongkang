@@ -75,10 +75,10 @@ package enum Theme {
     // different hue, so nothing shouts louder than anything else.
 
     static let accent = Color(hex: 0x52A8FF)  // active — an agent is on it
-    static let green = Color(hex: 0x45D8A4)  // done — QA passed
+    static let green = Color(hex: 0x45D8A4)  // done — checked off
     package static let amber = Color(hex: 0xF3B455)  // blocked — waiting on you
-    static let red = Color(hex: 0xFF6F6F)  // failed — QA sent it back
-    static let violet = Color(hex: 0xA98CFF)  // wip — a lead already holds it
+    static let red = Color(hex: 0xFF6F6F)  // failed — its own check failed
+    static let violet = Color(hex: 0xA98CFF)  // wip — a session already holds it
 
     // MARK: - App icon
     //

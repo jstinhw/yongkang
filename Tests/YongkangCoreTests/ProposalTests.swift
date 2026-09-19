@@ -50,14 +50,14 @@ import Testing
         #expect(ready.proposalReady, "only a finalized proposal offers project creation")
     }
 
-    @Test func gateBesideAProposalStillReachesTheFDE() throws {
+    @Test func gateBesideAProposalIsWalkedThroughNotProposed() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let root = try blocksRoot(in: tmp)
 
         let block = try #require(Blocks.load(root: root).first { $0.slug == "github-token" })
         #expect(
-            !block.isProposal && NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("fde-dev"),
-            "a gate still reaches the forward-deployed engineer")
+            !block.isProposal && !NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("product"),
+            "a gate is walked through with the user, not handed to Product")
     }
 }

@@ -18,17 +18,17 @@ package struct NotebookBoard: View {
     let cards: [NotebookCard]
     /// Open demos, which is how a task says a designer is waiting on the user.
     let blocks: [UserBlock]
-    /// Tasks a still-open Engineering Lead session already has — shown as WIP and not
-    /// pickable for a new batch.
+    /// Tasks a still-open session already has — shown as WIP and not pickable for a new batch.
     let assigned: Set<String>
     let showDone: Bool
-    let assign: ([NotebookCard]) -> Void
+    let agents: AgentChoice
+    let assign: ([NotebookCard], AgentKind) -> Void
     let review: () -> Void
     /// Opens a card's own page — separate from picking it, which the rest of the card does.
     let openCard: (NotebookCard) -> Void
     /// Opens the demo waiting on a task, which is the whole point of the gate.
     let openDemo: (UserBlock) -> Void
-    /// Sends a task to the Trash. Off for one a lead already has.
+    /// Sends a task to the Trash. Off for one a session already has.
     let remove: (NotebookCard) -> Void
 
     @State private var selected: Set<String> = []
@@ -38,7 +38,8 @@ package struct NotebookBoard: View {
         blocks: [UserBlock],
         assigned: Set<String>,
         showDone: Bool,
-        assign: @escaping ([NotebookCard]) -> Void,
+        agents: AgentChoice,
+        assign: @escaping ([NotebookCard], AgentKind) -> Void,
         review: @escaping () -> Void,
         openCard: @escaping (NotebookCard) -> Void,
         openDemo: @escaping (UserBlock) -> Void,
@@ -48,6 +49,7 @@ package struct NotebookBoard: View {
         self.blocks = blocks
         self.assigned = assigned
         self.showDone = showDone
+        self.agents = agents
         self.assign = assign
         self.review = review
         self.openCard = openCard
@@ -59,7 +61,7 @@ package struct NotebookBoard: View {
         GeometryReader { geometry in
             // Below this the window cannot carry a fourth column: the inspector folds into
             // the board rather than squeezing the chains into a strip. Same threshold the
-            // lead's board uses, so the two screens fold at the same drag.
+            // work board uses, so the two screens fold at the same drag.
             let narrow = geometry.size.width < 950
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
@@ -186,7 +188,7 @@ package struct NotebookBoard: View {
     }
 
     /// What actually gets shipped: the picks plus the unfinished work they wait on, minus
-    /// anything a still-open lead session already has.
+    /// anything a still-open session already has.
     private var batch: [NotebookCard] {
         NotebookIndex.withBlockers(picked, in: cards, excluding: assigned)
     }
@@ -241,7 +243,7 @@ package struct NotebookBoard: View {
             .buttonStyle(.plain)
             .contextMenu { menu }
         default:
-            // Already out with a lead, or already shipped — not pickable into a batch that
+            // Already out with a session, or already shipped — not pickable into a batch that
             // would just hand it out again.
             if assigned.contains(row.card.id) {
                 card(row, inBatch: inBatch).opacity(0.6).contextMenu { menu }
@@ -357,7 +359,7 @@ package struct NotebookBoard: View {
         .opacity(selected.isEmpty || inBatch ? 1 : 0.32)
         .contentShape(RoundedRectangle(cornerRadius: 11))
         // A card is one thing to read — title, id, lane, pills — rather than six. It is drawn
-        // both inside a picking button and bare, for work already out with a lead, and the
+        // both inside a picking button and bare, for work already out with a session, and the
         // bare one is where this matters most: nothing else would group it.
         .accessibilityElement(children: .combine)
     }
@@ -410,8 +412,8 @@ package struct NotebookBoard: View {
 
     // MARK: - Assign
 
-    /// Design work in a batch changes what the button promises, because the lead hands
-    /// those tasks to a designer, and the engineering tasks behind them wait on the user.
+    /// Design work in a batch changes what the button promises, because the agent hands
+    /// those tasks to a designer, and the tasks behind them wait on the user.
     private var designCount: Int { batch.filter(\.isDesignWork).count }
 
     private var assignBar: some View {
@@ -439,15 +441,10 @@ package struct NotebookBoard: View {
                 Label("Product review", systemImage: "sparkles")
             }
             .buttonStyle(.console)
-            Button {
-                assign(batch)
-            } label: {
-                Label(
-                    designCount > 0 ? "Assign — design first" : "Assign to Engineering Lead",
-                    systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            .buttonStyle(.consolePrimary)
-            .disabled(batch.isEmpty)
+            AssignButton(
+                title: designCount > 0 ? "Assign — design first" : "Assign", choice: agents,
+                disabled: batch.isEmpty
+            ) { assign(batch, $0) }
         }
     }
 
@@ -547,7 +544,7 @@ struct DotGrid: View {
 }
 
 /// The right-click menu on a notebook card, wherever one is shown. Delete is off while an
-/// agent is on the work — pulling the file out from under a running lead only breaks it.
+/// agent is on the work — pulling the file out from under a running session only breaks it.
 struct CardMenu: View {
     let card: NotebookCard
     let busy: Bool

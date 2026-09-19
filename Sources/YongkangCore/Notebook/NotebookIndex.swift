@@ -69,7 +69,7 @@ package enum NotebookIndex {
     }
 
     /// A project is finished when its own status says so, or when every task filed under
-    /// it is done — the engineering lead sets each task's status as QA passes it and
+    /// it is done — the agent sets each task's status as it checks it off, and
     /// nothing ever goes back to write the project's, so the last task is the signal.
     package static func isFinished(_ project: NotebookCard, in cards: [NotebookCard]) -> Bool {
         if project.status == "done" { return true }
@@ -150,9 +150,9 @@ package enum NotebookIndex {
 
     /// The picked tasks plus every unfinished task they wait on, transitively. A project
     /// dependency expands to that project's unfinished tasks: project pages themselves
-    /// cannot be assigned to a specialist. A blocker is part of the job, not a question
-    /// to put to the user. `excluding` keeps a task already claimed by another Engineering
-    /// Lead session out of the batch, whether it was picked directly or would otherwise
+    /// cannot be assigned to an agent. A blocker is part of the job, not a question
+    /// to put to the user. `excluding` keeps a task already claimed by another assigned
+    /// session out of the batch, whether it was picked directly or would otherwise
     /// be pulled in as a blocker. A task already `done` is dropped the same way — there is
     /// nothing left to assign it to do.
     package static func withBlockers(
@@ -163,7 +163,7 @@ package enum NotebookIndex {
 
         // Keep task and unknown ids as written, but turn an unfinished project into the
         // concrete task ids that can finish it. If a project has no work to assign, leave
-        // its id visible so the lead can report the inconsistent notebook instead of
+        // its id visible so the agent can report the inconsistent notebook instead of
         // silently treating it as complete.
         func concrete(_ ids: [String], visiting: Set<String> = []) -> [String] {
             var result: [String] = []

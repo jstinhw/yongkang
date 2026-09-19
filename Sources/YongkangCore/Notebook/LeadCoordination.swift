@@ -1,6 +1,6 @@
 import Foundation
 
-/// The lead's current plan, written beside its run records and refreshed by the app poll.
+/// An assigned session's reports, and its plan when it wrote one, refreshed by the app poll.
 package struct LeadCoordination: Equatable, Sendable {
     package var strategy = ""
     package var parallelLimit: Int? = nil
@@ -39,8 +39,8 @@ package struct LeadCoordination: Equatable, Sendable {
         return result
     }
 
-    /// Every lead's records on disk, by session id. Review reads these rather than the
-    /// sessions open right now: a relaunch or a closed lead must not erase work that is
+    /// Every session's records on disk, by session id. Review reads these rather than the
+    /// sessions open right now: a relaunch or a closed session must not erase work that is
     /// still waiting for the user's approval.
     package static func all(root: URL) -> [UUID: LeadCoordination] { read(root: root, only: nil) }
 
@@ -120,6 +120,7 @@ package struct LeadCoordination: Equatable, Sendable {
             checkpoint: fields["checkpoint"] ?? "",
             report: fields["report"] ?? "",
             result: section("Result", of: text),
+            verification: section("Verification", of: text),
             changeRequest: section("Change request", of: text))
     }
 
@@ -147,7 +148,7 @@ package struct LeadCoordination: Equatable, Sendable {
     }
 
     /// The Markdown under one `## ` heading of a work record, up to the next one — where a
-    /// worker writes what it did and the lead quotes what the user asked for, which is what
+    /// agent writes what it did and quotes what the user asked for, which is what
     /// the review page reads instead of a one-line summary.
     static func section(_ heading: String, of text: String) -> String {
         var lines: [String] = []
@@ -197,7 +198,7 @@ package struct LeadCoordination: Equatable, Sendable {
     }
 }
 
-/// A planned unit stays visible after its subagent returns; only the lead records QA-done.
+/// One attempt at a task, as its report says. It stays visible after the agent returns.
 package struct LeadWork: Identifiable, Equatable, Sendable {
     package var id: String
     package var taskID = ""
@@ -206,7 +207,7 @@ package struct LeadWork: Identifiable, Equatable, Sendable {
     package var model = ""
     package var reason = ""
     package var dependsOn: [String] = []
-    /// The files this worker reported owning, repo-relative. Empty when the lead did not
+    /// The files this agent reported changing, repo-relative. Empty when it did not
     /// record any — the summary then leaves this work's task without a diff of its own
     /// rather than guessing which files were its doing.
     package var paths: [String] = []
@@ -223,11 +224,13 @@ package struct LeadWork: Identifiable, Equatable, Sendable {
     package var contextSource = ""
     package var checkpoint = ""
     package var report = ""
-    /// The body's `## Result`: what the worker says it did, or QA's verdict and evidence.
+    /// The body's `## Result`: what the agent says it did.
     package var result = ""
-    /// The body's `## Change request`: the user's comments the lead quoted for this attempt.
+    /// The body's `## Verification`: the commands the agent ran to check it, and their output.
+    package var verification = ""
+    /// The body's `## Change request`: the user's comments quoted for this attempt.
     package var changeRequest = ""
-    /// Observations stay separate from the lead's reported values and lifecycle state.
+    /// Observations stay separate from the reported values and lifecycle state.
     var measuredTokens: Int? = nil
     package var measuredModel: String? = nil
     var observedAt: Date? = nil
@@ -256,6 +259,7 @@ package struct LeadWork: Identifiable, Equatable, Sendable {
         checkpoint: String = "",
         report: String = "",
         result: String = "",
+        verification: String = "",
         changeRequest: String = "",
         measuredTokens: Int? = nil,
         measuredModel: String? = nil,
@@ -284,6 +288,7 @@ package struct LeadWork: Identifiable, Equatable, Sendable {
         self.checkpoint = checkpoint
         self.report = report
         self.result = result
+        self.verification = verification
         self.changeRequest = changeRequest
         self.measuredTokens = measuredTokens
         self.measuredModel = measuredModel

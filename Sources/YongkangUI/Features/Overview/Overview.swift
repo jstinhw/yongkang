@@ -76,7 +76,7 @@ package struct Overview: View {
 
     private var runningNow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Running now", trailing: workers.isEmpty ? nil : "dispatched by the lead")
+            SectionLabel("Running now", trailing: workers.isEmpty ? nil : "on assigned work")
             if workers.isEmpty {
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz").foregroundStyle(Theme.tx4)
@@ -326,7 +326,7 @@ package struct Overview: View {
                     go(.agents, .session(session.id))
                 } label: {
                     HStack(spacing: 9) {
-                        RoleTile(role: session.isEngineeringLead ? "lead" : session.title)
+                        RoleTile(role: session.holdsTasks ? "work" : session.title)
                         Text(session.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                         Spacer(minLength: 8)
                         StateDot(color: session.exited ? Theme.tx4 : Theme.accent, live: !session.exited)

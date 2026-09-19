@@ -11,7 +11,7 @@ package struct ChangeReview: View {
     /// The file being read. Empty means nothing picked yet.
     let path: String
     /// What the agents said they were doing, for the screen you land on before picking a
-    /// file. Empty when nothing in this project was run through a lead.
+    /// file. Empty when nothing in this project was assigned.
     let summary: ChangeSummary
     let select: (String) -> Void
     /// Stages everything and commits. Returns git's own words on failure, nil on success.
@@ -251,7 +251,7 @@ package struct ChangeReview: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    Text("Sent to the lead when you request changes on \(task.title).")
+                    Text("Sent to the agent when you request changes on \(task.title).")
                         .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(
                             horizontal: false, vertical: true)
                 }

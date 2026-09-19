@@ -83,6 +83,9 @@ import Testing
         #expect(
             plan.workers.map(\.id) == ["auth-api", "auth-qa"],
             "cross-session, mismatched task, unsafe IDs and external symlinks are rejected")
+        #expect(
+            plan.workers.first?.verification == "`swift test` passed.",
+            "how the agent checked it is its own section, which Review reads")
     }
 
     @Test func returnedWorkerIsMeasuredAndScoped() async throws {

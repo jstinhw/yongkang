@@ -22,7 +22,7 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
     /// Product proposals are discussed in their transcript before they are ready to
     /// create. Old proposal files predate this field and are already approval-ready.
     let stage: String
-    /// The session waiting on this, when it named itself. Nil routes to the newest lead.
+    /// The session waiting on this, when it named itself. Nil routes to the newest assigned session.
     package let session: UUID?
     /// What the session started by the button is told to get done.
     package let action: String

@@ -2,13 +2,13 @@ import SwiftUI
 import YongkangCore
 
 /// Any agent session read the way its subagents are read: off its own transcript, as
-/// steps. A session is an agent before it is anything else — a lead, the product voice,
-/// an engineer walking the user through a block — and what it has actually said and done
+/// steps. A session is an agent before it is anything else — assigned work, the product
+/// voice, a walk through a block — and what it has actually said and done
 /// is the answer to "what is it doing". The terminal shows the same work as a wall of
 /// ANSI that scrolls away, and is a click away in the top bar for anyone who wants to
 /// type at it.
 ///
-/// A lead keeps the batch beside it, because a lead is watched for its whole batch rather
+/// A session holding tasks keeps them beside it, because it is watched for its tasks rather
 /// than for itself; every other session gets what it spawned and what it is holding.
 package struct SessionTranscript: View {
     let session: CodeSession
@@ -19,8 +19,8 @@ package struct SessionTranscript: View {
     let openTask: (String) -> Void
     let openBlock: (UserBlock) -> Void
     let openSubagent: (SubagentStatus) -> Void
-    /// Typed into the session's own process, the same pipe that hands a running lead more
-    /// work — so answering an agent does not mean leaving the transcript for its terminal.
+    /// Typed into the session's own process, the same pipe a change request is
+    /// typed into — so answering an agent does not mean leaving the transcript for its terminal.
     let send: (String) -> Void
 
     @State private var reply = ""
@@ -53,7 +53,7 @@ package struct SessionTranscript: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 TranscriptHeader(
-                    role: session.isEngineeringLead ? "lead" : session.title,
+                    role: session.holdsTasks ? "work" : session.title,
                     title: session.title, subtitle: subtitle,
                     lines: lines, state: state)
                 TranscriptTimeline(lines: lines)
@@ -61,7 +61,7 @@ package struct SessionTranscript: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Theme.bg)
-            if session.isEngineeringLead {
+            if session.holdsTasks {
                 LeadInspector(
                     session: session, cards: cards, blocks: blocks,
                     openTask: openTask, openBlock: openBlock)
@@ -114,7 +114,7 @@ package struct SessionTranscript: View {
     private var subtitle: String {
         let running = session.activeSubagents.count
         let agents = running == 0 ? "" : " · \(running) agent\(running == 1 ? "" : "s") running"
-        guard session.isEngineeringLead else {
+        guard session.holdsTasks else {
             return (session.agent?.displayName ?? "session") + " · " + state.label.lowercased() + agents
         }
         let tasks = session.taskIDs.count

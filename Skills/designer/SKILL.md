@@ -28,10 +28,6 @@ in this project already settled what is on the demo branch and the user approved
 your change on top of it and leave the rest alone. Reopening a settled decision is what
 the user's approval was for.
 
-If a `Work file` is supplied, read it with the parent task before starting. Follow its
-reporting and context budget: report start, milestones, blockers and the final result to
-the lead through the native parent channel.
-
 1. Read the task file. Its "Done when" list is the contract for what the demo has to
    show; nothing else is in scope. Read the project's memory for decisions already made.
 2. Read the code and whatever design system, tokens or existing screens the repo already
@@ -52,9 +48,10 @@ the lead through the native parent channel.
    never rewrite the earlier lines. Revisions are your passes on this one change; the
    design tasks before and after it are how the whole screen is followed one change at a
    time instead of arriving finished.
-7. Report to the lead: the demo file, the branch, the URL, the canvas link, and what the
-   demo deliberately does not do yet. Then stop. The user's approval comes back through
-   the lead, not to you.
+7. Report the demo file, the branch, the URL, the canvas link, and what the demo
+   deliberately does not do yet — to the session that dispatched you, or to the user if
+   none did. Then stop. The user's approval comes back to the session named in the demo
+   file.
 
 Never present a demo as done work, and never leave the impression something has shipped:
 the branch is thrown away if the user says no. Do not merge, commit to the work branch,
@@ -70,7 +67,7 @@ kind: demo
 title: "<the task's own title>"
 status: open
 task: <task-id>
-session: <the lead's session id, when one was supplied>
+session: <the session id you were given>
 branch: demo/<project-id>
 before: <http url this change is read against — the previous design task's approved demo, the screen as it stands, or empty>
 url: <http url of the running demo — the newest revision>
