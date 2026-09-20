@@ -126,7 +126,7 @@ package struct ProjectList: View {
             return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents:
             return
-                "A session opens its terminal. Each task under it opens its review; a green one is waiting for you. Clearing a block releases the agent waiting on it."
+                "A session opens its terminal. Each task under it opens its review: a green one is waiting for your review, one tagged needs you for your answer."
         }
     }
 
@@ -296,15 +296,12 @@ package struct ProjectList: View {
 
     @ViewBuilder private var agentRows: some View {
         usageRow
-        // Blocks sit above the sessions rather than in a section of their own: a block is the
-        // one thing here that is the user's move, and it holds whichever session raised it.
-        let blocked = project.blocks.waitingOnUser
-        if !blocked.isEmpty {
-            group("Waiting on you", "\(blocked.count)")
-            ForEach(blocked) { blockRow($0) }
-        }
+        // No section of blocks above the sessions any more. A block is something a *task* is
+        // waiting on, so it is said on that task's row, under the session that raised it —
+        // one list of work instead of the same work named twice.
         group("Agents", "\(project.onlineAgentCount) online")
-        if project.sessions.isEmpty { empty("Nothing running") }
+        let orphans = tasksWithoutASession
+        if project.sessions.isEmpty && orphans.isEmpty { empty("Nothing running") }
         // Each session, then the tasks it holds, then the subagents each task dispatched: a
         // session row opens its terminal, a task row that task's review.
         ForEach(project.sessions) { session in
@@ -321,6 +318,42 @@ package struct ProjectList: View {
                 }
             }
         }
+        // Closing a session does not settle what it left waiting on you. The session row is
+        // gone; the task keeps its own, under an empty one, rather than disappearing with it.
+        if !orphans.isEmpty {
+            closedSessionRow(orphans.count)
+            ForEach(orphans) { taskRow($0) }
+        }
+    }
+
+    /// Tasks waiting on the user that no listed session holds — whoever was on them has been
+    /// closed. An open block or work nobody has committed both count: closing a session
+    /// settles neither. Anything still with a session is drawn under it, not here.
+    private var tasksWithoutASession: [SummaryTask] {
+        let held = Set(project.sessions.flatMap(\.taskIDs))
+        return summary.tasks.filter { task in
+            guard !held.contains(task.id) else { return false }
+            return project.blocks.waiting(on: task.id) != nil || (task.done && !task.files.isEmpty)
+        }
+    }
+
+    /// The stand-in for a session that is not there. Not a row you can open: there is no
+    /// terminal behind it, only the work it left.
+    private func closedSessionRow(_ count: Int) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: "rectangle.slash").font(.system(size: 12))
+                .foregroundStyle(Theme.tx4).frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("No session").font(Typography.body(.medium)).foregroundStyle(Theme.tx3)
+                Text("closed · \(count) task\(count == 1 ? "" : "s") still waiting on you")
+                    .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .accessibilityElement(children: .combine)
     }
 
     /// The one row here that is not an agent: what the whole fleet has spent, and how
@@ -425,8 +458,9 @@ package struct ProjectList: View {
     /// the agent did and how it checked it — which is the same page Review opens.
     private func taskRow(_ task: SummaryTask) -> some View {
         let route = Route.reviewTask(task.id)
+        let block = project.blocks.waiting(on: task.id)
         let waiting = task.done && !task.files.isEmpty
-        let (state, tint) = Self.state(of: task)
+        let (state, tint) = Self.state(of: task, block: block)
         return nested(1) {
             row(route) {
                 HStack(spacing: 9) {
@@ -438,19 +472,22 @@ package struct ProjectList: View {
                         Text(state).font(Typography.caption).foregroundStyle(tint).lineLimit(1)
                     }
                     Spacer(minLength: 4)
+                    // The tag is the whole point of the row being here: this one is your move,
+                    // and its page says what the block is asking for.
+                    if block != nil { NotebookStyle.pill("needs you", Theme.amber) }
                     if waiting { StateDot(color: Theme.green, live: true).help("Waiting for your review") }
                 }
             }
         }
     }
 
-    /// What a task row says under its title: waiting on the user, finished, or still with the
-    /// agent.
-    private static func state(of task: SummaryTask) -> (String, Color) {
+    /// What a task row says under its title: what it is waiting on you for, whether it is
+    /// waiting for review, finished, or still with the agent.
+    private static func state(of task: SummaryTask, block: UserBlock?) -> (String, Color) {
+        if let block { return (block.isDemo ? "demo ready" : "blocked", Theme.amber) }
         if task.done {
             return task.files.isEmpty ? ("done", Theme.tx3) : ("ready for review · +\(task.added)", Theme.green)
         }
-        if task.status == "blocked" { return ("blocked", Theme.amber) }
         return (task.status.isEmpty ? "queued" : task.status, Theme.tx3)
     }
 
@@ -472,35 +509,6 @@ package struct ProjectList: View {
                     Spacer(minLength: 4)
                     StateDot(color: subagent.running ? Theme.accent : Theme.green, live: subagent.running)
                 }
-            }
-        }
-    }
-
-    /// One block, named for the task it holds. A demo is the same file for a design nobody
-    /// has approved yet; a proposal, for work nobody has said yes to.
-    private func blockRow(_ block: UserBlock) -> some View {
-        row(.block(block.id)) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(
-                    systemName: block.isProposal
-                        ? "lightbulb" : (block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
-                )
-                .font(.system(size: 13))
-                .foregroundStyle(block.isProposal ? Theme.violet : Theme.amber)
-                .padding(.top, 1)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(block.title).font(Typography.body)
-                        .foregroundStyle(selection == .block(block.id) ? Theme.tx : Theme.tx2)
-                        .lineLimit(2).multilineTextAlignment(.leading)
-                    if block.isProposal {
-                        Text(block.proposalReady ? "ready to create" : "product needs feedback")
-                            .font(Typography.caption).foregroundStyle(Theme.tx3)
-                    } else if let task = block.task {
-                        Text(block.isDemo ? "demo · \(task)" : "holds \(task)")
-                            .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
             }
         }
     }

@@ -58,7 +58,10 @@ package struct ChangeSummary: Equatable, Sendable {
                 return left == right ? a.offset < b.offset : left < right
             }.map(\.element)
         }
+        // A task an open block names counts as handed out whatever the sessions say: the
+        // session that raised it may have been closed, and the work still waits on the user.
         let handed = Set(work.keys).union(project.sessions.flatMap(\.taskIDs))
+            .union(project.blocks.waitingOnUser.compactMap(\.task))
         let byPath = Dictionary(changes.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
         var claimed: Set<String> = []
         let tasks = project.cards

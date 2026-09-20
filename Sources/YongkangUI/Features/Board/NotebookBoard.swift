@@ -123,18 +123,8 @@ package struct NotebookBoard: View {
         blocks.waitingOnUser
     }
 
-    /// What is waiting on the user on this card — a demo, or any other gate an agent filed
-    /// against it. A proposal is not one: it holds up the notebook rather than a task, and
-    /// belongs to its Product conversation.
-    ///
-    /// `nonisolated` for the same reason as `isReady`: it is a rule about cards and blocks,
-    /// not about the view.
-    nonisolated static func block(for card: NotebookCard, in blocks: [UserBlock]) -> UserBlock? {
-        blocks.waitingOnUser.first { !$0.isProposal && $0.task == card.id }
-    }
-
     private func block(for card: NotebookCard) -> UserBlock? {
-        NotebookBoard.block(for: card, in: blocks)
+        blocks.waiting(on: card.id)
     }
 
     /// One column per project, in dependency order, plus a last column for tasks filed

@@ -91,6 +91,12 @@ extension Collection<UserBlock> {
     /// differently — which they did: the board listed demos and the sidebar listed everything,
     /// so a gate waiting on a go-ahead was a number in one place and nowhere in the other.
     package var waitingOnUser: [UserBlock] { filter(\.waiting) }
+
+    /// What is waiting on the user on one task. A proposal is never one: it holds up the
+    /// notebook rather than a task, and belongs to its Product conversation.
+    package func waiting(on task: String) -> UserBlock? {
+        waitingOnUser.first { !$0.isProposal && $0.task == task }
+    }
 }
 
 /// One pass of a demo. `url` is whatever the designer left running or published for that

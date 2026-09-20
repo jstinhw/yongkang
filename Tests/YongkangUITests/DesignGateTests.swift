@@ -157,11 +157,9 @@ import Testing
 
         let open = Blocks.load(root: gate.root).waitingOnUser
         #expect(open.count == 2, "a gate counts the same as a demo")
-        let task = NotebookCard(
-            id: "create-releases-repo", url: gate.plain, kind: .task, title: "Releases repo",
-            status: "blocked", project: nil, dependsOn: [])
         let held = try #require(
-            NotebookBoard.block(for: task, in: open), "the gate reaches its card on the board")
+            open.waiting(on: "create-releases-repo"), "the gate reaches the task it holds")
         #expect(!held.isDemo && BoardInspector.open(held) == "Open block")
+        #expect(open.waiting(on: "scaffold-site") == nil, "nothing is waiting on a task with no block")
     }
 }
