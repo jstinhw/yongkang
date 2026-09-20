@@ -100,6 +100,10 @@ package struct ChangeSummary: Equatable, Sendable {
     /// Finished tasks whose work is still uncommitted — what is waiting on the user.
     package var waiting: [SummaryTask] { tasks.filter { $0.done && !$0.files.isEmpty } }
 
+    /// The same set as ids, for a screen that draws notebook cards rather than tasks — the
+    /// board, which would otherwise call a task with uncommitted work finished and hide it.
+    package var waitingIDs: Set<String> { Set(waiting.map(\.id)) }
+
     /// The part of that one session holds: what turns its row in the Agents list green.
     package func waiting(for session: CodeSession) -> [SummaryTask] {
         waiting.filter { session.taskIDs.contains($0.id) }

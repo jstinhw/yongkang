@@ -176,12 +176,19 @@ extension RootView {
             cards: project.cards,
             blocks: project.snapshot.blocks,
             assigned: project.assignedTaskIDs,
+            reviewing: project.summary.waitingIDs,
             showDone: model.showDone,
             agents: agentChoice,
             assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
             review: { model.go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
             openBlock: { model.selection = .block($0.id) },
+            // The review is the Agents list's page, so the column goes with it — the same
+            // swap the transcript makes the other way when it opens a task's board page.
+            openReview: { card in
+                model.section = .agents
+                model.selection = .reviewTask(card.id)
+            },
             remove: { card in model.remove(card, in: project) }
         )
     }

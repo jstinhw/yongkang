@@ -43,9 +43,10 @@ enum DesignShots {
             console(project, section: .board) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], showDone: false, agents: agents,
+                    assigned: ["show-agent-tree"], reviewing: ["transcript-steps"],
+                    showDone: false, agents: agents,
                     assign: { _, _ in }, review: {}, openCard: { _ in },
-                    openBlock: { _ in }, remove: { _ in })
+                    openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
             }, "board", into: directory)
 
         // The window's own minimum, which is where fixed-width columns run out of room
@@ -54,9 +55,10 @@ enum DesignShots {
             console(project, section: .board) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], showDone: false, agents: agents,
+                    assigned: ["show-agent-tree"], reviewing: ["transcript-steps"],
+                    showDone: false, agents: agents,
                     assign: { _, _ in }, review: {}, openCard: { _ in },
-                    openBlock: { _ in }, remove: { _ in })
+                    openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
             }, "board-narrow", into: directory, width: 1120)
 
         // The gate itself. Both panes are live pages in the app; offscreen they render as

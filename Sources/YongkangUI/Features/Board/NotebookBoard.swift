@@ -20,6 +20,9 @@ package struct NotebookBoard: View {
     let blocks: [UserBlock]
     /// Tasks a still-open session already has — shown as WIP and not pickable for a new batch.
     let assigned: Set<String>
+    /// Tasks an agent has finished whose work nobody has committed. `done` in the notebook,
+    /// but still the user's move, so `Completed` off does not take them off the board.
+    let reviewing: Set<String>
     let showDone: Bool
     let agents: AgentChoice
     let assign: ([NotebookCard], AgentKind) -> Void
@@ -28,6 +31,8 @@ package struct NotebookBoard: View {
     let openCard: (NotebookCard) -> Void
     /// Opens whatever is waiting on the user — a demo, or a gate an agent cannot pass.
     let openBlock: (UserBlock) -> Void
+    /// Opens a finished task's review — the same page its row under the session opens.
+    let openReview: (NotebookCard) -> Void
     /// Sends a task to the Trash. Off for one a session already has.
     let remove: (NotebookCard) -> Void
 
@@ -37,23 +42,27 @@ package struct NotebookBoard: View {
         cards: [NotebookCard],
         blocks: [UserBlock],
         assigned: Set<String>,
+        reviewing: Set<String>,
         showDone: Bool,
         agents: AgentChoice,
         assign: @escaping ([NotebookCard], AgentKind) -> Void,
         review: @escaping () -> Void,
         openCard: @escaping (NotebookCard) -> Void,
         openBlock: @escaping (UserBlock) -> Void,
+        openReview: @escaping (NotebookCard) -> Void,
         remove: @escaping (NotebookCard) -> Void
     ) {
         self.cards = cards
         self.blocks = blocks
         self.assigned = assigned
+        self.reviewing = reviewing
         self.showDone = showDone
         self.agents = agents
         self.assign = assign
         self.review = review
         self.openCard = openCard
         self.openBlock = openBlock
+        self.openReview = openReview
         self.remove = remove
     }
 
@@ -115,7 +124,18 @@ package struct NotebookBoard: View {
     // MARK: - The graph
 
     private var tasks: [NotebookCard] {
-        NotebookIndex.visible(cards.filter { $0.kind == .task }, showDone: showDone)
+        NotebookBoard.visible(cards.filter { $0.kind == .task }, showDone: showDone, reviewing: reviewing)
+    }
+
+    /// `Completed` off hides done work — except work the user has not accepted yet. The
+    /// Agents list counts a finished task with uncommitted changes as waiting for review, and
+    /// a board that hid the same task said the console had nothing for you when it had three.
+    ///
+    /// `nonisolated` for the same reason as `isReady`: it is a rule about cards, not a view.
+    nonisolated static func visible(
+        _ tasks: [NotebookCard], showDone: Bool, reviewing: Set<String>
+    ) -> [NotebookCard] {
+        showDone ? tasks : tasks.filter { $0.status != "done" || reviewing.contains($0.id) }
     }
 
     /// Everything still on the user's desk, in file order — the same set the sidebar counts.
@@ -147,7 +167,8 @@ package struct NotebookBoard: View {
 
     private func chain(id: String, title: String, tasks: [NotebookCard]) -> Chain {
         let done = tasks.filter { $0.status == "done" }.count
-        let shown = NotebookIndex.ordered(NotebookIndex.visible(tasks, showDone: showDone))
+        let shown = NotebookIndex.ordered(
+            NotebookBoard.visible(tasks, showDone: showDone, reviewing: reviewing))
         return Chain(
             id: id, title: title, done: done, total: tasks.count,
             rows: shown.map { Row(card: $0, lane: lane(of: $0), block: block(for: $0)) })
@@ -160,6 +181,8 @@ package struct NotebookBoard: View {
         // applies to the cards: an agent that filed a gate and ticked the task off in one run
         // left work only the user can finish.
         if let block = block(for: card) { return block.isDemo ? .demo : .blocked }
+        // Done, but nobody has accepted the work: the last state that is the user's move.
+        if reviewing.contains(card.id) { return .review }
         if card.status == "done" { return .done }
         if card.status == "designing" { return .designing }
         // Blocked keeps its card wherever it sits in the chain: it is the one state that
@@ -252,10 +275,12 @@ package struct NotebookBoard: View {
             .buttonStyle(.plain)
             .contextMenu { menu }
         default:
-            // Already out with a session, or already shipped — not pickable into a batch that
+            // Already out with a session, or already built — not pickable into a batch that
             // would just hand it out again.
-            if assigned.contains(row.card.id) {
-                card(row, inBatch: inBatch).opacity(0.6).contextMenu { menu }
+            if assigned.contains(row.card.id) || row.lane == .review {
+                card(row, inBatch: inBatch)
+                    .opacity(assigned.contains(row.card.id) ? 0.6 : 1)
+                    .contextMenu { menu }
             } else {
                 Button {
                     selected = NotebookBoard.picking(row.card, from: selected)
@@ -348,6 +373,8 @@ package struct NotebookBoard: View {
             }
             if let block = row.block {
                 footer(block)
+            } else if row.lane == .review {
+                reviewFooter(card)
             } else if row.lane == .designing {
                 designing
             }
@@ -395,6 +422,20 @@ package struct NotebookBoard: View {
                 Text(block.isDemo ? "See demo" : "Open block")
             }
             .buttonStyle(.console)
+        }
+        .padding(.top, 12)
+    }
+
+    /// The same move the task's row under its session offers, on the board where the work
+    /// sits: the card says its changes are uncommitted, the button opens the review.
+    private func reviewFooter(_ card: NotebookCard) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider().overlay(Theme.line2)
+            Text("Built, and nothing is committed. Approving it in the review is what lands it.")
+                .font(Typography.body).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open review") { openReview(card) }
+                .buttonStyle(.console)
         }
         .padding(.top, 12)
     }
@@ -502,12 +543,14 @@ extension NotebookBoard {
     /// How much of a card is worth drawing, and what it says. The order is the order work
     /// moves through: design, your approval, an agent, the queue.
     enum Lane {
-        case done, designing, demo, blocked, active, ready, later
+        case done, review, designing, demo, blocked, active, ready, later
 
         /// The notebook's own status word this lane draws as, so one palette covers both.
         var status: String {
             switch self {
-            case .done: return "done"
+            // Green for both: the agent has finished either way, and the Agents list already
+            // marks a task waiting for review in green.
+            case .done, .review: return "done"
             case .designing: return "designing"
             case .demo, .blocked: return "blocked"
             case .active: return "active"
@@ -518,6 +561,7 @@ extension NotebookBoard {
         var label: String {
             switch self {
             case .done: return "done"
+            case .review: return "ready for review"
             case .designing: return "designing"
             case .demo: return "demo ready"
             case .blocked: return "blocked"
