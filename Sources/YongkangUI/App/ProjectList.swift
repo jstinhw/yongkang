@@ -295,7 +295,6 @@ package struct ProjectList: View {
     // MARK: - Agents
 
     @ViewBuilder private var agentRows: some View {
-        group("Fleet")
         usageRow
         // Blocks sit above the sessions rather than in a section of their own: a block is the
         // one thing here that is the user's move, and it holds whichever session raised it.
@@ -304,7 +303,7 @@ package struct ProjectList: View {
             group("Waiting on you", "\(blocked.count)")
             ForEach(blocked) { blockRow($0) }
         }
-        group("Sessions", "\(project.onlineAgentCount) online")
+        group("Agents", "\(project.onlineAgentCount) online")
         if project.sessions.isEmpty { empty("Nothing running") }
         // Each session, then the tasks it holds, then the subagents each task dispatched: a
         // session row opens its terminal, a task row that task's review.
@@ -320,28 +319,6 @@ package struct ProjectList: View {
                 ForEach(subagents(of: session, besides: Set(tasks.map(\.id)))) {
                     subagentRow($0, in: session, depth: 1)
                 }
-            }
-        }
-        if !project.team.isEmpty {
-            group("Team", "\(project.team.count)")
-            ForEach(project.team) { teamRow($0) }
-        }
-    }
-
-    /// A standing member of the project's team — a name and the skill it runs.
-    /// Not a session: opening one reads the agent itself, not a transcript.
-    private func teamRow(_ member: TeamMember) -> some View {
-        let route = Route.member(member.name)
-        return row(route) {
-            HStack(spacing: 9) {
-                RoleTile(role: member.skills.first ?? member.name, size: 24)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(member.name).font(Typography.body(.medium))
-                        .foregroundStyle(selection == route ? Theme.tx : Theme.tx2).lineLimit(1)
-                    Text(member.skills.joined(separator: ", "))
-                        .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
-                }
-                Spacer(minLength: 6)
             }
         }
     }
