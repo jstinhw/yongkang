@@ -18,8 +18,8 @@ it in `Agents` by their own names:
   one session each; a chain of dependent tasks is one session that works down it.
 - **A batch:** tasks picked on the board are split the same way.
 
-One session opens in the window. Several go to Overview, whose **Running now** lists each
-of them, so they are all in sight even with the list hidden. A session
+One session opens in the window. Several go to the board, whose chains show each of them,
+so they are all in sight even with the Agents list hidden. A session
 already running is never handed more, because its agent may not be the one you picked, and
 a task a session already holds cannot be assigned again until that session exits.
 
@@ -60,11 +60,10 @@ otherwise an HTML file in the temp folder that it opens for you.
 holds under it and, under each task, the subagents it dispatched for that task — so several
 sessions working at once are one list. A task's own page names who is on it under **Working on it**: the
 session it was assigned to, and any subagent working it. Clicking the session opens its
-transcript; clicking a subagent opens the CLI's live child view. Overview's **Running now**
-is the same set for the whole project, one card per agent with the task it is on.
+transcript; clicking a subagent opens the CLI's live child view.
 
 Clicking a session opens its live terminal. Clicking a task under it opens the task and its
-review: the same page as the task's in [Review](review.md), anything waiting on you first.
+review — see [Review](review.md) — anything waiting on you first.
 Once a task is done and its files wait for your approval, its row turns green — "ready for
 review" — and so does the line under its session's name. Approving from here stays on the
 task.

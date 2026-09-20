@@ -11,17 +11,6 @@ extension RootView {
             ProjectIntake(project: empty.value) { description in
                 model.selection = empty.startNotebookSetup(description, agent: agent)
             }
-        } else if model.selection == .overview {
-            Overview(
-                project: project.value, changes: project.repo.changes, head: project.repo.head,
-                go: {
-                    model.section = $0
-                    model.selection = $1
-                },
-                assign: {
-                    model.section = .board
-                    model.selection = .board
-                })
         } else if model.selection == .board {
             boardView(for: project)
         } else if model.selection == .usage {
@@ -71,10 +60,7 @@ extension RootView {
                         model.section = .board
                         model.selection = .task($0)
                     },
-                    openBlock: {
-                        model.section = .blocks
-                        model.selection = .block($0.id)
-                    },
+                    openBlock: { model.selection = .block($0.id) },
                     openSubagent: { subagent in model.selection = .subagent(session: watched.id, id: subagent.id) },
                     send: { model.terminals.send($0, to: watched.id) }
                 )
@@ -120,9 +106,9 @@ extension RootView {
             )
             .id(block.id)
         } else if let task = reviewedTask(in: project) {
-            // Under a session in Agents, approving stays on the task: the next one waiting may
-            // be another session's, and Review's list is not the one on screen.
-            taskReview(task, in: project, staying: model.section == .agents).id(task.id)
+            // Approving stays on the task: the list on screen is the session's, and the next
+            // task waiting may belong to another one.
+            taskReview(task, in: project).id(task.id)
         } else if let path = reviewPath {
             let summary = project.summary
             // A file a task's worker claimed is reviewed as part of that task: comments on
@@ -200,23 +186,17 @@ extension RootView {
         )
     }
 
-    /// One task's review, from Review's list or from the task's row under its session.
-    private func taskReview(_ task: SummaryTask, in project: ProjectModel, staying: Bool) -> some View {
+    /// One task's review, opened from the task's row under its session.
+    private func taskReview(_ task: SummaryTask, in project: ProjectModel) -> some View {
         TaskReview(
             task: task, summary: project.summary,
             directory: project.directory, cards: project.cards, team: project.snapshot.team,
             branch: project.repo.branch, head: project.repo.head, draft: draft(for: task.id, in: project),
             blocks: project.snapshot.blocks.filter { $0.waiting && !$0.isProposal && $0.task == task.id },
-            openFile: {
-                model.section = .review
-                model.selection = .review(file: $0)
-            },
-            openBlock: {
-                model.section = .blocks
-                model.selection = .block($0.id)
-            },
+            openFile: { model.selection = .review(file: $0) },
+            openBlock: { model.selection = .block($0.id) },
             startBlock: { model.go(to: project.startUnblock($0, agent: agent)) },
-            approve: { await approve(task, message: $0, in: project, staying: staying) },
+            approve: { await approve(task, message: $0, in: project) },
             requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) }
         )
     }

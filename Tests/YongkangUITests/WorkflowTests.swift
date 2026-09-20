@@ -76,8 +76,8 @@ import Testing
             project.sessions.map(\.title) == ["Claude Code", "Claude Code 2"],
             "named after the coding agent, with the tasks listed under it by their own names")
         #expect(
-            destination == Destination(section: .overview, route: .overview),
-            "Overview's Running now shows both, even with the Agents list hidden")
+            destination == Destination(section: .board, route: .board),
+            "the board shows both chains, even with the Agents list hidden")
     }
 
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {

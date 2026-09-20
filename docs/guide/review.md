@@ -1,17 +1,17 @@
 # Review
 
-No agent commits. A task the agent marked done waits in `Review` with its work uncommitted, and you
-decide: approve it, which commits it, or send it back with what to change. The rail's
-Review icon lights green while anything is waiting, and so does each waiting task's row.
+No agent commits. A task the agent marked done waits with its work uncommitted, and you
+decide: approve it, which commits it, or send it back with what to change. A review opens
+from the task's own row under its session in `Agents`; the rail's Agents icon lights green
+while anything is waiting, and so does each waiting task's row.
 
 A project with a notebook that is not a repository is made one (`git init`) the first time
-the app reads git in it — which is on any screen, not only Review, because the rail's Review
-light has to come on while you are looking at the board. There is no diff and nowhere to commit
+the app reads git in it — which is on any screen, not only a review, because that light has
+to come on while you are looking at the board. There is no diff and nowhere to commit
 without a repository. Nothing is staged or committed by that.
 
-The list column is tasks, not files: **Waiting for you** (done, work still uncommitted),
-**With the agents** (still being built or checked), and **All changes** for the whole
-working tree, including edits no task claims.
+The whole working tree, including edits no task claims, is one page of its own, reached
+from **All changes** on a task's review.
 
 A task opens on what most reviews need, not on code:
 

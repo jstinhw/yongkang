@@ -38,9 +38,9 @@ for.
    shortcut — the tile has none of its own, so try both.
    - The panel's message reads "Agents run in this folder and its notebook lives in
      .notebook/."
-   - The window enters the project. The rail shows Overview, Board, Agents, Review and
-     Blocks. The **window's title** reads **Overview** with **yk-smoke** under it, and the work
-     area asks **What is yk-smoke for?**
+   - The window enters the project. The rail shows Board and Agents. The **window's title**
+     reads **Board** with **yk-smoke** under it, and the work area asks
+     **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
 
 ### Intake
@@ -58,8 +58,9 @@ for.
 4. Answer the agent's questions until it drafts the plan. *(Agent behaviour: the prompt
    tells it to ask a few multiple-choice questions, then write `.notebook/NOTEBOOK.md` and
    a ready proposal at `.notebook/blocks/plan.md`, and nothing else until you approve.)*
-   - **Blocks** in the rail lights amber. The draft's subtitle reads **Product plan is
-     ready**, with a **Create project** button. Click it: the window returns to **Notebook Setup**
+   - **Agents** in the rail lights amber, and the draft is listed under **Waiting on you**
+     above the sessions. Its subtitle reads **Product plan is ready**, with a
+     **Create project** button. Click it: the window returns to **Notebook Setup**
      with the approval typed in, and the agent writes the notebook.
    - **Board** in the rail shows the project's tasks, in chains, about a third of a second
      after the last file lands. The folder is watched with FSEvents, not polled, and the
@@ -136,9 +137,9 @@ for.
     Keep the `status:` line: **Mark resolved** rewrites that exact line, and does nothing
     without it. Because there's no `session:` field, the block goes to the newest running
     session holding that task.
-    - The Blocks rail icon gets an amber dot, on the same watch as step 4.
-    - **Blocks** lists the block under **Waiting on you**, with "holds <task-id>" under its
-      title.
+    - The Agents rail icon gets an amber dot, on the same watch as step 4.
+    - **Agents** lists the block under **Waiting on you**, above the sessions, with
+      "holds <task-id>" under its title.
     - Its page shows a **waiting on you** pill and "<session title> is waiting — holds up
       <task title>". The inspector shows **Holds up**, **Waiting agent** with a **blocked**
       pill, and the notice that no secret is echoed back.
@@ -147,8 +148,7 @@ for.
     - The file's status line becomes `status: done`.
     - On the next read of the file, the window switches to **Agents** on the session and
       submits `Unblocked: Smoke test gate. Continue from where you stopped.` to it.
-    - Turn on **Completed** in the toolbar, or **View → Show Completed**. The block is
-      listed under **Resolved**.
+    - The row leaves **Waiting on you**: a resolved block has nothing left to do.
     - **Do it now** would have started an **Unblock Smoke test gate** session. *(Agent
       behaviour: that session does what it can itself, then walks through the block's
       `## Steps` with you one at a time.)*
@@ -157,16 +157,15 @@ for.
 
 12. Wait for the session to finish the task: it checks the `Done when`, sets `status: done`
     in the task file, writes its report and opens a report page for you.
-    - The Review rail icon lights green.
-    - If no terminal is on screen at that moment, the window opens **Review** on the task by
+    - The Agents rail icon lights green.
+    - If no terminal is on screen at that moment, the window opens the task's review by
       itself. If a terminal is up, the window stays where it is, because the terminal has
       the keyboard.
-    - **Review** lists the task under **Waiting for you**, as "N files · verified" or
-      "N files · not verified".
+    - The task's row under its session reads "ready for review · +N" and wears a green dot.
     - A done task only counts as waiting if the session's report lists its files in
-      `paths`. *(Agent behaviour.)* If they don't, the task isn't under
-      **Waiting for you**, its files show as "not claimed by a task" under **All changes**,
-      and the only commit button is **Commit all changes**.
+      `paths`. *(Agent behaviour.)* If they don't, the row stays plain and its files are
+      only reachable through the working tree's own page, whose one button is
+      **Commit all changes**.
 13. Open the task.
     - The header pill reads **Ready for your review**.
     - The cards, in order: **The task**, **What changed**, **Self-review**,
@@ -192,7 +191,7 @@ for.
 
 16. Walk the menus. Nothing here is on a button only, and an item the window cannot act on is
     disabled rather than hidden — so the shape stays the same on every screen.
-    - **View → Overview** through **Blocks**, `⌘1`–`⌘5`, moves between sections from any
+    - **View → Board** and **View → Agents**, `⌘1`–`⌘2`, move between sections from any
       screen. Try it with a terminal focused too: that is the case a button-bound shortcut
       could never answer, and the one this step exists for. *(Unverified: the registry's key
       monitor passes the event on rather than swallowing it, and `MenuCommandTests` checks the

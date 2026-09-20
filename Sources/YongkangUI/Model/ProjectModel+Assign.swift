@@ -15,7 +15,7 @@ extension ProjectModel {
     /// list and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work an open session already has, so a task never goes to two at once.
     ///
-    /// One session opens in the window. Several go to Overview, whose Running now lists every
+    /// One session opens in the window. Several go to the board, whose chains list every
     /// one of them: opening the first would leave the rest in the Agents list, which the
     /// user may have hidden, and "Run 3 ready" would look like it ran one. Nil when there is
     /// nothing left to assign: every task is already done, or already has a session on it.
@@ -32,6 +32,6 @@ extension ProjectModel {
         }
         return routes.count == 1
             ? Destination(section: .agents, route: routes[0])
-            : Destination(section: .overview, route: .overview)
+            : Destination(section: .board, route: .board)
     }
 }

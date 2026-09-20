@@ -14,7 +14,7 @@ import YongkangCore
     private(set) var entered: ProjectModel?
     /// Which of the rail's sections the window is showing. The list column is that
     /// section's objects and the work area is whichever one is selected.
-    var section: ConsoleSection = .overview
+    var section: ConsoleSection = .board
     /// The row the list column has selected and the page the work area shows.
     var selection: Route?
     /// Completed notebook work is historical noise until the user asks for it.
@@ -181,12 +181,12 @@ import YongkangCore
     func enter(_ project: ProjectModel) {
         entered = project
         doneTasks = nil
-        section = .overview
-        selection = .overview
+        section = .board
+        selection = .board
         reload()
         refreshChanges(force: true)
         // Work starts from an assignment, not from opening the project — an empty project
-        // opens on Overview. A session still on assigned work is what the project is doing
+        // opens on the board. A session still on assigned work is what the project is doing
         // right now, so it opens on that.
         guard project.hasNotebook else { return }
         Team.seedIfAbsent(root: project.notebookRoot)
@@ -254,39 +254,39 @@ import YongkangCore
     func openSectionDefault() {
         guard let project = entered else { return }
         switch section {
-        case .overview:
-            selection = .overview
         case .board:
             if selection?.card(in: project.snapshot.cards) == nil {
                 selection = .board
             }
         case .agents:
-            if selectedAgent(in: project) == nil && selectedSubagent(in: project) == nil
-                && selectedSession(in: project) == nil && selectedMember(in: project) == nil
-                && selection != .usage
-            {
-                // Assigned work first, then any agent — and a service runner only if that is all
-                // there is, on its terminal, because it has no transcript to open.
-                selection =
-                    (project.sessions.first { $0.holdsTasks }
-                    ?? project.sessions.first { $0.agent != nil }
-                    ?? project.sessions.first)
-                    .map { .session($0.id) }
-            }
-        case .review:
-            // A task, not a file: what the agents did is the thing to read before any of
-            // the diff means anything.
-            openReview(in: project)
-        case .blocks:
-            // A block already open stays open, the way a card or a session does above. This
-            // runs on every section change, so without it opening one block from a session's
-            // board — or restoring the one you quit on — would slide straight off it onto
-            // whichever block happens to be waiting first.
-            guard !project.snapshot.blocks.contains(where: { selection == .block($0.id) }) else { return }
+            guard !staysUnderAgents(in: project) else { return }
+            // Assigned work first, then any agent — and a service runner only if that is all
+            // there is, on its terminal, because it has no transcript to open. With nothing
+            // running at all, whatever is waiting on the user, which is the only thing here
+            // that outlives the agents.
             selection =
-                (project.snapshot.blocks.first(where: \.waiting)
-                ?? (showDone ? project.snapshot.blocks.first : nil))
-                .map { .block($0.id) }
+                (project.sessions.first { $0.holdsTasks }
+                ?? project.sessions.first { $0.agent != nil }
+                ?? project.sessions.first)
+                .map { .session($0.id) }
+                ?? project.snapshot.blocks.first(where: \.waiting).map { .block($0.id) }
+        }
+    }
+
+    /// Whether the selection is already one of the things Agents holds. Usage, a task's
+    /// review, the working tree and a block all hang off a session now, so coming back to
+    /// Agents keeps whichever one you were reading rather than sliding onto the first
+    /// session — the same way the board keeps the card you had open.
+    private func staysUnderAgents(in project: ProjectModel) -> Bool {
+        if selectedAgent(in: project) != nil || selectedSubagent(in: project) != nil
+            || selectedSession(in: project) != nil || selectedMember(in: project) != nil
+        {
+            return true
+        }
+        switch selection {
+        case .usage, .review, .reviewTask: return true
+        case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
+        default: return false
         }
     }
 
@@ -366,7 +366,7 @@ import YongkangCore
         guard let seen, !done.subtracting(seen).isEmpty,
             selectedSession(in: project) == nil
         else { return }
-        section = .review
+        section = .agents
         openReview(in: project)
     }
 
@@ -389,18 +389,22 @@ import YongkangCore
     /// That was every third 2 s tick before the timer went; it is the same beat, counted in
     /// seconds now that the reads arrive when the disk says so rather than on a clock.
     func refreshChanges(force: Bool = false) {
-        // Every section, not only Review: the rail's light says work is waiting for approval,
+        // Every section, not only a review: the rail's light says work is waiting for approval,
         // and it has to come on while you are looking at the board.
         guard let project = entered else { return }
         guard force || Date().timeIntervalSince(lastRepoRead) >= 6 else { return }
         lastRepoRead = Date()
-        // Only Overview and Review show line counts, so only they pay for opening untracked
-        // files to count them. The light on the rail needs the file list, not its lines.
-        let countingLines = section == .overview || section == .review
+        // Only a review screen shows line counts, so only it pays for opening untracked files
+        // to count them. The light on the rail needs the file list, not its lines.
+        let countingLines: Bool
+        switch selection {
+        case .review, .reviewTask: countingLines = true
+        default: countingLines = false
+        }
         Task { await project.refreshRepo(countingLines: countingLines) }
     }
 
-    /// Review opens on the first task waiting for approval, as git sees the tree. The read
+    /// Finished work opens on the first task waiting for approval, as git sees the tree. The read
     /// this starts answers a moment later, so the page is picked now from the last read and
     /// picked again once the new one is in, unless the user has already moved on.
     private func openReview(in project: ProjectModel) {

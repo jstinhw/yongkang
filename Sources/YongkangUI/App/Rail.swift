@@ -4,27 +4,21 @@ import SwiftUI
 /// section's objects and the work area holds whichever one is selected. Every screen is the
 /// same four columns, so moving between sections never rearranges the window.
 package enum ConsoleSection: String, CaseIterable, Identifiable {
-    case overview, board, agents, review, blocks
+    case board, agents
 
     package var id: Self { self }
 
     package var title: String {
         switch self {
-        case .overview: return "Overview"
         case .board: return "Board"
         case .agents: return "Agents"
-        case .review: return "Review"
-        case .blocks: return "Blocks"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .overview: return "square.grid.2x2"
         case .board: return "rectangle.split.3x1"
         case .agents: return "point.3.connected.trianglepath.dotted"
-        case .review: return "chevron.left.forwardslash.chevron.right"
-        case .blocks: return "tray.full"
         }
     }
 }
@@ -34,7 +28,7 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
 /// to every project is Go → All Projects (⌘[), not a mark at its top.
 package struct Rail: View {
     @Binding var section: ConsoleSection
-    /// Counts that earn a dot: work waiting on the user, changes waiting to be read.
+    /// The tabs that earn a dot, and its colour: what is waiting on the user.
     let badges: [ConsoleSection: Color]
     var agentCount = 0
 
@@ -125,8 +119,13 @@ package struct Rail: View {
                             .padding(.horizontal, 4)
                             .background(Capsule().fill(Theme.panel))
                             .offset(x: 2, y: 1)
-                    } else if let tint = badges[item] {
-                        Circle().fill(tint).frame(width: 6, height: 6).offset(x: -4, y: 6)
+                    }
+                }
+                // Its own corner, because Agents wears the online count in the other one and
+                // is also the tab everything waiting on you now hangs from.
+                .overlay(alignment: .bottomTrailing) {
+                    if let tint = badges[item] {
+                        Circle().fill(tint).frame(width: 6, height: 6).offset(x: -4, y: -6)
                     }
                 }
                 .padding(.leading, 9)

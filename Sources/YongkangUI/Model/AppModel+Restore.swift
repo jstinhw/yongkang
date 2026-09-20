@@ -16,7 +16,7 @@ extension AppModel {
         // A stored route names something an agent may have deleted while the app was closed,
         // and a session route never survives at all. Rather than drawing "Nothing selected",
         // a route that no longer points anywhere is dropped and the section opens on its own
-        // default — the first block waiting on you, the first task up for review, the board.
+        // default — the session still on assigned work, or the board.
         selection = route.flatMap { restorable($0, in: project) ? $0 : nil }
         if selection == nil { openSectionDefault() }
     }
@@ -26,7 +26,7 @@ extension AppModel {
         let cards = project.snapshot.cards
         switch route {
         // Screens rather than objects: there is nothing for them to have lost.
-        case .overview, .board, .usage:
+        case .board, .usage:
             return true
         case .project(let id): return cards.contains { $0.id == id && $0.kind == .project }
         case .task(let id): return cards.contains { $0.id == id && $0.kind == .task }
@@ -38,8 +38,7 @@ extension AppModel {
         // relaunch. Agents opens on whatever is running, which is nothing yet.
         case .session, .subagent: return false
         // These name what git and service detection say, and neither has been read when the
-        // window restores. Review's own default re-opens the first task waiting for approval
-        // once that read lands, which is the same answer a moment later.
+        // window restores. The next finished task re-opens its review once that read lands.
         case .review, .reviewTask, .preview: return false
         }
     }

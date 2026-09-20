@@ -33,10 +33,10 @@ Open projects come back on the next launch. Only the folders are remembered, not
 sessions — those PTYs died with the app — and a folder that has since moved is dropped
 from the list rather than shown broken.
 
-Inside a project, `Overview` is what it is doing right now: the agents running, what is
-waiting on you, what changed on disk, and what the agents last wrote to the notebook.
-Everything on it is read from the notebook, the transcripts and git — the app keeps no
-state of its own to drift.
+Inside a project the rail holds two sections: `Board`, the work the notebook describes, and
+`Agents`, everyone on it — the sessions running, what is waiting on you, and each task's
+review. Both are read from the notebook, the transcripts and git; the app keeps no state of
+its own to drift.
 
 Inside a project, use the Agent switch in the window's toolbar to choose Claude Code, Codex,
 Grok, or Agy. The choice is remembered and applies to new notebook setup, Product, unblock, and plain

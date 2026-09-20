@@ -14,26 +14,32 @@ extension RootView {
     /// The title line: what is open, which is usually more specific than the section's name.
     func title(for project: ProjectModel) -> String {
         switch model.section {
-        case .overview: return "Overview"
         case .board:
             let scoped = model.selection?.card(in: project.cards)
             return scoped?.title ?? selectedBlock(in: project).flatMap { $0.isDemo ? $0.title : nil } ?? "Board"
         case .agents:
             guard model.selection != .usage else { return "Usage" }
+            if isReviewingTree { return "Review changes" }
             return model.selectedSubagent(in: project)?.subagent.description
                 ?? reviewedTask(in: project)?.title
+                ?? selectedBlock(in: project)?.title
                 ?? model.selectedAgent(in: project)?.title
                 ?? model.selectedSession(in: project)?.title
                 ?? model.selectedMember(in: project)?.name ?? "Agents"
-        case .review: return "Review changes"
-        case .blocks: return "Blocks"
         }
     }
 
-    /// The line under it: the project, or in Review the branch the changes are on, which is
-    /// the thing you need to know before approving anything.
+    /// The line under it: the project, or on the working tree the branch the changes are on,
+    /// which is the thing you need to know before committing anything.
     func subtitle(for project: ProjectModel) -> String {
-        model.section == .review ? (project.repo.branch ?? project.name) : project.name
+        isReviewingTree ? (project.repo.branch ?? project.name) : project.name
+    }
+
+    /// The whole working tree, rather than one task's review — the only page whose actions
+    /// are git's rather than the section's.
+    var isReviewingTree: Bool {
+        if case .review = model.selection { return true }
+        return false
     }
 
     // MARK: - Toolbar
@@ -75,17 +81,6 @@ extension RootView {
 
     @ViewBuilder private func actions(for project: ProjectModel) -> some View {
         switch model.section {
-        case .overview:
-            providerPicker
-            completedToggle
-            addMenu(for: project)
-            Button {
-                model.section = .board
-                model.selection = .board
-            } label: {
-                Label("Assign work", systemImage: "bolt")
-            }
-            .buttonStyle(.consolePrimary)
         case .board:
             if let demo = selectedBlock(in: project).flatMap({ $0.isDemo ? $0 : nil }) {
                 NotebookStyle.pill(
@@ -104,27 +99,28 @@ extension RootView {
             }
             .buttonStyle(.console)
         case .agents:
-            addMenu(for: project)
-            if let found = model.selectedSubagent(in: project) {
+            if isReviewingTree {
+                if let head = project.repo.head {
+                    Text(head).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
+                }
                 Button {
-                    model.selection = .session(found.session.id)
+                    model.refreshChanges(force: true)
                 } label: {
-                    Label("Parent session", systemImage: "terminal")
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.console)
+            } else {
+                providerPicker
+                addMenu(for: project)
+                if let found = model.selectedSubagent(in: project) {
+                    Button {
+                        model.selection = .session(found.session.id)
+                    } label: {
+                        Label("Parent session", systemImage: "terminal")
+                    }
+                    .buttonStyle(.console)
+                }
             }
-        case .review:
-            if let head = project.repo.head {
-                Text(head).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
-            }
-            Button {
-                model.refreshChanges(force: true)
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(.console)
-        case .blocks:
-            completedToggle
         }
     }
 

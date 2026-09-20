@@ -3,16 +3,16 @@
 A dark console for running an agent team: multiple `claude`, `codex`, `grok`, or `agy`
 CLI sessions, the notebook they work from, and the changes they produce.
 
-![Yongkang](docs/images/overview.png)
+![Yongkang](docs/images/board.png)
 
 Every screen has the same columns: a **rail** picking the section, a **list** of that section's
 objects, the **work area** holding whichever one is selected, and on most screens an
 **inspector** carrying what you would otherwise have to go and find. The rail's sections are
-Overview, Board, Agents, Review and Blocks. You can drag the list wider or collapse
+Board and Agents: the work, and whoever is on it. You can drag the list wider or collapse
 it; the screen's name and the project are the window's own title and subtitle.
 
 Every action is also a menu item, because a shortcut hung on a button only answers while that
-button is drawn. File, View, Go and Agent hold `⌘N`, `⌘O`, `⌘1`–`⌘5`, `⌘\` and `⌘[`.
+button is drawn. File, View, Go and Agent hold `⌘N`, `⌘O`, `⌘1`–`⌘2`, `⌘\` and `⌘[`.
 
 ## Requirements
 

@@ -40,13 +40,6 @@ enum DesignShots {
             "agent-picker", into: directory, width: 900)
 
         write(
-            console(project, section: .overview) {
-                Overview(
-                    project: project, changes: [], head: "51b0740 Show all agents",
-                    go: { _, _ in }, assign: {})
-            }, "overview", into: directory)
-
-        write(
             console(project, section: .board) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
@@ -127,7 +120,7 @@ enum DesignShots {
         // The narrow one also hovers a rail item, whose label draws over the list column.
         if let waiting = resultSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
             for (name, width, hovering) in [
-                ("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.blocks),
+                ("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.board),
             ] {
                 write(
                     console(
@@ -138,7 +131,7 @@ enum DesignShots {
         }
 
         // A task held up by something only the user can do: the block's steps open the page.
-        // Its brief is set here rather than in `pages`, whose files Overview would list as news.
+        // Its brief is set here rather than in `pages`, whose files the board would list as news.
         if var blocked = resultSummary.tasks.first(where: { $0.id == "deploy-to-vercel" }) {
             blocked.body = """
                 Put the console's landing page on Vercel, so the download link has somewhere to live.
@@ -196,7 +189,7 @@ enum DesignShots {
             }, "task", into: directory)
 
         write(
-            console(project, section: .blocks) {
+            console(project, section: .agents, selection: .block(project.blocks[0].id)) {
                 BlockDetail(
                     block: project.blocks[0], cards: project.cards, waiting: lead,
                     start: {}, revise: {}, resolve: {})
@@ -213,7 +206,7 @@ enum DesignShots {
         let changes = status.changes
         let summary = ChangeSummary.of(here, changes: changes)
         write(
-            console(here, section: .review, changes: changes, summary: summary) {
+            console(here, section: .agents, summary: summary, selection: .review(file: nil)) {
                 ChangeReview(
                     project: here, changes: changes, head: status.head,
                     branch: status.branch,
@@ -233,7 +226,7 @@ enum DesignShots {
                     text: "Say which task the refused commit belonged to.")
             ]
             write(
-                console(reviewed, section: .review, changes: changes, summary: reviewedSummary) {
+                console(reviewed, section: .agents, summary: reviewedSummary, selection: .reviewTask(task.id)) {
                     TaskReview(
                         task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
                         team: Team.defaults, branch: status.branch, head: status.head,
@@ -308,19 +301,19 @@ enum DesignShots {
     /// through the real `HSplitView`, whose divider a shot has no reason to show.
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
-        changes: [FileChange] = [], summary: ChangeSummary = ChangeSummary(),
+        summary: ChangeSummary = ChangeSummary(),
         hovering: ConsoleSection? = nil, selection: Route? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         HStack(spacing: 0) {
             Rail(
-                section: .constant(section), badges: [.blocks: Theme.amber],
+                section: .constant(section), badges: [.agents: Theme.amber],
                 agentCount: project.onlineAgentCount, hovering: hovering
             )
             .zIndex(1)
             ProjectList(
                 section: section, project: project, selection: .constant(selection),
-                showDone: false, changes: changes, summary: summary, agent: .claude,
+                showDone: false, summary: summary, agent: .claude,
                 found: Set(AgentKind.allCases), assign: { _, _ in },
                 closeSession: { _ in }, remove: { _ in }, projects: [project], open: { _ in },
                 leave: {}

@@ -110,7 +110,7 @@ HStack
   the divider shut, and a VoiceOver structure that says "sidebar". `HSplitView` also ignores an
   ideal width, so `Theme.listWidth` is both the width it opens at and its minimum.
 - **The top bar is the window's toolbar.** `RootView+Toolbar.swift` builds it: the screen's
-  name is `.navigationTitle`, the project (or, in Review, the branch) is `.navigationSubtitle`,
+  name is `.navigationTitle`, the project (or, on the working tree, the branch) is `.navigationSubtitle`,
   and what the old bar drew on its right is one `ToolbarItemGroup`. The bar was 56pt; the
   title bar is the system's ~52.
 - **One list toggle.** `RootView` puts its own in the toolbar's navigation slot, so the
@@ -130,9 +130,8 @@ HStack
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
   the gate on the nine screens that draw one: the board, a task, a demo, a block, a session, a
-  subagent, a team member, and Review's two pages — the task one also opening from Agents.
-  Overview's right-hand column is not one of them — it is a second column of the screen
-  itself, on the window's own ground.
+  subagent, a team member, a task's review and the working tree's — the last two opening from
+  a session's row in Agents.
 
 ## The menu bar
 
@@ -146,7 +145,7 @@ Full Keyboard Access and VoiceOver read an app through.
 |---|---|---|
 | **File** | New Project ⌘N · Open Folder ⌘O | always |
 | | Close Project · Reveal in Finder | a project is entered |
-| **View** | Overview ⌘1 · Board ⌘2 · Agents ⌘3 · Review ⌘4 · Blocks ⌘5 | a project is entered |
+| **View** | Board ⌘1 · Agents ⌘2 | a project is entered |
 | | Hide List ⌘\ · Show Completed | a project is entered |
 | **Go** | All Projects ⌘[ | a project is entered |
 | **Agent** | New Session · New Session With ▸ · Product Review | a project is entered |
@@ -190,11 +189,11 @@ read one — validated any earlier, every stored route would look stale on every
   kind the route says.
 - A session route is stale by definition: the agents died with the app.
 - Review, review-task and preview routes count as stale too, because git and service detection
-  have not been read when the window restores. Review's own default re-opens the first task
-  waiting for approval once that read lands, which is the same answer a moment later.
+  have not been read when the window restores. The next task to finish opens its own review
+  once that read lands, which is the same answer a moment later.
 
-Anything that fails drops the route, and `openSectionDefault()` fills it: the block still
-waiting on you, the first task up for review, the board. `RestorationTests` covers the
+Anything that fails drops the route, and `openSectionDefault()` fills it: the session still
+on assigned work, the block still waiting on you, the board. `RestorationTests` covers the
 round trip, an unparseable string, a card deleted while the app was closed, a dead session,
 and a resolved block.
 

@@ -39,7 +39,7 @@ import Testing
     @Test func aRouteSurvivesBeingWrittenDownAndReadBack() {
         let session = UUID()
         let routes: [Route] = [
-            .overview, .board, .usage, .project("checkout"), .task("wire-auth"), .page("q3"),
+            .board, .usage, .project("checkout"), .task("wire-auth"), .page("q3"),
             .entry("tasks/wire-auth"), .session(session), .session(session, pane: .transcript),
             .subagent(session: session, id: "a1"), .block("blocks/needs-a-key.md"),
             .member("David"), .review(file: nil), .review(file: "Sources/App.swift"),
@@ -131,8 +131,8 @@ import Testing
         let entered = try #require(model.projects.first)
         let waiting = try #require(entered.snapshot.blocks.first)
 
-        model.restore(entered: project.directory.path, section: .blocks, route: .block("blocks/gone.md"))
-        #expect(model.section == .blocks)
+        model.restore(entered: project.directory.path, section: .agents, route: .block("blocks/gone.md"))
+        #expect(model.section == .agents)
         #expect(model.selection == .block(waiting.id), "the block still waiting on you, not an empty pane")
     }
 
@@ -160,12 +160,12 @@ import Testing
         let second = try #require(entered.snapshot.blocks.last)
         #expect(entered.snapshot.blocks.count == 2)
 
-        model.restore(entered: project.directory.path, section: .blocks, route: .block(second.id))
+        model.restore(entered: project.directory.path, section: .agents, route: .block(second.id))
         #expect(model.selection == .block(second.id), "the one you were reading, not the first one waiting")
         // And switching sections away and back re-picks, because nothing is open then.
-        model.section = .overview
+        model.section = .board
         model.openSectionDefault()
-        model.section = .blocks
+        model.section = .agents
         model.openSectionDefault()
         #expect(model.selection == .block(try #require(entered.snapshot.blocks.first).id))
     }

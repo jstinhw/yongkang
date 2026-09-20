@@ -2,9 +2,9 @@
 
 ![A block waiting on the user](../images/block.png)
 
-Anything only you can settle lives in `.notebook/blocks/` and shows in the `Blocks`
-section of the rail — a product proposal waiting for your opinion, a design waiting for
-your approval, or an agent that
+Anything only you can settle lives in `.notebook/blocks/` and shows under **Waiting on
+you** at the top of `Agents`, above the sessions — a product proposal waiting for your
+opinion, a design waiting for your approval, or an agent that
 needs a token, a consent screen, an approval and is sitting there until it has one. The
 row says what is being asked and what it holds up; the button sends it to whoever can act
 on it, which for a proposal is product and for a gate is a session of its own.

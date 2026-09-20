@@ -9,7 +9,7 @@ import Foundation
 /// session UUID, a file path, a roster name. None carries the project's own id, because a
 /// selection only ever means something inside the entered project, and entering one resets it.
 package enum Route: Hashable, Sendable, Codable {
-    case overview, board
+    case board
     /// The project-wide usage screen, which belongs to no single agent.
     case usage
 

@@ -10,9 +10,7 @@ package struct ProjectList: View {
     let project: Project
     @Binding var selection: Route?
     let showDone: Bool
-    /// Only read when the Review section is showing; empty everywhere else.
-    let changes: [FileChange]
-    /// What those changes mean, derived by the model rather than here: this column redraws on
+    /// What the working tree means, derived by the model rather than here: this column redraws on
     /// every poll, and `ChangeSummary.of` walks every card and every run record.
     let summary: ChangeSummary
     /// The toolbar's agent, which a project's context menu assigns to first, and what the
@@ -36,7 +34,6 @@ package struct ProjectList: View {
         project: Project,
         selection: Binding<Route?>,
         showDone: Bool,
-        changes: [FileChange],
         summary: ChangeSummary,
         agent: AgentKind,
         found: Set<AgentKind>?,
@@ -51,7 +48,6 @@ package struct ProjectList: View {
         self.project = project
         self._selection = selection
         self.showDone = showDone
-        self.changes = changes
         self.summary = summary
         self.agent = agent
         self.found = found
@@ -69,11 +65,8 @@ package struct ProjectList: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     switch section {
-                    case .overview: overviewRows
                     case .board: boardRows
                     case .agents: agentRows
-                    case .review: reviewRows
-                    case .blocks: blockRows
                     }
                 }
                 .padding(.bottom, 14)
@@ -117,30 +110,23 @@ package struct ProjectList: View {
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
 
-    @ViewBuilder private var footer: some View {
-        if let note = footNote {
-            Text(note)
-                .font(Typography.mono)
-                .foregroundStyle(Theme.tx3)
-                .lineSpacing(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
-        }
+    private var footer: some View {
+        Text(footNote)
+            .font(Typography.mono)
+            .foregroundStyle(Theme.tx3)
+            .lineSpacing(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
 
-    private var footNote: String? {
+    private var footNote: String {
         switch section {
         case .board:
             return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
         case .agents:
             return
-                "A session opens its terminal. Each task under it opens its review; a green one is waiting for you."
-        case .blocks:
-            return
-                "A block is one file in .notebook/blocks/. Clearing it releases the agent waiting on it. A demo is the same thing for a design nobody has approved yet."
-        case .review: return "Nothing is committed until you approve it here. No agent commits, pushes or opens a PR."
-        default: return nil
+                "A session opens its terminal. Each task under it opens its review; a green one is waiting for you. Clearing a block releases the agent waiting on it."
         }
     }
 
@@ -216,34 +202,6 @@ package struct ProjectList: View {
         let tasks = project.cards.filter { $0.kind == .task && $0.project == card.id }
         guard !tasks.isEmpty else { return 0 }
         return Double(tasks.filter { $0.status == "done" }.count) / Double(tasks.count)
-    }
-
-    // MARK: - Overview
-
-    @ViewBuilder private var overviewRows: some View {
-        let online = project.sessions.filter { $0.agent != nil && !$0.exited }
-        group("Agents online", "\(online.reduce(0) { $0 + $1.activeSubagents.count } + online.count)")
-        if online.isEmpty {
-            empty("No agents running")
-        } else {
-            ForEach(online) { session in
-                sessionRow(session)
-                ForEach(session.activeSubagents) { subagent in
-                    subagentRow(subagent, in: session, depth: 1)
-                }
-            }
-        }
-        group("Notebook")
-        ForEach(NotebookKindCount.all(in: project.cards), id: \.label) { item in
-            HStack(spacing: 9) {
-                Image(systemName: item.icon).font(.system(size: 12)).foregroundStyle(Theme.tx3)
-                Text(item.label).font(Typography.body).foregroundStyle(Theme.tx2)
-                Spacer(minLength: 8)
-                Text("\(item.count)").font(Typography.mono).foregroundStyle(Theme.tx3)
-            }
-            .padding(.horizontal, 19)
-            .padding(.vertical, 6)
-        }
     }
 
     // MARK: - Board
@@ -339,6 +297,13 @@ package struct ProjectList: View {
     @ViewBuilder private var agentRows: some View {
         group("Fleet")
         usageRow
+        // Blocks sit above the sessions rather than in a section of their own: a block is the
+        // one thing here that is the user's move, and it holds whichever session raised it.
+        let blocked = project.blocks.filter(\.waiting)
+        if !blocked.isEmpty {
+            group("Waiting on you", "\(blocked.count)")
+            ForEach(blocked) { blockRow($0) }
+        }
         group("Sessions", "\(project.onlineAgentCount) online")
         if project.sessions.isEmpty { empty("Nothing running") }
         // Each session, then the tasks it holds, then the subagents each task dispatched: a
@@ -534,98 +499,17 @@ package struct ProjectList: View {
         }
     }
 
-    // MARK: - Review
-
-    /// Tasks, not files: what is waiting for the user's approval first, then what the agents
-    /// are still on. The whole working tree is one row at the end, for edits no task claims.
-    @ViewBuilder private var reviewRows: some View {
-        let waiting = summary.waiting
-        let flight = summary.tasks.filter { !$0.done }
-        group("Waiting for you", "\(waiting.count)")
-        if waiting.isEmpty { empty("Nothing waiting for review") }
-        ForEach(waiting) { task in
-            reviewRow(
-                task,
-                detail: "\(task.files.count) file\(task.files.count == 1 ? "" : "s") · "
-                    + (task.verification.isEmpty ? "not verified" : "verified"))
-        }
-        if !flight.isEmpty {
-            group("With the agents", "\(flight.count)")
-            ForEach(flight) { task in reviewRow(task, detail: task.status.isEmpty ? "queued" : task.status) }
-        }
-        let added = changes.reduce(0) { $0 + $1.added }
-        let removed = changes.reduce(0) { $0 + $1.removed }
-        group("Working tree", "+\(added) −\(removed)")
-        row(.review(file: nil)) {
-            HStack(spacing: 9) {
-                Image(systemName: summary.unclaimed.isEmpty ? "doc.on.doc" : "questionmark.circle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(summary.unclaimed.isEmpty ? Theme.tx3 : Theme.amber)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("All changes").font(Typography.body).foregroundStyle(Theme.tx)
-                    Text(
-                        summary.unclaimed.isEmpty
-                            ? "\(changes.count) files"
-                            : "\(summary.unclaimed.count) not claimed by a task"
-                    )
-                    .font(Typography.caption).foregroundStyle(Theme.tx3)
-                }
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private func reviewRow(_ task: SummaryTask, detail: String) -> some View {
-        row(.reviewTask(task.id)) {
-            HStack(alignment: .top, spacing: 10) {
-                NotebookStyle.statusRing(task.status, progress: 0, size: 14).padding(.top, 2)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(task.title).font(Typography.body)
-                        .foregroundStyle(selection == .reviewTask(task.id) ? Theme.tx : Theme.tx2)
-                        .lineLimit(2).multilineTextAlignment(.leading)
-                    Text(detail).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
-                }
-                Spacer(minLength: 4)
-                if !task.files.isEmpty {
-                    Text("+\(task.added)").font(Typography.mono).foregroundStyle(Theme.green)
-                }
-                if task.done && !task.files.isEmpty {
-                    StateDot(color: Theme.green, live: true).padding(.top, 5).help("Waiting for your review")
-                }
-            }
-        }
-    }
-
-    // MARK: - Blocks
-
-    @ViewBuilder private var blockRows: some View {
-        let waiting = project.blocks.filter(\.waiting)
-        let resolved = project.blocks.filter { !$0.waiting }
-        group("Waiting on you", "\(waiting.count)")
-        if waiting.isEmpty { empty("Nothing waiting on you") }
-        ForEach(waiting) { blockRow($0) }
-        if !resolved.isEmpty && showDone {
-            group("Resolved", "\(resolved.count)")
-            ForEach(resolved) { blockRow($0).opacity(0.55) }
-        }
-    }
-
+    /// One block, named for the task it holds. A demo is the same file for a design nobody
+    /// has approved yet; a proposal, for work nobody has said yes to.
     private func blockRow(_ block: UserBlock) -> some View {
         row(.block(block.id)) {
             HStack(alignment: .top, spacing: 10) {
                 Image(
-                    systemName: block.waiting
-                        ? (block.isProposal
-                            ? "lightbulb"
-                            : block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
-                        : "checkmark.circle"
+                    systemName: block.isProposal
+                        ? "lightbulb" : (block.isDemo ? "rectangle.on.rectangle" : "hand.raised")
                 )
                 .font(.system(size: 13))
-                .foregroundStyle(
-                    block.waiting
-                        ? (block.isProposal ? Theme.violet : Theme.amber)
-                        : Theme.green
-                )
+                .foregroundStyle(block.isProposal ? Theme.violet : Theme.amber)
                 .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(block.title).font(Typography.body)
@@ -653,30 +537,6 @@ package struct ProjectList: View {
     }
 }
 
-/// The notebook's shape in one line per kind — what the overview column counts.
-struct NotebookKindCount {
-    let label: String
-    let icon: String
-    let count: Int
-
-    static func all(in cards: [NotebookCard]) -> [NotebookKindCount] {
-        [
-            NotebookKindCount(
-                label: "Roadmap", icon: "map",
-                count: cards.filter { $0.kind == .roadmap }.count),
-            NotebookKindCount(
-                label: "Projects", icon: "shippingbox",
-                count: cards.filter { $0.kind == .project }.count),
-            NotebookKindCount(
-                label: "Tasks", icon: "checkmark.circle",
-                count: cards.filter { $0.kind == .task }.count),
-            NotebookKindCount(
-                label: "Memory", icon: "brain",
-                count: cards.filter { $0.kind == .memory }.count),
-        ]
-    }
-}
-
 /// What the project menu holds, wherever it is drawn: the list header, or the toolbar while the
 /// list is hidden. ⌘[ is not repeated on All Projects — Go → All Projects owns that binding.
 struct ProjectSwitcherItems: View {
@@ -689,7 +549,7 @@ struct ProjectSwitcherItems: View {
         Section("Open Projects") {
             ForEach(projects) { other in
                 // A Toggle is what draws the check. Choosing the project you are already in does
-                // nothing: entering it again would drop you back on Overview.
+                // nothing: entering it again would drop you back on the board.
                 Toggle(
                     title(other),
                     isOn: Binding(

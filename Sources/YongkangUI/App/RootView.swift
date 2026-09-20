@@ -30,7 +30,7 @@ struct RootView: View {
     /// was. `@AppStorage("openProjects")` reopens the folders; these three are the rest of
     /// the address. See `restore()`.
     @SceneStorage("enteredProject") private var enteredProject = ""
-    @SceneStorage("section") private var storedSection = ConsoleSection.overview
+    @SceneStorage("section") private var storedSection = ConsoleSection.board
     @SceneStorage("route") private var storedRoute = ""
 
     var body: some View {
@@ -76,7 +76,7 @@ struct RootView: View {
         // The transcript follows the selection rather than the poll: a row that opens an
         // agent must not leave the one before it on screen for up to two seconds under
         // the new agent's name. Every screen that opens one is covered by this — the
-        // list column and the overview's "Running now" cards included.
+        // list column and the board's cards included.
         .onChange(of: model.selection) {
             model.reloadAgentTranscript()
             storedRoute = model.selection?.stored ?? ""
@@ -133,7 +133,7 @@ struct RootView: View {
                         ProjectList(
                             section: model.section, project: project.value,
                             selection: $model.selection,
-                            showDone: model.showDone, changes: project.repo.changes, summary: project.summary,
+                            showDone: model.showDone, summary: project.summary,
                             agent: agent, found: model.foundAgents,
                             assign: { model.assign($0, in: project, agent: $1) },
                             closeSession: { model.close($0, in: project) },
@@ -178,17 +178,17 @@ struct RootView: View {
         }
     }
 
-    /// A dot on the rail for the two things that are about the user rather than the work:
-    /// something waiting on them, and something an agent has left to be read.
+    /// A dot on the rail for what is about the user rather than the work. Both of those now
+    /// live under Agents — a block is held by the session waiting on it, a review is a task
+    /// row under the session that did it — so the one dot says which of them it is: amber for
+    /// a block, green for work waiting to be approved, and the running colour otherwise.
     private func badges(for project: ProjectModel) -> [ConsoleSection: Color] {
-        var badges: [ConsoleSection: Color] = [:]
-        if project.snapshot.blocks.contains(where: \.waiting) { badges[.blocks] = Theme.amber }
+        if project.snapshot.blocks.contains(where: \.waiting) { return [.agents: Theme.amber] }
+        if !project.summary.waiting.isEmpty { return [.agents: Theme.green] }
         if project.sessions.contains(where: { !$0.activeSubagents.isEmpty }) {
-            badges[.agents] = Theme.accent
+            return [.agents: Theme.accent]
         }
-        // Lit for work waiting on the user's approval, not for any edit in the tree.
-        if !project.summary.waiting.isEmpty { badges[.review] = Theme.green }
-        return badges
+        return [:]
     }
 
     // MARK: - Projects

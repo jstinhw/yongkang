@@ -26,22 +26,18 @@ import Testing
         let model = AppModel()
         let view = RootView(model: model)
 
-        model.section = .overview
-        #expect(view.title(for: project) == "Overview")
-        #expect(view.subtitle(for: project) == project.name)
-
-        model.section = .blocks
-        #expect(view.title(for: project) == "Blocks")
-
         model.section = .board
         #expect(view.title(for: project) == "Board", "nothing scoped, so the section names itself")
+        #expect(view.subtitle(for: project) == project.name)
         let card = try #require(project.snapshot.cards.first { $0.kind == .task })
         model.selection = .task(card.id)
         #expect(view.title(for: project) == card.title, "what is open is more specific than the section")
 
-        model.section = .review
+        model.section = .agents
+        model.selection = .review(file: nil)
+        #expect(view.title(for: project) == "Review changes", "the working tree, under Agents")
         #expect(
             view.subtitle(for: project) == (project.repo.branch ?? project.name),
-            "Review says which branch the changes are on, which is what you approve against")
+            "it says which branch the changes are on, which is what you commit against")
     }
 }

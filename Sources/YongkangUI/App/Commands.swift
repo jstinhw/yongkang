@@ -56,7 +56,7 @@ struct YongkangCommands: Commands {
     // MARK: - View
 
     @ViewBuilder private var view: some View {
-        // ⌘1–⌘5 in the rail's own order, so the number matches the icon's place in it.
+        // ⌘1–⌘2 in the rail's own order, so the number matches the icon's place in it.
         ForEach(Array(ConsoleSection.allCases.enumerated()), id: \.element) { index, section in
             Button(section.title) { model.section = section }
                 .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")))
