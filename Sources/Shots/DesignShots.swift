@@ -514,7 +514,7 @@ enum DesignShots {
         let leadID = UUID()
         let transcript = URL(fileURLWithPath: "/tmp/agent.jsonl")
         var lead = CodeSession(
-            id: leadID, title: "Build UI foundation", icon: "sparkles",
+            id: leadID, title: "Claude Code", icon: "sparkles",
             line: "claude", agent: .claude,
             taskIDs: ["show-agent-tree", "pull-blockers", "deploy-to-vercel"])
         lead.subagents = [

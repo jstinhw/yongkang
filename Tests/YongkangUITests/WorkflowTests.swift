@@ -71,8 +71,10 @@ import Testing
         #expect(project.sessions.count == 2, "independent work is not queued behind one agent")
         #expect(
             project.sessions.map(\.taskIDs) == [["ship-it"], ["wire-auth"]],
-            "one session per task, in the notebook's order, each named and prompted for its own")
-        #expect(project.sessions.map(\.title) == ["Ship it", "Wire auth"])
+            "one session per task, in the notebook's order, each prompted for its own")
+        #expect(
+            project.sessions.map(\.title) == ["Claude Code", "Claude Code 2"],
+            "named after the coding agent, with the tasks listed under it by their own names")
         #expect(
             destination == Destination(section: .overview, route: .overview),
             "Overview's Running now shows both, even with the Agents list hidden")
@@ -87,7 +89,7 @@ import Testing
         let destination = try #require(project.assign([try card("ship-it", in: project)], agent: .codex))
         let second = try #require(project.sessions.last)
         #expect(second.id != first, "a running session is never handed more work")
-        #expect(second.agent == .codex && second.taskIDs == ["ship-it"] && second.title == "Ship it")
+        #expect(second.agent == .codex && second.taskIDs == ["ship-it"] && second.title == "Codex")
         #expect(destination == Destination(section: .agents, route: .session(second.id)))
 
         #expect(
@@ -189,6 +191,7 @@ import Testing
             kind: demo
             title: "Hero"
             status: open
+            task: design-hero
             session: \(session.uuidString)
             ---
 
@@ -202,11 +205,11 @@ import Testing
     @Test func approvingADemoClearsItsBlockAndTellsTheDesignerWhichRevisionWon() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try await project(tasks: [], in: tmp)
+        let project = try await project(tasks: ["Design hero"], in: tmp)
         let designer = running("Engineering Lead", in: project)
         let demo = try demo(madeBy: designer, in: project)
 
-        let approved = try #require(project.approveDemo(demo, revision: demo.revisions.last))
+        let approved = try #require(project.approveDemo(demo, revision: demo.revisions.last, agent: .claude))
         #expect(approved.section == .agents && approved.route == .session(designer))
         #expect(approved.input?.hasPrefix("The demo at hero-demo is approved. Build v2.") == true)
         #expect(Blocks.block(at: demo.url)?.waiting == false, "the block is cleared the way any other is")
@@ -215,16 +218,49 @@ import Testing
             "and counts as delivered, so the poll doesn't tell the designer Unblocked on top")
     }
 
-    @Test func revisingADemoOpensTheSessionThatMadeIt() async throws {
+    @Test func revisingADemoSendsWhatTheUserWroteToTheSessionThatMadeIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try await project(tasks: [], in: tmp)
+        let project = try await project(tasks: ["Design hero"], in: tmp)
         let designer = running("Engineering Lead", in: project)
         let demo = try demo(madeBy: designer, in: project)
+        project.reviewDrafts[demo.id] = ReviewDraft(note: "Too dense. Cut the third column.")
 
-        #expect(project.openDesigner(demo) == Destination(section: .agents, route: .session(designer)))
+        #expect(
+            project.requestDemoChanges(demo, note: " \n ", agent: .claude) == nil,
+            "nothing written, nothing sent — the button says so instead")
+        let sent = try #require(
+            project.requestDemoChanges(demo, note: "Too dense. Cut the third column.", agent: .claude))
+        #expect(sent.section == .agents && sent.route == .session(designer))
+        #expect(sent.input?.contains("Too dense. Cut the third column.") == true)
+        #expect(sent.input?.contains("the next pass on that demo, not the task again") == true)
+        #expect(project.sessions.count == 1, "a further pass is not a new session")
+        #expect(Blocks.block(at: demo.url)?.waiting == true, "the demo stays open for the pass that answers it")
+        #expect(project.reviewDrafts[demo.id] == nil, "and what they wrote is spent")
+    }
+
+    // A demo waits for as long as the user takes to look at it, which outlives the session
+    // that built it. Neither answer may be a button that does nothing.
+    @Test func decidingADemoAfterItsSessionExitedStartsTheDesignTaskAgain() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Design hero"], in: tmp)
+        let designer = running("Engineering Lead", in: project)
+        let demo = try demo(madeBy: designer, in: project)
         _ = project.markExited(designer)
-        #expect(project.openDesigner(demo) == nil, "with nobody waiting on it there is no one to tell")
+
+        let revise = try #require(project.requestDemoChanges(demo, note: "Cut the third column.", agent: .codex))
+        let started = try #require(project.sessions.last)
+        #expect(revise == Destination(section: .agents, route: .session(started.id)))
+        #expect(started.taskIDs == ["design-hero"] && started.agent == .codex)
+        #expect(
+            started.line.contains("Cut the third column.")
+                && started.line.contains("not the task again"),
+            "the new agent is pointed at the demo it continues, with what the user wrote")
+
+        let approved = try #require(project.approveDemo(demo, revision: nil, agent: .claude))
+        #expect(approved != revise, "approving after that starts its own session, not the same one")
+        #expect(project.sessions.last?.line.contains("is approved") == true)
     }
 
     // MARK: - Review

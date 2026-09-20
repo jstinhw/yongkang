@@ -7,9 +7,10 @@ anyone builds it. Nothing is inferred: Product decides, and writes `designer: <n
 into the task's frontmatter. Empty means ordinary work that goes straight to the agent.
 
 When a session picks up such a task it sets `status: designing` and runs the `designer`
-skill on it first. The designer settles the layout in Claude Code's `/design` canvas,
-builds it as a running demo on a throwaway `demo/<task-id>` branch, and writes one
-`kind: demo` file to `.notebook/blocks/`. The rest of the session's tasks carry on
+skill on it first. The designer builds it as a running demo straight in the project's own
+stack, uncommitted on the branch the session is on, and writes one `kind: demo` file to
+`.notebook/blocks/`. A page is designed by building it, not drawn on a canvas first and then
+built again; only a product that does not run in a browser gets a canvas instead. The rest of the session's tasks carry on
 meanwhile — one demo does not idle the others.
 
 The board shows that task as `demo ready` with `See demo`, which opens the two pages side
@@ -19,6 +20,9 @@ designer made is a chip on the `Revisions` strip, so you can follow how the chan
 there rather than being handed one finished thing; a pass they kept serving opens again.
 
 `Build it` clears the demo and tells the waiting session which revision won — only then
-does the work on that screen start. `Request changes` opens the transcript of whoever
-built it, because the point is that you say what is wrong in your own words. Saying no
-throws the branch away; nothing was merged and no task status moved.
+does the work on that screen start. To say no, write what should change in the box beside
+the buttons, in your own words, and `Request changes` sends it to whoever has the demo as
+the brief for the next pass. The demo stays open, and what comes back is another revision
+on the same strip, not the task started again. If that session has since exited, the
+design task picks up where the demo file says it got to. None of the demo is committed
+until you approve it in Review.

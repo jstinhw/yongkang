@@ -97,10 +97,14 @@ extension RootView {
                 block: block, cards: project.cards,
                 waiting: project.waitingSession(for: block),
                 approve: { revision in
-                    model.go(to: project.approveDemo(block, revision: revision))
+                    model.go(to: project.approveDemo(block, revision: revision, agent: agent))
                     model.reload()
                 },
-                revise: { model.go(to: project.openDesigner(block)) }
+                note: draft(for: block.id, in: project).note,
+                revise: {
+                    let note = project.reviewDrafts[block.id]?.note ?? ""
+                    model.go(to: project.requestDemoChanges(block, note: note, agent: agent))
+                }
             )
             .id(block.id)
         } else if let block = selectedBlock(in: project) {

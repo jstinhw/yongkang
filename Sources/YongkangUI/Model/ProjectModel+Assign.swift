@@ -8,6 +8,9 @@ extension ProjectModel {
     /// its blocker is still being written next door. Nothing is typed into a session already
     /// running — its agent may not be the one picked this time.
     ///
+    /// A session is named after the coding agent running it — "Claude Code", "Claude Code 2" —
+    /// not its work: the Agents list shows its tasks under it by their own names.
+    ///
     /// Blockers come along whichever way the tasks were picked — expanding here means the
     /// list and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work an open session already has, so a task never goes to two at once.
@@ -25,23 +28,10 @@ extension ProjectModel {
             let id = UUID()
             return addSession(
                 agent, id: id, prompt: NotebookFormat.workPrompt(tasks: chain, sessionID: id),
-                title: title(of: chain), taskIDs: chain.map(\.id))
+                taskIDs: chain.map(\.id))
         }
         return routes.count == 1
             ? Destination(section: .agents, route: routes[0])
             : Destination(section: .overview, route: .overview)
-    }
-
-    /// A session is named after its work: the task, the project its chain belongs to, or how
-    /// many tasks there are when one chain spans projects.
-    private func title(of batch: [NotebookCard]) -> String {
-        if batch.count == 1, let only = batch.first { return only.title }
-        let projects = Set(batch.map(\.project))
-        if projects.count == 1, let id = projects.first ?? nil,
-            let project = snapshot.cards.first(where: { $0.kind == .project && $0.id == id })
-        {
-            return project.title
-        }
-        return "\(batch.count) tasks"
     }
 }

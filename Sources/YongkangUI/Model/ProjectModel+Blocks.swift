@@ -41,22 +41,47 @@ extension ProjectModel {
     /// a design task: the block is cleared the same way any other is, and the agent that
     /// made it is told which revision won. The app does not touch the task file — the
     /// agent owns that, like every other status in the notebook.
-    ///
-    /// Nil when no session is waiting on the demo: the block is still cleared.
-    func approveDemo(_ block: UserBlock, revision: DemoRevision?) -> Destination? {
+    func approveDemo(_ block: UserBlock, revision: DemoRevision?, agent: AgentKind) -> Destination? {
         Blocks.resolve(block)
-        guard let waiting = waitingSession(for: block) else { return nil }
         deliveredBlocks.insert(block.id)
         let pass = revision.map { " Build \($0.label)." } ?? ""
-        return Destination(
-            section: .agents, route: .session(waiting.id),
-            input: "The demo at \(block.slug) is approved.\(pass) "
+        return decision(
+            on: block, agent: agent,
+            "The demo at \(block.slug) is approved.\(pass) "
                 + "Mark the design task done and start the tasks waiting on it.")
     }
 
-    /// Saying what is wrong goes to whoever made the demo, in their own transcript. There
-    /// is nothing to type on their behalf — the point is that the user says it.
-    func openDesigner(_ block: UserBlock) -> Destination? {
-        waitingSession(for: block).map { Destination(section: .agents, route: .session($0.id)) }
+    /// Saying what is wrong is the whole gesture: the user's own words, sent to whoever has
+    /// the demo, and the demo stays open for the pass that answers them. Nothing is typed on
+    /// their behalf, so nothing is sent until they have written something.
+    ///
+    /// Nil when they have not — the button says so rather than going quiet.
+    func requestDemoChanges(_ block: UserBlock, note: String, agent: AgentKind) -> Destination? {
+        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        reviewDrafts[block.id] = nil
+        return decision(on: block, agent: agent, NotebookFormat.demoChangeRequest(demo: block, note: note))
+    }
+
+    /// Where a demo's decision goes. A demo outlives the session that built it — it waits
+    /// until the user has looked at it, which may be days and an app launch later — so
+    /// neither answer may depend on that session still running. With it gone, the design
+    /// task starts again carrying the decision, and the demo file tells the new agent where
+    /// the last one got to.
+    ///
+    /// Nil only when the demo names no task still in the notebook: there is nothing to
+    /// reopen, and the block is already cleared.
+    private func decision(on block: UserBlock, agent: AgentKind, _ message: String) -> Destination? {
+        if let waiting = waitingSession(for: block) {
+            return Destination(section: .agents, route: .session(waiting.id), input: message)
+        }
+        guard let task = block.task.flatMap({ id in snapshot.cards.first { $0.id == id && $0.kind == .task } })
+        else { return nil }
+        let id = UUID()
+        return Destination(
+            section: .agents,
+            route: addSession(
+                agent, id: id,
+                prompt: NotebookFormat.workPrompt(tasks: [task], sessionID: id, message: message),
+                taskIDs: [task.id]))
     }
 }

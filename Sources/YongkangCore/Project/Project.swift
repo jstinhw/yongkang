@@ -121,6 +121,6 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
 
 extension CodeSession {
     /// A session assigned tasks, which is what has a result to review and is refused commits.
-    /// Not the title: a session is named after its work, and work can be called anything.
+    /// Not the title: an assigned session is named after its coding agent, like a plain one.
     package var holdsTasks: Bool { !taskIDs.isEmpty }
 }

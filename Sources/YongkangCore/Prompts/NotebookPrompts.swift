@@ -118,6 +118,14 @@ extension NotebookFormat {
                 + "nothing that depends on it until I approve its demo.\n"
             : ""
         let asked = message.isEmpty ? "" : "\n\(message)\n"
+        // One task has no order to keep and nothing to run beside it, and every line an
+        // agent is handed is one it tries to act on.
+        let chain =
+            tasks.count > 1
+            ? " Several tasks here are one chain: go in `depends_on` order, and only run two at "
+                + "once — with your own subagents, one writer per file, each named after its task "
+                + "id — where neither waits on the other."
+            : ""
         return """
             Build \(tasks.count == 1 ? "this task" : "these tasks") from the notebook in `\(folderName)/`.
 
@@ -125,10 +133,8 @@ extension NotebookFormat {
             Session id: \(id)
             \(asked)
             Read each task file, what it depends on and its project's memory; the Done when list
-            is the contract. Several tasks here are one chain: go in `depends_on` order, and only
-            run two at once — with your own subagents, one writer per file, each named after its
-            task id — where neither waits on the other. Set a task `status: active` when you start
-            it and `done` once you have checked every item of its Done when.
+            is the contract.\(chain) Set a task `status: active` when you start it and `done` once
+            you have checked every item of its Done when.
             \(design)
             When only I can unblock something — an account, a secret, a payment — write
             `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`, `session: \(id)`,
@@ -162,6 +168,23 @@ extension NotebookFormat {
             When you stop — all done, or waiting on me — show me the report as a page: \(page).
             One section per task: its status, what changed, how you checked it, the files, the
             calls you made, and what is left. Put what needs me first.
+            """
+    }
+
+    /// What the user says about a demo, on its way to the designer. A demo that comes back
+    /// is the next pass on the one already built, never the task again from the top: the
+    /// file it names carries the revisions so far, and the answer joins them.
+    package static func demoChangeRequest(demo: UserBlock, note: String) -> String {
+        let said = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return """
+            Changes requested on the demo \(demo.slug) — "\(demo.title)".
+
+            \(said)
+
+            This is the next pass on that demo, not the task again: read \
+            `\(relativePath(demo.url))` for where it got to, change what I asked and leave \
+            the rest alone, serve it, and append a `## Revisions` line saying what moved. \
+            Do not commit.
             """
     }
 

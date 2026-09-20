@@ -168,7 +168,7 @@ package enum AgentUsage {
     /// A session's role, for the panel that groups spend by one. The console names a
     /// session after what it started it for — "Product", "New Agent" — and numbers the second
     /// of each, so the first word is the role and the number is not. An assigned session is
-    /// named after its task, which says nothing about its role, so it is all "work". A
+    /// named after its coding agent, which says nothing about its role, so it is all "work". A
     /// subagent needs none of this: it already carries its agent type.
     static func role(of session: CodeSession) -> String {
         guard !session.holdsTasks else { return "work" }

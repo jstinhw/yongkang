@@ -35,7 +35,7 @@ extension ProjectModel {
             section: .agents,
             route: addSession(
                 agent, id: id, prompt: NotebookFormat.workPrompt(tasks: [card], sessionID: id, message: message),
-                title: card.title, taskIDs: [task.id]))
+                taskIDs: [task.id]))
     }
 
     /// The review screen's one write to the repo. Staging and committing is all it does —

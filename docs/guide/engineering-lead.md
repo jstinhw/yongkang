@@ -7,7 +7,8 @@ starting on the toolbar's agent. Picking one there is for that assignment only; 
 toolbar keeps its default.
 
 What you assign is split into chains, and each chain gets a session of its own, named
-after its work:
+after the coding agent running it — Claude Code, Claude Code 2 — with its tasks listed under
+it in `Agents` by their own names:
 
 - **A task:** `Assign` on its page starts one session on that task, together with any
   unfinished tasks it waits on — those cannot run beside it, so they share its session and

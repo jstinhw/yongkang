@@ -227,7 +227,7 @@ struct TerminalRegistryTests {
         model.enter(project)
 
         // What the demo page's approve button does: go where the workflow says, then reload.
-        model.go(to: project.approveDemo(demo, revision: demo.revisions.last))
+        model.go(to: project.approveDemo(demo, revision: demo.revisions.last, agent: .claude))
         model.reload()
         // PTY writes arrive in order, so anything the reload typed comes before this.
         model.terminals.send("end", to: designer)

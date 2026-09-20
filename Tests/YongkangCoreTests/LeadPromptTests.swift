@@ -51,6 +51,7 @@ import Testing
             brief.contains(".notebook/runs/\(id)-work-<work id>.md") && brief.contains("## Verification"),
             "each task's report is filed where Review reads it, with how it was checked")
         #expect(brief.contains("Never stage, commit"), "the user commits each task from Review")
+        #expect(brief.contains("one chain"), "several tasks go in depends_on order")
         #expect(!brief.contains("designer"), "no design task, no designer")
         let echoed = try echo(AgentCommand.quoted(brief))
         #expect(echoed == brief, "task brief mangled by the shell")
@@ -67,6 +68,7 @@ import Testing
             brief.contains("`designer` skill") || brief.contains("designer skill at"),
             "design work follows the designer skill")
         #expect(brief.contains("until I approve its demo"))
+        #expect(!brief.contains("subagents"), "one task has no chain to split")
     }
 
     // A change request with no session left on the task starts a fresh one with the comments.

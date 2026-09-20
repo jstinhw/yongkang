@@ -80,7 +80,8 @@ for.
    one there, then click **Assign**. If the batch includes a design task (one with
    `designer:` set), the button reads **Assign — design first** instead.
    - The window switches to **Agents** and opens the live terminal of a new session on the
-     agent you picked, named after the task. Its row reads "1 task · 0 running".
+     agent you picked, named after that agent (**Codex**, say). Its row reads "1 task · 0
+     running", with the task's own row under it.
    - The toolbar's agent is unchanged.
    - Under the session's row is a row for the task. It opens the task and its review.
    - Back on the board, the card has a **wip** pill and can't be picked again.

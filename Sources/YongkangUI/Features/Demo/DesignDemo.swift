@@ -20,7 +20,9 @@ package struct DesignDemo: View {
     let waiting: CodeSession?
     /// Approves the current revision: clears the demo and tells the waiting agent to build.
     let approve: (DemoRevision?) -> Void
-    /// Opens the transcript of whoever made it, to say what is wrong.
+    /// What is wrong with it, in the user's words, kept while they look at the panes.
+    @Binding var note: String
+    /// Sends `note` to whoever has the demo, as the brief for the next pass.
     let revise: () -> Void
 
     @State private var pane = Pane.both
@@ -32,12 +34,14 @@ package struct DesignDemo: View {
         cards: [NotebookCard],
         waiting: CodeSession?,
         approve: @escaping (DemoRevision?) -> Void,
+        note: Binding<String> = .constant(""),
         revise: @escaping () -> Void
     ) {
         self.block = block
         self.cards = cards
         self.waiting = waiting
         self.approve = approve
+        self._note = note
         self.revise = revise
     }
 
@@ -295,33 +299,58 @@ package struct DesignDemo: View {
 
     // MARK: - Approve
 
+    /// Written something? Then sending it is the primary action, because building would
+    /// throw it away — the same pair of answers, in the same order, as a task's review.
+    private var said: Bool { !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
     private var actionBar: some View {
         ActionBar {
             Image(systemName: "hand.raised.fill").font(.system(size: 12))
                 .foregroundStyle(Theme.amber)
-            Text(
-                block.waiting
-                    ? "Nothing is written to the repo until you build it."
-                    : "Approved. \(waiting.map { "\($0.title) has it." } ?? "The agent has it.")"
-            )
-            .font(Typography.body)
-            .foregroundStyle(block.waiting ? Theme.tx3 : Theme.green)
-            Spacer(minLength: 12)
-            Button {
-                revise()
-            } label: {
-                Label("Request changes", systemImage: "arrow.uturn.left")
+            if block.waiting {
+                TextField("What should change? Sent to the agent as the next pass's brief", text: $note)
+                    .textFieldStyle(.plain)
+                    .font(Typography.body)
+                    .foregroundStyle(Theme.tx)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))
+                    .onSubmit { if said { revise() } }
+            } else {
+                Text("Approved. \(waiting.map { "\($0.title) has it." } ?? "The agent has it.")")
+                    .font(Typography.body).foregroundStyle(Theme.green)
+                Spacer(minLength: 12)
             }
-            .buttonStyle(.console)
-            .disabled(!block.waiting)
-            Button {
-                approve(shown ?? block.revisions.last)
-            } label: {
-                Label("Build it", systemImage: "checkmark.seal")
+            if said {
+                buildButton.buttonStyle(.console)
+                    .help("Builds this revision and discards what you wrote")
+                reviseButton.buttonStyle(.consolePrimary)
+            } else {
+                reviseButton.buttonStyle(.console)
+                    .disabled(true)
+                    .help("Say what should change first")
+                buildButton.buttonStyle(.consolePrimary)
             }
-            .buttonStyle(.consolePrimary)
-            .disabled(!block.waiting)
         }
+    }
+
+    private var reviseButton: some View {
+        Button {
+            revise()
+        } label: {
+            Label("Request changes", systemImage: "arrow.uturn.left")
+        }
+        .disabled(!block.waiting)
+    }
+
+    private var buildButton: some View {
+        Button {
+            approve(shown ?? block.revisions.last)
+        } label: {
+            Label("Build it", systemImage: "checkmark.seal")
+        }
+        .disabled(!block.waiting)
     }
 }
 
