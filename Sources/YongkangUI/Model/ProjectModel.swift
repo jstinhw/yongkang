@@ -105,7 +105,14 @@ import YongkangCore
     /// What the screens draw, rather than what the files say: the snapshot's cards with any
     /// task nobody is on any more settled back into the queue. See `NotebookIndex.settled`.
     /// The snapshot itself stays as it was read, so the poll still compares like with like.
-    var cards: [NotebookCard] { NotebookIndex.settled(snapshot.cards, assigned: assignedTaskIDs) }
+    var cards: [NotebookCard] {
+        NotebookIndex.settled(snapshot.cards, assigned: assignedTaskIDs, blocked: blockedTaskIDs)
+    }
+
+    /// The tasks an open block names. Not proposals: those hold up the notebook, not a task.
+    var blockedTaskIDs: Set<String> {
+        Set(snapshot.blocks.waitingOnUser.filter { !$0.isProposal }.compactMap(\.task))
+    }
 
     var name: String { value.name }
     var notebookRoot: URL { value.notebookRoot }

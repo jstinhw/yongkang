@@ -75,19 +75,28 @@ package enum NotebookIndex {
     /// read as worked-on for good, with nothing running. A task no live session holds is
     /// handed its queue status back, once here, rather than in every screen that draws one.
     ///
+    /// `blocked` is the other way a file can be out of date: an agent that filed a gate and
+    /// wrote `done` in the same run left work only the user can finish, and a done task
+    /// drops off the board, out of the summary and into a commit message. An open block
+    /// outranks the word in the file until the user settles it.
+    ///
     /// Tasks only. A project card's `active` is about its own tasks, which `assigned` says
     /// nothing about.
-    package static func settled(_ cards: [NotebookCard], assigned: Set<String>) -> [NotebookCard] {
-        func stale(_ card: NotebookCard) -> Bool {
-            card.kind == .task && card.status == "active" && !assigned.contains(card.id)
+    package static func settled(
+        _ cards: [NotebookCard], assigned: Set<String>, blocked: Set<String>
+    ) -> [NotebookCard] {
+        func status(of card: NotebookCard) -> String? {
+            guard card.kind == .task else { return nil }
+            if blocked.contains(card.id) { return card.status == "blocked" ? nil : "blocked" }
+            return card.status == "active" && !assigned.contains(card.id) ? "todo" : nil
         }
         // The common case is that nothing is stale, and this is read from view bodies.
-        guard cards.contains(where: stale) else { return cards }
+        guard cards.contains(where: { status(of: $0) != nil }) else { return cards }
         return cards.map { card in
-            guard stale(card) else { return card }
-            var settled = card
-            settled.status = "todo"
-            return settled
+            guard let settled = status(of: card) else { return card }
+            var card = card
+            card.status = settled
+            return card
         }
     }
 

@@ -126,4 +126,42 @@ import Testing
             NotebookBoard.isReady(missing, in: cards),
             "an id that resolves to nothing must not silently freeze a chain")
     }
+
+    // The board used to list only demos, so a gate waiting on a go-ahead was a number in the
+    // sidebar and nothing on the board. Both read the same folder now.
+    @Test func everyOpenBlockWaitsOnTheUser() throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let gate = try makeGate(in: dir)
+        let blocks = Blocks.root(in: gate.root)
+        try FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
+        try """
+        ---
+        id: hero-demo
+        kind: demo
+        title: "Hero and download"
+        status: open
+        task: hero-and-download
+        ---
+        """.write(to: blocks.appendingPathComponent("hero-demo.md"), atomically: true, encoding: .utf8)
+        try """
+        ---
+        id: releases-repo
+        kind: block
+        title: "Go-ahead to create the releases repo"
+        status: open
+        task: create-releases-repo
+        ---
+        """.write(
+            to: blocks.appendingPathComponent("releases-repo.md"), atomically: true, encoding: .utf8)
+
+        let open = Blocks.load(root: gate.root).waitingOnUser
+        #expect(open.count == 2, "a gate counts the same as a demo")
+        let task = NotebookCard(
+            id: "create-releases-repo", url: gate.plain, kind: .task, title: "Releases repo",
+            status: "blocked", project: nil, dependsOn: [])
+        let held = try #require(
+            NotebookBoard.block(for: task, in: open), "the gate reaches its card on the board")
+        #expect(!held.isDemo && BoardInspector.open(held) == "Open block")
+    }
 }

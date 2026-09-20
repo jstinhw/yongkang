@@ -86,6 +86,13 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
     package var isDemo: Bool { kind == "demo" }
 }
 
+extension Collection<UserBlock> {
+    /// The one definition of "waiting on you", so two screens cannot count the same folder
+    /// differently — which they did: the board listed demos and the sidebar listed everything,
+    /// so a gate waiting on a go-ahead was a number in one place and nowhere in the other.
+    package var waitingOnUser: [UserBlock] { filter(\.waiting) }
+}
+
 /// One pass of a demo. `url` is whatever the designer left running or published for that
 /// pass; without one the revision is still listed — the note is the record — but only the
 /// passes that kept a URL can be opened again.

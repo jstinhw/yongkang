@@ -181,7 +181,7 @@ extension RootView {
             assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
             review: { model.go(to: project.startProductReview(agent: agent)) },
             openCard: { card in model.selection = .task(card.id) },
-            openDemo: { demo in model.selection = .block(demo.id) },
+            openBlock: { model.selection = .block($0.id) },
             remove: { card in model.remove(card, in: project) }
         )
     }

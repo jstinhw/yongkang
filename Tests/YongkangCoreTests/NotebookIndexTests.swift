@@ -141,10 +141,27 @@ import Testing
             card("waiting", .task, "blocked"), card("console", .project, "active"),
         ]
 
-        let settled = NotebookIndex.settled(cards, assigned: ["held"])
+        let settled = NotebookIndex.settled(cards, assigned: ["held"], blocked: [])
         #expect(settled.map(\.status) == ["active", "todo", "blocked", "active"])
         #expect(
-            NotebookIndex.settled(cards, assigned: ["held", "dropped"]) == cards,
+            NotebookIndex.settled(cards, assigned: ["held", "dropped"], blocked: []) == cards,
             "nothing stale, nothing to settle")
+    }
+
+    /// An agent can file a block and tick the task off in the same run. Until the user
+    /// settles the block the task is not finished, whatever its file says.
+    @Test func settlingHoldsATaskAnOpenBlockNames() {
+        func card(_ id: String, _ status: String) -> NotebookCard {
+            NotebookCard(
+                id: id, url: URL(fileURLWithPath: "/tmp/\(id).md"), kind: .task, title: id,
+                status: status, project: nil, dependsOn: [])
+        }
+        let cards = [card("gated", "done"), card("shipped", "done"), card("designing", "active")]
+
+        let settled = NotebookIndex.settled(cards, assigned: ["designing"], blocked: ["gated"])
+        #expect(settled.map(\.status) == ["blocked", "done", "active"])
+        #expect(
+            NotebookIndex.visible(settled, showDone: false).map(\.id) == ["gated", "designing"],
+            "a task waiting on the user stays on the board with Completed off")
     }
 }

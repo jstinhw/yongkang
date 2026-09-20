@@ -298,7 +298,7 @@ package struct ProjectList: View {
         usageRow
         // Blocks sit above the sessions rather than in a section of their own: a block is the
         // one thing here that is the user's move, and it holds whichever session raised it.
-        let blocked = project.blocks.filter(\.waiting)
+        let blocked = project.blocks.waitingOnUser
         if !blocked.isEmpty {
             group("Waiting on you", "\(blocked.count)")
             ForEach(blocked) { blockRow($0) }

@@ -16,7 +16,7 @@ import YongkangCore
 /// work that is finished or still queued behind something.
 package struct NotebookBoard: View {
     let cards: [NotebookCard]
-    /// Open demos, which is how a task says a designer is waiting on the user.
+    /// Everything on the user's desk — demos, gates, proposals — not just the demos.
     let blocks: [UserBlock]
     /// Tasks a still-open session already has — shown as WIP and not pickable for a new batch.
     let assigned: Set<String>
@@ -26,8 +26,8 @@ package struct NotebookBoard: View {
     let review: () -> Void
     /// Opens a card's own page — separate from picking it, which the rest of the card does.
     let openCard: (NotebookCard) -> Void
-    /// Opens the demo waiting on a task, which is the whole point of the gate.
-    let openDemo: (UserBlock) -> Void
+    /// Opens whatever is waiting on the user — a demo, or a gate an agent cannot pass.
+    let openBlock: (UserBlock) -> Void
     /// Sends a task to the Trash. Off for one a session already has.
     let remove: (NotebookCard) -> Void
 
@@ -42,7 +42,7 @@ package struct NotebookBoard: View {
         assign: @escaping ([NotebookCard], AgentKind) -> Void,
         review: @escaping () -> Void,
         openCard: @escaping (NotebookCard) -> Void,
-        openDemo: @escaping (UserBlock) -> Void,
+        openBlock: @escaping (UserBlock) -> Void,
         remove: @escaping (NotebookCard) -> Void
     ) {
         self.cards = cards
@@ -53,7 +53,7 @@ package struct NotebookBoard: View {
         self.assign = assign
         self.review = review
         self.openCard = openCard
-        self.openDemo = openDemo
+        self.openBlock = openBlock
         self.remove = remove
     }
 
@@ -71,8 +71,8 @@ package struct NotebookBoard: View {
                     }
                     if !narrow {
                         BoardInspector(
-                            demos: demos, cards: cards, batch: batch,
-                            picked: Set(picked.map(\.id)), openDemo: openDemo)
+                            waiting: waiting, cards: cards, batch: batch,
+                            picked: Set(picked.map(\.id)), openBlock: openBlock)
                     }
                 }
                 assignBar
@@ -90,8 +90,8 @@ package struct NotebookBoard: View {
                 if narrow {
                     DisclosureGroup("The batch, and what is waiting on you") {
                         BoardInspector(
-                            demos: demos, cards: cards, batch: batch,
-                            picked: Set(picked.map(\.id)), openDemo: openDemo,
+                            waiting: waiting, cards: cards, batch: batch,
+                            picked: Set(picked.map(\.id)), openBlock: openBlock,
                             inline: true)
                     }
                     .font(Typography.body).tint(Theme.tx2).cardSurface()
@@ -118,13 +118,23 @@ package struct NotebookBoard: View {
         NotebookIndex.visible(cards.filter { $0.kind == .task }, showDone: showDone)
     }
 
-    /// Demos still waiting, newest file order, by the task they hold up.
-    private var demos: [UserBlock] {
-        blocks.filter { $0.isDemo && $0.waiting }
+    /// Everything still on the user's desk, in file order — the same set the sidebar counts.
+    private var waiting: [UserBlock] {
+        blocks.waitingOnUser
     }
 
-    private func demo(for card: NotebookCard) -> UserBlock? {
-        demos.first { $0.task == card.id }
+    /// What is waiting on the user on this card — a demo, or any other gate an agent filed
+    /// against it. A proposal is not one: it holds up the notebook rather than a task, and
+    /// belongs to its Product conversation.
+    ///
+    /// `nonisolated` for the same reason as `isReady`: it is a rule about cards and blocks,
+    /// not about the view.
+    nonisolated static func block(for card: NotebookCard, in blocks: [UserBlock]) -> UserBlock? {
+        blocks.waitingOnUser.first { !$0.isProposal && $0.task == card.id }
+    }
+
+    private func block(for card: NotebookCard) -> UserBlock? {
+        NotebookBoard.block(for: card, in: blocks)
     }
 
     /// One column per project, in dependency order, plus a last column for tasks filed
@@ -150,14 +160,17 @@ package struct NotebookBoard: View {
         let shown = NotebookIndex.ordered(NotebookIndex.visible(tasks, showDone: showDone))
         return Chain(
             id: id, title: title, done: done, total: tasks.count,
-            rows: shown.map { Row(card: $0, lane: lane(of: $0), demo: demo(for: $0)) })
+            rows: shown.map { Row(card: $0, lane: lane(of: $0), block: block(for: $0)) })
     }
 
     /// What a card gets to say about itself. Only the first four are worth a full card;
     /// the rest of a chain is one line until something is actually happening on it.
     private func lane(of card: NotebookCard) -> Lane {
+        // A block outranks the card's own status word — the same rule `NotebookIndex.settled`
+        // applies to the cards: an agent that filed a gate and ticked the task off in one run
+        // left work only the user can finish.
+        if let block = block(for: card) { return block.isDemo ? .demo : .blocked }
         if card.status == "done" { return .done }
-        if demo(for: card) != nil { return .demo }
         if card.status == "designing" { return .designing }
         // Blocked keeps its card wherever it sits in the chain: it is the one state that
         // is waiting on the user rather than on the work in front of it, so collapsing it
@@ -343,8 +356,8 @@ package struct NotebookBoard: View {
             if let waits = NotebookStyle.edge("waits on ", unknown(card), in: cards) {
                 waits.font(Typography.mono).padding(.top, 9)
             }
-            if let demo = row.demo {
-                footer(demo)
+            if let block = row.block {
+                footer(block)
             } else if row.lane == .designing {
                 designing
             }
@@ -376,24 +389,20 @@ package struct NotebookBoard: View {
         card.dependsOn.filter { id in !cards.contains { $0.id == id } }
     }
 
-    private func footer(_ demo: UserBlock) -> some View {
+    private func footer(_ block: UserBlock) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Divider().overlay(Theme.line2)
             HStack(alignment: .top, spacing: 10) {
-                Text(
-                    demo.action.isEmpty
-                        ? "A demo is waiting. Nothing that depends on it starts until you have looked at it."
-                        : demo.action
-                )
-                .font(Typography.body).foregroundStyle(Theme.tx2)
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(.leading)
+                Text(block.action.isEmpty ? BoardInspector.fallbackAction(block) : block.action)
+                    .font(Typography.body).foregroundStyle(Theme.tx2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
             Button {
-                openDemo(demo)
+                openBlock(block)
             } label: {
-                Text("See demo")
+                Text(block.isDemo ? "See demo" : "Open block")
             }
             .buttonStyle(.console)
         }
@@ -494,8 +503,8 @@ extension NotebookBoard {
     struct Row: Identifiable {
         let card: NotebookCard
         let lane: Lane
-        /// The demo waiting on this task, when there is one.
-        let demo: UserBlock?
+        /// What is waiting on the user on this task, when something is.
+        let block: UserBlock?
 
         var id: String { card.id }
     }
