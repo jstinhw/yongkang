@@ -29,7 +29,8 @@ once without touching the same file.
     ---
     id: <slug>          stable, never changes — the filename may, this may not
     kind: roadmap | project | task | memory | run
-    title: "One-line human summary"
+    title: "<a few words>"   what it is, short enough to scan in a list — not
+                        a sentence; the brief is the body's first paragraph
     status: todo | designing | active | blocked | done   (state pages only)
     depends_on: []      ids that must land first (state pages only)
     designer: <name>    tasks only — this task is design work, and this is who does

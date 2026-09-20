@@ -48,7 +48,7 @@ extension NotebookFormat {
             ---
             id: plan
             kind: proposal
-            title: "Plan for <what this project is>"
+            title: "Plan for <the product, in two or three words>"
             status: open
             stage: ready
             session: \(sessionID.uuidString.lowercased())
