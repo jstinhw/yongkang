@@ -41,6 +41,9 @@ extension AgentRow {
     /// What it is doing, then the task it is doing it on: "asks a question · Wire auth". A session
     /// on no task says only the first.
     var line: String { task == nil ? doing : "\(doing) · \(title)" }
+
+    /// A task's line: what is happening on it, then who is on it: "working · Codex".
+    var byLine: String { session.map { "\(doing) · \($0.title)" } ?? doing }
 }
 
 /// The mark beside an agent's name: a lit dot for waiting on you, a tick for waiting for your

@@ -207,6 +207,17 @@ import YongkangCore
         reload()
     }
 
+    /// Usage is every project's, so it opens with none of them picked.
+    func openUsage() {
+        leave()
+        section = .agents
+        selection = .usage
+    }
+
+    /// Whether the window is on Usage. Only under Agents: the board has no Usage of its own, so
+    /// Board with Usage picked shows nothing picked, and Agents shows Usage again.
+    var showsUsage: Bool { section == .agents && selection == .usage }
+
     // MARK: - Sessions
 
     /// A session and the project it is open in, wherever that is.
@@ -279,7 +290,7 @@ import YongkangCore
             return true
         }
         switch selection {
-        case .agents, .memory, .usage, .review, .reviewTask: return true
+        case .agents, .memory, .review, .reviewTask: return true
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         default: return false
         }

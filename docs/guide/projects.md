@@ -11,15 +11,19 @@ project's row carries an amber count for what is waiting on you there — a bloc
 proposal, a question in an agent's terminal — and a green one for finished work waiting for your
 review, so a project you are not looking at still says when it needs you. The counts are the
 whole project's: a demo or a review left by a session that has exited still needs you, and is
-opened from the board. A session's row carries its own name, then what it is doing and on which
-task: `Codex`, `asks a question · Wire auth`.
+opened from the board. Under Agents a project lists its running sessions, each with its own
+name, then what it is doing and on which task: `Codex`, `asks a question · Wire auth`. Under
+Board it lists its tasks that are not idle — waiting for your approval, ready for your review, or
+out with a running session — each with what is happening on it and who is on it: `Wire auth`,
+`working · Codex`. A task that could start, or is waiting its turn, is only on the board.
 
 Click a project to see it in the section you are in: its board under Board, its running
 sessions side by side under Agents. Click a session to open it — its terminal or its transcript,
 with its task's Done when, what it can reach and what it spawned beside them. Under Agents each
-project also has two rows of its own: **Memory**, what its agents decided and learned, filed by
-milestone, which every agent reads before it starts; and **Usage**, what they have spent. Right-click a project to reveal its folder or
-close it; the folder stays on disk. Agents keep running whichever project is on screen:
+project also has a **Memory** row: what its agents decided and learned, filed by milestone,
+which every agent reads before it starts. **Usage**, pinned under every project, is what all of
+their agents have spent, split by project, model and agent. Right-click a project to reveal its
+folder or close it; the folder stays on disk. Agents keep running whichever project is on screen:
 terminals are hidden, never torn down.
 
 The `+` beside **Projects** is the two doors, and the `File` menu opens either from anywhere.

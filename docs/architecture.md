@@ -119,17 +119,21 @@ One window, and three things side by side inside it (`RootView.chrome`):
 
 ```
 HStack
-├── Rail                       64pt, fixed, outside the split view: Board, Agents, Usage
+├── Rail                       64pt, fixed, outside the split view: Board, Agents
 └── HSplitView
     ├── ProjectSidebar         min 268 / max 560, dragged by the user; absent while listHidden
-    └── work                   screen(for:) the picked project, or NothingPicked
+    └── work                   Usage (every project's), screen(for:) the picked project, or NothingPicked
                                .navigationTitle + .navigationSubtitle + .toolbar
 ```
 
 - **Every project at once.** The sidebar lists every open project with its running sessions
   under it — `Project.agentRows`, in Core, so the sidebar and the project's Agents page read one
   rule. The sidebar and the page list only `isRunningSession` rows; the rest, what a session that
-  has exited left waiting on you, only counts on the project and is opened from the board. Picking
+  has exited left waiting on you, only counts on the project and is opened from the board. Under
+  Board a project lists its tasks that are not idle instead — `Project.taskRows`, the board's own
+  states for a task — and a task row opens its page, block or review without leaving the board.
+  **Usage** is every project's, so `AppModel.openUsage()` opens it with none entered, and the
+  window draws it before any project's screen. Picking
   a row is `AppModel.enter(_:at:)`: that project becomes the one the selection lives in,
   on the route the row names. The section stays, so picking a project on the board shows its
   board. `entered` is still the one project a `Route` means something in; nothing picked is

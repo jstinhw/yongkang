@@ -156,7 +156,8 @@ struct RootView: View {
                         closeSession: { id, session in
                             if let project = model.project(id) { model.close(session, in: project) }
                         },
-                        close: { id in if let project = model.project(id) { close(project) } }
+                        close: { id in if let project = model.project(id) { close(project) } },
+                        openUsage: { model.openUsage() }
                     )
                     // ponytail: min is the opening width, not 200. `HSplitView` ignores an
                     // ideal width and opens the column at its min, so the list widens from
@@ -198,15 +199,21 @@ struct RootView: View {
     /// Every open project with its agents, as the sidebar lists them.
     private var sidebarProjects: [SidebarProject] {
         model.projects.map { project in
-            SidebarProject(
-                project: project.value,
-                rows: project.value.agentRows(summary: project.summary, asking: model.attention))
+            SidebarProject(project: project.value, summary: project.summary, asking: model.attention)
         }
     }
 
-    /// The selected project's screen, or the empty one.
+    /// Usage, which is every project's; the selected project's screen; or the empty one.
     @ViewBuilder private var work: some View {
-        if let project = model.entered {
+        if model.showsUsage {
+            UsageBoard(
+                projects: model.projects.map(\.value),
+                signature: model.projects.map(\.usageSignature).joined(separator: "|"),
+                open: { id, route in
+                    guard let project = model.project(id) else { return }
+                    model.enter(project, at: route)
+                })
+        } else if let project = model.entered {
             screen(for: project)
         } else {
             NothingPicked(

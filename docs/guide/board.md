@@ -6,7 +6,9 @@ Pick a project in the sidebar and `Board` shows its notebook: the roadmap across
 goal, how many of its tasks are done and how many milestones it has — then one column per
 milestone, each an outline read downwards. A milestone is what the notebook files as
 `kind: project`; the window calls it a milestone so it cannot be mistaken for the project folder
-that holds the whole notebook. Clicking the roadmap opens its page.
+that holds the whole notebook. Clicking the roadmap opens its page. Under each project the sidebar
+lists its tasks that are not idle — waiting for your approval, ready for review, or being worked
+on — so what is moving in a project you are not looking at is one glance away.
 
 A task is drawn under the one it waits on, joined to it by a line, and **no line above a card
 means nothing is in its way** — that card can start now. Columns are bounded by how many milestones there are

@@ -127,6 +127,34 @@ extension Project {
         return rows.enumerated().sorted { ($0.element.state, $0.offset) < ($1.element.state, $1.offset) }.map(\.element)
     }
 
+    /// Every task that is not idle, as the sidebar lists them under Board: held up on your
+    /// approval, finished and waiting for your review, or out with a running session — the
+    /// board's own states for a task, by the same rules, needs you first and in the board's order
+    /// within each. A task that could start, or is waiting its turn, has no row.
+    package func taskRows(summary: ChangeSummary) -> [AgentRow] {
+        let waiting = summary.waitingIDs
+        let assigned = assignedTaskIDs
+        let rows = NotebookIndex.ordered(cards.filter { $0.kind == .task }).compactMap { task -> AgentRow? in
+            let block = blocks.waiting(on: task.id)
+            let state: AgentRow.State
+            let route: Route
+            if let block {
+                (state, route) = (.needsYou, .block(block.id))
+            } else if waiting.contains(task.id) {
+                (state, route) = (.review, .reviewTask(task.id))
+            } else if assigned.contains(task.id), task.status != "done" {
+                (state, route) = (.working, .task(task.id))
+            } else {
+                return nil
+            }
+            return AgentRow(
+                id: "task:\(task.id)", state: state, title: task.title, reason: block?.title,
+                session: sessions.first { !$0.exited && $0.taskIDs.contains(task.id) }, task: task.id,
+                block: block, route: route)
+        }
+        return rows.enumerated().sorted { ($0.element.state, $0.offset) < ($1.element.state, $1.offset) }.map(\.element)
+    }
+
     /// The task a session is on now: the first of its chain not yet done, or the last one once
     /// every one is.
     private func current(of session: CodeSession, in summary: ChangeSummary) -> String? {

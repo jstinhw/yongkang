@@ -2,19 +2,23 @@ import AppKit
 import SwiftUI
 import YongkangCore
 
-/// One project as the sidebar draws it: the folder, and its running sessions in the order they
-/// want you.
+/// One project as the sidebar draws it: the folder, and under it its running sessions (Agents)
+/// or its tasks that are not idle (Board), in the order they want you.
 package struct SidebarProject: Identifiable {
     package let project: Project
     /// Everything its agents have going, which its counts are made of: what a session that has
     /// exited left waiting on you still needs you, even with no row of its own.
     package let rows: [AgentRow]
+    /// Its tasks that are not idle, which it lists under Board.
+    let tasks: [AgentRow]
     /// How many memory entries its notebook holds, for the Memory row under Agents.
     let memory: Int
 
-    package init(project: Project, rows: [AgentRow]) {
+    /// `asking` is each session's terminal question, which only the window can see.
+    package init(project: Project, summary: ChangeSummary, asking: [UUID: String] = [:]) {
         self.project = project
-        self.rows = rows
+        rows = project.agentRows(summary: summary, asking: asking)
+        tasks = project.taskRows(summary: summary)
         memory = project.cards.filter { $0.kind == .memory }.count
     }
 
@@ -25,11 +29,11 @@ package struct SidebarProject: Identifiable {
     var toReview: Int { rows.filter { $0.state == .review }.count }
 }
 
-/// The column beside the rail: every open project at once, each with its running sessions under
-/// it. The same list in every section, so what is waiting on you in a project you are not looking
-/// at is always one glance away. A project row opens that project in the current section; a
-/// session row opens the session, which lives under Agents, and so do each project's Memory and
-/// Usage.
+/// The column beside the rail: every open project at once, in every section, so what is waiting
+/// on you in a project you are not looking at is always one glance away. Under Agents each lists
+/// its running sessions and its Memory, and Usage — every project's — is pinned below them; under
+/// Board each lists its tasks that are not idle. A project row opens that project in the current
+/// section, and a row under it opens what it names there.
 package struct ProjectSidebar: View {
     let section: ConsoleSection
     let projects: [SidebarProject]
@@ -43,6 +47,8 @@ package struct ProjectSidebar: View {
     let add: () -> Void
     let closeSession: (Project.ID, CodeSession) -> Void
     let close: (Project.ID) -> Void
+    /// Usage, which is every project's rather than one's.
+    let openUsage: () -> Void
 
     /// Projects start open; this only remembers the ones the user folded.
     @State private var collapsed: Set<Project.ID> = []
@@ -52,7 +58,7 @@ package struct ProjectSidebar: View {
         open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
         create: @escaping () -> Void, add: @escaping () -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
-        close: @escaping (Project.ID) -> Void
+        close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void
     ) {
         self.section = section
         self.projects = projects
@@ -63,6 +69,7 @@ package struct ProjectSidebar: View {
         self.add = add
         self.closeSession = closeSession
         self.close = close
+        self.openUsage = openUsage
     }
 
     package var body: some View {
@@ -78,16 +85,16 @@ package struct ProjectSidebar: View {
                     ForEach(projects) { item in
                         projectRow(item)
                         if !collapsed.contains(item.id) {
-                            ForEach(item.sessions) { agentRow($0, in: item) }
+                            ForEach(section == .board ? item.tasks : item.sessions) { agentRow($0, in: item) }
                             if section == .agents {
                                 pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
-                                pageRow(item, "Usage", icon: "gauge.with.dots.needle.33percent", route: .usage)
                             }
                         }
                     }
                 }
                 .padding(.bottom, 14)
             }
+            if section == .agents { usageRow }
             legend
         }
     }
@@ -205,15 +212,19 @@ package struct ProjectSidebar: View {
         return parts.joined(separator: ", ")
     }
 
+    /// A session under Agents, named after itself; a task under Board, named after itself and
+    /// saying who is on it. Either opens in the section it is listed in.
     private func agentRow(_ row: AgentRow, in item: SidebarProject) -> some View {
-        Button {
-            open(item.id, row.route, .agents)
+        let isTask = !row.isRunningSession
+        return Button {
+            open(item.id, row.route, section)
         } label: {
             HStack(alignment: .top, spacing: 9) {
                 AgentStateGlyph(state: row.state).padding(.top, 2)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(row.name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
-                    Text(row.line).font(Typography.caption)
+                    Text(isTask ? row.title : row.name).font(Typography.body).foregroundStyle(Theme.tx)
+                        .lineLimit(1)
+                    Text(isTask ? row.byLine : row.line).font(Typography.caption)
                         .foregroundStyle(row.state == .working ? Theme.tx3 : row.state.color)
                         .lineLimit(1)
                 }
@@ -231,10 +242,32 @@ package struct ProjectSidebar: View {
         .padding(.horizontal, 8)
         .padding(.top, 1)
         .contextMenu {
-            if let session = row.session {
+            if !isTask, let session = row.session {
                 Button("Close Session") { closeSession(item.id, session) }
             }
         }
+    }
+
+    /// Usage, pinned under every project's list: it is all of theirs.
+    private var usageRow: some View {
+        Button(action: openUsage) {
+            HStack(spacing: 9) {
+                Image(systemName: "gauge.with.dots.needle.33percent").font(.system(size: 11))
+                    .foregroundStyle(Theme.tx3).frame(width: 12)
+                Text("Usage").font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                Spacer(minLength: 0)
+                Text("all projects").font(Typography.caption).foregroundStyle(Theme.tx3)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .rowSelection(selection == .usage)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
 
     /// A page of the project's own under Agents, after its sessions: its memory, its usage.
@@ -281,9 +314,12 @@ package struct ProjectSidebar: View {
     }
 
     /// A session row stands for everything under that session: its terminal and transcript, a
-    /// subagent it spawned, the block it is waiting on, and the reviews of the tasks it holds.
+    /// subagent it spawned, the block it is waiting on, and the reviews of the tasks it holds. A
+    /// task row stands for its page and whatever it opens on.
     private func isSelected(_ row: AgentRow) -> Bool {
-        guard let session = row.session else { return false }
+        guard row.isRunningSession, let session = row.session else {
+            return selection == row.route || (row.task.map { selection == .task($0) } ?? false)
+        }
         switch selection {
         case .session(session.id, _)?, .subagent(session.id, _)?: return true
         case .block(let id)?: return row.block?.id == id
@@ -293,6 +329,7 @@ package struct ProjectSidebar: View {
     }
 
     private func childSelected(in item: SidebarProject) -> Bool {
-        (section == .agents && (isPage(.memory(nil)) || isPage(.usage))) || item.sessions.contains(where: isSelected)
+        (section == .agents && isPage(.memory(nil)))
+            || (section == .board ? item.tasks : item.sessions).contains(where: isSelected)
     }
 }

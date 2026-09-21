@@ -1,26 +1,30 @@
 import SwiftUI
 import YongkangCore
 
-/// What the agents are costing, in one screen: how close each coding tool is to its plan
-/// limit, which models the spend went to, which role spent it, and which individual agent.
-/// Every number is read off the same transcripts the rest of the console watches, so this
-/// screen keeps no state of its own to drift out of date.
+/// What the agents are costing, across every open project, in one screen: how close each coding
+/// tool is to its plan limit — which is the whole machine's, not a project's — which project and
+/// which models the spend went to, which role spent it, and which individual agent. Every number
+/// is read off the same transcripts the rest of the console watches, so this screen keeps no
+/// state of its own to drift out of date.
 package struct UsageBoard: View {
-    let project: Project
-    /// What the files this screen reads looked like at the last read of the project: its
+    let projects: [Project]
+    /// What the files this screen reads looked like at the last read of each project: its
     /// sessions and subagents, and the sizes of the transcripts and the ledger their spend is
     /// parsed out of. A byte more is a token more, so a change here is something new to show.
     ///
-    /// It arrives from `ProjectModel`, which has it from the same FSEvents-driven read as
+    /// It arrives from each `ProjectModel`, which has it from the same FSEvents-driven read as
     /// everything else on screen (`ProjectReader.watch(of:)`). This screen used to `stat` those
     /// files itself every two seconds; the folders they sit in are exactly the ones the
-    /// project's watcher watches, so the beat that reloads the console reloads this too.
+    /// projects' watchers watch, so the beat that reloads the console reloads this too.
     let signature: String
-    let open: (Route) -> Void
+    /// Opens a run: the project it was in, and the route to it there.
+    let open: (Project.ID, Route) -> Void
 
     /// Loaded on a change rather than per render: parsing transcripts inside `body` at
     /// 60fps would be the most expensive thing in the app.
     @State private var spends: [AgentSpend] = []
+    /// Which project each run was in, by the run's id.
+    @State private var owners: [AgentSpend.ID: Project.ID] = [:]
     @State private var quotas: [ProviderQuota] = []
     /// How far back every panel below the plan limits is counting. 24 hours by default:
     /// a day is the span a person actually remembers working, and all time on a machine
@@ -34,9 +38,10 @@ package struct UsageBoard: View {
     /// picker and would otherwise photograph whichever window happens to be quiet on the
     /// machine it runs on.
     package init(
-        project: Project, signature: String = "", open: @escaping (Route) -> Void, range: UsageRange = .day
+        projects: [Project], signature: String = "", open: @escaping (Project.ID, Route) -> Void,
+        range: UsageRange = .day
     ) {
-        self.project = project
+        self.projects = projects
         self.signature = signature
         self.open = open
         _range = State(initialValue: range)
@@ -71,6 +76,7 @@ package struct UsageBoard: View {
 
                 VStack(alignment: .leading, spacing: 20) {
                     totals
+                    byProject
                     byAgent
                     Spacer(minLength: 0)
                 }
@@ -86,14 +92,22 @@ package struct UsageBoard: View {
     }
 
     private func load() async {
-        // Live agents are read from their transcripts at full resolution; the ledger fills
-        // in every earlier run, whose sessions died with the app that started them.
-        let live = await AgentUsage.spends(in: project)
-        let running = Set(live.map(\.id))
-        let remembered = await UsageLedger.load(root: project.notebookRoot)
+        var found: [AgentSpend] = []
+        var owned: [AgentSpend.ID: Project.ID] = [:]
+        for project in projects {
+            // Live agents are read from their transcripts at full resolution; the ledger fills
+            // in every earlier run, whose sessions died with the app that started them.
+            let live = await AgentUsage.spends(in: project)
+            let running = Set(live.map(\.id))
+            let remembered = await UsageLedger.load(root: project.notebookRoot)
+            let runs = live + remembered.filter { !running.contains($0.id) }
+            for run in runs { owned[run.id] = project.id }
+            found += runs
+        }
         let limits = [await AgentUsage.claudeQuota(), await AgentUsage.codexQuota()].compactMap { $0 }
         now = Date()
-        spends = live + remembered.filter { !running.contains($0.id) }
+        spends = found
+        owners = owned
         quotas = limits
     }
 
@@ -257,7 +271,7 @@ package struct UsageBoard: View {
                 note("Nothing spent in the \(range.caption).")
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    // One bar for the whole project, split by model — the share each model
+                    // One bar for everything in range, split by model — the share each model
                     // took is the question, and separate bars would not answer it.
                     GeometryReader { geo in
                         HStack(spacing: 2) {
@@ -333,7 +347,7 @@ package struct UsageBoard: View {
 
     private func agentRow(_ spend: AgentSpend) -> some View {
         Button {
-            if let route = spend.route { open(route) }
+            if let route = spend.route, let owner = owners[spend.id] { open(owner, route) }
         } label: {
             HStack(spacing: 10) {
                 RoleTile(role: spend.role, size: 22)
@@ -348,6 +362,9 @@ package struct UsageBoard: View {
                         if spend.name != person(spend) {
                             Text(spend.name).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                                 .lineLimit(1).truncationMode(.middle)
+                        }
+                        if let project = owner(of: spend) {
+                            Text(project.name).font(Typography.monoCaption).foregroundStyle(Theme.tx3).lineLimit(1)
                         }
                         if let model = spend.topModel(since: since) {
                             Text(AgentUsage.modelName(model))
@@ -375,7 +392,7 @@ package struct UsageBoard: View {
 
     private var totals: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("This project", trailing: range.caption)
+            SectionLabel("All projects", trailing: range.caption)
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(AgentUsage.short(total.total)).font(Typography.title)
@@ -410,6 +427,41 @@ package struct UsageBoard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface()
+        }
+    }
+
+    /// Spend by project, largest first: where the range's tokens went.
+    private var byProject: some View {
+        let rows = projects.map { project in
+            (
+                project: project,
+                tally: windowed.filter { owners[$0.id] == project.id }
+                    .map { $0.tally(since: since) }.reduce(TokenTally(), +)
+            )
+        }
+        .filter { $0.tally.total > 0 }
+        .sorted { $0.tally.total > $1.tally.total }
+        let peak = rows.first?.tally.total ?? 0
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("By project", trailing: range.caption)
+            if rows.isEmpty {
+                note("Nothing spent in the \(range.caption).")
+            } else {
+                VStack(spacing: 13) {
+                    ForEach(rows, id: \.project.id) { row in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Text(row.project.name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text(AgentUsage.short(row.tally.total))
+                                    .font(Typography.mono(.semibold)).foregroundStyle(Theme.tx2)
+                            }
+                            MeterBar(value: peak == 0 ? 0 : Double(row.tally.total) / Double(peak))
+                        }
+                    }
+                }
+                .cardSurface()
+            }
         }
     }
 
@@ -468,12 +520,16 @@ package struct UsageBoard: View {
     /// Whose spend a run is. A team member's subagent is that member, by the skill it ran;
     /// anything else is itself.
     private func person(_ spend: AgentSpend) -> String {
-        Team.running(spend.role, in: project.team)?.member.name ?? spend.name
+        Team.running(spend.role, in: owner(of: spend)?.team ?? [])?.member.name ?? spend.name
+    }
+
+    private func owner(of spend: AgentSpend) -> Project? {
+        owners[spend.id].flatMap { id in projects.first { $0.id == id } }
     }
 
     // MARK: - Shared
 
-    /// Every bar on this screen is a share of the project's own spend, so the widest one is
+    /// Every bar on this screen is a share of the spend on it, so the widest one is
     /// always full — the comparison is between agents, not against an absolute nobody knows.
     private func fraction(_ tally: TokenTally) -> Double {
         let top = windowed.first?.tally(since: since).total ?? 0

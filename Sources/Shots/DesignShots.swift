@@ -39,11 +39,18 @@ enum DesignShots {
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
             "agent-picker", into: directory, width: 900)
 
+        // The board and the sidebar beside it read one state, as they do in the app: what the
+        // sample's sessions hold, and one finished task nobody has reviewed yet.
+        let reviewing = ChangeSummary(tasks: [
+            SummaryTask(
+                id: "transcript-steps", title: "Lay a transcript out as steps", status: "done",
+                files: [FileChange(path: "Sources/Transcript.swift", added: 64, removed: 9, untracked: false)])
+        ])
         write(
-            console(project, section: .board) {
+            console(project, section: .board, summary: reviewing) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], reviewing: ["transcript-steps"],
+                    assigned: project.assignedTaskIDs, reviewing: reviewing.waitingIDs,
                     showDone: false, agents: agents,
                     assign: { _, _ in }, review: {}, openCard: { _ in },
                     openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
@@ -52,10 +59,10 @@ enum DesignShots {
         // The window's own minimum, which is where fixed-width columns run out of room
         // first. A screen that clips here clips on a real laptop.
         write(
-            console(project, section: .board) {
+            console(project, section: .board, summary: reviewing) {
                 NotebookBoard(
                     cards: project.cards, blocks: project.blocks,
-                    assigned: ["show-agent-tree"], reviewing: ["transcript-steps"],
+                    assigned: project.assignedTaskIDs, reviewing: reviewing.waitingIDs,
                     showDone: false, agents: agents,
                     assign: { _, _ in }, review: {}, openCard: { _ in },
                     openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
@@ -266,10 +273,10 @@ enum DesignShots {
         // fixture would prove the layout and nothing else.
         let real = realSessions(in: repo)
         write(
-            console(real, section: .agents, selection: .usage) {
+            console(real, section: .agents, selection: .usage, entered: false) {
                 // The hour, not the default day: a machine whose agents ran this morning would
                 // photograph an empty chart, which says nothing about whether it draws.
-                UsageBoard(project: real, open: { _ in }, range: .hour)
+                UsageBoard(projects: [real], open: { _, _ in }, range: .hour)
             }, "usage", into: directory)
 
         print("shots written to \(directory.path)")
@@ -339,10 +346,11 @@ enum DesignShots {
             .zIndex(1)
             ProjectSidebar(
                 section: section,
-                projects: [SidebarProject(project: project, rows: project.agentRows(summary: summary, asking: asking))]
+                projects: [SidebarProject(project: project, summary: summary, asking: asking)]
                     + neighbours(),
                 entered: entered ? project.id : nil, selection: selection,
-                open: { _, _, _ in }, create: {}, add: {}, closeSession: { _, _ in }, close: { _ in }
+                open: { _, _, _ in }, create: {}, add: {}, closeSession: { _, _ in }, close: { _ in },
+                openUsage: {}
             )
             .frame(width: Theme.listWidth)
             content()
@@ -352,6 +360,11 @@ enum DesignShots {
     /// The other projects open beside the sample, so the sidebar is the list of every project it
     /// is: one with an agent at work and one finished, one held up by a token.
     private static func neighbours() -> [SidebarProject] {
+        func card(_ id: String, _ title: String, _ status: String) -> NotebookCard {
+            NotebookCard(
+                id: id, url: URL(fileURLWithPath: "/tmp/\(id).md"), kind: .task, title: title, status: status,
+                project: nil, dependsOn: [])
+        }
         var sync = Project(directory: URL(fileURLWithPath: "/Users/you/sources/notebook-sync"), entries: [])
         sync.sessions = [
             CodeSession(title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["resume"]),
@@ -363,7 +376,12 @@ enum DesignShots {
                 id: "merge-runs", title: "Merge runs without conflicts", status: "done",
                 files: [FileChange(path: "Sources/Merge.swift", added: 140, removed: 22, untracked: false)]),
         ])
+        sync.cards = [
+            card("resume", "Resume sync after sleep", "active"),
+            card("merge-runs", "Merge runs without conflicts", "done"),
+        ]
         var site = Project(directory: URL(fileURLWithPath: "/Users/you/sources/yongkang-site"), entries: [])
+        site.cards = [card("deploy", "Deploy to Vercel", "blocked")]
         let deploy = CodeSession(
             title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["deploy"])
         site.sessions = [deploy]
@@ -375,8 +393,8 @@ enum DesignShots {
         ]
         let deploying = ChangeSummary(tasks: [SummaryTask(id: "deploy", title: "Deploy to Vercel", status: "blocked")])
         return [
-            SidebarProject(project: sync, rows: sync.agentRows(summary: synced)),
-            SidebarProject(project: site, rows: site.agentRows(summary: deploying)),
+            SidebarProject(project: sync, summary: synced),
+            SidebarProject(project: site, summary: deploying),
         ]
     }
 

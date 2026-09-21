@@ -13,15 +13,16 @@ extension RootView {
 
     /// The title line: what is open, which is usually more specific than the section's name.
     func title(for project: ProjectModel?) -> String {
+        if model.showsUsage { return "Usage" }
         guard let project else { return model.section.title }
         switch model.section {
         case .board:
             let scoped = model.selection?.card(in: project.cards)
-            return scoped?.title ?? selectedBlock(in: project).flatMap { $0.isDemo ? $0.title : nil } ?? "Board"
+            // The sidebar's task rows open a block or a review without leaving the board.
+            return scoped?.title ?? selectedBlock(in: project)?.title ?? reviewedTask(in: project)?.title ?? "Board"
         case .agents:
             if isReviewingTree { return "Review changes" }
             if case .memory? = model.selection { return "Memory" }
-            if model.selection == .usage { return "Usage" }
             return model.selectedSubagent(in: project)?.subagent.description
                 ?? reviewedTask(in: project)?.title
                 ?? selectedBlock(in: project)?.title

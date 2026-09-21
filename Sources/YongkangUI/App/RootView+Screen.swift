@@ -13,9 +13,6 @@ extension RootView {
             }
         } else if model.selection == .board {
             boardView(for: project)
-        } else if model.selection == .usage {
-            UsageBoard(
-                project: project.value, signature: project.usageSignature, open: { model.selection = $0 })
         } else if model.selection == .agents {
             ProjectAgentsPage(
                 project: project.value,

@@ -102,6 +102,28 @@ import Testing
         #expect(rows.filter(\.isRunningSession).map(\.id) == [session.id.uuidString], "but it is one agent")
     }
 
+    @Test func theBoardListsEveryTaskThatIsNotIdle() {
+        func task(_ id: String, _ status: String = "todo") -> NotebookCard {
+            NotebookCard(
+                id: id, url: directory, kind: .task, title: "Task \(id)", status: status, project: nil, dependsOn: [])
+        }
+        let session = CodeSession(title: "Codex", icon: "", line: "", agent: .codex, taskIDs: ["running", "demo"])
+        let project = Project(
+            directory: directory,
+            cards: [
+                task("idle"), task("running", "active"), task("reviewed", "done"), task("demo"), task("old", "done"),
+            ],
+            blocks: [block("look", kind: "demo", task: "demo")], sessions: [session])
+        let summary = ChangeSummary(tasks: [done("reviewed")])
+
+        let rows = project.taskRows(summary: summary)
+
+        #expect(rows.map(\.id) == ["task:demo", "task:reviewed", "task:running"], "nothing idle, and needs you first")
+        #expect(rows[0].route == .block("look") && rows[0].session?.id == session.id, "who it is waiting with")
+        #expect(rows[1].route == .reviewTask("reviewed"))
+        #expect(rows[2].route == .task("running") && rows[2].title == "Task running")
+    }
+
     @Test func finishedWorkIsNotHiddenBehindABlock() {
         let session = CodeSession(
             title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["built", "deploy"])

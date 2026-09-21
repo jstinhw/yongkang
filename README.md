@@ -6,9 +6,10 @@ CLI sessions, the notebook they work from, and the changes they produce.
 ![Yongkang](docs/images/board.png)
 
 One window holds every project at once. Beside the **rail**, which picks the section, the
-**sidebar** lists each open project with its running sessions underneath — amber when one
-needs you, green when its work waits for your review. Pick a project for its board or its
-sessions side by side; under Agents each project also has its memory and its usage. Pick a
+**sidebar** lists each open project — under Agents with its running sessions underneath, under
+Board with its tasks that are not idle — amber when one needs you, green when its work waits for
+your review. Pick a project for its board or its sessions side by side; under Agents each project
+also has its memory, and **Usage**, pinned below them all, is every project's spend. Pick a
 session for its terminal, its transcript and its task's Done when. The **work area** holds
 whatever is picked, and on most screens an **inspector** carries what you would otherwise have
 to go and find. The rail's sections are Board and Agents: the work, and whoever is on it. You can

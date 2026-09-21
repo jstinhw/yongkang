@@ -141,9 +141,10 @@ for.
     without it. Because there's no `session:` field, the block goes to the newest running
     session holding that task.
     - The Agents rail icon gets an amber dot, on the same watch as step 4.
-    - The session's row in the sidebar turns amber and reads **<agent> · Smoke test gate**;
+    - The session's row in the sidebar turns amber and reads **blocked** and the task's title;
       the project's row counts it, and the project's Agents page shows it first, under
-      **Needs you**.
+      **Needs you**. On the board, the task's row in the sidebar is amber too, reading
+      **blocked** and the session's name.
     - Its page shows a **waiting on you** pill and "<session title> is waiting — holds up
       <task title>". The inspector shows **Holds up**, **Waiting agent** with a **blocked**
       pill, and the notice that no secret is echoed back.

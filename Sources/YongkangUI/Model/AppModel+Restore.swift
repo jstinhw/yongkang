@@ -10,6 +10,8 @@ extension AppModel {
     /// Does nothing if that folder is no longer open — the window then stays on the fleet
     /// screen, which is where a first launch starts anyway.
     func restore(entered path: String, section: ConsoleSection, route: Route?) {
+        // Usage belongs to no project, so it is the one page that comes back with none entered.
+        if route == .usage { return openUsage() }
         guard !path.isEmpty, let project = projects.first(where: { $0.directory.path == path }) else { return }
         enter(project)
         self.section = section
@@ -26,8 +28,10 @@ extension AppModel {
         let cards = project.snapshot.cards
         switch route {
         // Screens rather than objects: there is nothing for them to have lost.
-        case .board, .usage, .agents, .memory(nil):
+        case .board, .agents, .memory(nil):
             return true
+        // Every project's, not this one's: see `restore(entered:section:route:)`.
+        case .usage: return false
         case .project(let id): return cards.contains { $0.id == id && $0.kind == .project }
         case .task(let id): return cards.contains { $0.id == id && $0.kind == .task }
         case .page(let id), .memory(let id?): return cards.contains { $0.id == id }
