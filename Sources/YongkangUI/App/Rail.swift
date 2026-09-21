@@ -4,7 +4,7 @@ import SwiftUI
 /// section's objects and the work area holds whichever one is selected. Every screen is the
 /// same four columns, so moving between sections never rearranges the window.
 package enum ConsoleSection: String, CaseIterable, Identifiable {
-    case board, agents, usage
+    case board, agents
 
     package var id: Self { self }
 
@@ -12,7 +12,6 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
         switch self {
         case .board: return "Board"
         case .agents: return "Agents"
-        case .usage: return "Usage"
         }
     }
 
@@ -20,7 +19,6 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
         switch self {
         case .board: return "rectangle.split.3x1"
         case .agents: return "point.3.connected.trianglepath.dotted"
-        case .usage: return "gauge.with.dots.needle.33percent"
         }
     }
 }

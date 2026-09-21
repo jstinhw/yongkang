@@ -9,7 +9,7 @@ package struct AgentPage<Content: View>: View {
     let session: CodeSession
     let project: Project
     let summary: ChangeSummary
-    /// How the sidebar lists it, for its state and title. Nil once it has exited with nothing left.
+    /// How the sidebar lists it, for its state and what it is doing. Nil once it has exited.
     let row: AgentRow?
     let pane: AgentPane
     /// The question on its screen, when there is one.
@@ -65,12 +65,15 @@ package struct AgentPage<Content: View>: View {
                     if let row { AgentStateGlyph(state: row.state, size: 11) }
                     Text(status).font(Typography.caption(.semibold)).foregroundStyle(row?.state.color ?? Theme.tx3)
                 }
-                Text(row?.title ?? session.title).font(Typography.title).foregroundStyle(Theme.tx)
+                Text(session.title).font(Typography.title).foregroundStyle(Theme.tx)
                     .lineLimit(1)
                 HStack(spacing: 8) {
                     NotebookStyle.chip(project.name, mono: true)
-                    if let task { NotebookStyle.chip(task.id, mono: true) }
-                    Text(session.title).font(Typography.caption).foregroundStyle(Theme.tx3)
+                    if let task {
+                        NotebookStyle.chip(task.id, mono: true)
+                        Text("on \(task.title)").font(Typography.caption).foregroundStyle(Theme.tx3)
+                            .lineLimit(1)
+                    }
                 }
             }
             Spacer(minLength: 12)
@@ -90,11 +93,7 @@ package struct AgentPage<Content: View>: View {
 
     private var status: String {
         guard let row else { return session.exited ? "exited" : "idle" }
-        switch row.state {
-        case .needsYou: return row.reason ?? "needs you"
-        case .review: return "ready for review"
-        case .working: return session.agent == nil ? "running" : "working"
-        }
+        return row.doing
     }
 }
 

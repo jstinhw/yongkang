@@ -58,12 +58,13 @@ reads and what approving a task commits beside its code. When it stops, done or 
 on you, it shows the same report as a page: an artifact where the agent can publish one,
 otherwise an HTML file in the temp folder that it opens for you.
 
-The sidebar lists every session under its project, named after the task it is on, for every
-open project at once: needs you first, then ready for review, then working. A session that has
-exited stays listed while it left something waiting on you. The project's **Agents** page shows
-the same sessions as cards in those three columns, with what each is asking, what it finished or
-what its subagents are on, and the button that acts on it; its bottom bar starts agents on
-whatever in the project could start now. A task's own page names who is on it under **Working
+The sidebar lists every running session under its project, by its own name, with what it is
+doing and the task it is on, for every open project at once: needs you first, then ready for
+review, then working. A session that has exited leaves the list; what it left waiting on you
+still counts on its project, and waits on the board. The project's **Agents** page shows the
+same sessions as cards in those three columns, with what each is asking, what it finished or what
+its subagents are on, and the button that acts on it. Work is started from the board, or with
+**New Agent**. A task's own page names who is on it under **Working
 on it**: the session it was assigned to, and any subagent working it.
 
 Clicking a session opens it: its live terminal or its transcript, one switch apart, with its

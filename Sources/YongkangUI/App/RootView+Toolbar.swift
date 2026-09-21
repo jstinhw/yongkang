@@ -18,11 +18,10 @@ extension RootView {
         case .board:
             let scoped = model.selection?.card(in: project.cards)
             return scoped?.title ?? selectedBlock(in: project).flatMap { $0.isDemo ? $0.title : nil } ?? "Board"
-        case .usage:
-            return "Usage"
         case .agents:
             if isReviewingTree { return "Review changes" }
             if case .memory? = model.selection { return "Memory" }
+            if model.selection == .usage { return "Usage" }
             return model.selectedSubagent(in: project)?.subagent.description
                 ?? reviewedTask(in: project)?.title
                 ?? selectedBlock(in: project)?.title
@@ -126,8 +125,6 @@ extension RootView {
                     .buttonStyle(.console)
                 }
             }
-        case .usage:
-            EmptyView()
         }
     }
 

@@ -14,21 +14,14 @@ extension RootView {
         } else if model.selection == .board {
             boardView(for: project)
         } else if model.selection == .usage {
-            // What it opens is an agent, which lives under Agents.
             UsageBoard(
-                project: project.value, signature: project.usageSignature,
-                open: { route in
-                    model.section = .agents
-                    model.selection = route
-                })
+                project: project.value, signature: project.usageSignature, open: { model.selection = $0 })
         } else if model.selection == .agents {
             ProjectAgentsPage(
                 project: project.value,
                 rows: project.value.agentRows(summary: project.summary, asking: model.attention),
-                summary: project.summary, ready: project.value.readyTasks, agents: agentChoice,
-                open: { model.selection = $0 },
+                summary: project.summary, open: { model.selection = $0 },
                 openBoard: { model.go(to: Destination(section: .board, route: .board)) },
-                start: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
                 newAgent: { model.startingAgent = true })
         } else if case .memory(let id)? = model.selection {
             MemoryPage(

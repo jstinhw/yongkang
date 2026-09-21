@@ -58,9 +58,9 @@ import Testing
         #expect(model.section == .agents && model.selection == .agents, "its agents, not its board")
         model.enter(second, at: .memory(nil))
         #expect(model.entered === second && model.selection == .memory(nil))
-        model.section = .usage
+        model.enter(second, at: .usage)
         model.openSectionDefault()
-        #expect(model.selection == .usage)
+        #expect(model.section == .agents && model.selection == .usage, "Usage is one of Agents' own pages")
         model.stop()
     }
 

@@ -23,17 +23,24 @@ extension AgentRow.State {
 }
 
 extension AgentRow {
-    /// Who it is — the session's own name, "Claude Code 2" or "Product" — then why it is where it
-    /// is: "Codex · asks before running swift test".
-    var line: String {
-        guard let session else { return reason ?? state.title.lowercased() }
-        let who = session.title
+    /// Who it is: the session's own name, "Claude Code 2" or "Product".
+    var name: String { session?.title ?? title }
+
+    /// What it is doing, in a word or three: "asks a question", "blocked", "demo ready". Why —
+    /// the question, the block — is its `reason`, which the card and the agent page spell out.
+    var doing: String {
         switch state {
-        case .needsYou: return "\(who) · \(reason ?? "needs you")"
-        case .review: return "\(who) · ready for review"
-        case .working: return "\(who) · \(session.agent == nil ? "running" : "working")"
+        case .needsYou:
+            guard let block else { return "asks a question" }
+            return block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready" : "blocked"
+        case .review: return "ready for review"
+        case .working: return session?.agent == nil ? "running" : "working"
         }
     }
+
+    /// What it is doing, then the task it is doing it on: "asks a question · Wire auth". A session
+    /// on no task says only the first.
+    var line: String { task == nil ? doing : "\(doing) · \(title)" }
 }
 
 /// The mark beside an agent's name: a lit dot for waiting on you, a tick for waiting for your

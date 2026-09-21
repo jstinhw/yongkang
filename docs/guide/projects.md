@@ -5,19 +5,20 @@
 Nothing starts until you pick a folder — that keeps macOS from prompting for iCloud
 Drive / Music / Documents, which is what happened when it defaulted to `$HOME`.
 
-A project is a folder, and every open one is in the sidebar at once, with the agents working
-on it listed under it. Nothing is picked when the app opens: the sidebar is the way in. A
+A project is a folder, and every open one is in the sidebar at once, with its running sessions
+listed under it. Nothing is picked when the app opens: the sidebar is the way in. A
 project's row carries an amber count for what is waiting on you there — a block, a demo, a
 proposal, a question in an agent's terminal — and a green one for finished work waiting for your
-review, so a project you are not looking at still says when it needs you. An agent's row is
-named after its task and says why it is where it is: `Codex · asks a question`, `Claude Code ·
-ready for review`.
+review, so a project you are not looking at still says when it needs you. The counts are the
+whole project's: a demo or a review left by a session that has exited still needs you, and is
+opened from the board. A session's row carries its own name, then what it is doing and on which
+task: `Codex`, `asks a question · Wire auth`.
 
-Click a project to see it in the section you are in: its board under Board, its agents side by
-side under Agents, its spend under Usage. Click an agent to open it — its terminal or its
-transcript, with its task's Done when, what it can reach and what it spawned beside them. Under
-Agents each project also has a **Memory** row: what its agents decided and learned, filed by
-milestone, which every agent reads before it starts. Right-click a project to reveal its folder or
+Click a project to see it in the section you are in: its board under Board, its running
+sessions side by side under Agents. Click a session to open it — its terminal or its transcript,
+with its task's Done when, what it can reach and what it spawned beside them. Under Agents each
+project also has two rows of its own: **Memory**, what its agents decided and learned, filed by
+milestone, which every agent reads before it starts; and **Usage**, what they have spent. Right-click a project to reveal its folder or
 close it; the folder stays on disk. Agents keep running whichever project is on screen:
 terminals are hidden, never torn down.
 
@@ -40,8 +41,8 @@ Open projects come back on the next launch. Only the folders are remembered, not
 sessions — those PTYs died with the app — and a folder that has since moved is dropped
 from the list rather than shown broken.
 
-The rail holds three sections: `Board`, the work the notebook describes, `Agents`, everyone on
-it, and `Usage`, what they have spent. All of it is read from the notebook, the transcripts and
+The rail holds two sections: `Board`, the work the notebook describes, and `Agents`, the
+sessions on it. All of it is read from the notebook, the transcripts and
 git, for every open project; the app keeps no state of its own to drift.
 
 ## New Agent

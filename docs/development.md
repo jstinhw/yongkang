@@ -38,7 +38,7 @@ for.
    are the same door, and the menu item is the one that carries the shortcut — try them too.
    - The panel's message reads "Agents run in this folder and its notebook lives in
      .notebook/."
-   - The project appears in the sidebar, picked. The rail shows Board, Agents and Usage. The
+   - The project appears in the sidebar, picked. The rail shows Board and Agents. The
      **window's title** reads **Board** with **yk-smoke** under it, and the work area asks
      **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
@@ -82,8 +82,8 @@ for.
    one there, then click **Assign**. If the batch includes a design task (one with
    `designer:` set), the button reads **Assign — design first** instead.
    - The window switches to **Agents** and opens the new agent's page on its live terminal, on
-     the agent you picked. Its row in the sidebar is named after the task and reads
-     **Codex · working**, say.
+     the agent you picked. Its row in the sidebar is the session — **Codex**, say —
+     reading **working** and the task's title.
    - The toolbar's agent is unchanged.
    - Beside the terminal, the page lists the task's **Done when** and, under **Access**, the one
      folder it works in.
@@ -196,7 +196,7 @@ for.
 
 16. Walk the menus. Nothing here is on a button only, and an item the window cannot act on is
     disabled rather than hidden — so the shape stays the same on every screen.
-    - **View → Board**, **Agents** and **Usage**, `⌘1`–`⌘3`, move between sections from any
+    - **View → Board** and **Agents**, `⌘1`–`⌘2`, move between sections from any
       screen. Try it with a terminal focused too: that is the case a button-bound shortcut
       could never answer, and the one this step exists for. *(Unverified: the registry's key
       monitor passes the event on rather than swallowing it, and `MenuCommandTests` checks the

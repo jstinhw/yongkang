@@ -3,8 +3,8 @@ import Testing
 
 @testable import YongkangCore
 
-/// The rows the sidebar lists under a project and its Agents page draws: one per agent worth
-/// looking at, in the order you should look at them.
+/// What a project's agents have going, in the order you should look at it: the running sessions
+/// the sidebar and the Agents page list, and what else waits on you, which they only count.
 @Suite struct AgentRowTests {
     private let directory = URL(fileURLWithPath: "/tmp/app")
 
@@ -32,7 +32,7 @@ import Testing
 
         #expect(rows.map(\.state) == [.needsYou, .review, .working])
         #expect(rows[0].reason == "Run swift test?", "the question is what the row says")
-        #expect(rows[1].title == "Task b", "a row is named after its task, not its CLI")
+        #expect(rows[1].title == "Task b", "a row's title is the task it is on")
         #expect(rows.allSatisfy { $0.route == .session($0.session!.id) }, "a live agent opens on itself")
     }
 
@@ -62,6 +62,44 @@ import Testing
         #expect(rows[0].reason == "wants your opinion")
         #expect(rows[1].route == .reviewTask("old"), "a dead session opens on the work it left")
         #expect(!rows.contains { $0.session?.id == idle.id }, "an exited session with nothing waiting is history")
+        #expect(!rows.contains { $0.isRunningSession }, "none of these is a session the Agents tab lists")
+    }
+
+    @Test func aProposalWaitsOnTheSessionThatWroteIt() {
+        let product = CodeSession(title: "Product", icon: "", line: "", agent: .claude)
+        let project = Project(
+            directory: directory, blocks: [block("idea", kind: "proposal", session: product.id)], sessions: [product])
+
+        let rows = project.agentRows(summary: ChangeSummary())
+
+        #expect(rows.count == 1, "the proposal is the session's, not a row of its own")
+        #expect(rows.first?.isRunningSession == true && rows.first?.state == .needsYou)
+        #expect(rows.first?.reason == "wants your opinion")
+    }
+
+    @Test func aQuestionOnScreenLeavesItsBlockARowOfItsOwn() {
+        let product = CodeSession(title: "Product", icon: "", line: "", agent: .claude)
+        let project = Project(
+            directory: directory, blocks: [block("idea", kind: "proposal", session: product.id)], sessions: [product])
+
+        let rows = project.agentRows(summary: ChangeSummary(), asking: [product.id: "Allow Bash?"])
+
+        #expect(rows.map(\.id) == [product.id.uuidString, "block:idea"], "both need you")
+        #expect(rows[0].reason == "Allow Bash?" && rows[0].block == nil, "the session's row is the question")
+    }
+
+    @Test func onlyARunningSessionsOwnRowIsListedUnderAgents() {
+        let session = CodeSession(
+            title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["built", "deploy"])
+        let project = Project(directory: directory, blocks: [block("token", task: "deploy")], sessions: [session])
+        let summary = ChangeSummary(tasks: [
+            done("built"), SummaryTask(id: "deploy", title: "Deploy", status: "blocked"),
+        ])
+
+        let rows = project.agentRows(summary: summary)
+
+        #expect(rows.count == 2, "its block and the work it finished are both counted")
+        #expect(rows.filter(\.isRunningSession).map(\.id) == [session.id.uuidString], "but it is one agent")
     }
 
     @Test func finishedWorkIsNotHiddenBehindABlock() {

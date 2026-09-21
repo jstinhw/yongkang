@@ -1,8 +1,9 @@
 import Foundation
 
-/// One agent as the sidebar lists it under its project, and as that project's Agents page
-/// draws it. Usually a live session; when no session is left to stand behind it, what one left
-/// waiting on you — a proposal, a block, or work nobody has approved yet.
+/// One thing a project's agents have going: usually a live session, which the sidebar lists under
+/// its project and the project's Agents page draws; when no session is left to stand behind it,
+/// what one left waiting on you — a proposal, a block, or work nobody has approved yet — which
+/// only counts there, and is opened from the board.
 ///
 /// Derived, never stored. The sessions, the blocks and the review summary are the state; this is
 /// only how they read side by side, so the sidebar and the page cannot disagree about a row.
@@ -31,6 +32,14 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package let block: UserBlock?
     /// Where clicking it goes.
     package let route: Route
+
+    /// Whether this is a running session's own row, which is all the Agents tab lists. The
+    /// others — a proposal, a block or a review no running session stands behind — still count
+    /// on the project, and wait on the board.
+    package var isRunningSession: Bool {
+        guard let session, !session.exited else { return false }
+        return id == session.id.uuidString
+    }
 }
 
 extension Project {
@@ -45,11 +54,17 @@ extension Project {
         var claimedBlocks: Set<String> = []
         var claimedTasks: Set<String> = []
         for session in sessions {
-            let block = blocks.waitingOnUser.first { block in
-                !block.isProposal
-                    && (block.session == session.id
-                        || (block.session == nil && block.task.map(session.taskIDs.contains) == true))
+            // A proposal holds up the notebook rather than a task, so only the session that
+            // wrote it waits on it.
+            let raised = blocks.waitingOnUser.first { block in
+                block.session == session.id
+                    || (!block.isProposal && block.session == nil
+                        && block.task.map(session.taskIDs.contains) == true)
             }
+            // A question on its screen is what the row is about; a block beside it is counted
+            // with a row of its own below.
+            let question = session.exited ? nil : asking[session.id]
+            let block = question == nil ? raised : nil
             let waiting = summary.waiting(for: session)
             // Held up on one task, the row is about that task, not whichever is first in its chain.
             let task = block?.task ?? current(of: session, in: summary)
@@ -58,10 +73,13 @@ extension Project {
                 ?? session.title
             let state: AgentRow.State
             var reason: String?
-            if !session.exited, let question = asking[session.id] {
+            if let question {
                 (state, reason) = (.needsYou, question)
             } else if let block {
-                (state, reason) = (.needsYou, block.isDemo ? "demo ready to approve" : block.title)
+                (state, reason) = (
+                    .needsYou,
+                    block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready to approve" : block.title
+                )
             } else if !waiting.isEmpty {
                 state = .review
             } else if !session.exited {
@@ -85,9 +103,9 @@ extension Project {
                     id: session.id.uuidString, state: state, title: title, reason: reason,
                     session: session, task: task, block: block, route: route))
         }
-        // Everything else waiting on you gets a row of its own: proposals, which hold up the
-        // notebook rather than a task, a second block from a session already listed for its first,
-        // and blocks whose session has gone. Each opens on itself, and says whose it is.
+        // Everything else waiting on you gets a row of its own: a proposal no session wrote, a
+        // second block from a session already listed for its first, and blocks whose session has
+        // gone. Each opens on itself, and says whose it is.
         for block in blocks.waitingOnUser where !claimedBlocks.contains(block.id) {
             let reason = block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready to approve" : "blocked"
             rows.append(

@@ -265,8 +265,6 @@ import YongkangCore
         case .agents:
             // The project's agents side by side, rather than whichever one happened to be first.
             if !staysUnderAgents(in: project) { selection = .agents }
-        case .usage:
-            selection = .usage
         }
     }
 
@@ -281,7 +279,7 @@ import YongkangCore
             return true
         }
         switch selection {
-        case .agents, .memory, .review, .reviewTask: return true
+        case .agents, .memory, .usage, .review, .reviewTask: return true
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         default: return false
         }

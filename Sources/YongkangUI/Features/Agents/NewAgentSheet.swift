@@ -297,3 +297,16 @@ package struct NewAgentSheet: View {
         }
     }
 }
+
+extension Project {
+    /// The tasks an agent could take right now: not done, not already out with a session, not
+    /// held up by a block, and waiting on nothing unfinished — the board's own "ready".
+    package var readyTasks: [NotebookCard] {
+        NotebookIndex.ordered(
+            cards.filter { card in
+                card.kind == .task && !["done", "designing", "blocked"].contains(card.status)
+                    && !assignedTaskIDs.contains(card.id) && blocks.waiting(on: card.id) == nil
+                    && NotebookBoard.isReady(card, in: cards)
+            })
+    }
+}

@@ -1,36 +1,34 @@
 import SwiftUI
 import YongkangCore
 
-/// A project's agents side by side, in three columns: what needs you, what waits for your
-/// review, what is at work. The same rows the sidebar lists under the project, with room to
-/// say what each one is on and to act on it without opening it first.
+/// A project's running sessions side by side, in three columns: what needs you, what waits for
+/// your review, what is at work. The same sessions the sidebar lists under the project, with room
+/// to say what each one is on and to act on it without opening it first.
+///
+/// Sessions, not tasks: starting work on a task is the board's, and so is what a session that
+/// has exited left waiting on you, which the header only counts.
 package struct ProjectAgentsPage: View {
     let project: Project
+    /// Everything the project's agents have going; the page draws the running sessions of it.
     let rows: [AgentRow]
     let summary: ChangeSummary
-    /// The tasks that could start now, which the bar along the bottom starts.
-    let ready: [NotebookCard]
-    let agents: AgentChoice
     let open: (Route) -> Void
     let openBoard: () -> Void
-    let start: ([NotebookCard], AgentKind) -> Void
     let newAgent: () -> Void
 
     package init(
-        project: Project, rows: [AgentRow], summary: ChangeSummary, ready: [NotebookCard], agents: AgentChoice,
-        open: @escaping (Route) -> Void, openBoard: @escaping () -> Void,
-        start: @escaping ([NotebookCard], AgentKind) -> Void, newAgent: @escaping () -> Void
+        project: Project, rows: [AgentRow], summary: ChangeSummary, open: @escaping (Route) -> Void,
+        openBoard: @escaping () -> Void, newAgent: @escaping () -> Void
     ) {
         self.project = project
         self.rows = rows
         self.summary = summary
-        self.ready = ready
-        self.agents = agents
         self.open = open
         self.openBoard = openBoard
-        self.start = start
         self.newAgent = newAgent
     }
+
+    private var sessions: [AgentRow] { rows.filter(\.isRunningSession) }
 
     package var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +40,6 @@ package struct ProjectAgentsPage: View {
                 .padding(.horizontal, 28)
                 .padding(.vertical, 20)
             }
-            readyBar
         }
         .background(Theme.bg)
     }
@@ -56,8 +53,9 @@ package struct ProjectAgentsPage: View {
                 HStack(spacing: 12) {
                     Text(project.directory.path).font(Typography.mono).foregroundStyle(Theme.tx3)
                         .lineLimit(1).truncationMode(.head)
+                    Text("\(sessions.count) running").font(Typography.caption).foregroundStyle(Theme.prose)
                     ForEach([AgentRow.State.needsYou, .review, .working], id: \.self) { state in
-                        let count = rows.filter { $0.state == state }.count
+                        let count = sessions.filter { $0.state == state }.count
                         if count > 0 {
                             HStack(spacing: 5) {
                                 Circle().fill(state.color).frame(width: 6, height: 6)
@@ -66,6 +64,13 @@ package struct ProjectAgentsPage: View {
                             .font(Typography.caption).foregroundStyle(Theme.prose)
                         }
                     }
+                }
+                let elsewhere = rows.count - sessions.count
+                if elsewhere > 0 {
+                    Text(
+                        "\(elsewhere) more \(elsewhere == 1 ? "thing waits" : "things wait") on you on the board."
+                    )
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
                 }
             }
             Spacer(minLength: 12)
@@ -84,7 +89,7 @@ package struct ProjectAgentsPage: View {
     // MARK: - Columns
 
     private func lane(_ state: AgentRow.State) -> some View {
-        let cards = rows.filter { $0.state == state }
+        let cards = sessions.filter { $0.state == state }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 Circle().fill(state.color).frame(width: 7, height: 7)
@@ -101,8 +106,8 @@ package struct ProjectAgentsPage: View {
 
     private func nothing(in state: AgentRow.State) -> String {
         switch state {
-        case .needsYou: return "Nothing is waiting on you here."
-        case .review: return "No work is waiting for your review."
+        case .needsYou: return "No running agent is waiting on you."
+        case .review: return "No running agent has work for your review."
         case .working: return "No agent is at work on this project."
         }
     }
@@ -111,23 +116,21 @@ package struct ProjectAgentsPage: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 6) {
                 AgentStateGlyph(state: row.state, size: 11)
-                Text(status(of: row)).font(Typography.caption(.semibold)).foregroundStyle(row.state.color)
+                Text(row.doing).font(Typography.caption(.semibold)).foregroundStyle(row.state.color)
             }
             Button {
                 open(row.route)
             } label: {
-                Text(row.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                    .multilineTextAlignment(.leading).lineLimit(2)
+                Text(row.name).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                    .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            HStack(spacing: 6) {
-                RoleTile(role: who(row), size: 18)
-                Text(who(row)).font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
-                Spacer(minLength: 6)
-                if let milestone = milestone(of: row) {
-                    Text(milestone).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
+            if row.task != nil {
+                HStack(spacing: 6) {
+                    RoleTile(role: row.name, size: 18)
+                    Text("on \(row.title)").font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
                 }
             }
             if let detail = detail(of: row) {
@@ -141,29 +144,6 @@ package struct ProjectAgentsPage: View {
             footer(of: row)
         }
         .cardSurface(radius: 10, border: row.state == .needsYou ? Theme.amber.opacity(0.45) : Theme.line2)
-    }
-
-    /// The first thing the card says, in the state's colour.
-    private func status(of row: AgentRow) -> String {
-        switch row.state {
-        case .needsYou:
-            guard let block = row.block else { return "asks a question" }
-            return block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready" : "blocked"
-        case .review: return "ready for review"
-        case .working: return row.session?.agent == nil ? "running" : "working"
-        }
-    }
-
-    private func who(_ row: AgentRow) -> String {
-        row.session?.title ?? (row.block?.isProposal == true ? "Product" : "No session")
-    }
-
-    /// The milestone the row's task is filed under.
-    private func milestone(of row: AgentRow) -> String? {
-        guard let task = row.task, let owner = project.cards.first(where: { $0.id == task })?.project else {
-            return nil
-        }
-        return project.cards.first { $0.id == owner && $0.kind == .project }?.title
     }
 
     /// What the card says in its well: the question, what is waiting for review, or what the
@@ -225,44 +205,5 @@ package struct ProjectAgentsPage: View {
     private func action(for row: AgentRow) -> String {
         guard let block = row.block else { return "Answer" }
         return block.isProposal ? "Open Proposal" : block.isDemo ? "See Demo" : "Open Block"
-    }
-
-    // MARK: - Ready
-
-    private var readyBar: some View {
-        ActionBar {
-            if ready.isEmpty {
-                Text("Nothing else in \(project.name) could start now.")
-                    .font(Typography.body).foregroundStyle(Theme.tx3)
-            } else {
-                Text("Could start now").font(Typography.body).foregroundStyle(Theme.tx3)
-                ForEach(ready.prefix(3)) { task in
-                    Text(task.title).font(Typography.body).foregroundStyle(Theme.prose).lineLimit(1)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.raised))
-                }
-                if ready.count > 3 {
-                    Text("+\(ready.count - 3)").font(Typography.mono).foregroundStyle(Theme.tx3)
-                }
-            }
-            Spacer(minLength: 12)
-            AssignButton(
-                title: "Start \(ready.count) agent\(ready.count == 1 ? "" : "s")", choice: agents,
-                disabled: ready.isEmpty
-            ) { start(ready, $0) }
-        }
-    }
-}
-
-extension Project {
-    /// The tasks an agent could take right now: not done, not already out with a session, not
-    /// held up by a block, and waiting on nothing unfinished — the board's own "ready".
-    package var readyTasks: [NotebookCard] {
-        NotebookIndex.ordered(
-            cards.filter { card in
-                card.kind == .task && !["done", "designing", "blocked"].contains(card.status)
-                    && !assignedTaskIDs.contains(card.id) && blocks.waiting(on: card.id) == nil
-                    && NotebookBoard.isReady(card, in: cards)
-            })
     }
 }

@@ -85,11 +85,12 @@ enum DesignShots {
             ("lead", lead, AgentPane.transcript, String?.none),
             ("session", project.sessions[1], AgentPane.transcript, "Allow Bash(swift test)?"),
         ] {
+            let question = asking.map { [session.id: $0] } ?? [:]
             write(
-                console(project, section: .agents, selection: .session(session.id, pane: pane)) {
+                console(project, section: .agents, asking: question, selection: .session(session.id, pane: pane)) {
                     AgentPage(
                         session: session, project: project, summary: ChangeSummary(),
-                        row: project.agentRows(summary: ChangeSummary(), asking: asking.map { [session.id: $0] } ?? [:])
+                        row: project.agentRows(summary: ChangeSummary(), asking: question)
                             .first { $0.route == .session(session.id) },
                         pane: pane, asking: asking, source: URL(fileURLWithPath: "/tmp/\(name).jsonl"),
                         select: { _ in }, open: { _ in }, stop: {},
@@ -131,13 +132,13 @@ enum DesignShots {
             }
         }
 
-        // One project's agents side by side, with pull-blockers finished so every column has a card.
+        // One project's running sessions side by side, with pull-blockers finished so its session
+        // is ready for review.
         write(
             console(result, section: .agents, summary: resultSummary, selection: .agents) {
                 ProjectAgentsPage(
                     project: result, rows: result.agentRows(summary: resultSummary), summary: resultSummary,
-                    ready: result.readyTasks, agents: agents, open: { _ in }, openBoard: {},
-                    start: { _, _ in }, newAgent: {})
+                    open: { _ in }, openBoard: {}, newAgent: {})
             }, "agents-project", into: directory)
 
         write(
@@ -265,7 +266,7 @@ enum DesignShots {
         // fixture would prove the layout and nothing else.
         let real = realSessions(in: repo)
         write(
-            console(real, section: .agents) {
+            console(real, section: .agents, selection: .usage) {
                 // The hour, not the default day: a machine whose agents ran this morning would
                 // photograph an empty chart, which says nothing about whether it draws.
                 UsageBoard(project: real, open: { _ in }, range: .hour)
@@ -326,7 +327,7 @@ enum DesignShots {
     /// through the real `HSplitView`, whose divider a shot has no reason to show.
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
-        summary: ChangeSummary = ChangeSummary(),
+        summary: ChangeSummary = ChangeSummary(), asking: [UUID: String] = [:],
         hovering: ConsoleSection? = nil, selection: Route? = nil, entered: Bool = true,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -338,7 +339,8 @@ enum DesignShots {
             .zIndex(1)
             ProjectSidebar(
                 section: section,
-                projects: [SidebarProject(project: project, rows: project.agentRows(summary: summary))] + neighbours(),
+                projects: [SidebarProject(project: project, rows: project.agentRows(summary: summary, asking: asking))]
+                    + neighbours(),
                 entered: entered ? project.id : nil, selection: selection,
                 open: { _, _, _ in }, create: {}, add: {}, closeSession: { _, _ in }, close: { _ in }
             )

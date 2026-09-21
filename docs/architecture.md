@@ -126,9 +126,11 @@ HStack
                                .navigationTitle + .navigationSubtitle + .toolbar
 ```
 
-- **Every project at once.** The sidebar lists every open project with its agents under it —
-  `Project.agentRows`, in Core, so the sidebar and the project's Agents page read one rule — and
-  picking a row is `AppModel.enter(_:at:)`: that project becomes the one the selection lives in,
+- **Every project at once.** The sidebar lists every open project with its running sessions
+  under it — `Project.agentRows`, in Core, so the sidebar and the project's Agents page read one
+  rule. The sidebar and the page list only `isRunningSession` rows; the rest, what a session that
+  has exited left waiting on you, only counts on the project and is opened from the board. Picking
+  a row is `AppModel.enter(_:at:)`: that project becomes the one the selection lives in,
   on the route the row names. The section stays, so picking a project on the board shows its
   board. `entered` is still the one project a `Route` means something in; nothing picked is
   `entered == nil`, and the screen says to pick something.
@@ -181,7 +183,7 @@ Full Keyboard Access and VoiceOver read an app through.
 | | Sign In with GitHub… / Sign Out · Share Usage Analytics | a Supabase project is set · always |
 | **File** | New Project ⇧⌘N · Open Folder ⌘O | always |
 | | Close Project · Reveal in Finder | a project is picked |
-| **View** | Board ⌘1 · Agents ⌘2 · Usage ⌘3 · Hide List ⌘\ | always |
+| **View** | Board ⌘1 · Agents ⌘2 · Hide List ⌘\ | always |
 | | Show Completed | a project is picked |
 | **Agent** | New Agent… ⌘N | always |
 | | New Session · New Session With ▸ · Product Review | a project is picked |
@@ -229,7 +231,7 @@ read one — validated any earlier, every stored route would look stale on every
   once that read lands, which is the same answer a moment later.
 
 Anything that fails drops the route, and `openSectionDefault()` fills it with the section's own
-page for the project: its board, its agents side by side, or its usage. `RestorationTests` covers the
+page for the project: its board, or its running sessions side by side. `RestorationTests` covers the
 round trip, an unparseable string, a card deleted while the app was closed, a dead session,
 and a resolved block.
 
