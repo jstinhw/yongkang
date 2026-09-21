@@ -13,6 +13,7 @@ extension ProjectModel {
         let failure = await GitClient.commit(message: message, paths: task.commitPaths, in: directory)
         await refreshRepo()
         if let failure { throw CommitFailure(reason: failure) }
+        Analytics.capture("task_approved", ["files": task.commitPaths.count])
         reviewDrafts[task.id] = nil
         return firstReview
     }
@@ -44,6 +45,7 @@ extension ProjectModel {
         let failure = await GitClient.commit(message: message, in: directory)
         await refreshRepo()
         if let failure { throw CommitFailure(reason: failure) }
+        Analytics.capture("changes_committed")
         return .review(file: nil)
     }
 }

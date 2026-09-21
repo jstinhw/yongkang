@@ -4,7 +4,8 @@ A macOS console that runs a team of agent CLIs (`claude`, `codex`, `grok`, `agy`
 PTYs against a project's `.notebook/` folder, and reviews the changes they leave behind.
 
 A Swift package holds all the code, with a thin Xcode project that builds the app. macOS 14+,
-one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
+two dependencies (SwiftTerm, and Sparkle for updates). Tests are Swift Testing, one file per
+domain.
 
 `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
 
@@ -19,7 +20,8 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
   workflows in `ProjectModel+<concern>.swift` returning where the window goes, and anything
   that has to ask or tell the user set as `AppModel.alert` rather than run modally), `App/`
   (`YongkangApp`, `RootView`, the rail and the list column), `Terminal/`, `DesignSystem/`,
-  and `Features/<screen>/`.
+  `Online/` (updates, sign-in, analytics: the only code that talks to a server), and
+  `Features/<screen>/`.
 - **The window is the rail, then an `HSplitView`.** The 64pt icon rail is drawn outside the
   split view; the list column is its first pane, the screen its second, and what
   used to be a hand-built 56pt bar above the screen is the window's own toolbar
@@ -53,6 +55,7 @@ swift run shots <dir>                       # render every screen offscreen to <
 make icon                                   # redraw the app icon's 1024 master
 make run                                    # debug build of the app, then open it
 make archive                                # signed Release build in .build/xcode
+make release                                # Developer ID, notarized dmg (CI runs it on a v* tag)
 make help                                   # every target
 ```
 
@@ -106,6 +109,9 @@ A handoff needs all of these:
 - **No file over 800 lines.**
 - **The notebook files are the only state.** The app never writes what agents write, and
   it never commits unless the user approves in Review.
+- **Only `Online/` talks to a server,** and an analytics event says only that something
+  happened: an agent's kind or a count, never a path, a name, a prompt or a file's contents.
+  [`docs/release.md`](docs/release.md#what-goes-online) lists every event; a new one goes there.
 - **Keep the comment culture.** Comments explain *why*. `ponytail:` markers name a
   deliberate ceiling and what to do when it's hit.
 - **Use `git mv` for moves,** in a commit of its own, separate from any edits.
@@ -117,6 +123,8 @@ A handoff needs all of these:
   Read it before changing any of those.
 - `docs/development.md`: the manual smoke script, capturing CLI fixtures, the app icon, and the
   local signing identity.
+- `docs/release.md`: versions, cutting a release, the update feed, what goes online, and the
+  one-time accounts and secrets.
 - `docs/providers.md`: the `AgentProvider` protocol, where fixtures go, and the checklist for
   adding a CLI.
 - `docs/refactor-plan.md`: the record of the refactor that gave the repo this shape — the

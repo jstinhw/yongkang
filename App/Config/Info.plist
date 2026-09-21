@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+	Merged over the keys Xcode generates (GENERATE_INFOPLIST_FILE). Outside App/Yongkang/ on
+	purpose: that folder is synchronized, and would copy this file into Resources as well.
+
+	None of these values is a secret: each is written to ship inside an app. An empty one switches
+	its feature off (Sources/YongkangUI/Online/). docs/release.md says where each comes from.
+-->
+<dict>
+	<!-- Release is the only configuration that checks for updates or sends analytics. -->
+	<key>YKConfiguration</key>
+	<string>$(CONFIGURATION)</string>
+
+	<!-- Sparkle. The feed lives in the public releases repo, since this one is private. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/jstinhw/yongkang-releases/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string></string>
+	<!-- Check daily and download in the background; install on "Restart to Update" or on quit. -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+
+	<!-- Supabase Auth: the project URL and its publishable (anon) key. -->
+	<key>YKSupabaseURL</key>
+	<string></string>
+	<key>YKSupabaseKey</key>
+	<string></string>
+
+	<!-- PostHog: the ingestion host (us. or eu.) and the project API key. -->
+	<key>YKPostHogHost</key>
+	<string>https://us.i.posthog.com</string>
+	<key>YKPostHogKey</key>
+	<string></string>
+</dict>
+</plist>

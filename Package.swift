@@ -20,13 +20,18 @@ let package = Package(
         .executable(name: "shots", targets: ["Shots"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
+        // The in-app updater (docs/release.md). 2.9 is the first to render Markdown release notes.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.0"),
     ],
     targets: [
         // Foundation only: the notebook, providers, git, review, prompts. If it needs
         // SwiftUI, it belongs in YongkangUI.
         .target(name: "YongkangCore", swiftSettings: v6),
-        .target(name: "YongkangUI", dependencies: ["YongkangCore", "SwiftTerm"], swiftSettings: v6),
+        .target(
+            name: "YongkangUI",
+            dependencies: ["YongkangCore", "SwiftTerm", .product(name: "Sparkle", package: "Sparkle")],
+            swiftSettings: v6),
         // Dev-only: `swift run shots <dir>` renders every screen offscreen. Never in the app.
         .executableTarget(name: "Shots", dependencies: ["YongkangCore", "YongkangUI"], swiftSettings: v6),
         .testTarget(

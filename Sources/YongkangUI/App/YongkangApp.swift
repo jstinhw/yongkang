@@ -3,6 +3,7 @@ import YongkangCore
 
 package struct YongkangApp: App {
     @State private var model = AppModel()
+    @State private var account = Account()
     /// The two settings the menu bar shares with the window. `@AppStorage` is a view of one
     /// UserDefaults key, so these and `RootView`'s are the same switch rather than two copies
     /// that could disagree.
@@ -11,6 +12,8 @@ package struct YongkangApp: App {
 
     package init() {
         _ = TextKeys.monitor
+        Updates.shared.start()
+        Analytics.capture("app_opened")
     }
 
     package var body: some Scene {
@@ -24,6 +27,6 @@ package struct YongkangApp: App {
         // would take the first one's terminals. Not a `Window` scene, because closing that
         // quits the app and every agent with it. `YongkangCommands` replaces the `.newItem`
         // group, which is what drops New Window and frees ⌘N.
-        .commands { YongkangCommands(model: model, listHidden: $listHidden, agent: agent) }
+        .commands { YongkangCommands(model: model, listHidden: $listHidden, agent: agent, account: account) }
     }
 }

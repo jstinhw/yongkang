@@ -6,7 +6,7 @@ import os
 /// pane with no way to tell an upstream change from a bug of ours. `log show --predicate
 /// 'subsystem == "ai.yongkang.Yongkang"'` answers it instead (D14 in `docs/refactor-plan.md`).
 ///
-/// **Nothing leaves the Mac, and nothing a person or an agent wrote is ever logged.** Paths,
+/// **No log line leaves the Mac, and nothing a person or an agent wrote is ever logged.** Paths,
 /// counts, exit statuses and error descriptions only — never file contents, prompt bodies,
 /// transcript lines, notebook text or anything typed into a terminal. Everything logged here
 /// is marked `.public` on purpose, because a redacted path says nothing; that is exactly why
@@ -28,6 +28,9 @@ package enum Log {
     package static let terminal = Logger(subsystem: subsystem, category: "terminal")
     /// The agent CLIs' own files: transcripts, rollouts, usage.
     package static let providers = Logger(subsystem: subsystem, category: "providers")
+    /// Sign-in and usage analytics, the app's own requests to a server (`YongkangUI/Online/`).
+    /// Their failures stay here like every other line: an HTTP status or an error description.
+    package static let online = Logger(subsystem: subsystem, category: "online")
 
     /// A text file's contents, or nil with a line saying why. Every reader that used to swallow
     /// this with a bare `try?` comes through here, so a page that stopped loading has an answer

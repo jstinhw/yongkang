@@ -208,6 +208,11 @@ for.
       **File → New Project…** (`⌘N`) and **Open Folder…** (`⌘O`) still work.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
+    - **Yongkang → Check for Updates…** is disabled in a `make run` build: only a Release build
+      with `SUPublicEDKey` set checks. **Sign In with GitHub…** is lit once `YKSupabaseURL` and
+      `YKSupabaseKey` are set in `App/Config/Info.plist`: it opens GitHub in a system sheet, and
+      afterwards the item reads **Sign Out <your login>**. Closing the sheet is not an error.
+      *(Unverified: no Supabase project existed when this was written.)*
 17. With the project open on a task page, quit Yongkang (⌘Q) and run `make run` again.
     - The window comes back on the same project, the same section and the same page.
     - The sessions do not: those PTYs died with the app, and the Agents list is empty.

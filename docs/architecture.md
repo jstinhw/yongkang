@@ -57,17 +57,35 @@ and the safety beat still reads when the watch is taken away.
 ## Diagnostics
 
 `Log` (`Sources/YongkangCore/Diagnostics/`) is `os.Logger` under the subsystem
-`ai.yongkang.Yongkang`, with the four categories D14 names: `notebook`, `git`, `terminal`,
-`providers`. `log show --predicate 'subsystem == "ai.yongkang.Yongkang"'` reads it back. The
+`ai.yongkang.Yongkang`, with the four categories D14 names — `notebook`, `git`, `terminal`,
+`providers` — and `online`, for the app's own requests (below). `log show --predicate 'subsystem == "ai.yongkang.Yongkang"'` reads it back. The
 readers that used to swallow a failure with a bare `try?` go through `Log.contents(of:)` or
 their own `catch`, so a parser that stopped matching a new CLI version says so instead of
 drawing an empty pane.
 
 **Only paths, counts, exit statuses and error descriptions are ever logged.** Never a file's
 contents, a prompt body, a transcript line, git's own output or a process's command line, and
-nothing leaves the Mac. Log the unexpected, too: a file a CLI has not written yet, `git status`
+no log line leaves the Mac. Log the unexpected, too: a file a CLI has not written yet, `git status`
 exiting 128 in a folder nobody has made a repo, and a read the window cancelled are the normal
 case on every read and say nothing.
+
+### What goes online
+
+`Sources/YongkangUI/Online/` is the only code that talks to a server. Updates and analytics run
+only in a Release build: Info.plist carries `YKConfiguration = $(CONFIGURATION)`, and
+`Online.isRelease` is false under `swift test`, in `shots` and in `make run`. Each part is off
+while its key in `App/Config/Info.plist` is empty.
+
+- **`Updates`**: Sparkle 2, checking the appcast daily, downloading in the background, and
+  handing over a "Restart to Update" rather than opening a window.
+- **`Account`**: optional GitHub sign-in through Supabase Auth, PKCE in
+  `ASWebAuthenticationSession`. The user is kept; the tokens are not.
+- **`Analytics`**: PostHog's capture API, one POST per event. An event says only *that*
+  something happened, with an agent's kind or a count, under the same rule as the log: no path,
+  name, prompt or file contents. **Share Usage Analytics** in the app menu turns it off.
+
+[`docs/release.md`](release.md#what-goes-online) lists every event and what the website's
+privacy page has to say.
 
 ## Nothing is read while a screen draws
 
@@ -143,6 +161,8 @@ Full Keyboard Access and VoiceOver read an app through.
 
 | Menu | Items | Lit when |
 |---|---|---|
+| **Yongkang** | Check for Updates… / Restart to Update to X | a Release build with an update key |
+| | Sign In with GitHub… / Sign Out · Share Usage Analytics | a Supabase project is set · always |
 | **File** | New Project ⌘N · Open Folder ⌘O | always |
 | | Close Project · Reveal in Finder | a project is entered |
 | **View** | Board ⌘1 · Agents ⌘2 | a project is entered |

@@ -14,7 +14,9 @@ import YongkangCore
     private(set) var entered: ProjectModel?
     /// Which of the rail's sections the window is showing. The list column is that
     /// section's objects and the work area is whichever one is selected.
-    var section: ConsoleSection = .board
+    var section: ConsoleSection = .board {
+        didSet { if section != oldValue { Analytics.capture("$screen", ["$screen_name": section.title]) } }
+    }
     /// The row the list column has selected and the page the work area shows.
     var selection: Route?
     /// Completed notebook work is historical noise until the user asks for it.
@@ -179,6 +181,7 @@ import YongkangCore
     }
 
     func enter(_ project: ProjectModel) {
+        Analytics.capture("project_opened", ["notebook": project.hasNotebook, "open_projects": projects.count])
         entered = project
         doneTasks = nil
         section = .board

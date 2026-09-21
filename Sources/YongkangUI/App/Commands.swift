@@ -16,8 +16,12 @@ struct YongkangCommands: Commands {
     @Binding var listHidden: Bool
     /// The default agent, which the toolbar's picker sets, for the sessions this menu starts.
     let agent: AgentKind
+    let account: Account
+    @AppStorage(Analytics.enabledKey) private var shareAnalytics = true
 
     var body: some Commands {
+        // Under About, where a Mac app keeps its updates and its account.
+        CommandGroup(after: .appInfo) { online }
         // Replacing `.newItem` is also what drops "New Window": the model and its
         // TerminalRegistry are app-wide, so a second window would take the first one's
         // terminals. It frees ⌘N for the project the Fleet screen's tile describes.
@@ -30,6 +34,29 @@ struct YongkangCommands: Commands {
 
     /// The project you are inside, which is what every item below the first two acts on.
     private var project: ProjectModel? { model.entered }
+
+    // MARK: - Yongkang
+
+    /// Everything in the app that talks to a server (`Online/`). Each title flips rather than
+    /// the item disappearing, like Show and Hide List.
+    @ViewBuilder private var online: some View {
+        let updates = Updates.shared
+        // VS Code's "Restart to Update": the update is already downloaded, so this is one step.
+        Button(updates.ready.map { "Restart to Update to \($0)" } ?? "Check for Updates…") {
+            if updates.ready == nil { updates.check() } else { updates.restart() }
+        }
+        .disabled(!updates.available)
+        Divider()
+        Button(account.user.map { "Sign Out \($0.login ?? $0.email ?? "")" } ?? "Sign In with GitHub…") {
+            guard account.user == nil else { return account.signOut() }
+            Task {
+                do { try await account.signIn() } catch { model.alert = .error(error) }
+            }
+        }
+        .disabled(!account.available || account.signingIn)
+        Toggle("Share Usage Analytics", isOn: $shareAnalytics)
+        Divider()
+    }
 
     // MARK: - File
 

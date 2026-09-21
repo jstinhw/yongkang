@@ -3,3 +3,7 @@
 .DS_Store
 .claude/worktrees/
 xcuserdata/
+# Release keys pass through a checkout on their way into GitHub secrets (docs/release.md).
+*.p12
+*.p8
+sparkle.key

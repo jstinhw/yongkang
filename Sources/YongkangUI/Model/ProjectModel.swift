@@ -266,6 +266,8 @@ import YongkangCore
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
         let session = CodeSession(id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
         sessions.append(session)
+        // Every session starts here, so this one event counts them all. A service runner has no agent.
+        Analytics.capture("session_started", ["agent": agent?.rawValue ?? "service", "tasks": taskIDs.count])
         resummarize()
         terminals?.start(session)
         // So the new agent's transcript folder is watched now rather than at the next safety

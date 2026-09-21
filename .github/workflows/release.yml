@@ -1,0 +1,123 @@
+name: Release
+
+# A vX.Y.Z tag is a release: checked, built with Developer ID, notarized, and published with its
+# Sparkle appcast to the public releases repo, which the website and every installed copy
+# download from. docs/release.md has the one-time setup and each secret.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write # the dSYMs, kept on a release in this repo
+
+# Two tags at once would race for "latest", which is what the feed and the download link follow.
+concurrency: release
+
+env:
+  # Also in App/Config/Info.plist's SUFeedURL, which every installed copy reads.
+  RELEASES_REPO: jstinhw/yongkang-releases
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the build number is the commit count
+
+      # First, so a tag with nothing to say fails in seconds rather than after notarizing.
+      - name: Notes from CHANGELOG.md
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          awk -v v="$version" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## / { on = 0 } on' \
+            CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" \
+            || { echo "::error::CHANGELOG.md has no notes under ## [$version]"; exit 1; }
+
+      - run: make check
+
+      # A throwaway keychain holding only the Developer ID identity; the runner is discarded after.
+      - name: Signing identity
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security import "$RUNNER_TEMP/id.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/id.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity=$(security find-identity -v -p codesigning "$keychain" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
+          test -n "$identity" || { echo "::error::DEVELOPER_ID_P12 holds no Developer ID Application identity"; exit 1; }
+          echo "IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      # Xcode 26 compiles SwiftTerm's shaders, and the toolchain for them is a separate download.
+      - run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: Build, notarize, staple
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_KEY: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
+          make release VERSION="${GITHUB_REF_NAME#v}" IDENTITY="$IDENTITY" TEAM="$TEAM" \
+            NOTARY="--key $RUNNER_TEMP/notary.p8 --key-id $NOTARY_KEY_ID --issuer $NOTARY_ISSUER_ID"
+
+      # One item: the release just built. Its version, build and minimum macOS are read from the
+      # app itself, so the feed can't disagree with what it offers. `sign_update` came down with
+      # the Sparkle package during `make check`.
+      - name: Appcast
+        env:
+          SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          plist=.build/export/Yongkang.app/Contents/Info.plist
+          read_plist() { /usr/libexec/PlistBuddy -c "Print $1" "$plist"; }
+          signature=$(printf '%s' "$SPARKLE_KEY" \
+            | .build/artifacts/sparkle/Sparkle/bin/sign_update --ed-key-file - .build/release/Yongkang.dmg)
+          cat > .build/release/appcast.xml <<XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Yongkang</title>
+              <item>
+                <title>Yongkang $(read_plist CFBundleShortVersionString)</title>
+                <pubDate>$(date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
+                <sparkle:version>$(read_plist CFBundleVersion)</sparkle:version>
+                <sparkle:shortVersionString>$(read_plist CFBundleShortVersionString)</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>$(read_plist LSMinimumSystemVersion)</sparkle:minimumSystemVersion>
+                <description sparkle:format="markdown"><![CDATA[
+          $(cat "$RUNNER_TEMP/notes.md")
+                ]]></description>
+                <enclosure url="https://github.com/$RELEASES_REPO/releases/download/$GITHUB_REF_NAME/Yongkang.dmg"
+                  type="application/octet-stream" $signature/>
+              </item>
+            </channel>
+          </rss>
+          XML
+          xmllint --noout .build/release/appcast.xml
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" .build/release/Yongkang.dmg .build/release/appcast.xml \
+            --repo "$RELEASES_REPO" --title "Yongkang ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
+
+      # What turns a crash report's addresses back into function names.
+      - name: Keep the dSYMs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dsyms=".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip"
+          ditto -c -k --keepParent .build/xcode/Yongkang.xcarchive/dSYMs "$dsyms"
+          gh release create "$GITHUB_REF_NAME" "$dsyms" --title "Yongkang ${GITHUB_REF_NAME#v}" \
+            --notes-file "$RUNNER_TEMP/notes.md"

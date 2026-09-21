@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+	`make release` exports the archive with this: Developer ID, the way Xcode's Distribute App
+	does, which re-signs Sparkle's helpers (Autoupdate, Updater.app, the XPC services) for
+	notarization too. The team is the archive's own, from `make release TEAM=…`.
+-->
+<dict>
+	<key>method</key>
+	<string>developer-id</string>
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Developer ID Application</string>
+</dict>
+</plist>

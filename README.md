@@ -66,5 +66,6 @@ flowchart TD
 - [Blocks](docs/guide/blocks.md) — gates only you can clear
 - [Notebook format](docs/notebook-format.md) — the spec written to `.notebook/NOTEBOOK.md`
 - [Development](docs/development.md) — contributing to the app itself
+- [Releasing](docs/release.md) — versions, releases, updates, and what goes online
 - [AGENTS.md](AGENTS.md) — instructions for agents working in this repo
 - [Refactor plan](docs/refactor-plan.md) — the decisions behind this repo's shape

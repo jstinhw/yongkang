@@ -2,8 +2,8 @@
 
 **What this is:** the record of the refactor that gave this repo its present shape — what was
 decided, why, what was turned down, and what was deliberately left. It is not a plan any more.
-Phases 0–5 have shipped; Phase 6 (distribution) has not started, and is waiting on a trigger
-rather than on work.
+Phases 0–5 have shipped. Phase 6 (distribution) is built — `make release`, Sparkle, the
+workflows — and waits on the Apple Developer account before its first release.
 
 **Written:** 2026-09-15 as a plan, against `main` @ `69c4bc0`. Rewritten at the end of Phase 5,
 because the repo rule for this file is to describe what exists rather than what is planned. The
@@ -296,6 +296,8 @@ make help     # every target
     `make check` doesn't already give.
   - **Add a workflow when:** a second person pushes, or release builds should be made off this
     machine. The same `make check` becomes its only step.
+  - **Added** with Phase 6, for the second reason: `.github/workflows/ci.yml` runs `make check`
+    and nothing else, and `release.yml` builds releases on a tag.
 
 #### D9 — Distribution: stage it by audience
 
@@ -315,7 +317,8 @@ make help     # every target
   from the migration would silently lose it for anyone still on the old domain.
 - **Rejected for now:** a Homebrew cask. It needs a publicly downloadable artifact and mostly
   helps discovery, which isn't a goal yet.
-- **Status: not started.** Everything in this table past the first row is Phase 6.
+- **Status: built, not yet run.** `make release`, Sparkle and the public releases repo exist
+  (`docs/release.md`); the first release waits on the Developer ID certificate.
 
 ### Code architecture
 
@@ -619,16 +622,17 @@ moves so later diffs weren't polluted by formatting.
 | 5.3 | `.commands` menus (including ⌘[), accessibility labels, `@SceneStorage` restoration. |
 | 5.4 | Regenerate `docs/images`; make every claim in the docs true against the code. |
 
-### Phase 6: sharing with testers — not started
+### Phase 6: sharing with testers — built, waiting on the Apple account
 
-Triggered by the first person other than the author who needs to run the app (D9). Nothing here
-exists yet: no Developer ID, no `make release`, no notarization, no Sparkle, no appcast.
+Triggered by a public download from the website (D9). The code and workflows exist; the
+accounts and keys are the user's to create, and `docs/release.md` lists them.
 
-| PR | Content |
-|---|---|
-| 6.1 | Apple Developer Program; Developer ID certificate and notarytool API key in the Keychain. |
-| 6.2 | `make release`: archive, sign, notarize, staple, DMG. |
-| 6.3 | With more than one tester: Sparkle 2, an appcast, and a public static host for both. |
+| PR | Content | Status |
+|---|---|---|
+| 6.1 | Apple Developer Program; Developer ID certificate and notarytool API key. | Waiting on the user |
+| 6.2 | `make release`: archive, export for Developer ID, notarize, staple, DMG. | Built |
+| 6.3 | Sparkle 2, an EdDSA-signed appcast, and `jstinhw/yongkang-releases` as the public host. | Built |
+| 6.4 | Optional GitHub sign-in (Supabase) and usage analytics (PostHog), in `Online/`. | Built |
 
 **Exit:** on a clean Mac, the DMG opens with no Gatekeeper prompt.
 

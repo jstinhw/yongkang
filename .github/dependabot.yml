@@ -1,0 +1,12 @@
+# Weekly pull requests for Sparkle and SwiftTerm, and for the actions pinned by commit in
+# .github/workflows. Each one runs CI like any other.
+version: 2
+updates:
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
