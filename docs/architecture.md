@@ -119,10 +119,10 @@ One window, and three things side by side inside it (`RootView.chrome`):
 
 ```
 HStack
-├── Rail                       64pt, fixed, outside the split view: Board, Agents
-└── HSplitView
-    ├── ProjectSidebar         min 268 / max 560, dragged by the user; absent while listHidden
-    └── work                   Usage (every project's), screen(for:) the picked project, or NothingPicked
+├── Rail                       64pt, fixed: Board, Agents
+├── ProjectSidebar             @AppStorage listWidth, 220–560, opens at 268; absent while listHidden
+├── ListDivider                1pt line, 9pt grip: drag to resize, past 60% of the narrowest to shut
+└── work                       Usage (every project's), screen(for:) the picked project, or NothingPicked
                                .navigationTitle + .navigationSubtitle + .toolbar
 ```
 
@@ -142,13 +142,17 @@ HStack
 - **The rail stays outside.** The rail is the only navigation that never changes — it is what
   makes the window recognisable. It is also drawn above the sidebar (`zIndex(1)`), because
   its hover labels hang past its own width.
-- **The sidebar is a plain split pane, not a native one.** On macOS 26 a
+- **The sidebar is a pane with a divider of our own, not a native one.** On macOS 26 a
   `NavigationSplitView` sidebar floats as an inset glass panel — 8pt clear of the rail, the top
   and the bottom, with a shadow over the screen — and no split view style turns that off, so
-  the window read as having a gap beside the list. `HSplitView` keeps the real divider and puts
-  the panes edge to edge. What went with the native sidebar: the collapse animation, dragging
-  the divider shut, and a VoiceOver structure that says "sidebar". `HSplitView` also ignores an
-  ideal width, so `Theme.listWidth` is both the width it opens at and its minimum.
+  the window read as having a gap beside the list. `HSplitView` put the panes edge to edge but
+  opened the list at its minimum and handed back no width, so the list could not be dragged
+  narrower than it opened, dragged shut, or reopened at the width it was left at.
+  `ListDivider` does those: it is the list's edge, stores the width in `@AppStorage("listWidth")`,
+  holds the list at its narrowest and shuts it when dragged well past that, the way a
+  collapsible `NSSplitView` pane snaps, and opens it again when dragged out from the rail.
+  `ListDivider.dragged(from:by:)` is that rule, which `ChromeTests` pins. What is still missing
+  from a native sidebar: the collapse animation and a VoiceOver structure that says "sidebar".
 - **The top bar is the window's toolbar.** `RootView+Toolbar.swift` builds it: the screen's
   name is `.navigationTitle`, the project (or, on the working tree, the branch) is `.navigationSubtitle`,
   and what the old bar drew on its right is one `ToolbarItemGroup`. The bar was 56pt; the

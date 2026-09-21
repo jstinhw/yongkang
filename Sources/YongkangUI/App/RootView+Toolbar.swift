@@ -72,8 +72,7 @@ extension RootView {
         .help("Put an agent on a task (⌘N)")
     }
 
-    /// The list column's switch. The split view's own is removed in `RootView` so there is
-    /// only ever one. ⌘\ is not bound here: it is View → Hide List, so it works on a screen
+    /// The list column's switch; dragging its edge shut is the other way. ⌘\ is not bound here: it is View → Hide List, so it works on a screen
     /// whose toolbar has scrolled this button out of reach. One binding, one place.
     private var listToggle: some View {
         Button {

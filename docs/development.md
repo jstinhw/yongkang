@@ -206,6 +206,9 @@ for.
     - **View → Hide List**, `⌘\`, collapses the sidebar, and the toolbar's own button
       agrees with it. The item's title flips to **Show List**. Clicking any rail icon, the
       current one included, brings the list back.
+    - Drag the sidebar's right edge: the pointer is a resize cursor over it. Left narrows the
+      list until it holds at its narrowest; keep going and it shuts, and **View** reads **Show
+      List**. Drag from just right of the rail and it opens again.
     - **Agent → Assign Task** and **Assign Task To ▸** are lit only while a task page is open
       for a task that is neither done nor already with a session. Open a done task: they grey
       out.
@@ -225,8 +228,8 @@ for.
     - The window comes back on the same project, the same section and the same page.
     - The sessions do not: those PTYs died with the app, and the project has no agents under it
       in the sidebar.
-    - The sidebar comes back collapsed if you left it collapsed. Its **width** does not —
-      it opens at its default every launch, which is a known gap (`docs/refactor-plan.md` §8).
+    - The sidebar comes back collapsed if you left it collapsed, and at the width you
+      dragged it to.
     - Delete the task's file while the app is closed, then relaunch: the window opens the
       board rather than an empty page.
 

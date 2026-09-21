@@ -11,14 +11,11 @@ struct RootView: View {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
-    /// Whether the list column is collapsed. It persists: a window you have collapsed once
-    /// should come back that way.
-    ///
-    /// Its *width* does not: `HSplitView` hands back no binding for the width the user dragged
-    /// it to, so there is nothing to store. `Theme.listWidth` is the width it opens at, every
-    /// launch. Reaching into the underlying `NSSplitView` to read the divider would be
-    /// inventing a mechanism, not using one.
+    /// Whether the list column is shut, and how wide it is when it is not. Both persist: a
+    /// window you have shaped once should come back that way. `listWidth` is the key the old
+    /// bundle's defaults are migrated under, from when the list last remembered its width.
     @AppStorage("listHidden") var listHidden = false
+    @AppStorage("listWidth") private var listWidth = Double(Theme.listWidth)
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
     @AppStorage("agentKind") var agent = AgentKind.claude
@@ -123,7 +120,7 @@ struct RootView: View {
     /// way in.
     private var chrome: some View {
         HStack(spacing: 0) {
-            // The rail stays outside the split view: it is the one piece of navigation that
+            // The rail stays apart from the list: it is the one piece of navigation that
             // never changes. It is also drawn above the list column, because its hover
             // labels hang past its own width.
             // Picking a section is asking for its list, so a click brings a hidden list
@@ -138,11 +135,13 @@ struct RootView: View {
                 agentCount: model.projects.reduce(0) { $0 + $1.value.onlineAgentCount }
             )
             .zIndex(1)
-            // `HSplitView`, not `NavigationSplitView`: on macOS 26 a native sidebar floats as
-            // an inset glass panel, 8pt clear of the rail, the top and the bottom, with a
-            // shadow over the screen, and no style turns that off. A plain `NSSplitView`
-            // keeps the draggable divider and puts the three panes edge to edge.
-            HSplitView {
+            // A divider of our own, not `NavigationSplitView`: on macOS 26 a native sidebar
+            // floats as an inset glass panel, 8pt clear of the rail, the top and the bottom, with
+            // a shadow over the screen, and no style turns that off. Nor `HSplitView`, which
+            // opens a pane at its minimum and hands back no width: the list could be neither
+            // dragged narrower than it opened, nor dragged shut, nor come back at the width it
+            // was left at. `ListDivider` does all three.
+            HStack(spacing: 0) {
                 if !listHidden {
                     ProjectSidebar(
                         section: model.section, projects: sidebarProjects,
@@ -159,12 +158,12 @@ struct RootView: View {
                         close: { id in if let project = model.project(id) { close(project) } },
                         openUsage: { model.openUsage() }
                     )
-                    // ponytail: min is the opening width, not 200. `HSplitView` ignores an
-                    // ideal width and opens the column at its min, so the list widens from
-                    // where it opens but never narrows. Set the `NSSplitView`'s divider
-                    // position if a narrower list matters.
-                    .frame(minWidth: Theme.listWidth, maxWidth: 560)
+                    .frame(width: min(max(listWidth, ListDivider.minWidth), ListDivider.maxWidth))
                 }
+                ListDivider(width: $listWidth, hidden: $listHidden)
+                    // Above the screen, so the half of its grip that overhangs the screen still
+                    // takes the drag.
+                    .zIndex(1)
                 work
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.bg)

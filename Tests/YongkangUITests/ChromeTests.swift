@@ -67,6 +67,17 @@ import Testing
 
     /// git is read for every open project now, so the sidebar can count what waits for review in
     /// each — but still at most every 6 s a project, unless you are in it and it has to be now.
+    /// The list's edge, dragged: it narrows to its narrowest and holds there, shuts well past
+    /// that, and opens again from shut.
+    @Test func draggingTheListsEdgeNarrowsItThenShutsIt() {
+        #expect(ListDivider.dragged(from: 268, by: -30) == 238)
+        #expect(ListDivider.dragged(from: 268, by: -100) == ListDivider.minWidth, "holds at its narrowest")
+        #expect(ListDivider.dragged(from: 268, by: -150) == nil, "then shuts")
+        #expect(ListDivider.dragged(from: 0, by: 60) == nil, "a nudge from shut stays shut")
+        #expect(ListDivider.dragged(from: 0, by: 150) == ListDivider.minWidth, "a real drag opens it")
+        #expect(ListDivider.dragged(from: 400, by: 400) == ListDivider.maxWidth)
+    }
+
     @Test func gitIsAskedAtMostEverySixSecondsAProject() {
         let project = ProjectModel(directory: URL(fileURLWithPath: "/tmp/nowhere"))
         let now = Date()

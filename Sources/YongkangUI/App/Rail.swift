@@ -148,9 +148,9 @@ struct ActionBar<Content: View>: View {
     }
 }
 
-/// The column of whatever the current section is a list of. It fills the split view's first
-/// pane, which owns its width and draws the divider that resizes it — file paths and entry
-/// titles are as long as the project makes them, so the user drags it.
+/// The column of whatever the current section is a list of. `RootView` owns its width and
+/// `ListDivider` draws the edge that resizes it — file paths and entry titles are as long as the
+/// project makes them, so the user drags it.
 struct ListPane<Content: View>: View {
     @ViewBuilder var content: Content
 

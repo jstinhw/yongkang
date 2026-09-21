@@ -13,7 +13,7 @@ also has its memory, and **Usage**, pinned below them all, is every project's sp
 session for its terminal, its transcript and its task's Done when. The **work area** holds
 whatever is picked, and on most screens an **inspector** carries what you would otherwise have
 to go and find. The rail's sections are Board and Agents: the work, and whoever is on it. You can
-drag the sidebar wider or collapse it;
+drag the sidebar's edge to resize it, or past its narrowest to hide it, and back out to show it;
 the screen's name and the project are the window's own title and subtitle.
 
 Every action is also a menu item, because a shortcut hung on a button only answers while that

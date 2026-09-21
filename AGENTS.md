@@ -22,11 +22,11 @@ domain.
   (`YongkangApp`, `RootView`, the rail and the sidebar of every project), `Terminal/`,
   `DesignSystem/`, `Online/` (updates, sign-in, analytics: the only code that talks to a
   server), and `Features/<screen>/`.
-- **The window is the rail, then an `HSplitView`.** The 64pt icon rail is drawn outside the
-  split view; the sidebar — every open project, with its running sessions under it — is its
-  first pane, the screen its second, and what used to be a hand-built 56pt bar above the screen
-  is the window's own toolbar (`RootView+Toolbar.swift`, with
-  `.navigationTitle`/`.navigationSubtitle`).
+- **The window is the rail, the sidebar, a divider and the screen.** The 64pt icon rail is
+  fixed; the sidebar — every open project, with its running sessions or its active tasks under
+  it — is as wide as `ListDivider` was dragged, and shuts when dragged past its narrowest; the
+  screen takes the rest. What used to be a hand-built 56pt bar above the screen is the window's
+  own toolbar (`RootView+Toolbar.swift`, with `.navigationTitle`/`.navigationSubtitle`).
   Nothing adds column widths up any more — a pane's geometry is its container's.
   [`docs/architecture.md`](docs/architecture.md#how-the-window-is-composed) says why.
 - **An app-wide shortcut is a menu item** (`App/Commands.swift`), never a button's

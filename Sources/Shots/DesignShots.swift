@@ -330,8 +330,8 @@ enum DesignShots {
     /// than a pane floating on its own. There is no bar above the screen any more: what used
     /// to be drawn here is the window's title bar, which no offscreen window has.
     ///
-    /// The list column is framed at the width the split view opens it at, rather than drawn
-    /// through the real `HSplitView`, whose divider a shot has no reason to show.
+    /// The list column is framed at the width it opens at, with the divider the window draws
+    /// beside it.
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         summary: ChangeSummary = ChangeSummary(), asking: [UUID: String] = [:],
@@ -353,6 +353,7 @@ enum DesignShots {
                 openUsage: {}
             )
             .frame(width: Theme.listWidth)
+            ListDivider(width: .constant(Double(Theme.listWidth)), hidden: .constant(false))
             content()
         }
     }

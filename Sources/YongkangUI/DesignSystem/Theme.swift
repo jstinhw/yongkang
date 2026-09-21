@@ -92,11 +92,11 @@ package enum Theme {
     // MARK: - Metrics
 
     // Two of these are still fixed widths the app draws; `listWidth` is now only the width the
-    // split view opens the list at, and the user drags it wider from there. The top bar's height
+    // list opens at before it has been dragged, which `ListDivider` then remembers. The top bar's height
     // is gone with the bar: the window's title bar decides how tall it is.
 
     static let railWidth: CGFloat = 64
-    package static let listWidth: CGFloat = 268  // the width the split view opens the list at
+    package static let listWidth: CGFloat = 268  // the width the list opens at, until dragged
     static let inspectorWidth: CGFloat = 320
     static let actionBarHeight: CGFloat = 58
 }

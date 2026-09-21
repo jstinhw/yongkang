@@ -313,8 +313,7 @@ make help     # every target
   `io.github.jstinhw.Yongkang`; §9 records the answer.)
 - **Bundle ID migration:** `DefaultsMigration` reads the old domain once on first launch and
   carries over `openProjects`, `listWidth`, `listHidden` and `agentKind`. `listWidth` is
-  migrated even though nothing writes it any more (D16, window restoration) — dropping a key
-  from the migration would silently lose it for anyone still on the old domain.
+  the list's dragged width again, which `ListDivider` stores under the same key.
 - **Rejected for now:** a Homebrew cask. It needs a publicly downloadable artifact and mostly
   helps discovery, which isn't a goal yet.
 - **Status: built, not yet run.** `make release`, Sparkle and the public releases repo exist
@@ -475,8 +474,8 @@ adding a CLI, are in [`docs/providers.md`](providers.md).
   than its pieces. A full VoiceOver audit waits for testers (§8).
 - **Window restoration:** `@SceneStorage` for the entered project, the section and the route —
   section and route mean nothing without the project. A route that no longer points at anything
-  opens the section's default rather than an empty screen. The sidebar's dragged width is the one
-  thing that could not be stored (§8).
+  opens the section's default rather than an empty screen. The sidebar's dragged width is kept apart, in
+  `@AppStorage("listWidth")`, like whether it is shut.
 - **Design tokens, mechanical, no visual change:**
   - **42 hex literals across 14 feature files** moved into `Theme` as named tokens — sixteen new
     names, and four literals that turned out to be values `Theme` already had. `DesignTokenTests`
@@ -679,7 +678,6 @@ the reader together would clear those three rows — eight of the twelve issues.
 | Not there | Why, and what would change it |
 |---|---|
 | **A native `.inspector()`** | Decided in 5.2, not forgotten. On macOS 26 a native inspector is an `NSContainerConcentricGlassEffectView` the window server composites, and `NSView.cacheDisplay` photographs it as a white rectangle — so every screen with one would lose that pane from its shot, and the shots are how this repo checks a layout. Ten screens draw the hand-built pane. Change it when a capture path can see glass, or when the shots compose each screen's inspector the way `console` already composes the list column. `docs/architecture.md` has the full note. |
-| **The list column's dragged width isn't restored** | SwiftUI takes `min`/`ideal`/`max` for a split view column and hands back no binding for the width the user dragged it to, so `@SceneStorage` has nothing to store. `Theme.listWidth` is the width it opens at, every launch; whether it is *collapsed* does persist. Reaching into the underlying `NSSplitView` would be inventing a mechanism rather than using one. Revisit if SwiftUI ever exposes the width. |
 | **`NonisolatedNonsendingByDefault` is off** | It is not in `Package.swift`. Turning it on compiles clean and the whole suite still passes — which is the problem: it would move `UsageLedger.load`, `AgentUsage.claudeQuota`/`codexQuota` and the usage screen's file-size checks onto the caller's actor, undoing part of D14, and nothing in the suite would fail. Turn it on together with `@concurrent` on those reads and a test that pins them off the main actor, the way `ProjectModelTests` pins the notebook read. |
 | **`MemberImportVisibility` is off** | 77 errors across 6 files, almost all "missing import of defining module `os`" from `Log`'s interpolations. It is a tidy-up with no behaviour attached, so it waits for a PR that has nothing else in it. |
 | **Colours are fixed sRGB, not dynamic** | D16 asked for `NSColor(name:dynamicProvider:)`. `RootView` pins `.preferredColorScheme(.dark)`, so a dynamic colour would only ever run its dark branch, and there is no light palette for the other one. It arrives with the palette that gives it something to return. |
