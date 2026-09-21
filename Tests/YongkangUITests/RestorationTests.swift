@@ -109,10 +109,10 @@ import Testing
 
         model.restore(entered: project.directory.path, section: .agents, route: .session(UUID()))
         #expect(model.section == .agents)
-        #expect(model.selection == nil, "nothing is running yet — the same screen entering the project gives")
+        #expect(model.selection == .agents, "the project's agents — the same screen entering the project gives")
     }
 
-    @Test func aResolvedBlockFallsBackToWhicheverIsStillWaiting() async throws {
+    @Test func aResolvedBlockFallsBackToTheProjectsAgents() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth"], in: tmp)
@@ -133,7 +133,10 @@ import Testing
 
         model.restore(entered: project.directory.path, section: .agents, route: .block("blocks/gone.md"))
         #expect(model.section == .agents)
-        #expect(model.selection == .block(waiting.id), "the block still waiting on you, not an empty pane")
+        #expect(model.selection == .agents, "the project's agents, not an empty pane")
+        #expect(
+            entered.value.agentRows(summary: entered.summary).first?.route == .block(waiting.id),
+            "where the block still waiting on you is the first card")
     }
 
     /// The same guard from the other side: a block that is still there is what stays open,
@@ -162,11 +165,12 @@ import Testing
 
         model.restore(entered: project.directory.path, section: .agents, route: .block(second.id))
         #expect(model.selection == .block(second.id), "the one you were reading, not the first one waiting")
-        // And switching sections away and back re-picks, because nothing is open then.
+        // And switching sections away and back lands on the project's agents, because nothing
+        // under Agents is open then.
         model.section = .board
         model.openSectionDefault()
         model.section = .agents
         model.openSectionDefault()
-        #expect(model.selection == .block(try #require(entered.snapshot.blocks.first).id))
+        #expect(model.selection == .agents)
     }
 }

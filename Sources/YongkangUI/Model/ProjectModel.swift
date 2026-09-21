@@ -15,6 +15,8 @@ import YongkangCore
     /// What the agents changed on disk, read from git. Only refreshed while you are inside
     /// the project — a repo-wide diff of every open project would be rude.
     private(set) var repo = RepoStatus()
+    /// When git was last asked about this project. See `repoReadIsDue`.
+    @ObservationIgnored private var lastRepoRead = Date.distantPast
     /// Repo reads started, and the newest of them whose answer `repo` holds. See `refreshRepo`.
     @ObservationIgnored private var repoReads = 0
     @ObservationIgnored private var repoShown = 0
@@ -207,6 +209,14 @@ import YongkangCore
         if changed { resummarize() }
     }
 
+    /// Whether git may be asked about this project again: at most every 6 s, unless `force`.
+    /// Answering yes starts the next wait.
+    func repoReadIsDue(force: Bool = false, now: Date = Date()) -> Bool {
+        guard force || now.timeIntervalSince(lastRepoRead) >= 6 else { return false }
+        lastRepoRead = now
+        return true
+    }
+
     /// Reads git off the main thread and publishes what it found, if it differs. Returns once
     /// `repo` holds this read, or a newer one. `countingLines` is for a screen that shows
     /// untracked files' line counts; see `RepoStatus.read`.
@@ -244,27 +254,31 @@ import YongkangCore
     /// what a caller passes in when the prompt itself has to name the session.
     ///
     /// Returns the new session's terminal, because a new session opens on its live CLI.
+    /// `reading` is the folders beyond this one the agent is handed, for a CLI that takes any.
     func addSession(
-        _ agent: AgentKind, id: UUID = UUID(), prompt: String? = nil, title: String? = nil, taskIDs: [String] = []
+        _ agent: AgentKind, id: UUID = UUID(), prompt: String? = nil, title: String? = nil, taskIDs: [String] = [],
+        reading: [URL] = []
     ) -> Route {
+        let reading = agent.provider.readsOtherFolders ? reading : []
         addSession(
             id: id, title: title ?? agent.displayName, icon: agent.systemImage,
             line: AgentCommand.line(
                 directory: directory.path,
-                agent: agent, prompt: prompt, sessionID: id, noCommit: !taskIDs.isEmpty),
-            agent: agent, taskIDs: taskIDs)
+                agent: agent, prompt: prompt, sessionID: id, noCommit: !taskIDs.isEmpty, reading: reading.map(\.path)),
+            agent: agent, taskIDs: taskIDs, reading: reading)
         return .session(id)
     }
 
     func addSession(
         id: UUID, title: String, icon: String, line: String,
-        agent: AgentKind? = nil, taskIDs: [String] = []
+        agent: AgentKind? = nil, taskIDs: [String] = [], reading: [URL] = []
     ) {
         // A second "Product" becomes "Product 2" — identical rows are unusable, and two
         // sessions on the same kind of work at once is a normal thing to want.
         let taken = sessions.filter { $0.title == title || $0.title.hasPrefix(title + " ") }.count
         let name = taken == 0 ? title : "\(title) \(taken + 1)"
-        let session = CodeSession(id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs)
+        let session = CodeSession(
+            id: id, title: name, icon: icon, line: line, agent: agent, taskIDs: taskIDs, reading: reading)
         sessions.append(session)
         resummarize()
         terminals?.start(session)

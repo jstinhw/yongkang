@@ -5,72 +5,30 @@ import YongkangCore
 /// steps. A session is an agent before it is anything else — assigned work, the product
 /// voice, a walk through a block — and what it has actually said and done
 /// is the answer to "what is it doing". The terminal shows the same work as a wall of
-/// ANSI that scrolls away, and is a click away in the top bar for anyone who wants to
-/// type at it.
-///
-/// A session holding tasks keeps them beside it, because it is watched for its tasks rather
-/// than for itself; every other session gets what it spawned and what it is holding.
+/// ANSI that scrolls away, and is the other pane of `AgentPage`, which draws the header and the
+/// column beside both.
 package struct SessionTranscript: View {
     let session: CodeSession
-    let cards: [NotebookCard]
-    let blocks: [UserBlock]
     let lines: [TranscriptLine]
-    let source: URL?
-    let openTask: (String) -> Void
-    let openBlock: (UserBlock) -> Void
-    let openSubagent: (SubagentStatus) -> Void
     /// Typed into the session's own process, the same pipe a change request is
     /// typed into — so answering an agent does not mean leaving the transcript for its terminal.
     let send: (String) -> Void
 
     @State private var reply = ""
 
-    package init(
-        session: CodeSession,
-        cards: [NotebookCard],
-        blocks: [UserBlock],
-        lines: [TranscriptLine],
-        source: URL?,
-        openTask: @escaping (String) -> Void,
-        openBlock: @escaping (UserBlock) -> Void,
-        openSubagent: @escaping (SubagentStatus) -> Void,
-        send: @escaping (String) -> Void
-    ) {
+    package init(session: CodeSession, lines: [TranscriptLine], send: @escaping (String) -> Void) {
         self.session = session
-        self.cards = cards
-        self.blocks = blocks
         self.lines = lines
-        self.source = source
-        self.openTask = openTask
-        self.openBlock = openBlock
-        self.openSubagent = openSubagent
         self.send = send
     }
 
-    private var state: AgentState { AgentState.of(lines: lines, exited: session.exited) }
-
     package var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                TranscriptHeader(
-                    role: session.holdsTasks ? "work" : session.title,
-                    title: session.title, subtitle: subtitle,
-                    lines: lines, state: state)
-                TranscriptTimeline(lines: lines)
-                composer
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Theme.bg)
-            if session.holdsTasks {
-                LeadInspector(
-                    session: session, cards: cards, blocks: blocks,
-                    openTask: openTask, openBlock: openBlock)
-            } else {
-                SessionInspector(
-                    session: session, blocks: blocks, source: source,
-                    openBlock: openBlock, openSubagent: openSubagent)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            TranscriptTimeline(lines: lines)
+            composer
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Theme.bg)
     }
 
     /// One line to type back at the agent. Enter sends; a dead session has nothing to
@@ -109,167 +67,5 @@ package struct SessionTranscript: View {
         guard canSend else { return }
         send(reply.trimmingCharacters(in: .whitespacesAndNewlines))
         reply = ""
-    }
-
-    private var subtitle: String {
-        let running = session.activeSubagents.count
-        let agents = running == 0 ? "" : " · \(running) agent\(running == 1 ? "" : "s") running"
-        guard session.holdsTasks else {
-            return (session.agent?.displayName ?? "session") + " · " + state.label.lowercased() + agents
-        }
-        let tasks = session.taskIDs.count
-        return "\(tasks) task\(tasks == 1 ? "" : "s")"
-            + (running == 0 ? " · nothing dispatched yet" : agents)
-    }
-}
-
-/// A plain session's right-hand column: what it spawned, what it has left waiting on the
-/// user, and where its transcript lives. A lead gets `LeadInspector` instead — it is
-/// watched for the batch it is running, not for itself.
-struct SessionInspector: View {
-    let session: CodeSession
-    let blocks: [UserBlock]
-    let source: URL?
-    let openBlock: (UserBlock) -> Void
-    let openSubagent: (SubagentStatus) -> Void
-
-    /// Blocks this session raised and is still sitting on, including Product's link back
-    /// to an in-progress proposal discussion.
-    private var waiting: [UserBlock] {
-        blocks.filter { $0.waiting && $0.session == session.id }
-    }
-
-    var body: some View {
-        Inspector {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("Session")
-                HStack(spacing: 10) {
-                    Image(systemName: session.icon).font(.system(size: 13))
-                        .foregroundStyle(Theme.tx3)
-                    Text(session.agent?.displayName ?? "session")
-                        .font(Typography.body).foregroundStyle(Theme.tx)
-                    Spacer(minLength: 0)
-                    NotebookStyle.pill(
-                        session.exited ? "exited" : "live",
-                        session.exited ? Theme.tx3 : Theme.green,
-                        live: !session.exited)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .cardSurface(padding: 14)
-
-            if !session.subagents.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    SectionLabel("Agents", trailing: "\(session.activeSubagents.count) running")
-                    ForEach(session.subagents) { subagent in
-                        Button {
-                            openSubagent(subagent)
-                        } label: {
-                            HStack(spacing: 9) {
-                                RoleTile(role: subagent.agentType, size: 20)
-                                Text(subagent.displayName).font(Typography.body)
-                                    .foregroundStyle(Theme.tx2).lineLimit(1)
-                                Text(subagent.agentType).font(Typography.monoCaption)
-                                    .foregroundStyle(Theme.tx4).lineLimit(1)
-                                Spacer(minLength: 0)
-                                StateDot(
-                                    color: subagent.running ? Theme.accent : Theme.green,
-                                    live: subagent.running)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            if !waiting.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    SectionLabel("Waiting on you")
-                    ForEach(waiting) { block in
-                        Button {
-                            openBlock(block)
-                        } label: {
-                            HStack(alignment: .top, spacing: 9) {
-                                Image(systemName: "hand.raised").font(.system(size: 12))
-                                    .foregroundStyle(Theme.amber)
-                                Text(block.title).font(Typography.body).foregroundStyle(Theme.tx2)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
-            TranscriptSource(url: source)
-        }
-    }
-}
-
-/// The transcript's column for a session holding tasks: how far it has got and what it has
-/// left waiting on the user. It scrolls independently when a chain gets long.
-struct LeadInspector: View {
-    let session: CodeSession
-    let cards: [NotebookCard]
-    let blocks: [UserBlock]
-    let openTask: (String) -> Void
-    let openBlock: (UserBlock) -> Void
-
-    var body: some View {
-        ScrollView { content.padding(18) }
-            .frame(width: Theme.inspectorWidth)
-            .background(Theme.panel)
-            .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 1) }
-    }
-
-    private var content: some View {
-        let done = session.taskIDs.filter { id in cards.contains { $0.id == id && $0.status == "done" } }.count
-        let waiting = blocks.filter { $0.waiting && session.taskIDs.contains($0.task ?? "") }
-        return VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("Progress")
-                Text("\(done) / \(session.taskIDs.count) tasks done").font(Typography.headline)
-                    .foregroundStyle(Theme.tx)
-                MeterBar(
-                    value: session.taskIDs.isEmpty ? 0 : Double(done) / Double(session.taskIDs.count), tint: Theme.green
-                )
-                Text("A task is done when the agent has checked its Done when. You review and commit it.")
-                    .font(Typography.caption).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
-            }
-            if !waiting.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Needs attention", trailing: "\(waiting.count)")
-                    ForEach(waiting) { block in
-                        Button {
-                            openBlock(block)
-                        } label: {
-                            Label(block.title, systemImage: "hand.raised")
-                                .font(Typography.body).foregroundStyle(Theme.amber)
-                                .multilineTextAlignment(.leading).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                    }
-                }
-            }
-            if !session.taskIDs.isEmpty {
-                DisclosureGroup("Assigned tasks") {
-                    VStack(alignment: .leading, spacing: 9) {
-                        ForEach(session.taskIDs, id: \.self) { id in
-                            Button {
-                                openTask(id)
-                            } label: {
-                                Text(cards.first { $0.id == id }?.title ?? id)
-                                    .font(Typography.caption).foregroundStyle(Theme.tx2)
-                                    .multilineTextAlignment(.leading)
-                            }.buttonStyle(.plain)
-                        }
-                    }.padding(.top, 8)
-                }.font(Typography.body).tint(Theme.tx3).foregroundStyle(Theme.tx2)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

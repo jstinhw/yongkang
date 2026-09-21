@@ -184,7 +184,7 @@ package struct TaskDetail: View {
 
             if let project {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("In project")
+                    SectionLabel("In milestone")
                     HStack(spacing: 10) {
                         NotebookStyle.statusRing(project.status, progress: projectProgress, size: 16)
                         Text(project.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(2)

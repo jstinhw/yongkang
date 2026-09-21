@@ -165,3 +165,15 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     /// running anything themselves. Empty when nobody but the reviewer has checked it.
     package var verification: String { work.last?.verification ?? "" }
 }
+
+extension SummaryTask {
+    /// For a target outside Core that builds one — the shots' neighbouring projects. In an
+    /// extension, so Core's readers keep the memberwise init.
+    package init(id: String, title: String, status: String, body: String = "", files: [FileChange] = []) {
+        self.id = id
+        self.title = title
+        self.status = status
+        self.body = body
+        self.files = files
+    }
+}

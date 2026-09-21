@@ -16,13 +16,19 @@ package struct ClaudeCodeProvider: AgentProvider {
 
     /// `--session-id` names the transcript after the app's row. `=` keeps the variadic
     /// `--disallowedTools` from swallowing the prompt after it.
-    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
+    package var readsOtherFolders: Bool { true }
+
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String] {
         let denied = AgentCommand.quoted(AgentCommand.commitRules.joined(separator: ","))
-        let words: [String?] = [
-            noCommit ? "--disallowedTools=\(denied)" : nil,
-            sessionID.map { "--session-id \($0.uuidString.lowercased())" },
-            prompt.map(AgentCommand.quoted),
-        ]
+        // `--add-dir` takes every word after it up to the next flag, so it goes first, where
+        // the flags behind it end it. After the prompt it would swallow the prompt as a folder.
+        let folders = reading.map { "--add-dir \(AgentCommand.quoted($0))" }
+        let words: [String?] =
+            folders + [
+                noCommit ? "--disallowedTools=\(denied)" : nil,
+                sessionID.map { "--session-id \($0.uuidString.lowercased())" },
+                prompt.map(AgentCommand.quoted),
+            ]
         return words.compactMap { $0 }
     }
 

@@ -316,11 +316,27 @@ extension NotebookIndex {
     /// a task actually records, so it is what the console draws — nothing is inferred.
     package static func checklist(at url: URL) -> [NotebookContent.ChecklistItem] {
         guard let text = Log.contents(of: url) else { return [] }
-        return NotebookContent.sections(body(text)).flatMap { section in
+        return checklist(in: body(text))
+    }
+
+    /// The same, from a body a card already carries, so a screen can count it without the disk.
+    package static func checklist(in body: String) -> [NotebookContent.ChecklistItem] {
+        NotebookContent.sections(body).flatMap { section in
             section.blocks.flatMap { block -> [NotebookContent.ChecklistItem] in
                 if case .checklist(let items) = block { return items }
                 return []
             }
         }
+    }
+
+    /// A page's brief: the first paragraph of its body, which the format says is written for a
+    /// human in one to three sentences.
+    package static func brief(of body: String) -> String? {
+        for section in NotebookContent.sections(body) {
+            for block in section.blocks {
+                if case .paragraph(let text) = block { return text }
+            }
+        }
+        return nil
     }
 }

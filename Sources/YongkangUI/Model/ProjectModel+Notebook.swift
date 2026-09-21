@@ -32,7 +32,9 @@ extension ProjectModel {
         switch kind {
         case .project: return Destination(section: .board, route: .project(id))
         case .task: return Destination(section: .board, route: .task(id))
-        case .roadmap, .memory, .run: return Destination(section: .board, route: .page(id))
+        // Memory is read under Agents now, beside the agents who write it.
+        case .memory: return Destination(section: .agents, route: .memory(id))
+        case .roadmap, .run: return Destination(section: .board, route: .page(id))
         }
     }
 

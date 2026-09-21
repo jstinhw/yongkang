@@ -33,8 +33,8 @@ enum AlertItem {
 
 // The workflows that can end in a question or an explanation rather than somewhere to go.
 extension AppModel {
-    func assign(_ tasks: [NotebookCard], in project: ProjectModel, agent: AgentKind) {
-        guard let destination = project.assign(tasks, agent: agent) else {
+    func assign(_ tasks: [NotebookCard], in project: ProjectModel, agent: AgentKind, reading: [URL] = []) {
+        guard let destination = project.assign(tasks, agent: agent, reading: reading) else {
             guard !tasks.isEmpty else { return }
             alert = .message(
                 "Nothing to assign",
@@ -66,9 +66,10 @@ extension AppModel {
     }
 
     /// Asks for a title, then files the entry under what was selected when the user asked: the
-    /// poll can move the selection while they type.
-    func add(_ kind: EntryKind, to project: ProjectModel) {
-        let selection = self.selection
+    /// poll can move the selection while they type. `route` files it under something else — the
+    /// milestone the Memory page's menu names.
+    func add(_ kind: EntryKind, to project: ProjectModel, under route: Route? = nil) {
+        let selection = route ?? self.selection
         alert = .title("New \(kind.displayName)") { [weak self] typed in
             let title = typed.trimmingCharacters(in: .whitespacesAndNewlines)
             guard let self, !title.isEmpty else { return }

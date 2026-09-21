@@ -18,11 +18,11 @@ enum DesignShots {
         let lead = project.sessions[0]
         let worker = lead.subagents[0]
 
+        // Nothing picked yet: the sidebar is the way in, and the screen says so.
         write(
-            ProjectsHome(
-                projects: [project], enter: { _ in },
-                create: {}, add: {}, close: { _ in }),
-            "fleet", into: directory)
+            console(project, section: .agents, entered: false) {
+                NothingPicked(hasProjects: true, create: {}, add: {})
+            }, "empty", into: directory)
 
         write(
             NewProjectForm(
@@ -79,24 +79,22 @@ enum DesignShots {
                     waiting: lead, approve: { _ in }, revise: {})
             }, "demo-narrow", into: directory, width: 1120)
 
-        write(
-            console(project, section: .agents) {
-                SessionTranscript(
-                    session: lead, cards: project.cards, blocks: project.blocks,
-                    lines: transcript(), source: URL(fileURLWithPath: "/tmp/lead.jsonl"),
-                    openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in },
-                    send: { _ in })
-            }, "lead", into: directory)
-
-        write(
-            console(project, section: .agents) {
-                SessionTranscript(
-                    session: project.sessions[1], cards: project.cards,
-                    blocks: project.blocks, lines: transcript(),
-                    source: URL(fileURLWithPath: "/tmp/product.jsonl"),
-                    openTask: { _ in }, openBlock: { _ in }, openSubagent: { _ in },
-                    send: { _ in })
-            }, "session", into: directory)
+        // An agent on its transcript, and one answering a question in its terminal — the pane
+        // offscreen is the frame a real terminal is borrowed into.
+        for (name, session, pane, asking) in [
+            ("lead", lead, AgentPane.transcript, String?.none),
+            ("session", project.sessions[1], AgentPane.transcript, "Allow Bash(swift test)?"),
+        ] {
+            write(
+                console(project, section: .agents, selection: .session(session.id, pane: pane)) {
+                    AgentPage(
+                        session: session, project: project, summary: ChangeSummary(),
+                        row: project.agentRows(summary: ChangeSummary()).first { $0.route == .session(session.id) },
+                        pane: pane, asking: asking, source: URL(fileURLWithPath: "/tmp/\(name).jsonl"),
+                        select: { _ in }, open: { _ in }, stop: {},
+                        content: { SessionTranscript(session: session, lines: transcript(), send: { _ in }) })
+                }, name, into: directory)
+        }
 
         // A task under its session in Agents, as a click on its green row opens it: its review,
         // with the session's other tasks beside it in the list. Fixture files rather than this
@@ -132,6 +130,20 @@ enum DesignShots {
             }
         }
 
+        // One project's agents side by side, with pull-blockers finished so every column has a card.
+        write(
+            console(result, section: .agents, summary: resultSummary, selection: .agents) {
+                ProjectAgentsPage(
+                    project: result, rows: result.agentRows(summary: resultSummary), summary: resultSummary,
+                    ready: result.readyTasks, agents: agents, open: { _ in }, openBoard: {},
+                    start: { _, _ in }, newAgent: {})
+            }, "agents-project", into: directory)
+
+        write(
+            console(project, section: .agents, selection: .memory(nil)) {
+                MemoryPage(project: project, selected: nil, select: { _ in }, edit: { _ in }, add: { _ in })
+            }, "memory", into: directory)
+
         // A task held up by something only the user can do: the block's steps open the page.
         // Its brief is set here rather than in `pages`, whose files the board would list as news.
         if var blocked = resultSummary.tasks.first(where: { $0.id == "deploy-to-vercel" }) {
@@ -163,7 +175,17 @@ enum DesignShots {
                     running: [(lead, worker)], openSubagent: { _, _ in })
             }, "member", into: directory)
 
-        // The sheet behind New → Agent…, drawn on its own: it is the one screen the console
+        // New Agent: a ready task from any open project, and what else it may read.
+        write(
+            NewAgentSheet(
+                projects: [project] + neighbours().map(\.project), initial: project.id, agent: .claude,
+                found: [.claude, .codex], lookUp: {}, startTask: { _, _, _, _ in }, startPrompt: { _, _, _, _ in },
+                cancel: {}
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
+            "start-agent", into: directory)
+
+        // The sheet behind New → Team Member…, drawn on its own: it is the one screen the console
         // layout does not frame, and the skill list is the part that overflows if it grows.
         write(
             NewAgentForm(
@@ -304,7 +326,7 @@ enum DesignShots {
     @MainActor private static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         summary: ChangeSummary = ChangeSummary(),
-        hovering: ConsoleSection? = nil, selection: Route? = nil,
+        hovering: ConsoleSection? = nil, selection: Route? = nil, entered: Bool = true,
         @ViewBuilder content: () -> Content
     ) -> some View {
         HStack(spacing: 0) {
@@ -313,16 +335,46 @@ enum DesignShots {
                 agentCount: project.onlineAgentCount, hovering: hovering
             )
             .zIndex(1)
-            ProjectList(
-                section: section, project: project, selection: .constant(selection),
-                showDone: false, summary: summary, agent: .claude,
-                found: Set(AgentKind.allCases), assign: { _, _ in },
-                closeSession: { _ in }, remove: { _ in }, projects: [project], open: { _ in },
-                leave: {}
+            ProjectSidebar(
+                section: section,
+                projects: [SidebarProject(project: project, rows: project.agentRows(summary: summary))] + neighbours(),
+                entered: entered ? project.id : nil, selection: selection,
+                open: { _, _, _ in }, create: {}, add: {}, closeSession: { _, _ in }, close: { _ in }
             )
             .frame(width: Theme.listWidth)
             content()
         }
+    }
+
+    /// The other projects open beside the sample, so the sidebar is the list of every project it
+    /// is: one with an agent at work and one finished, one held up by a token.
+    private static func neighbours() -> [SidebarProject] {
+        var sync = Project(directory: URL(fileURLWithPath: "/Users/you/sources/notebook-sync"), entries: [])
+        sync.sessions = [
+            CodeSession(title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["resume"]),
+            CodeSession(title: "Codex", icon: "sparkles", line: "codex", agent: .codex, taskIDs: ["merge-runs"]),
+        ]
+        let synced = ChangeSummary(tasks: [
+            SummaryTask(id: "resume", title: "Resume sync after sleep", status: "active"),
+            SummaryTask(
+                id: "merge-runs", title: "Merge runs without conflicts", status: "done",
+                files: [FileChange(path: "Sources/Merge.swift", added: 140, removed: 22, untracked: false)]),
+        ])
+        var site = Project(directory: URL(fileURLWithPath: "/Users/you/sources/yongkang-site"), entries: [])
+        let deploy = CodeSession(
+            title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["deploy"])
+        site.sessions = [deploy]
+        site.blocks = [
+            UserBlock(
+                id: "/tmp/site-token.md", url: URL(fileURLWithPath: "/tmp/site-token.md"), slug: "site-token",
+                title: "Vercel project token", status: "open", kind: "block", stage: "ready", session: deploy.id,
+                action: "", link: nil, task: "deploy", resolution: "", body: "", before: nil, branch: "", revisions: [])
+        ]
+        let deploying = ChangeSummary(tasks: [SummaryTask(id: "deploy", title: "Deploy to Vercel", status: "blocked")])
+        return [
+            SidebarProject(project: sync, rows: sync.agentRows(summary: synced)),
+            SidebarProject(project: site, rows: site.agentRows(summary: deploying)),
+        ]
     }
 
     /// Drawn through a real offscreen window rather than `ImageRenderer`: the renderer
@@ -454,50 +506,84 @@ enum DesignShots {
             status: status, project: project, dependsOn: dependsOn, designer: designer)
     }
 
+    /// What the sample's agents have written down, for the Memory page: a decision about a task,
+    /// a fact and a constraint, the way the format names and files them.
+    private static let memory: [NotebookCard] = [
+        NotebookCard(
+            id: "2026-09-21-blocks-carry-task", url: URL(fileURLWithPath: "/tmp/2026-09-21-blocks-carry-task.md"),
+            kind: .memory, title: "Blocks carry task and session", status: "", project: "build-ui-foundation",
+            dependsOn: [], subject: "pull-blockers", memoryType: "decision",
+            body: """
+                A block names the task it holds up and the session waiting on it, so assigning a task \
+                pulls in every unfinished block that names it.
+
+                ## Why
+
+                A batch could start a task whose token was still missing, and its session sat at a \
+                prompt with nothing on screen saying why.
+
+                ## How to apply
+
+                Every block an agent writes carries `task:` and `session:`. A block naming neither \
+                holds up the notebook, not a task.
+                """),
+        NotebookCard(
+            id: "2026-09-18-fsevents-sleep", url: URL(fileURLWithPath: "/tmp/2026-09-18-fsevents-sleep.md"),
+            kind: .memory, title: "FSEvents drops events across sleep", status: "", project: "build-ui-foundation",
+            dependsOn: [], memoryType: "fact",
+            body: "The 30-second safety read is what catches a Mac that slept. Keep it."),
+        NotebookCard(
+            id: "2026-09-10-macos-14", url: URL(fileURLWithPath: "/tmp/2026-09-10-macos-14.md"),
+            kind: .memory, title: "macOS 14 is the floor", status: "", project: "ship-the-site",
+            dependsOn: [], memoryType: "constraint",
+            body: "`isolated deinit` needs macOS 15, so teardown stays explicit."),
+    ]
+
     private static func sample() -> Project {
         var project = Project(directory: URL(fileURLWithPath: "/Users/you/sources/yongkang"), entries: [])
-        project.cards = [
-            card("ship-console", .roadmap, "Ship the agent console", "active"),
-            card("build-ui-foundation", .project, "Build UI foundation", "active"),
-            card(
-                "show-agent-tree", .task, "Show all agents via tree expansion", "active",
-                project: "build-ui-foundation"),
-            card(
-                "pull-blockers", .task, "Pull project blockers into batches", "active",
-                project: "build-ui-foundation"),
-            card(
-                "drop-finished", .task, "Drop finished work off the boards", "todo",
-                project: "build-ui-foundation"),
-            card(
-                "design-task-diff", .task, "Design the task page's diff", "todo",
-                project: "build-ui-foundation", dependsOn: ["show-agent-tree"], designer: "Allen"),
-            card(
-                "task-diff", .task, "Task page shows its own diff", "todo",
-                project: "build-ui-foundation", dependsOn: ["design-task-diff"]),
-            card(
-                "design-review-pane", .task, "Design the review pane's verdict", "designing",
-                project: "build-ui-foundation", dependsOn: ["design-task-diff"], designer: "Allen"),
-            card(
-                "review-pane", .task, "Review pane with the agent's verification", "todo",
-                project: "build-ui-foundation", dependsOn: ["design-review-pane", "task-diff"]),
-            card(
-                "deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
-                project: "build-ui-foundation", dependsOn: ["review-pane"]),
-            card(
-                "transcript-steps", .task, "Lay a transcript out as steps", "done",
-                project: "build-ui-foundation"),
-            // A second project, because one column never exercised the board running out
-            // of room for the next one.
-            card(
-                "ship-the-site", .project, "Put the landing page on Vercel", "todo",
-                dependsOn: ["build-ui-foundation"]),
-            card(
-                "vercel-project", .task, "Connect this repo to Vercel", "todo",
-                project: "ship-the-site"),
-            card(
-                "live-verify", .task, "Verify the live page and the download path", "todo",
-                project: "ship-the-site", dependsOn: ["vercel-project"]),
-        ]
+        project.cards =
+            [
+                card("ship-console", .roadmap, "Ship the agent console", "active"),
+                card("build-ui-foundation", .project, "Build UI foundation", "active"),
+                card(
+                    "show-agent-tree", .task, "Show all agents via tree expansion", "active",
+                    project: "build-ui-foundation"),
+                card(
+                    "pull-blockers", .task, "Pull project blockers into batches", "active",
+                    project: "build-ui-foundation"),
+                card(
+                    "drop-finished", .task, "Drop finished work off the boards", "todo",
+                    project: "build-ui-foundation"),
+                card(
+                    "design-task-diff", .task, "Design the task page's diff", "todo",
+                    project: "build-ui-foundation", dependsOn: ["show-agent-tree"], designer: "Allen"),
+                card(
+                    "task-diff", .task, "Task page shows its own diff", "todo",
+                    project: "build-ui-foundation", dependsOn: ["design-task-diff"]),
+                card(
+                    "design-review-pane", .task, "Design the review pane's verdict", "designing",
+                    project: "build-ui-foundation", dependsOn: ["design-task-diff"], designer: "Allen"),
+                card(
+                    "review-pane", .task, "Review pane with the agent's verification", "todo",
+                    project: "build-ui-foundation", dependsOn: ["design-review-pane", "task-diff"]),
+                card(
+                    "deploy-to-vercel", .task, "Deploy to Vercel", "blocked",
+                    project: "build-ui-foundation", dependsOn: ["review-pane"]),
+                card(
+                    "transcript-steps", .task, "Lay a transcript out as steps", "done",
+                    project: "build-ui-foundation"),
+                // A second project, because one column never exercised the board running out
+                // of room for the next one.
+                card(
+                    "ship-the-site", .project, "Put the landing page on Vercel", "todo",
+                    dependsOn: ["build-ui-foundation"]),
+                card(
+                    "vercel-project", .task, "Connect this repo to Vercel", "todo",
+                    project: "ship-the-site"),
+                card(
+                    "live-verify", .task, "Verify the live page and the download path", "todo",
+                    project: "ship-the-site", dependsOn: ["vercel-project"]),
+            ] + memory
         // What the notebook read would have put on each card. A page that draws a card's text
         // takes it from here, the way every screen takes it from the snapshot.
         project.cards = project.cards.map { card in

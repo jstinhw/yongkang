@@ -61,6 +61,24 @@ import Testing
         #expect(session.line.contains(session.id.uuidString.lowercased()), "the prompt names the session")
     }
 
+    @Test func anAgentGivenAnotherRepoIsLaunchedWithItAndToldToLeaveItAlone() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        let other = tmp.appendingPathComponent("api")
+
+        _ = project.assign([try card("wire-auth", in: project)], agent: .claude, reading: [other])
+        let session = try #require(project.sessions.first)
+        #expect(session.reading == [other], "the agent page lists what it can reach")
+        #expect(session.line.contains("--add-dir '\(other.path)'"), "Claude Code is handed the folder")
+        #expect(session.line.contains("Change nothing there"), "and told it is for reading")
+
+        // The same notebook, read fresh, so the task has no session yet.
+        let grok = try await self.project(tasks: [], in: tmp)
+        _ = grok.assign([try card("wire-auth", in: grok)], agent: .grok, reading: [other])
+        #expect(grok.sessions.first?.reading == [], "Grok takes no folder beside its own, so it is given none")
+    }
+
     @Test func twoTasksThatWaitOnNothingStartTwoSessions() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -76,8 +94,8 @@ import Testing
             project.sessions.map(\.title) == ["Claude Code", "Claude Code 2"],
             "named after the coding agent, with the tasks listed under it by their own names")
         #expect(
-            destination == Destination(section: .board, route: .board),
-            "the board shows both chains, even with the Agents list hidden")
+            destination == Destination(section: .agents, route: .agents),
+            "the project's Agents page shows both, even with the sidebar hidden")
     }
 
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {
@@ -435,8 +453,12 @@ import Testing
 
         await project.reloadNotebook(frontmatter: true, records: true)
         #expect(try card("ship-it", in: project).project == "launch")
-        let page = try card(try #require(memory.route?.cardID), in: project)
-        #expect(memory == Destination(section: .board, route: .page(page.id)))
+        guard case .memory(let id?)? = memory.route else {
+            Issue.record("memory opens on the Memory page, on itself")
+            return
+        }
+        let page = try card(id, in: project)
+        #expect(memory == Destination(section: .agents, route: .memory(page.id)))
         #expect(
             page.kind == .memory && page.project == "launch" && page.subject == "wire-auth",
             "memory added on a task lands in the task's project, about that task")
@@ -513,7 +535,7 @@ import Testing
         #expect(
             memory.title == "Token lifetimes" && memory.project == "launch",
             "filed under what was selected when the user asked")
-        #expect(model.selection == .page(memory.id))
+        #expect(model.selection == .memory(memory.id))
 
         model.add(.memory, to: project)
         try answer(model, typing: "Loose note")

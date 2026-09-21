@@ -4,7 +4,7 @@ import SwiftUI
 /// section's objects and the work area holds whichever one is selected. Every screen is the
 /// same four columns, so moving between sections never rearranges the window.
 package enum ConsoleSection: String, CaseIterable, Identifiable {
-    case board, agents
+    case board, agents, usage
 
     package var id: Self { self }
 
@@ -12,6 +12,7 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
         switch self {
         case .board: return "Board"
         case .agents: return "Agents"
+        case .usage: return "Usage"
         }
     }
 
@@ -19,13 +20,14 @@ package enum ConsoleSection: String, CaseIterable, Identifiable {
         switch self {
         case .board: return "rectangle.split.3x1"
         case .agents: return "point.3.connected.trianglepath.dotted"
+        case .usage: return "gauge.with.dots.needle.33percent"
         }
     }
 }
 
 /// The 64pt icon rail. It is the only navigation that never changes, which is what makes
-/// the rest of the window safe to rearrange per section. It holds sections only: the way back
-/// to every project is Go → All Projects (⌘[), not a mark at its top.
+/// the rest of the window safe to rearrange per section. It holds sections only; the projects
+/// are the sidebar beside it, every one of them at once.
 package struct Rail: View {
     @Binding var section: ConsoleSection
     /// The tabs that earn a dot, and its colour: what is waiting on the user.

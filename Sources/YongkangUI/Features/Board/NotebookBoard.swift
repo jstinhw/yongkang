@@ -108,7 +108,9 @@ package struct NotebookBoard: View {
                     }
                     .font(Typography.body).tint(Theme.tx2).cardSurface()
                 }
-                // Columns are bounded by how many projects there are, not by the longest
+                ForEach(roadmaps) { roadmapBand($0) }
+                SectionLabel("Milestones", trailing: "\(chains.count)")
+                // Columns are bounded by how many milestones there are, not by the longest
                 // chain — but a narrow window can still run out of room for them, and a
                 // column you cannot scroll to is a column that is gone.
                 ScrollView(.horizontal) {
@@ -122,6 +124,55 @@ package struct NotebookBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(DotGrid())
+    }
+
+    // MARK: - The roadmap
+
+    /// The goals the milestones below serve, still open ones only unless finished work is shown.
+    private var roadmaps: [NotebookCard] {
+        NotebookIndex.ordered(cards.filter { $0.kind == .roadmap && (showDone || $0.status != "done") })
+    }
+
+    /// What a roadmap is and how far its milestones have got. A roadmap no milestone names is
+    /// the project's only one, and gets them all.
+    private func roadmapBand(_ roadmap: NotebookCard) -> some View {
+        let named = cards.filter { $0.kind == .project && $0.roadmap == roadmap.id }
+        let milestones = named.isEmpty ? cards.filter { $0.kind == .project } : named
+        let ids = Set(milestones.map(\.id))
+        let work = cards.filter { $0.kind == .task && ids.contains($0.project ?? "") }
+        let done = work.filter { $0.status == "done" }.count
+        let finished = milestones.filter { NotebookIndex.isFinished($0, in: cards) }.count
+        return Button {
+            openCard(roadmap)
+        } label: {
+            HStack(alignment: .center, spacing: 28) {
+                VStack(alignment: .leading, spacing: 4) {
+                    SectionLabel("Roadmap")
+                    Text(roadmap.title).font(Typography.headline).foregroundStyle(Theme.tx)
+                    if let brief = NotebookIndex.brief(of: roadmap.body) {
+                        Text(brief).font(Typography.body).foregroundStyle(Theme.prose).lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("\(done) of \(work.count) tasks done").font(Typography.caption).foregroundStyle(
+                            Theme.prose)
+                        Spacer(minLength: 4)
+                        Text(work.isEmpty ? "–" : "\(done * 100 / work.count)%").font(Typography.mono)
+                            .foregroundStyle(Theme.tx3)
+                    }
+                    MeterBar(value: work.isEmpty ? 0 : Double(done) / Double(work.count))
+                    Text("\(milestones.count) milestone\(milestones.count == 1 ? "" : "s") · \(finished) done")
+                        .font(Typography.caption).foregroundStyle(Theme.tx3)
+                }
+                .frame(width: 240)
+            }
+            .cardSurface(radius: 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - The graph
@@ -164,7 +215,7 @@ package struct NotebookBoard: View {
         let known = Set(projects.map(\.id))
         let loose = all.filter { $0.project.map { !known.contains($0) } ?? true }
         if !loose.isEmpty {
-            built.append(chain(id: "unfiled", title: "Not in a project", tasks: loose))
+            built.append(chain(id: "unfiled", title: "Not in a milestone", tasks: loose))
         }
         return built.filter { !$0.rows.isEmpty }
     }

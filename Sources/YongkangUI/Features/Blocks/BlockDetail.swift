@@ -218,7 +218,7 @@ package struct BlockDetail: View {
             return "An engineer explains this first, then walks you through it one step at a time."
         }
         return block.proposalReady
-            ? "Request changes in Product, or create the reviewed project and tasks."
+            ? "Request changes in Product, or create the reviewed milestone and tasks."
             : "Review and refine this with Product in the original transcript."
     }
 

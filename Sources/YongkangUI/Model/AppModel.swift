@@ -26,6 +26,9 @@ import YongkangCore
     var creatingProject = false
     /// The other door: a folder that already exists, picked in a panel. Same reason.
     var pickingFolder = false
+    /// The New Agent sheet: a task from any project, the folders it may read, and its CLI. Here
+    /// for the same reason: the Agent menu and the toolbar both open it.
+    var startingAgent = false
     /// The agent CLIs the login shell finds on PATH, which the agent picker lists first. Nil
     /// until the first look comes back, and while it is nil no agent is shown as missing.
     private(set) var foundAgents: Set<AgentKind>?
@@ -45,9 +48,6 @@ import YongkangCore
     private(set) var transcriptSource: URL?
     /// The safety poll behind the watchers, until `stop()`. See `start(polling:)`.
     @ObservationIgnored private var poll: Task<Void, Never>?
-    /// When git was last asked, so an agent writing a file a second doesn't mean a repo-wide
-    /// diff a second. See `refreshChanges`.
-    @ObservationIgnored private var lastRepoRead = Date.distantPast
     /// The done tasks the window has already seen in this project. nil until the first
     /// poll seeds it, so opening a project full of finished work does not read as news.
     private var doneTasks: Set<String>?
@@ -178,23 +178,24 @@ import YongkangCore
         if entered === project { leave() }
     }
 
-    func enter(_ project: ProjectModel) {
-        entered = project
-        doneTasks = nil
-        section = .board
-        selection = .board
+    /// Makes `project` the one the selection lives in, on `route` or, without one, on the
+    /// section's own page for it. The section stays: picking a project in the sidebar while on
+    /// the board shows its board, and while on Agents its agents.
+    func enter(_ project: ProjectModel, at route: Route? = nil) {
+        if entered !== project {
+            entered = project
+            doneTasks = nil
+            // git is read for every project, but only the one you are in may be read the
+            // moment it opens, rather than on its six-second beat.
+            refreshChanges(force: true)
+            if project.hasNotebook { Team.seedIfAbsent(root: project.notebookRoot) }
+        }
+        selection = route
+        if selection == nil { openSectionDefault() }
         reload()
-        refreshChanges(force: true)
-        // Work starts from an assignment, not from opening the project — an empty project
-        // opens on the board. A session still on assigned work is what the project is doing
-        // right now, so it opens on that.
-        guard project.hasNotebook else { return }
-        Team.seedIfAbsent(root: project.notebookRoot)
-        guard project.sessions.contains(where: { $0.holdsTasks && !$0.exited }) else { return }
-        section = .agents
-        openSectionDefault()
     }
 
+    /// Nothing selected: the window shows its empty state until a project or an agent is picked.
     func leave() {
         entered = nil
         doneTasks = nil
@@ -230,9 +231,8 @@ import YongkangCore
 
     /// Navigation only: the caller brings the app forward.
     func openAttention(_ session: CodeSession, in project: ProjectModel) {
-        if entered !== project { enter(project) }
         section = .agents
-        selection = .session(session.id)
+        enter(project, at: .session(session.id))
     }
 
     func markExited(_ session: CodeSession, in project: ProjectModel) {
@@ -259,17 +259,10 @@ import YongkangCore
                 selection = .board
             }
         case .agents:
-            guard !staysUnderAgents(in: project) else { return }
-            // Assigned work first, then any agent — and a service runner only if that is all
-            // there is, on its terminal, because it has no transcript to open. With nothing
-            // running at all, whatever is waiting on the user, which is the only thing here
-            // that outlives the agents.
-            selection =
-                (project.sessions.first { $0.holdsTasks }
-                ?? project.sessions.first { $0.agent != nil }
-                ?? project.sessions.first)
-                .map { .session($0.id) }
-                ?? project.snapshot.blocks.first(where: \.waiting).map { .block($0.id) }
+            // The project's agents side by side, rather than whichever one happened to be first.
+            if !staysUnderAgents(in: project) { selection = .agents }
+        case .usage:
+            selection = .usage
         }
     }
 
@@ -284,7 +277,7 @@ import YongkangCore
             return true
         }
         switch selection {
-        case .usage, .review, .reviewTask: return true
+        case .agents, .memory, .review, .reviewTask: return true
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         default: return false
         }
@@ -333,20 +326,18 @@ import YongkangCore
     func reload() { Task { await reloadNow() } }
 
     /// The same read, awaited — what the tests and anything that needs what it found call.
+    ///
+    /// Every project is read in full, not only the one you are in: the sidebar says what each
+    /// one's agents are waiting on you for, and a block or a finished task in a project you
+    /// are not looking at is exactly what it is there to tell you.
+    /// ponytail: every open project's notebook and run records on each read. The reader answers
+    /// from what it already holds when nothing changed; read only projects with live agents if a
+    /// long list of open projects makes this slow.
     func reloadNow() async {
         for project in projects {
-            // The project you are inside pays for reading frontmatter and transcripts; on
-            // the fleet screen every project does, because that screen is what it costs.
-            let inside = project === entered
-            let deep =
-                inside || entered == nil
-                || project.sessions.contains(where: { $0.agent != nil && !$0.exited })
-            await project.reloadNotebook(frontmatter: deep, records: inside)
-            guard deep else { continue }
-            if inside {
-                showFinishedWork(in: project)
-                deliverUnblocks(in: project)
-            }
+            await project.reloadNotebook(frontmatter: true, records: true)
+            if project === entered { showFinishedWork(in: project) }
+            deliverUnblocks(in: project)
             project.reloadSessions()
         }
         reloadAgentTranscript()
@@ -373,35 +364,36 @@ import YongkangCore
     /// A block whose file has flipped to done is news the waiting session cannot see —
     /// it is sitting at a prompt. Typing it in is what closes the loop the user opened by
     /// pressing the button.
+    ///
+    /// In the project you are in, the window goes to that session too. Anywhere else it is only
+    /// typed in: the window stays where you are, and the sidebar shows the agent back at work.
     private func deliverUnblocks(in project: ProjectModel) {
         for block in project.snapshot.blocks where !block.waiting && !project.deliveredBlocks.contains(block.id) {
             guard let session = project.waitingSession(for: block) else { continue }
             project.deliveredBlocks.insert(block.id)
-            go(
-                to: Destination(
-                    section: .agents, route: .session(session.id),
-                    input: NotebookFormat.unblockedMessage(block: block)))
+            let message = NotebookFormat.unblockedMessage(block: block)
+            if project === entered {
+                go(to: Destination(section: .agents, route: .session(session.id), input: message))
+            } else {
+                terminals.send(message, to: session.id)
+            }
         }
     }
 
-    /// git is only asked while a screen that shows its answer is open, and no more often than
-    /// every 6 s — an agent writing a file a second must not mean a repo-wide diff a second.
-    /// That was every third 2 s tick before the timer went; it is the same beat, counted in
-    /// seconds now that the reads arrive when the disk says so rather than on a clock.
+    /// git for every open project, each at most every 6 s — an agent writing a file a second must
+    /// not mean a repo-wide diff a second, and the sidebar's green count needs every project's
+    /// answer, not only the one on screen. `force` is the project you are in, now.
     func refreshChanges(force: Bool = false) {
-        // Every section, not only a review: the rail's light says work is waiting for approval,
-        // and it has to come on while you are looking at the board.
-        guard let project = entered else { return }
-        guard force || Date().timeIntervalSince(lastRepoRead) >= 6 else { return }
-        lastRepoRead = Date()
-        // Only a review screen shows line counts, so only it pays for opening untracked files
-        // to count them. The light on the rail needs the file list, not its lines.
-        let countingLines: Bool
-        switch selection {
-        case .review, .reviewTask: countingLines = true
-        default: countingLines = false
+        for project in projects {
+            let inside = project === entered
+            guard project.repoReadIsDue(force: force && inside) else { continue }
+            // Only a review screen shows line counts, so only it pays for opening untracked
+            // files to count them. Every other read needs the file list, not its lines.
+            var countingLines = false
+            if inside, case .review? = selection { countingLines = true }
+            if inside, case .reviewTask? = selection { countingLines = true }
+            Task { await project.refreshRepo(countingLines: countingLines) }
         }
-        Task { await project.refreshRepo(countingLines: countingLines) }
     }
 
     /// Finished work opens on the first task waiting for approval, as git sees the tree. The read
