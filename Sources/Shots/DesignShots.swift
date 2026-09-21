@@ -89,7 +89,8 @@ enum DesignShots {
                 console(project, section: .agents, selection: .session(session.id, pane: pane)) {
                     AgentPage(
                         session: session, project: project, summary: ChangeSummary(),
-                        row: project.agentRows(summary: ChangeSummary()).first { $0.route == .session(session.id) },
+                        row: project.agentRows(summary: ChangeSummary(), asking: asking.map { [session.id: $0] } ?? [:])
+                            .first { $0.route == .session(session.id) },
                         pane: pane, asking: asking, source: URL(fileURLWithPath: "/tmp/\(name).jsonl"),
                         select: { _ in }, open: { _ in }, stop: {},
                         content: { SessionTranscript(session: session, lines: transcript(), send: { _ in }) })

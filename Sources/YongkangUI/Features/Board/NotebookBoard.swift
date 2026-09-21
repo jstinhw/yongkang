@@ -108,7 +108,7 @@ package struct NotebookBoard: View {
                     }
                     .font(Typography.body).tint(Theme.tx2).cardSurface()
                 }
-                ForEach(roadmaps) { roadmapBand($0) }
+                ForEach(roadmaps) { roadmap in RoadmapBand(roadmap: roadmap, cards: cards) { openCard(roadmap) } }
                 SectionLabel("Milestones", trailing: "\(chains.count)")
                 // Columns are bounded by how many milestones there are, not by the longest
                 // chain — but a narrow window can still run out of room for them, and a
@@ -131,48 +131,6 @@ package struct NotebookBoard: View {
     /// The goals the milestones below serve, still open ones only unless finished work is shown.
     private var roadmaps: [NotebookCard] {
         NotebookIndex.ordered(cards.filter { $0.kind == .roadmap && (showDone || $0.status != "done") })
-    }
-
-    /// What a roadmap is and how far its milestones have got. A roadmap no milestone names is
-    /// the project's only one, and gets them all.
-    private func roadmapBand(_ roadmap: NotebookCard) -> some View {
-        let named = cards.filter { $0.kind == .project && $0.roadmap == roadmap.id }
-        let milestones = named.isEmpty ? cards.filter { $0.kind == .project } : named
-        let ids = Set(milestones.map(\.id))
-        let work = cards.filter { $0.kind == .task && ids.contains($0.project ?? "") }
-        let done = work.filter { $0.status == "done" }.count
-        let finished = milestones.filter { NotebookIndex.isFinished($0, in: cards) }.count
-        return Button {
-            openCard(roadmap)
-        } label: {
-            HStack(alignment: .center, spacing: 28) {
-                VStack(alignment: .leading, spacing: 4) {
-                    SectionLabel("Roadmap")
-                    Text(roadmap.title).font(Typography.headline).foregroundStyle(Theme.tx)
-                    if let brief = NotebookIndex.brief(of: roadmap.body) {
-                        Text(brief).font(Typography.body).foregroundStyle(Theme.prose).lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                Spacer(minLength: 12)
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("\(done) of \(work.count) tasks done").font(Typography.caption).foregroundStyle(
-                            Theme.prose)
-                        Spacer(minLength: 4)
-                        Text(work.isEmpty ? "–" : "\(done * 100 / work.count)%").font(Typography.mono)
-                            .foregroundStyle(Theme.tx3)
-                    }
-                    MeterBar(value: work.isEmpty ? 0 : Double(done) / Double(work.count))
-                    Text("\(milestones.count) milestone\(milestones.count == 1 ? "" : "s") · \(finished) done")
-                        .font(Typography.caption).foregroundStyle(Theme.tx3)
-                }
-                .frame(width: 240)
-            }
-            .cardSurface(radius: 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - The graph
@@ -301,8 +259,25 @@ package struct NotebookBoard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                        .lineLimit(1).truncationMode(.tail)
+                    // The heading is the way to the milestone's own page — its repos, what runs
+                    // under them, and Pick all — now that the sidebar lists projects, not these.
+                    if let milestone = cards.first(where: { $0.id == chain.id && $0.kind == .project }) {
+                        Button {
+                            openCard(milestone)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                                    .lineLimit(1).truncationMode(.tail)
+                                Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(Theme.tx3)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open this milestone’s page")
+                    } else {
+                        Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                            .lineLimit(1).truncationMode(.tail)
+                    }
                     Spacer(minLength: 4)
                     Text("\(chain.done)/\(chain.total)")
                         .font(Typography.mono).foregroundStyle(Theme.tx3)

@@ -18,13 +18,13 @@ one dependency (SwiftTerm). Tests are Swift Testing, one file per domain.
   `ProjectModel` per open project, the `@Observable` state every screen reads, with the
   workflows in `ProjectModel+<concern>.swift` returning where the window goes, and anything
   that has to ask or tell the user set as `AppModel.alert` rather than run modally), `App/`
-  (`YongkangApp`, `RootView`, the rail and the list column), `Terminal/`, `DesignSystem/`,
-  and `Features/<screen>/`.
+  (`YongkangApp`, `RootView`, the rail and the sidebar of every project), `Terminal/`,
+  `DesignSystem/`, and `Features/<screen>/`.
 - **The window is the rail, then an `HSplitView`.** The 64pt icon rail is drawn outside the
-  split view; the list column is its first pane, the screen its second, and what
-  used to be a hand-built 56pt bar above the screen is the window's own toolbar
-  (`RootView+Toolbar.swift`, with `.navigationTitle`/`.navigationSubtitle`). Nothing adds
-  column widths up any more — a pane's geometry is its container's.
+  split view; the sidebar — every open project, with its agents under it — is its first pane,
+  the screen its second, and what used to be a hand-built 56pt bar above the screen is the
+  window's own toolbar (`RootView+Toolbar.swift`, with `.navigationTitle`/`.navigationSubtitle`).
+  Nothing adds column widths up any more — a pane's geometry is its container's.
   [`docs/architecture.md`](docs/architecture.md#how-the-window-is-composed) says why.
 - **An app-wide shortcut is a menu item** (`App/Commands.swift`), never a button's
   `.keyboardShortcut`: a button's only answers while that button is drawn. An item that

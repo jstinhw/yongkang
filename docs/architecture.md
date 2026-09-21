@@ -29,8 +29,14 @@ leaves every screen that reads it alone.
 - **Teardown is explicit**: `ProjectModel.stopWatching()` when the project is closed,
   `AppModel.stop()` when the app quits. A `@MainActor` owner's `deinit` is nonisolated, and
   `isolated deinit` needs macOS 15 while the app targets 14, so nothing else could do it.
-- **git** is asked only while a project is entered, and at most every 6 s: an agent writing a
-  file a second must not mean a repo-wide diff a second.
+- **Every open project is read in full**, not only the one on screen: its notebook, its run
+  records and git. The sidebar says what each project's agents are waiting on you for, and a
+  block or a finished task in a project you are not looking at is exactly what it is there to
+  tell you. A resolved block is typed into its waiting session wherever it is; only in the
+  project on screen does the window go there too.
+- **git** is asked at most every 6 s a project (`ProjectModel.repoReadIsDue`): an agent writing
+  a file a second must not mean a repo-wide diff a second. The project on screen can be asked
+  at once — when it is picked, and after a commit — and only its review screens count lines.
 - **The usage screen has no beat of its own.** `ProjectReader.watch(of:)` hands back the sizes of
   the files it reads along with the folders to watch, `ProjectModel` publishes that fingerprint
   only when it differs, and `UsageBoard` reloads on it.
@@ -82,7 +88,9 @@ whoever read the notebook:
   whether the folder is on disk and whether a service has a front end. `ProjectModel.services`
   is detected when the cards change.
 - **`ChangeSummary` is stored**, re-derived when the snapshot, the sessions or the repo change,
-  and published only when it differs. `ProjectList` takes it rather than deriving its own.
+  and published only when it differs. The sidebar's `Project.agentRows` takes it rather than
+  deriving its own, for every open project on every redraw — which is why it is a lookup over
+  values already read, and never a read.
 - **Anything that still has to read** does it in a `.task` that bails on `Task.isCancelled`
   before assigning — the diffs in `ChangeReview` and `TaskReview`, and the tag list in
   `PromptField`.
@@ -93,16 +101,24 @@ One window, and three things side by side inside it (`RootView.chrome`):
 
 ```
 HStack
-├── Rail                       64pt, fixed, outside the split view
+├── Rail                       64pt, fixed, outside the split view: Board, Agents, Usage
 └── HSplitView
-    ├── ProjectList            min 268 / max 560, dragged by the user; absent while listHidden
-    └── screen(for:)           .navigationTitle + .navigationSubtitle + .toolbar
+    ├── ProjectSidebar         min 268 / max 560, dragged by the user; absent while listHidden
+    └── work                   screen(for:) the picked project, or NothingPicked
+                               .navigationTitle + .navigationSubtitle + .toolbar
 ```
 
+- **Every project at once.** The sidebar lists every open project with its agents under it —
+  `Project.agentRows`, in Core, so the sidebar and the project's Agents page read one rule — and
+  picking a row is `AppModel.enter(_:at:)`: that project becomes the one the selection lives in,
+  on the route the row names. The section stays, so picking a project on the board shows its
+  board. `entered` is still the one project a `Route` means something in; nothing picked is
+  `entered == nil`, and the screen says to pick something.
+
 - **The rail stays outside.** The rail is the only navigation that never changes — it is what
-  makes the window recognisable. It is also drawn above the list column (`zIndex(1)`), because
+  makes the window recognisable. It is also drawn above the sidebar (`zIndex(1)`), because
   its hover labels hang past its own width.
-- **The list column is a plain split pane, not a native sidebar.** On macOS 26 a
+- **The sidebar is a plain split pane, not a native one.** On macOS 26 a
   `NavigationSplitView` sidebar floats as an inset glass panel — 8pt clear of the rail, the top
   and the bottom, with a shadow over the screen — and no split view style turns that off, so
   the window read as having a gap beside the list. `HSplitView` keeps the real divider and puts
@@ -129,9 +145,9 @@ HStack
   version anyone can look at. What would change the answer is a capture path that sees glass,
   or the shots composing each screen's inspector content the way `console` already composes the
   list column. Until one of those exists, a native inspector buys resize behaviour and costs
-  the gate on the nine screens that draw one: the board, a task, a demo, a block, a session, a
+  the gate on the nine screens that draw one: the board, a task, a demo, a block, an agent, a
   subagent, a team member, a task's review and the working tree's — the last two opening from
-  a session's row in Agents.
+  an agent's row in the sidebar.
 
 ## The menu bar
 
@@ -143,21 +159,21 @@ Full Keyboard Access and VoiceOver read an app through.
 
 | Menu | Items | Lit when |
 |---|---|---|
-| **File** | New Project ⌘N · Open Folder ⌘O | always |
-| | Close Project · Reveal in Finder | a project is entered |
-| **View** | Board ⌘1 · Agents ⌘2 | a project is entered |
-| | Hide List ⌘\ · Show Completed | a project is entered |
-| **Go** | All Projects ⌘[ | a project is entered |
-| **Agent** | New Session · New Session With ▸ · Product Review | a project is entered |
+| **File** | New Project ⇧⌘N · Open Folder ⌘O | always |
+| | Close Project · Reveal in Finder | a project is picked |
+| **View** | Board ⌘1 · Agents ⌘2 · Usage ⌘3 · Hide List ⌘\ | always |
+| | Show Completed | a project is picked |
+| **Agent** | New Agent… ⌘N | always |
+| | New Session · New Session With ▸ · Product Review | a project is picked |
 | | Assign Task · Assign Task To ▸ | `AppModel.assignableTask` is not nil |
 
 - **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it
   carries stays readable and the menu keeps the same shape on every screen.
-- **One binding per shortcut.** ⌘\ came off the toolbar's list toggle and ⌘[ off the rail's
-  "YK" button when those items landed. The toggle keeps its `.help`, which still names the
-  shortcut. The YK button is gone; the project menu — the list header, or a toolbar item
-  beside the list toggle while the list is hidden — has an All Projects item that carries
-  no shortcut of its own, so ⌘[ stays bound once. The Fleet page's two tiles gave up ⌘N and ⌘O the same way.
+- **One binding per shortcut.** ⌘\ came off the toolbar's list toggle when its item landed,
+  and the toggle keeps its `.help`, which still names the shortcut. ⌘N is New Agent's, since
+  putting an agent on work is what the window is for; New Project moved to ⇧⌘N. The toolbar's
+  New Agent button and the empty screen's two buttons carry no shortcut of their own. There is
+  no Go menu: with every project in the sidebar there is no page of projects to go back to.
 - **Assign Task is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
   job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a session —
@@ -192,8 +208,8 @@ read one — validated any earlier, every stored route would look stale on every
   have not been read when the window restores. The next task to finish opens its own review
   once that read lands, which is the same answer a moment later.
 
-Anything that fails drops the route, and `openSectionDefault()` fills it: the session still
-on assigned work, the block still waiting on you, the board. `RestorationTests` covers the
+Anything that fails drops the route, and `openSectionDefault()` fills it with the section's own
+page for the project: its board, its agents side by side, or its usage. `RestorationTests` covers the
 round trip, an unparseable string, a card deleted while the app was closed, a dead session,
 and a resolved block.
 

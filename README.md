@@ -5,14 +5,17 @@ CLI sessions, the notebook they work from, and the changes they produce.
 
 ![Yongkang](docs/images/board.png)
 
-Every screen has the same columns: a **rail** picking the section, a **list** of that section's
-objects, the **work area** holding whichever one is selected, and on most screens an
-**inspector** carrying what you would otherwise have to go and find. The rail's sections are
-Board and Agents: the work, and whoever is on it. You can drag the list wider or collapse
-it; the screen's name and the project are the window's own title and subtitle.
+One window holds every project at once. Beside the **rail**, which picks the section, the
+**sidebar** lists each open project with the agents working on it underneath — amber when one
+needs you, green when its work waits for your review. Pick a project for its board, its agents
+side by side or its memory; pick an agent for its terminal, its transcript and its task's Done
+when. The **work area** holds whatever is picked, and on most screens an **inspector** carries
+what you would otherwise have to go and find. The rail's sections are Board, Agents and Usage:
+the work, whoever is on it, and what it costs. You can drag the sidebar wider or collapse it;
+the screen's name and the project are the window's own title and subtitle.
 
 Every action is also a menu item, because a shortcut hung on a button only answers while that
-button is drawn. File, View, Go and Agent hold `⌘N`, `⌘O`, `⌘1`–`⌘2`, `⌘\` and `⌘[`.
+button is drawn. File, View and Agent hold `⌘N` (New Agent), `⇧⌘N`, `⌘O`, `⌘1`–`⌘3` and `⌘\`.
 
 ## Requirements
 
@@ -55,7 +58,7 @@ flowchart TD
 
 ## Docs
 
-- [Projects](docs/guide/projects.md) — folders, the all-projects screen, the Agent switch
+- [Projects](docs/guide/projects.md) — folders, the sidebar of every project, New Agent
 - [Notebooks](docs/guide/notebook.md) — the `.notebook/` entries and how they're edited
 - [Board](docs/guide/board.md) — the dependency-ordered task board
 - [Design before code](docs/guide/design-gate.md) — the designer gate before the build
