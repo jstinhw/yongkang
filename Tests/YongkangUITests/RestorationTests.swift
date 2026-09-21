@@ -71,7 +71,7 @@ import Testing
         #expect(model.selection == .task("wire-auth"))
     }
 
-    @Test func aFolderThatIsNoLongerOpenLeavesTheWindowOnTheFleetScreen() async throws {
+    @Test func aFolderThatIsNoLongerOpenLeavesNothingPicked() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth"], in: tmp)

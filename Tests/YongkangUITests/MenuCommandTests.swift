@@ -63,16 +63,16 @@ import Testing
     }
 
     /// The other items share one rule between them, so it is worth one check that the state
-    /// it reads really is empty on the fleet screen and filled inside a project.
+    /// it reads really is empty with nothing picked and filled inside a project.
     @Test func everyProjectScopedItemIsDarkUntilAProjectIsEntered() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Wire auth"], in: tmp)
         let model = AppModel()
-        #expect(model.entered == nil, "the fleet screen: Close Project, Reveal, ⌘1–⌘5, ⌘\\, ⌘[ and Agent are dark")
+        #expect(model.entered == nil, "nothing picked: Close Project, Reveal, Show Completed and New Session are dark")
         model.enter(project)
         #expect(model.entered === project)
         model.leave()
-        #expect(model.entered == nil, "Go → All Projects puts it back, and darkens them again")
+        #expect(model.entered == nil, "leaving it puts it back, and darkens them again")
     }
 }
