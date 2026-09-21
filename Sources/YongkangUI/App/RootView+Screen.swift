@@ -14,9 +14,13 @@ extension RootView {
         } else if model.selection == .board {
             boardView(for: project)
         } else if model.selection == .usage {
+            // What it opens is an agent, which lives under Agents.
             UsageBoard(
                 project: project.value, signature: project.usageSignature,
-                open: { model.selection = $0 })
+                open: { route in
+                    model.section = .agents
+                    model.selection = route
+                })
         } else if model.selection == .agents {
             ProjectAgentsPage(
                 project: project.value,
