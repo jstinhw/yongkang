@@ -350,8 +350,10 @@ different certificate, change `CODE_SIGN_IDENTITY` in that file.
 To check which signature a build got, run
 `codesign -dv --verbose=4 .build/xcode/Build/Products/Debug/Yongkang.app 2>&1 | grep -E 'Authority|Signature|flags'`.
 A stable build shows `Authority=Yongkang Dev`; an ad-hoc one shows `Signature=adhoc`. Both
-show `runtime` in the flags: the app always has hardened runtime, with no exception
-entitlements.
+show `runtime` in the flags: the app always has hardened runtime. Neither signature has a Team
+ID, so a local build carries the one exception entitlement,
+`com.apple.security.cs.disable-library-validation` — without it the runtime refuses the embedded
+Sparkle framework and the app crashes at launch. A release, signed with a Team ID, has none.
 
 *(Unverified: if `security find-identity -v -p codesigning` doesn't list the new
 certificate, it may need **Trust → Code Signing: Always Trust** in Keychain Access. The

@@ -12,7 +12,13 @@ CODE_SIGN_IDENTITY = Yongkang Dev
 // the same option itself.
 OTHER_CODE_SIGN_FLAGS = --options=runtime
 
-// Hardened runtime turns on library validation, which rejects a dylib whose signature has no
-// Team ID (ad-hoc or self-signed). Debug builds otherwise split the app into
-// Yongkang.debug.dylib, for SwiftUI previews, and crash at launch with "different Team IDs".
+// Hardened runtime turns on library validation, which only loads a framework signed with the
+// app's own Team ID. An ad-hoc or "Yongkang Dev" signature has no Team ID, so a local build
+// crashes at launch on Sparkle ("Library not loaded: @rpath/Sparkle.framework"). Only a build
+// with no DEVELOPMENT_TEAM turns validation off — `make release` passes TEAM, and keeps it.
+YK_NO_TEAM_ = YES
+RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = $(YK_NO_TEAM_$(DEVELOPMENT_TEAM))
+
+// Debug builds otherwise split the app into Yongkang.debug.dylib, for SwiftUI previews, which
+// validation rejected for the same reason before a local build turned it off.
 ENABLE_DEBUG_DYLIB = NO
