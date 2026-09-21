@@ -10,10 +10,14 @@ package enum AgentCommand {
     ///
     /// How the CLI is handed the prompt, the session id and the commit rules is its
     /// provider's `launch`.
+    ///
+    /// `reading` is the folders beyond `directory` the agent may read, for a CLI that takes any.
     package static func line(
-        directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil, noCommit: Bool = false
+        directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil, noCommit: Bool = false,
+        reading: [String] = []
     ) -> String {
-        let words = agent.provider.launch(prompt: prompt, sessionID: sessionID, noCommit: noCommit)
+        let folders = agent.provider.readsOtherFolders ? reading : []
+        let words = agent.provider.launch(prompt: prompt, sessionID: sessionID, noCommit: noCommit, reading: folders)
         return "cd \(quoted(directory)) && exec \(([agent.command] + words).joined(separator: " "))"
     }
 

@@ -102,7 +102,7 @@ struct ProjectDetail: View {
                     Label("Run", systemImage: "play.fill")
                 }
                 .buttonStyle(.console)
-                .help("Run this project's services")
+                .help("Run this milestone's services")
             }
             if !allTasks.isEmpty {
                 HStack(spacing: 10) {
@@ -162,7 +162,7 @@ struct ProjectDetail: View {
             if tasks.isEmpty {
                 Text(
                     allTasks.isEmpty
-                        ? "This project has no tasks yet."
+                        ? "This milestone has no tasks yet."
                         : "All tasks are complete. Use Completed to view them."
                 )
                 .font(Typography.body).foregroundStyle(Theme.tx3)
@@ -236,7 +236,7 @@ struct ProjectDetail: View {
     private var assignBar: some View {
         ActionBar {
             if pickedTasks.isEmpty {
-                Text("Click a task's ring, or Pick all, to hand this project to an agent.")
+                Text("Click a task's ring, or Pick all, to hand this milestone to an agent.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 let pulled = batch.count - pickedTasks.count

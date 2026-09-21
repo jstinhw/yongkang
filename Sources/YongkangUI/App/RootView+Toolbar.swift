@@ -12,14 +12,17 @@ extension RootView {
     // the old bar's `ViewThatFits` was written to do by hand.
 
     /// The title line: what is open, which is usually more specific than the section's name.
-    func title(for project: ProjectModel) -> String {
+    func title(for project: ProjectModel?) -> String {
+        guard let project else { return model.section.title }
         switch model.section {
         case .board:
             let scoped = model.selection?.card(in: project.cards)
             return scoped?.title ?? selectedBlock(in: project).flatMap { $0.isDemo ? $0.title : nil } ?? "Board"
+        case .usage:
+            return "Usage"
         case .agents:
-            guard model.selection != .usage else { return "Usage" }
             if isReviewingTree { return "Review changes" }
+            if case .memory? = model.selection { return "Memory" }
             return model.selectedSubagent(in: project)?.subagent.description
                 ?? reviewedTask(in: project)?.title
                 ?? selectedBlock(in: project)?.title
@@ -30,9 +33,15 @@ extension RootView {
     }
 
     /// The line under it: the project, or on the working tree the branch the changes are on,
-    /// which is the thing you need to know before committing anything.
-    func subtitle(for project: ProjectModel) -> String {
-        isReviewingTree ? (project.repo.branch ?? project.name) : project.name
+    /// which is the thing you need to know before committing anything. With no project picked,
+    /// how many there are and how many agents are on them.
+    func subtitle(for project: ProjectModel?) -> String {
+        guard let project else {
+            let online = model.projects.reduce(0) { $0 + $1.value.onlineAgentCount }
+            let count = model.projects.count
+            return "\(count) project\(count == 1 ? "" : "s") · \(online) agent\(online == 1 ? "" : "s") online"
+        }
+        return isReviewingTree ? (project.repo.branch ?? project.name) : project.name
     }
 
     /// The whole working tree, rather than one task's review — the only page whose actions
@@ -44,15 +53,23 @@ extension RootView {
 
     // MARK: - Toolbar
 
-    @ToolbarContentBuilder func toolbar(for project: ProjectModel) -> some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            listToggle
-            // The list header is the project menu, so hiding the list would leave no way out of
-            // the project on screen — an empty project, whose screen has nothing to click, least
-            // of all. The same menu stands in here until the list comes back.
-            if listHidden { projectMenu(for: project) }
+    @ToolbarContentBuilder func toolbar(for project: ProjectModel?) -> some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) { listToggle }
+        ToolbarItemGroup(placement: .primaryAction) {
+            if let project { actions(for: project) }
+            newAgentButton
         }
-        ToolbarItemGroup(placement: .primaryAction) { actions(for: project) }
+    }
+
+    /// The one action every screen has: put an agent on a task, in any project.
+    private var newAgentButton: some View {
+        Button {
+            model.startingAgent = true
+        } label: {
+            Label("New Agent", systemImage: "plus")
+        }
+        .buttonStyle(.consolePrimary)
+        .help("Put an agent on a task (⌘N)")
     }
 
     /// The list column's switch. The split view's own is removed in `RootView` so there is
@@ -65,18 +82,6 @@ extension RootView {
             Label(listHidden ? "Show list" : "Hide list", systemImage: "sidebar.left")
         }
         .help(listHidden ? "Show list (⌘\\)" : "Hide list (⌘\\)")
-    }
-
-    private func projectMenu(for project: ProjectModel) -> some View {
-        Menu {
-            ProjectSwitcherItems(
-                projects: model.projects.map(\.value), current: project.id,
-                open: { if let other = model.project($0.id) { model.enter(other) } },
-                leave: { model.leave() })
-        } label: {
-            Label("Projects", systemImage: "square.stack")
-        }
-        .help("Switch project")
     }
 
     @ViewBuilder private func actions(for project: ProjectModel) -> some View {
@@ -121,6 +126,8 @@ extension RootView {
                     .buttonStyle(.console)
                 }
             }
+        case .usage:
+            EmptyView()
         }
     }
 
@@ -163,12 +170,12 @@ extension RootView {
                 }
             }
             Section("Team") {
-                Button("Agent…", systemImage: "person.badge.plus") { addingAgent = true }
+                Button("Team Member…", systemImage: "person.badge.plus") { addingAgent = true }
                     .disabled(!project.hasNotebook)
             }
             Section("Notebook") {
                 Button("Roadmap Entry…", systemImage: "map") { model.add(.roadmap, to: project) }
-                Button("Project…", systemImage: "shippingbox") { model.add(.project, to: project) }
+                Button("Milestone…", systemImage: "shippingbox") { model.add(.project, to: project) }
                 Button("Task…", systemImage: "checkmark.circle") { model.add(.task, to: project) }
                 Button("Memory…", systemImage: "brain") { model.add(.memory, to: project) }
                     .disabled(project.notebookProject(for: model.selection) == nil)

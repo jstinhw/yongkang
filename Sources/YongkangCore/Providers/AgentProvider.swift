@@ -21,7 +21,10 @@ package protocol AgentProvider: Sendable {
     /// `sessionID` is the app's id for the row, for a CLI that can be handed it or made to
     /// record it. `noCommit` denies `AgentCommand.commitRules`,
     /// where the CLI has a flag for it.
-    func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String]
+    func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String]
+    /// Whether the CLI can be handed folders beyond the one it starts in, which is what
+    /// `reading` in `launch` becomes. A CLI that cannot is never offered any.
+    var readsOtherFolders: Bool { get }
     /// The words that make the CLI answer one prompt on stdout and exit, with no session, for
     /// what has to be asked before a session exists. Already shell-quoted, like `launch`.
     func ask(prompt: String) -> [String]

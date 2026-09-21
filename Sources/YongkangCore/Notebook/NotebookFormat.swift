@@ -3,7 +3,9 @@ import Foundation
 package enum EntryKind: String, CaseIterable, Sendable {
     case roadmap, project, task, memory, run
 
-    package var displayName: String { rawValue.capitalized }
+    /// What the window calls it. A `project` entry is a milestone on screen, so it cannot be
+    /// mistaken for the project folder that holds the whole notebook; the file keeps its name.
+    package var displayName: String { self == .project ? "Milestone" : rawValue.capitalized }
 }
 
 enum NotebookError: LocalizedError {
@@ -13,7 +15,7 @@ enum NotebookError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyTitle: return "Give the entry a title."
-        case .missingProject: return "Select a project first — memory lives inside a project."
+        case .missingProject: return "Pick a milestone first — memory lives inside one."
         }
     }
 }

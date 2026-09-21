@@ -15,7 +15,10 @@ package struct GrokProvider: AgentProvider {
     package var skillPrefix: String { "/" }
 
     /// `--session-id` like Claude Code; the commit rules are denied one `--deny` at a time.
-    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
+    /// Grok takes a working directory and nothing beside it.
+    package var readsOtherFolders: Bool { false }
+
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String] {
         let denied = AgentCommand.commitRules.map { "--deny \(AgentCommand.quoted($0))" }
         let words: [String?] = [
             noCommit ? denied.joined(separator: " ") : nil,

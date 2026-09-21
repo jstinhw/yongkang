@@ -12,6 +12,10 @@ package enum Route: Hashable, Sendable, Codable {
     case board
     /// The project-wide usage screen, which belongs to no single agent.
     case usage
+    /// The project's agents side by side: what needs you, what waits for review, what is working.
+    case agents
+    /// What the project's agents decided and learned, on one memory entry or on the first.
+    case memory(String?)
 
     /// Notebook pages on the board, by card id. Projects and tasks have screens of their
     /// own; `page` is every other kind.

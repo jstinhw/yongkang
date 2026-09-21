@@ -19,8 +19,14 @@ package struct CodexProvider: AgentProvider {
 
     /// Only the prompt: Codex has no `--session-id`, and no deny flag. A prompted
     /// session's id rides at the end of the prompt instead, as `marker`.
-    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool) -> [String] {
-        prompt.map { text in [AgentCommand.quoted(sessionID.map { "\(text)\n\n\(Self.marker($0))" } ?? text)] } ?? []
+    package var readsOtherFolders: Bool { true }
+
+    /// ponytail: Codex makes an `--add-dir` folder writable, not read-only. The prompt asks it to
+    /// change nothing there; a sandbox rule would be the enforcement if that is not enough.
+    package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String] {
+        reading.map { "--add-dir \(AgentCommand.quoted($0))" }
+            + (prompt.map { text in [AgentCommand.quoted(sessionID.map { "\(text)\n\n\(Self.marker($0))" } ?? text)] }
+                ?? [])
     }
 
     /// `exec` refuses to run outside a git repository unless told to, and a question asked

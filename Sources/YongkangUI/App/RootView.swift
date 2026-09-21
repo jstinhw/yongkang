@@ -47,6 +47,25 @@ struct RootView: View {
                 parent: projectsParent, agent: agent, found: model.foundAgents, lookUp: model.lookUpAgents,
                 create: createProject, cancel: { model.creatingProject = false })
         }
+        .sheet(isPresented: $model.startingAgent) {
+            NewAgentSheet(
+                projects: model.projects.map(\.value), initial: model.entered?.id, agent: agent,
+                found: model.foundAgents, lookUp: model.lookUpAgents,
+                startTask: { id, task, kind, reading in
+                    guard let project = model.project(id) else { return }
+                    model.startingAgent = false
+                    model.enter(project)
+                    model.assign([task], in: project, agent: kind, reading: reading)
+                },
+                startPrompt: { id, prompt, kind, reading in
+                    guard let project = model.project(id) else { return }
+                    model.startingAgent = false
+                    model.section = .agents
+                    let note = NotebookFormat.readingNote(reading.map(\.path))
+                    model.enter(project, at: project.addSession(kind, prompt: prompt + note, reading: reading))
+                },
+                cancel: { model.startingAgent = false })
+        }
         .alert(model.alert?.title ?? "", isPresented: alertShown, presenting: model.alert) { item in
             alertActions(item)
         } message: { item in
@@ -99,65 +118,63 @@ struct RootView: View {
 
     // MARK: - Chrome
 
-    @ViewBuilder private var chrome: some View {
-        if model.entered == nil {
-            ProjectsHome(
-                projects: model.projects.map(\.value),
-                enter: { if let project = model.project($0.id) { model.enter(project) } },
-                create: { model.creatingProject = true }, add: { model.pickingFolder = true },
-                close: { if let project = model.project($0.id) { close(project) } }
+    /// The rail, the sidebar of every project, and the screen. There is no page of projects to
+    /// come back to any more: with nothing picked, the screen is empty and the sidebar is the
+    /// way in.
+    private var chrome: some View {
+        HStack(spacing: 0) {
+            // The rail stays outside the split view: it is the one piece of navigation that
+            // never changes. It is also drawn above the list column, because its hover
+            // labels hang past its own width.
+            // Picking a section is asking for its list, so a click brings a hidden list
+            // back — even on the section already showing, where nothing else would change.
+            Rail(
+                section: Binding(
+                    get: { model.section },
+                    set: {
+                        model.section = $0
+                        listHidden = false
+                    }), badges: badges,
+                agentCount: model.projects.reduce(0) { $0 + $1.value.onlineAgentCount }
             )
-        } else if let project = model.entered {
-            HStack(spacing: 0) {
-                // The rail stays outside the split view: it is the one piece of navigation that
-                // never changes. It is also drawn above the list column, because its hover
-                // labels hang past its own width.
-                // Picking a section is asking for its list, so a click brings a hidden list
-                // back — even on the section already showing, where nothing else would change.
-                Rail(
-                    section: Binding(
-                        get: { model.section },
-                        set: {
-                            model.section = $0
-                            listHidden = false
-                        }), badges: badges(for: project),
-                    agentCount: project.value.onlineAgentCount
-                )
-                .zIndex(1)
-                // `HSplitView`, not `NavigationSplitView`: on macOS 26 a native sidebar floats as
-                // an inset glass panel, 8pt clear of the rail, the top and the bottom, with a
-                // shadow over the screen, and no style turns that off. A plain `NSSplitView`
-                // keeps the draggable divider and puts the three panes edge to edge.
-                HSplitView {
-                    if !listHidden {
-                        ProjectList(
-                            section: model.section, project: project.value,
-                            selection: $model.selection,
-                            showDone: model.showDone, summary: project.summary,
-                            agent: agent, found: model.foundAgents,
-                            assign: { model.assign($0, in: project, agent: $1) },
-                            closeSession: { model.close($0, in: project) },
-                            remove: { model.remove($0, in: project) },
-                            projects: model.projects.map(\.value),
-                            open: { if let other = model.project($0.id) { model.enter(other) } },
-                            leave: { model.leave() }
-                        )
-                        // ponytail: min is the opening width, not 200. `HSplitView` ignores an
-                        // ideal width and opens the column at its min, so the list widens from
-                        // where it opens but never narrows. Set the `NSSplitView`'s divider
-                        // position if a narrower list matters.
-                        .frame(minWidth: Theme.listWidth, maxWidth: 560)
-                    }
-                    screen(for: project)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Theme.bg)
-                        .layoutPriority(1)
-                        .navigationTitle(title(for: project))
-                        .navigationSubtitle(subtitle(for: project))
-                        .toolbar { toolbar(for: project) }
+            .zIndex(1)
+            // `HSplitView`, not `NavigationSplitView`: on macOS 26 a native sidebar floats as
+            // an inset glass panel, 8pt clear of the rail, the top and the bottom, with a
+            // shadow over the screen, and no style turns that off. A plain `NSSplitView`
+            // keeps the draggable divider and puts the three panes edge to edge.
+            HSplitView {
+                if !listHidden {
+                    ProjectSidebar(
+                        section: model.section, projects: sidebarProjects,
+                        entered: model.entered?.id, selection: model.selection,
+                        open: { id, route, section in
+                            guard let project = model.project(id) else { return }
+                            model.section = section
+                            model.enter(project, at: route)
+                        },
+                        create: { model.creatingProject = true }, add: { model.pickingFolder = true },
+                        closeSession: { id, session in
+                            if let project = model.project(id) { model.close(session, in: project) }
+                        },
+                        close: { id in if let project = model.project(id) { close(project) } }
+                    )
+                    // ponytail: min is the opening width, not 200. `HSplitView` ignores an
+                    // ideal width and opens the column at its min, so the list widens from
+                    // where it opens but never narrows. Set the `NSSplitView`'s divider
+                    // position if a narrower list matters.
+                    .frame(minWidth: Theme.listWidth, maxWidth: 560)
                 }
+                work
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.bg)
+                    .layoutPriority(1)
+                    .navigationTitle(title(for: model.entered))
+                    .navigationSubtitle(subtitle(for: model.entered))
+                    .toolbar { toolbar(for: model.entered) }
             }
-            .sheet(isPresented: $addingAgent) {
+        }
+        .sheet(isPresented: $addingAgent) {
+            if let project = model.entered {
                 NewAgentForm(
                     directory: project.directory,
                     taken: project.snapshot.team.map(\.name),
@@ -178,16 +195,34 @@ struct RootView: View {
         }
     }
 
-    /// A dot on the rail for what is about the user rather than the work. Both of those now
-    /// live under Agents — a block is held by the session waiting on it, a review is a task
-    /// row under the session that did it — so the one dot says which of them it is: amber for
-    /// a block, green for work waiting to be approved, and the running colour otherwise.
-    private func badges(for project: ProjectModel) -> [ConsoleSection: Color] {
-        if project.snapshot.blocks.contains(where: \.waiting) { return [.agents: Theme.amber] }
-        if !project.summary.waiting.isEmpty { return [.agents: Theme.green] }
-        if project.sessions.contains(where: { !$0.activeSubagents.isEmpty }) {
-            return [.agents: Theme.accent]
+    /// Every open project with its agents, as the sidebar lists them.
+    private var sidebarProjects: [SidebarProject] {
+        model.projects.map { project in
+            SidebarProject(
+                project: project.value,
+                rows: project.value.agentRows(summary: project.summary, asking: model.attention))
         }
+    }
+
+    /// The selected project's screen, or the empty one.
+    @ViewBuilder private var work: some View {
+        if let project = model.entered {
+            screen(for: project)
+        } else {
+            NothingPicked(
+                hasProjects: !model.projects.isEmpty,
+                create: { model.creatingProject = true }, add: { model.pickingFolder = true })
+        }
+    }
+
+    /// A dot on the rail for what is about the user rather than the work, across every project:
+    /// amber when anything needs you, green when work waits for your review, and the running
+    /// colour while agents are at work.
+    private var badges: [ConsoleSection: Color] {
+        let rows = sidebarProjects.flatMap(\.rows)
+        if rows.contains(where: { $0.state == .needsYou }) { return [.agents: Theme.amber] }
+        if rows.contains(where: { $0.state == .review }) { return [.agents: Theme.green] }
+        if rows.contains(where: { $0.state == .working }) { return [.agents: Theme.accent] }
         return [:]
     }
 
@@ -238,5 +273,33 @@ private struct AttentionNotices: View {
             .padding(14)
             .background(Theme.panel)
         }
+    }
+}
+
+/// The screen while nothing is picked. With projects open the sidebar is the way in; with none,
+/// the two ways a project arrives are here, since the sidebar has nothing to click yet.
+package struct NothingPicked: View {
+    let hasProjects: Bool
+    let create: () -> Void
+    let add: () -> Void
+
+    package init(hasProjects: Bool, create: @escaping () -> Void, add: @escaping () -> Void) {
+        self.hasProjects = hasProjects
+        self.create = create
+        self.add = add
+    }
+
+    package var body: some View {
+        VStack(spacing: 14) {
+            Text(hasProjects ? "Pick a project or an agent on the left." : "Add a project to start.")
+                .font(Typography.body).foregroundStyle(Theme.tx3)
+            if !hasProjects {
+                HStack(spacing: 10) {
+                    Button("Describe a New Project…", action: create).buttonStyle(.consolePrimary)
+                    Button("Open a Folder…", action: add).buttonStyle(.console)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

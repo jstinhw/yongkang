@@ -33,13 +33,13 @@ for.
 
 ### Open a folder
 
-1. On the **Fleet** screen, click the **Open a folder you have** tile and choose the empty
-   folder. **File → Open Folder… (⌘O)** is the same door and is the one that carries the
-   shortcut — the tile has none of its own, so try both.
+1. With no project open, the empty screen offers **Open a Folder…**; click it and choose the
+   empty folder. The **+** beside **Projects** in the sidebar and **File → Open Folder… (⌘O)**
+   are the same door, and the menu item is the one that carries the shortcut — try them too.
    - The panel's message reads "Agents run in this folder and its notebook lives in
      .notebook/."
-   - The window enters the project. The rail shows Board and Agents. The **window's title**
-     reads **Board** with **yk-smoke** under it, and the work area asks
+   - The project appears in the sidebar, picked. The rail shows Board, Agents and Usage. The
+     **window's title** reads **Board** with **yk-smoke** under it, and the work area asks
      **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
 
@@ -50,26 +50,27 @@ for.
    found on this Mac** and cannot be picked.
 3. Type a small brief into the "This project is…" box, for example: "A single-file Python
    CLI that prints the weather for a city." Then press Return or click **Start session**.
-   - A session titled **Notebook Setup** appears under **Agents online** in the list
-     column. Its live terminal fills the work area, with the prompt already sent.
+   - A session titled **Notebook Setup** appears under **yk-smoke** in the sidebar. Its page
+     opens on its live terminal, with the prompt already sent.
    - If the CLI asks whether to trust the folder, a bar appears at the bottom of the window:
      **Action required · yk-smoke · Notebook Setup**, with an **Open session** button.
      Answer the question in the terminal and the bar goes away.
 4. Answer the agent's questions until it drafts the plan. *(Agent behaviour: the prompt
    tells it to ask a few multiple-choice questions, then write `.notebook/NOTEBOOK.md` and
    a ready proposal at `.notebook/blocks/plan.md`, and nothing else until you approve.)*
-   - **Agents** in the rail lights amber, and the draft is listed under **Waiting on you**
-     above the sessions. Its subtitle reads **Product plan is ready**, with a
-     **Create project** button. Click it: the window returns to **Notebook Setup**
-     with the approval typed in, and the agent writes the notebook.
-   - **Board** in the rail shows the project's tasks, in chains, about a third of a second
-     after the last file lands. The folder is watched with FSEvents, not polled, and the
+   - **Agents** in the rail lights amber, **yk-smoke**'s row in the sidebar gets an amber count,
+     and the draft is a row of its own under it, reading **Notebook Setup · wants your
+     opinion**. Its page reads **Product plan is ready**, with a **Create project** button.
+     Click it: the window returns to **Notebook Setup** with the approval typed in, and the
+     agent writes the notebook.
+   - **Board** in the rail shows the project's roadmap and its milestones, each a column of
+     tasks in chains, about a third of a second after the last file lands. The folder is watched with FSEvents, not polled, and the
      watcher holds a burst back by 300 ms so twenty files an agent just wrote are one read.
    - The folder is now a git repository. Once a notebook exists, Yongkang runs `git init`,
      but nothing is staged or committed.
-   - `.notebook/team/` is only written when you enter a project that already has a
-     notebook. Leave and come back: **Go → All Projects (⌘[)**, then click the project's
-     card. **Agents** now lists one member, Allen, under **Team**.
+   - `.notebook/team/` is only written when you pick a project that already has a
+     notebook. Pick another project in the sidebar and come back, or relaunch:
+     `.notebook/team/allen.md` now exists.
 
 ### Assign
 
@@ -80,28 +81,30 @@ for.
 6. Beside **Assign** is the agent it assigns to, starting on the toolbar's. Pick a different
    one there, then click **Assign**. If the batch includes a design task (one with
    `designer:` set), the button reads **Assign — design first** instead.
-   - The window switches to **Agents** and opens the live terminal of a new session on the
-     agent you picked, named after that agent (**Codex**, say). Its row reads "1 task · 0
-     running", with the task's own row under it.
+   - The window switches to **Agents** and opens the new agent's page on its live terminal, on
+     the agent you picked. Its row in the sidebar is named after the task and reads
+     **Codex · working**, say.
    - The toolbar's agent is unchanged.
-   - Under the session's row is a row for the task. It opens the task and its review.
+   - Beside the terminal, the page lists the task's **Done when** and, under **Access**, the one
+     folder it works in.
    - Back on the board, the card has a **wip** pill and can't be picked again.
    - Two other ways in: the ↗ on a card opens the task page, which has its own picker and
-     **Assign** button; right-clicking a project row gives **Assign all tasks to <agent>**
-     and an **Assign all tasks to** submenu with the others.
+     **Assign** button; a milestone's heading opens its page, whose **Pick all** takes every
+     task in it.
 
 ### Subagent Check
 
-7. Right-click the project's row and assign every task. Tasks that wait on nothing get a
-   session each; a task and its blockers share one. Then wait for a session with several
-   tasks to start a subagent.
-   - A row appears under its task's row in the Agents list, named after the task id, with a
-     live dot. *(Agent behaviour: a session may work down a short chain itself.)* The Agents rail icon gets an
-     accent dot.
+7. Open a milestone's page from its heading on the board and use **Pick all**. Tasks that wait
+   on nothing get a session each; a task and its blockers share one, and the window goes to the
+   project's Agents page with every one of them under **Working**. Then wait for a session with
+   several tasks to start a subagent.
+   - The session's page lists it under **Subagents**, named after the task id, with a live dot.
+     *(Agent behaviour: a session may work down a short chain itself.)* The Agents rail icon
+     gets an accent dot.
    - Open the task's page (↗ on its card). The inspector's **Working on it** section lists
      the session that holds it, as "its session", and that subagent under it, both with a
      **Running** pill. Clicking the session row opens the session.
-8. Click the subagent under **Working on it**, or its row in the Agents list.
+8. Click the subagent under **Working on it**, or on its session's page.
    - The window switches to **Agents**. The window's title becomes the subagent's name, and a
      **Parent session** button appears.
    - A notice over the session's terminal reads "Opening child agent…". Yongkang types `/tasks`
@@ -138,8 +141,9 @@ for.
     without it. Because there's no `session:` field, the block goes to the newest running
     session holding that task.
     - The Agents rail icon gets an amber dot, on the same watch as step 4.
-    - **Agents** lists the block under **Waiting on you**, above the sessions, with
-      "holds <task-id>" under its title.
+    - The session's row in the sidebar turns amber and reads **<agent> · Smoke test gate**;
+      the project's row counts it, and the project's Agents page shows it first, under
+      **Needs you**.
     - Its page shows a **waiting on you** pill and "<session title> is waiting — holds up
       <task title>". The inspector shows **Holds up**, **Waiting agent** with a **blocked**
       pill, and the notice that no secret is echoed back.
@@ -148,7 +152,7 @@ for.
     - The file's status line becomes `status: done`.
     - On the next read of the file, the window switches to **Agents** on the session and
       submits `Unblocked: Smoke test gate. Continue from where you stopped.` to it.
-    - The row leaves **Waiting on you**: a resolved block has nothing left to do.
+    - The session's row goes back to working: a resolved block has nothing left to do.
     - **Do it now** would have started an **Unblock Smoke test gate** session. *(Agent
       behaviour: that session does what it can itself, then walks through the block's
       `## Steps` with you one at a time.)*
@@ -161,7 +165,8 @@ for.
     - If no terminal is on screen at that moment, the window opens the task's review by
       itself. If a terminal is up, the window stays where it is, because the terminal has
       the keyboard.
-    - The task's row under its session reads "ready for review · +N" and wears a green dot.
+    - The session's row turns green and reads **<agent> · ready for review**, and the
+      project's row counts it in green.
     - A done task only counts as waiting if the session's report lists its files in
       `paths`. *(Agent behaviour.)* If they don't, the row stays plain and its files are
       only reachable through the working tree's own page, whose one button is
@@ -170,8 +175,8 @@ for.
     - The header pill reads **Ready for your review**.
     - The cards, in order: **The task**, **What changed**, **Self-review**,
       **Code changes**, **Feedback**. Every file under **Code changes** is folded.
-    - In **Agents**, the session's row reads "1 ready for review" and the task's row under it
-      is green. Clicking the task opens this same page; clicking the session, its terminal.
+    - The session's page lists the task under **Waiting for your review**; clicking it there, or
+      **Review** on its card on the project's Agents page, opens this same page.
     - The inspector shows **Verdict** ("Checked by the agent") and **This commit** ("Only this task's
       files and its run records. Nothing is pushed.").
 14. Optional: click a file under **Code changes**, click a line of the diff it unfolds, type
@@ -191,21 +196,23 @@ for.
 
 16. Walk the menus. Nothing here is on a button only, and an item the window cannot act on is
     disabled rather than hidden — so the shape stays the same on every screen.
-    - **View → Board** and **View → Agents**, `⌘1`–`⌘2`, move between sections from any
+    - **View → Board**, **Agents** and **Usage**, `⌘1`–`⌘3`, move between sections from any
       screen. Try it with a terminal focused too: that is the case a button-bound shortcut
       could never answer, and the one this step exists for. *(Unverified: the registry's key
       monitor passes the event on rather than swallowing it, and `MenuCommandTests` checks the
       items with no window, but nothing has checked a menu shortcut against a focused SwiftTerm
       view.)*
-    - **View → Hide List**, `⌘\`, collapses the list column, and the toolbar's own button
+    - **View → Hide List**, `⌘\`, collapses the sidebar, and the toolbar's own button
       agrees with it. The item's title flips to **Show List**. Clicking any rail icon, the
       current one included, brings the list back.
     - **Agent → Assign Task** and **Assign Task To ▸** are lit only while a task page is open
       for a task that is neither done nor already with a session. Open a done task: they grey
       out.
-    - **Go → All Projects**, `⌘[`, leaves the project. Every item that needs one is now
-      disabled — the rest of File, and all of View, Go and Agent — while
-      **File → New Project…** (`⌘N`) and **Open Folder…** (`⌘O`) still work.
+    - **Agent → New Agent…**, `⌘N`, opens the New Agent sheet from any screen. Pick a ready task,
+      tick another open project under **Can also read**, and start it: the agent's page lists
+      both folders under **Access**, and `ps -ef | grep add-dir` shows the second on its
+      command line. With Grok picked, the folder list is off.
+    - **File → New Project…** is `⇧⌘N`, and **Open Folder…** `⌘O`.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
     - **Yongkang → Check for Updates…** is disabled in a `make run` build: only a Release build
@@ -215,15 +222,15 @@ for.
       *(Unverified: no Supabase project existed when this was written.)*
 17. With the project open on a task page, quit Yongkang (⌘Q) and run `make run` again.
     - The window comes back on the same project, the same section and the same page.
-    - The sessions do not: those PTYs died with the app, and the Agents list is empty.
-    - The list column comes back collapsed if you left it collapsed. Its **width** does not —
+    - The sessions do not: those PTYs died with the app, and the project has no agents under it
+      in the sidebar.
+    - The sidebar comes back collapsed if you left it collapsed. Its **width** does not —
       it opens at its default every launch, which is a known gap (`docs/refactor-plan.md` §8).
     - Delete the task's file while the app is closed, then relaunch: the window opens the
       board rather than an empty page.
 
-**Clean up:** right-click each session row and choose **Close Session**. On the Fleet
-screen, right-click the project card and choose **Remove from Fleet**, then delete the
-folder.
+**Clean up:** right-click each agent's row and choose **Close Session**. Right-click the
+project in the sidebar and choose **Close Project**, then delete the folder.
 
 ## Capturing a CLI fixture
 
@@ -301,7 +308,7 @@ middle stream is yours, in the console's own `amber`, so the Dock and the app ag
 It is drawn in code, not exported from an editor. `Sources/YongkangUI/DesignSystem/LogoMark.swift`
 is the mark: a SwiftUI view that takes a side length and puts every coordinate on a 256-unit
 grid scaled by it, so 16 px and 1024 px are one picture. `AppIcon.swift` sets it on the dark
-tile, and the Fleet header draws it bare beside the name. To change it, edit the view, then:
+tile. To change it, edit the view, then:
 
 ```sh
 make icon   # → App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png

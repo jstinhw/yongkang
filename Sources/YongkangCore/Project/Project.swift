@@ -94,6 +94,8 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     package var subagents: [SubagentStatus] = []
     /// The reports this session filed against its tasks, including completed work.
     package var coordination: LeadCoordination? = nil
+    /// Folders beyond its project it was given to read — another project's repo, usually.
+    package var reading: [URL] = []
 
     /// The ones still working. A finished agent has nothing left to watch, so the session's
     /// lists drop it; its transcript stays reachable from the task it was dispatched for.
@@ -105,7 +107,7 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     package init(
         id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
         taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = [],
-        coordination: LeadCoordination? = nil
+        coordination: LeadCoordination? = nil, reading: [URL] = []
     ) {
         self.id = id
         self.title = title
@@ -116,6 +118,7 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
         self.exited = exited
         self.subagents = subagents
         self.coordination = coordination
+        self.reading = reading
     }
 }
 

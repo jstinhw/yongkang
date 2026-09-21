@@ -1,22 +1,27 @@
 # Board
 
-![The board, one column per project](../images/board.png)
+![The board: the roadmap, then one column per milestone](../images/board.png)
 
-`Board` is one column per project, each an outline read downwards. A task is drawn under
-the one it waits on, joined to it by a line, and **no line above a card means nothing is in
-its way** — that card can start now. Columns are bounded by how many projects you have
+Pick a project in the sidebar and `Board` shows its notebook: the roadmap across the top — the
+goal, how many of its tasks are done and how many milestones it has — then one column per
+milestone, each an outline read downwards. A milestone is what the notebook files as
+`kind: project`; the window calls it a milestone so it cannot be mistaken for the project folder
+that holds the whole notebook. Clicking the roadmap opens its page.
+
+A task is drawn under the one it waits on, joined to it by a line, and **no line above a card
+means nothing is in its way** — that card can start now. Columns are bounded by how many milestones there are
 rather than by the longest chain, so the board never scrolls sideways.
 
 A step in marks a *fork*, never a link. One task waiting on a card continues the run at the
 same indent; only a card with two or more waiting on it steps its children in, and each
 branch runs on flat from there. So indentation counts the forks on the path rather than the
-tasks, and a project five tasks deep costs one step, not five. Three steps is the ceiling.
+tasks, and a milestone five tasks deep costs one step, not five. Three steps is the ceiling.
 
-What position cannot show, the card says. A second blocker, a task in another project, one
+What position cannot show, the card says. A second blocker, a task in another milestone, one
 hidden by `Completed`, or an id that resolves to nothing all appear as a `waits on` line —
 `also waits on` when a line above already says what it waits on. An unresolvable id shows in
-amber, and is how you catch a typo in `depends_on`. A project that waits on another project
-says so once, as a chip under its column's heading.
+amber, and is how you catch a typo in `depends_on`. A milestone that waits on another says so
+once, as a chip under its column's heading.
 
 Detail goes where it is worth something. A whole card is spent on the live edge of each
 chain — what is being designed, what is waiting on your approval, what an agent is on,
@@ -29,9 +34,8 @@ that could start now sits above the chain that cannot, and under a fork the bran
 on longest is the one drawn directly beneath it.
 
 The inspector carries the batch: what you picked, what came along as a blocker, and in
-which order it will be built. The roadmap and projects are in the list column beside the
-board, which no longer repeats the tasks the board is already showing.
+which order it will be built.
 
-Completed projects and tasks are hidden from the list, board and project task lists by
-default. `Completed` in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A project counts as
-finished when its own status says so, or when every task under it is done.
+Completed milestones and tasks are hidden from the board and milestone task lists by default.
+`Completed` in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A
+milestone counts as finished when its own status says so, or when every task under it is done.

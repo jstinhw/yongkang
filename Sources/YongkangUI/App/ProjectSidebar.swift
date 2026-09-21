@@ -1,0 +1,287 @@
+import AppKit
+import SwiftUI
+import YongkangCore
+
+/// One project as the sidebar draws it: the folder, and its agents in the order they want you.
+package struct SidebarProject: Identifiable {
+    package let project: Project
+    package let rows: [AgentRow]
+    /// How many memory entries its notebook holds, for the Memory row under Agents.
+    let memory: Int
+
+    package init(project: Project, rows: [AgentRow]) {
+        self.project = project
+        self.rows = rows
+        memory = project.cards.filter { $0.kind == .memory }.count
+    }
+
+    package var id: Project.ID { project.id }
+    var needsYou: Int { rows.filter { $0.state == .needsYou }.count }
+    var toReview: Int { rows.filter { $0.state == .review }.count }
+}
+
+/// The column beside the rail: every open project at once, each with the agents working on it
+/// under it. The same list in every section, so what is waiting on you in a project you are not
+/// looking at is always one glance away. A project row opens that project in the current
+/// section; an agent row opens the agent, which lives under Agents.
+package struct ProjectSidebar: View {
+    let section: ConsoleSection
+    let projects: [SidebarProject]
+    /// The project the selection lives in, and the selection itself.
+    let entered: Project.ID?
+    let selection: Route?
+    /// Enters a project on a route, in a section.
+    let open: (Project.ID, Route, ConsoleSection) -> Void
+    /// The two ways a project arrives: described, or a folder that already exists.
+    let create: () -> Void
+    let add: () -> Void
+    let closeSession: (Project.ID, CodeSession) -> Void
+    let close: (Project.ID) -> Void
+
+    /// Projects start open; this only remembers the ones the user folded.
+    @State private var collapsed: Set<Project.ID> = []
+
+    package init(
+        section: ConsoleSection, projects: [SidebarProject], entered: Project.ID?, selection: Route?,
+        open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
+        create: @escaping () -> Void, add: @escaping () -> Void,
+        closeSession: @escaping (Project.ID, CodeSession) -> Void,
+        close: @escaping (Project.ID) -> Void
+    ) {
+        self.section = section
+        self.projects = projects
+        self.entered = entered
+        self.selection = selection
+        self.open = open
+        self.create = create
+        self.add = add
+        self.closeSession = closeSession
+        self.close = close
+    }
+
+    package var body: some View {
+        ListPane {
+            header
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if projects.isEmpty {
+                        Text("No projects yet")
+                            .font(Typography.body).foregroundStyle(Theme.tx3)
+                            .padding(.horizontal, 19).padding(.vertical, 8)
+                    }
+                    ForEach(projects) { item in
+                        projectRow(item)
+                        if !collapsed.contains(item.id) {
+                            ForEach(item.rows) { agentRow($0, in: item) }
+                            if section == .agents { memoryRow(item) }
+                        }
+                    }
+                }
+                .padding(.bottom, 14)
+            }
+            legend
+        }
+    }
+
+    // MARK: - Header and legend
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            SectionLabel("Projects")
+            Spacer(minLength: 0)
+            Menu {
+                Button("New Project…", action: create)
+                Button("Open Folder…", action: add)
+            } label: {
+                Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.tx2)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Add a project")
+            .accessibilityLabel("Add a project")
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 12)
+        .padding(.vertical, 12)
+    }
+
+    /// What the three colours mean, since they are the whole of what a row says at a glance.
+    private var legend: some View {
+        HStack(spacing: 12) {
+            key(Theme.amber, "needs you")
+            key(Theme.green, "to review")
+            key(Theme.accent, "working")
+        }
+        .font(Typography.caption)
+        .foregroundStyle(Theme.tx3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
+    }
+
+    private func key(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text)
+        }
+    }
+
+    // MARK: - Rows
+
+    private func projectRow(_ item: SidebarProject) -> some View {
+        let folded = collapsed.contains(item.id)
+        return Button {
+            open(item.id, page(for: section), section)
+        } label: {
+            HStack(spacing: 8) {
+                Button {
+                    if folded { collapsed.remove(item.id) } else { collapsed.insert(item.id) }
+                } label: {
+                    Image(systemName: folded ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Theme.tx3)
+                        .frame(width: 12)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(
+                    folded ? "Show \(item.project.name)’s agents" : "Hide \(item.project.name)’s agents")
+                Text(item.project.name).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if item.needsYou > 0 { count(item.needsYou, Theme.amber, dot: true) }
+                if item.toReview > 0 { count(item.toReview, Theme.green, dot: false) }
+            }
+            .padding(.leading, 6)
+            .padding(.trailing, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .rowSelection(entered == item.id && !childSelected(in: item))
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .accessibilityLabel(summary(of: item))
+        .contextMenu {
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([item.project.directory])
+            }
+            Button("Close Project") { close(item.id) }
+        }
+    }
+
+    /// A lit count: amber for what needs you, green for what waits for your review.
+    private func count(_ number: Int, _ color: Color, dot: Bool) -> some View {
+        HStack(spacing: 3) {
+            if dot {
+                Circle().fill(color).frame(width: 5, height: 5)
+            } else {
+                Image(systemName: "checkmark").font(.system(size: 7, weight: .heavy))
+            }
+            Text("\(number)").font(Typography.monoCaption(.semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .frame(height: 17)
+        .background(Capsule().fill(color.opacity(0.14)))
+    }
+
+    private func summary(of item: SidebarProject) -> String {
+        var parts = [item.project.name]
+        if item.needsYou > 0 { parts.append("\(item.needsYou) need you") }
+        if item.toReview > 0 { parts.append("\(item.toReview) to review") }
+        return parts.joined(separator: ", ")
+    }
+
+    private func agentRow(_ row: AgentRow, in item: SidebarProject) -> some View {
+        Button {
+            open(item.id, row.route, .agents)
+        } label: {
+            HStack(alignment: .top, spacing: 9) {
+                AgentStateGlyph(state: row.state).padding(.top, 2)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.title).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
+                    Text(row.line).font(Typography.caption)
+                        .foregroundStyle(row.state == .working ? Theme.tx3 : row.state.color)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 26)
+            .padding(.trailing, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }
+        .buttonStyle(.plain)
+        .rowSelection(entered == item.id && isSelected(row))
+        .padding(.horizontal, 8)
+        .padding(.top, 1)
+        .contextMenu {
+            if let session = row.session {
+                Button("Close Session") { closeSession(item.id, session) }
+            }
+        }
+    }
+
+    private func memoryRow(_ item: SidebarProject) -> some View {
+        Button {
+            open(item.id, .memory(nil), .agents)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "brain").font(.system(size: 10)).foregroundStyle(Theme.tx3)
+                    .frame(width: 12)
+                Text("Memory").font(Typography.body).foregroundStyle(Theme.tx2)
+                Spacer(minLength: 0)
+                Text("\(item.memory)").font(Typography.mono).foregroundStyle(Theme.tx3)
+            }
+            .padding(.leading, 26)
+            .padding(.trailing, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }
+        .buttonStyle(.plain)
+        .rowSelection(entered == item.id && isMemory)
+        .padding(.horizontal, 8)
+        .padding(.top, 1)
+    }
+
+    // MARK: - Selection
+
+    /// The page a project row opens in each section.
+    private func page(for section: ConsoleSection) -> Route {
+        switch section {
+        case .board: return .board
+        case .agents: return .agents
+        case .usage: return .usage
+        }
+    }
+
+    private var isMemory: Bool {
+        if case .memory = selection { return true }
+        return false
+    }
+
+    /// An agent row stands for everything under that agent: its terminal and transcript, a
+    /// subagent it spawned, and the reviews of the tasks it holds.
+    ///
+    /// A row that opens on something else — a block, one task's review — is selected by that alone.
+    private func isSelected(_ row: AgentRow) -> Bool {
+        guard case .session(let id, _) = row.route else { return selection == row.route }
+        switch selection {
+        case .session(id, _)?, .subagent(id, _)?: return true
+        case .reviewTask(let task)?: return row.state == .review && row.session?.taskIDs.contains(task) == true
+        default: return false
+        }
+    }
+
+    private func childSelected(in item: SidebarProject) -> Bool {
+        (section == .agents && isMemory) || item.rows.contains(where: isSelected)
+    }
+}

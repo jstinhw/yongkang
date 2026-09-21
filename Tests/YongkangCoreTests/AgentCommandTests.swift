@@ -12,6 +12,7 @@ import Testing
         let prompt: String?
         var sessionID: UUID? = nil
         var noCommit = false
+        var reading: [String] = []
         let expected: String
         var why: Comment? = nil
 
@@ -43,6 +44,18 @@ import Testing
             expected: "cd '/a' && exec claude --disallowedTools='Bash(git commit:*),Bash(git push:*),"
                 + "Bash(gh pr create:*)' 'work'",
             why: "the = form, or the variadic flag eats the prompt as a tool name"),
+        LineCase(
+            agent: .claude, prompt: "hi", sessionID: sid, reading: ["/b c"],
+            expected: "cd '/a' && exec claude --add-dir '/b c' --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'",
+            why: "--add-dir is variadic, so it goes ahead of a flag that ends it — never next to the prompt"),
+        LineCase(
+            agent: .codex, prompt: "hi", reading: ["/b"], expected: "cd '/a' && exec codex --add-dir '/b' 'hi'"),
+        LineCase(
+            agent: .agy, prompt: "hi", reading: ["/b", "/c"],
+            expected: "cd '/a' && exec agy --add-dir '/b' --add-dir '/c' --prompt-interactive 'hi'"),
+        LineCase(
+            agent: .grok, prompt: "hi", reading: ["/b"], expected: "cd '/a' && exec grok 'hi'",
+            why: "grok takes no folder beside its own, so it is handed none"),
     ]
 
     /// What zsh actually passes to the agent for a given quoted argument.
@@ -80,7 +93,7 @@ import Testing
         #expect(
             AgentCommand.line(
                 directory: c.directory, agent: c.agent, prompt: c.prompt, sessionID: c.sessionID,
-                noCommit: c.noCommit) == c.expected, c.why)
+                noCommit: c.noCommit, reading: c.reading) == c.expected, c.why)
     }
 
     @Test func codexCarriesTheSessionIDInItsPrompt() {
@@ -107,6 +120,15 @@ import Testing
     ])
     func skillInvocation(agent: AgentKind, arguments: String, expected: String) {
         #expect(agent.skillInvocation("product", arguments: arguments) == expected)
+    }
+
+    @Test func aWorkPromptSaysWhatElseItMayReadAndNotChange() {
+        let task = NotebookCard(
+            id: "wire-auth", url: URL(fileURLWithPath: "/a/.notebook/tasks/wire-auth.md"), kind: .task,
+            title: "Wire auth", status: "todo", project: nil, dependsOn: [])
+        #expect(!NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid).contains("You may also read"))
+        let prompt = NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid, reading: ["/b"])
+        #expect(prompt.contains("You may also read `/b`") && prompt.contains("Change nothing there"))
     }
 
     @Test func productPromptCarriesItsSessionID() {

@@ -24,15 +24,14 @@ struct YongkangCommands: Commands {
         CommandGroup(after: .appInfo) { online }
         // Replacing `.newItem` is also what drops "New Window": the model and its
         // TerminalRegistry are app-wide, so a second window would take the first one's
-        // terminals. It frees ⌘N for the project the Fleet screen's tile describes.
+        // terminals.
         CommandGroup(replacing: .newItem) { file }
         // The View menu, above the system's "Show Toolbar".
         CommandGroup(before: .toolbar) { view }
-        CommandMenu("Go") { go }
         CommandMenu("Agent") { agentMenu }
     }
 
-    /// The project you are inside, which is what every item below the first two acts on.
+    /// The project the selection is in, which is what every item below the first two acts on.
     private var project: ProjectModel? { model.entered }
 
     // MARK: - Yongkang
@@ -61,10 +60,10 @@ struct YongkangCommands: Commands {
     // MARK: - File
 
     @ViewBuilder private var file: some View {
-        // Both open from any screen: the sheet and the panel hang on `RootView`'s root, not
-        // on the Fleet page that used to own them.
+        // Both open from any screen: the sheet and the panel hang on `RootView`'s root. ⌘N is
+        // New Agent's: putting an agent on work is what this window is for.
         Button("New Project…") { model.creatingProject = true }
-            .keyboardShortcut("n")
+            .keyboardShortcut("n", modifiers: [.command, .shift])
         Button("Open Folder…") { model.pickingFolder = true }
             .keyboardShortcut("o")
         Divider()
@@ -83,17 +82,16 @@ struct YongkangCommands: Commands {
     // MARK: - View
 
     @ViewBuilder private var view: some View {
-        // ⌘1–⌘2 in the rail's own order, so the number matches the icon's place in it.
+        // ⌘1–⌘3 in the rail's own order, so the number matches the icon's place in it. A
+        // section needs no project: with none picked it shows its empty state.
         ForEach(Array(ConsoleSection.allCases.enumerated()), id: \.element) { index, section in
             Button(section.title) { model.section = section }
                 .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")))
-                .disabled(project == nil)
         }
         Divider()
         // ⌘\ lives here now rather than on the toolbar button it used to hang from.
         Button(listHidden ? "Show List" : "Hide List") { listHidden.toggle() }
             .keyboardShortcut("\\")
-            .disabled(project == nil)
         Toggle("Show Completed", isOn: showDone)
             .disabled(project == nil)
         Divider()
@@ -103,18 +101,12 @@ struct YongkangCommands: Commands {
         Binding(get: { model.showDone }, set: { model.showDone = $0 })
     }
 
-    // MARK: - Go
-
-    @ViewBuilder private var go: some View {
-        // The only way back to every project since the rail's "YK" button went.
-        Button("All Projects") { model.leave() }
-            .keyboardShortcut("[")
-            .disabled(project == nil)
-    }
-
     // MARK: - Agent
 
     @ViewBuilder private var agentMenu: some View {
+        Button("New Agent…") { model.startingAgent = true }
+            .keyboardShortcut("n")
+        Divider()
         Button("New Session") {
             guard let project else { return }
             model.selection = project.addSession(agent)

@@ -40,4 +40,38 @@ import Testing
             view.subtitle(for: project) == (project.repo.branch ?? project.name),
             "it says which branch the changes are on, which is what you commit against")
     }
+
+    // MARK: - Every project at once
+
+    /// Picking a project in the sidebar shows it in the section you are in; nothing picked is the
+    /// empty screen, not a page of projects.
+    @Test func enteringAProjectKeepsTheSection() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel()
+        let first = model.open(tmp.appendingPathComponent("one"))
+        let second = model.open(tmp.appendingPathComponent("two"))
+        #expect(model.entered == nil && model.selection == nil, "a window opens on nothing picked")
+
+        model.section = .agents
+        model.enter(first)
+        #expect(model.section == .agents && model.selection == .agents, "its agents, not its board")
+        model.enter(second, at: .memory(nil))
+        #expect(model.entered === second && model.selection == .memory(nil))
+        model.section = .usage
+        model.openSectionDefault()
+        #expect(model.selection == .usage)
+        model.stop()
+    }
+
+    /// git is read for every open project now, so the sidebar can count what waits for review in
+    /// each — but still at most every 6 s a project, unless you are in it and it has to be now.
+    @Test func gitIsAskedAtMostEverySixSecondsAProject() {
+        let project = ProjectModel(directory: URL(fileURLWithPath: "/tmp/nowhere"))
+        let now = Date()
+        #expect(project.repoReadIsDue(now: now))
+        #expect(!project.repoReadIsDue(now: now.addingTimeInterval(5)))
+        #expect(project.repoReadIsDue(force: true, now: now.addingTimeInterval(5)))
+        #expect(project.repoReadIsDue(now: now.addingTimeInterval(12)))
+    }
 }

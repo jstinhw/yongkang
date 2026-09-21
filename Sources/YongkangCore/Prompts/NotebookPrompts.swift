@@ -101,6 +101,14 @@ extension NotebookFormat {
         }.joined(separator: "\n")
     }
 
+    /// What an agent handed other folders is told about them: read, never change — Review only
+    /// sees, and only commits, the project it works in. Empty when it was handed none.
+    package static func readingNote(_ reading: [String]) -> String {
+        guard !reading.isEmpty else { return "" }
+        return "\nYou may also read " + reading.map { "`\($0)`" }.joined(separator: ", ")
+            + " for reference. Change nothing there: only this project's changes are reviewed and committed.\n"
+    }
+
     /// What an assigned session is told: its chain of tasks, and the few things the app reads
     /// back — status, a report per task, blocks, no commits. How to do the work is left to the
     /// agent. Work that could run beside this chain is another session's, not this one's.
@@ -108,7 +116,12 @@ extension NotebookFormat {
     /// The session id goes in so a block or demo says who is waiting on it, and so a report
     /// is filed under the session that wrote it. The report's shape is what Review reads:
     /// `paths` is what lets approving one task commit only its files.
-    package static func workPrompt(tasks: [NotebookCard], sessionID: UUID, message: String = "") -> String {
+    ///
+    /// `reading` is the other folders the session was given, which it may read and must not change:
+    /// Review only sees, and only commits, this project's changes.
+    package static func workPrompt(
+        tasks: [NotebookCard], sessionID: UUID, message: String = "", reading: [String] = []
+    ) -> String {
         let id = sessionID.uuidString.lowercased()
         let designer =
             BundledSkills.url("designer").map { "the designer skill at `\($0.path)`" } ?? "the `designer` skill"
@@ -118,6 +131,7 @@ extension NotebookFormat {
                 + "nothing that depends on it until I approve its demo.\n"
             : ""
         let asked = message.isEmpty ? "" : "\n\(message)\n"
+        let others = readingNote(reading)
         // One task has no order to keep and nothing to run beside it, and every line an
         // agent is handed is one it tries to act on.
         let chain =
@@ -131,7 +145,7 @@ extension NotebookFormat {
 
             \(taskList(tasks))
             Session id: \(id)
-            \(asked)
+            \(asked)\(others)
             Read each task file, what it depends on and its project's memory; the Done when list
             is the contract.\(chain) Set a task `status: active` when you start it and `done` once
             you have checked every item of its Done when.

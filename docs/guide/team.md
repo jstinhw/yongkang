@@ -7,11 +7,11 @@ skill of their own. They are files, not code: one Markdown file per agent in
 `.notebook/team/`, each with `name`, the `skills` that are its system prompt, and the
 `owns` line work is routed by. The one shipped agent, Allen, runs `designer` for design
 tasks, and is written there the first time a project with a notebook is opened; after that
-the folder is the truth, so editing a file — or deleting one — changes who gets dispatched. `Agents` in the rail
-lists the roster under the running sessions, and opening one shows the skill text the
-agent is actually handed plus its agents running right now.
+the folder is the truth, so editing a file — or deleting one — changes who gets dispatched.
+A roster member's page shows the skill text the agent is actually handed plus its agents running
+right now.
 
-`New → Agent…` adds one, two ways:
+`New → Team Member…` adds one, two ways:
 
 **Manual** is the form: a name, the skills to give it, and what it owns. The skill list is
 every skill this project can already load — `.claude/skills/` and `.agents/skills/` in the

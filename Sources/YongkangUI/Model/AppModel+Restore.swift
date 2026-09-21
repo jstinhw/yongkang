@@ -26,11 +26,11 @@ extension AppModel {
         let cards = project.snapshot.cards
         switch route {
         // Screens rather than objects: there is nothing for them to have lost.
-        case .board, .usage:
+        case .board, .usage, .agents, .memory(nil):
             return true
         case .project(let id): return cards.contains { $0.id == id && $0.kind == .project }
         case .task(let id): return cards.contains { $0.id == id && $0.kind == .task }
-        case .page(let id): return cards.contains { $0.id == id }
+        case .page(let id), .memory(let id?): return cards.contains { $0.id == id }
         case .entry(let id): return NotebookLoader.find(id, in: project.snapshot.entries) != nil
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         case .member(let name): return project.snapshot.team.contains { $0.name == name }

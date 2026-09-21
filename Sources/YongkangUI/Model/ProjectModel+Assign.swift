@@ -15,11 +15,14 @@ extension ProjectModel {
     /// list and the board cannot disagree about what a batch is. Also the one place that
     /// excludes work an open session already has, so a task never goes to two at once.
     ///
-    /// One session opens in the window. Several go to the board, whose chains list every
-    /// one of them: opening the first would leave the rest in the Agents list, which the
+    /// One session opens in the window. Several go to the project's Agents page, which draws
+    /// every one of them: opening the first would leave the rest in the sidebar, which the
     /// user may have hidden, and "Run 3 ready" would look like it ran one. Nil when there is
     /// nothing left to assign: every task is already done, or already has a session on it.
-    func assign(_ tasks: [NotebookCard], agent: AgentKind) -> Destination? {
+    ///
+    /// `reading` goes to every session this starts: the folders beyond this project it may read.
+    func assign(_ tasks: [NotebookCard], agent: AgentKind, reading: [URL] = []) -> Destination? {
+        let reading = agent.provider.readsOtherFolders ? reading : []
         let batch = NotebookIndex.withBlockers(tasks, in: snapshot.cards, excluding: assignedTaskIDs)
         guard !batch.isEmpty else { return nil }
         let routes = NotebookIndex.chains(batch).map { chain in
@@ -27,11 +30,12 @@ extension ProjectModel {
             // id files its reports under it, and a block it raises finds its way back here.
             let id = UUID()
             return addSession(
-                agent, id: id, prompt: NotebookFormat.workPrompt(tasks: chain, sessionID: id),
-                taskIDs: chain.map(\.id))
+                agent, id: id,
+                prompt: NotebookFormat.workPrompt(tasks: chain, sessionID: id, reading: reading.map(\.path)),
+                taskIDs: chain.map(\.id), reading: reading)
         }
         return routes.count == 1
             ? Destination(section: .agents, route: routes[0])
-            : Destination(section: .board, route: .board)
+            : Destination(section: .agents, route: .agents)
     }
 }

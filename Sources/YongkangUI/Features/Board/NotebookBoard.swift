@@ -108,7 +108,9 @@ package struct NotebookBoard: View {
                     }
                     .font(Typography.body).tint(Theme.tx2).cardSurface()
                 }
-                // Columns are bounded by how many projects there are, not by the longest
+                ForEach(roadmaps) { roadmap in RoadmapBand(roadmap: roadmap, cards: cards) { openCard(roadmap) } }
+                SectionLabel("Milestones", trailing: "\(chains.count)")
+                // Columns are bounded by how many milestones there are, not by the longest
                 // chain — but a narrow window can still run out of room for them, and a
                 // column you cannot scroll to is a column that is gone.
                 ScrollView(.horizontal) {
@@ -122,6 +124,13 @@ package struct NotebookBoard: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(DotGrid())
+    }
+
+    // MARK: - The roadmap
+
+    /// The goals the milestones below serve, still open ones only unless finished work is shown.
+    private var roadmaps: [NotebookCard] {
+        NotebookIndex.ordered(cards.filter { $0.kind == .roadmap && (showDone || $0.status != "done") })
     }
 
     // MARK: - The graph
@@ -164,7 +173,7 @@ package struct NotebookBoard: View {
         let known = Set(projects.map(\.id))
         let loose = all.filter { $0.project.map { !known.contains($0) } ?? true }
         if !loose.isEmpty {
-            built.append(chain(id: "unfiled", title: "Not in a project", tasks: loose))
+            built.append(chain(id: "unfiled", title: "Not in a milestone", tasks: loose))
         }
         return built.filter { !$0.rows.isEmpty }
     }
@@ -250,8 +259,25 @@ package struct NotebookBoard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                        .lineLimit(1).truncationMode(.tail)
+                    // The heading is the way to the milestone's own page — its repos, what runs
+                    // under them, and Pick all — now that the sidebar lists projects, not these.
+                    if let milestone = cards.first(where: { $0.id == chain.id && $0.kind == .project }) {
+                        Button {
+                            openCard(milestone)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                                    .lineLimit(1).truncationMode(.tail)
+                                Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(Theme.tx3)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open this milestone’s page")
+                    } else {
+                        Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                            .lineLimit(1).truncationMode(.tail)
+                    }
                     Spacer(minLength: 4)
                     Text("\(chain.done)/\(chain.total)")
                         .font(Typography.mono).foregroundStyle(Theme.tx3)

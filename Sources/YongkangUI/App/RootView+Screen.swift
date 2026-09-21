@@ -14,9 +14,28 @@ extension RootView {
         } else if model.selection == .board {
             boardView(for: project)
         } else if model.selection == .usage {
+            // What it opens is an agent, which lives under Agents.
             UsageBoard(
                 project: project.value, signature: project.usageSignature,
-                open: { model.selection = $0 })
+                open: { route in
+                    model.section = .agents
+                    model.selection = route
+                })
+        } else if model.selection == .agents {
+            ProjectAgentsPage(
+                project: project.value,
+                rows: project.value.agentRows(summary: project.summary, asking: model.attention),
+                summary: project.summary, ready: project.value.readyTasks, agents: agentChoice,
+                open: { model.selection = $0 },
+                openBoard: { model.go(to: Destination(section: .board, route: .board)) },
+                start: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
+                newAgent: { model.startingAgent = true })
+        } else if case .memory(let id)? = model.selection {
+            MemoryPage(
+                project: project.value, selected: id,
+                select: { model.selection = .memory($0) },
+                edit: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
+                add: { milestone in model.add(.memory, to: project, under: .project(milestone)) })
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
                 card: card, cards: project.cards, repos: project.services(of: card),
@@ -48,23 +67,29 @@ extension RootView {
             )
             .id(card.id)
         } else if let watched = model.selectedAgent(in: project) {
-            switch model.selection?.pane(of: watched.id) {
-            case .session:
-                terminal(for: watched)
-            default:
-                SessionTranscript(
-                    session: watched, cards: project.cards, blocks: project.snapshot.blocks,
-                    lines: model.agentTranscript,
-                    source: model.transcriptSource,
-                    openTask: {
-                        model.section = .board
-                        model.selection = .task($0)
-                    },
-                    openBlock: { model.selection = .block($0.id) },
-                    openSubagent: { subagent in model.selection = .subagent(session: watched.id, id: subagent.id) },
-                    send: { model.terminals.send($0, to: watched.id) }
-                )
-            }
+            let pane = model.selection?.pane(of: watched.id) ?? .session
+            AgentPage(
+                session: watched, project: project.value, summary: project.summary,
+                row: project.value.agentRows(summary: project.summary, asking: model.attention)
+                    .first { $0.route == .session(watched.id) },
+                pane: pane, asking: model.attention[watched.id], source: model.transcriptSource,
+                select: { model.selection = .session(watched.id, pane: $0) },
+                open: { route in
+                    // A task's page is the board's; everything else an agent points at is under Agents.
+                    if case .task = route { model.section = .board }
+                    model.selection = route
+                },
+                stop: { model.close(watched, in: project) },
+                content: {
+                    switch pane {
+                    case .session:
+                        terminal(for: watched)
+                    case .transcript:
+                        SessionTranscript(
+                            session: watched, lines: model.agentTranscript,
+                            send: { model.terminals.send($0, to: watched.id) })
+                    }
+                })
         } else if let found = model.selectedSubagent(in: project) {
             terminal(for: found.session, showing: found.subagent)
         } else if let member = model.selectedMember(in: project) {
@@ -181,7 +206,13 @@ extension RootView {
             agents: agentChoice,
             assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
             review: { model.go(to: project.startProductReview(agent: agent)) },
-            openCard: { card in model.selection = .task(card.id) },
+            openCard: { card in
+                switch card.kind {
+                case .task: model.selection = .task(card.id)
+                case .project: model.selection = .project(card.id)
+                default: model.selection = .page(card.id)
+                }
+            },
             openBlock: { model.selection = .block($0.id) },
             // The review is the Agents list's page, so the column goes with it — the same
             // swap the transcript makes the other way when it opens a task's board page.
