@@ -2,13 +2,16 @@ import AppKit
 import SwiftUI
 import YongkangCore
 
-/// The build order, one column per project, read downwards. A task sits under everything
-/// it waits on, so position *is* the dependency and no card has to spell it out.
+/// One column per project, read downwards, each an outline: a task is drawn under the one
+/// it waits on, and `BoardOutline` decides how far in. A line between two cards means there
+/// is really an edge between them — no line above a card means nothing is in its way.
 ///
-/// The screen this replaced laid the same graph out as dependency waves running left to
-/// right, which turned two straight chains into seven lanes and pushed four of them off
-/// the right edge. Columns are bounded by the number of projects instead of by the length
-/// of the longest chain, so nothing scrolls sideways.
+/// The board used to draw the same 1pt tick between *every* pair of neighbours, which
+/// claimed a chain wherever the sort happened to put two cards: three independent tasks read
+/// as a queue, and a card with two blockers read as having one. The screen before that laid
+/// the graph out as dependency waves running left to right, which turned two straight chains
+/// into seven lanes and pushed four of them off the right edge. Columns are bounded by the
+/// number of projects instead of by the longest chain, so nothing scrolls sideways.
 ///
 /// The other half of the tidying is that detail is spent where it is worth something:
 /// full cards only at the live edge of each chain — what is being designed, what is
@@ -155,7 +158,8 @@ package struct NotebookBoard: View {
         var built: [Chain] = projects.compactMap { project in
             let mine = all.filter { $0.project == project.id }
             guard !mine.isEmpty else { return nil }
-            return chain(id: project.id, title: project.title, tasks: mine)
+            return chain(
+                id: project.id, title: project.title, tasks: mine, waitsOn: waitsOn(project))
         }
         let known = Set(projects.map(\.id))
         let loose = all.filter { $0.project.map { !known.contains($0) } ?? true }
@@ -165,13 +169,31 @@ package struct NotebookBoard: View {
         return built.filter { !$0.rows.isEmpty }
     }
 
-    private func chain(id: String, title: String, tasks: [NotebookCard]) -> Chain {
+    private func chain(
+        id: String, title: String, tasks: [NotebookCard], waitsOn: [String] = []
+    ) -> Chain {
         let done = tasks.filter { $0.status == "done" }.count
         let shown = NotebookIndex.ordered(
             NotebookBoard.visible(tasks, showDone: showDone, reviewing: reviewing))
+        let byID = Dictionary(shown.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return Chain(
-            id: id, title: title, done: done, total: tasks.count,
-            rows: shown.map { Row(card: $0, lane: lane(of: $0), block: block(for: $0)) })
+            id: id, title: title, done: done, total: tasks.count, waitsOn: waitsOn,
+            rows: BoardOutline.place(shown, in: cards).compactMap { place in
+                byID[place.id].map {
+                    Row(card: $0, lane: lane(of: $0), block: block(for: $0), place: place)
+                }
+            })
+    }
+
+    /// The projects this one waits on that are not finished. A project dependency is said
+    /// once, at the top of the column, rather than on every card filed under it.
+    private func waitsOn(_ project: NotebookCard) -> [String] {
+        project.dependsOn.compactMap { id in
+            guard let blocker = cards.first(where: { $0.id == id }), blocker.kind == .project,
+                !NotebookIndex.isFinished(blocker, in: cards)
+            else { return nil }
+            return blocker.title
+        }
     }
 
     /// What a card gets to say about itself. Only the first four are worth a full card;
@@ -203,10 +225,7 @@ package struct NotebookBoard: View {
     /// otherwise put it on the main actor, and anything asking from elsewhere would trap.
     nonisolated static func isReady(_ card: NotebookCard, in cards: [NotebookCard]) -> Bool {
         card.dependsOn.allSatisfy { id in
-            guard let blocker = cards.first(where: { $0.id == id }) else { return true }
-            return blocker.kind == .project
-                ? NotebookIndex.isFinished(blocker, in: cards)
-                : blocker.status == "done"
+            !cards.contains { $0.id == id } || BoardOutline.cleared(id, in: cards)
         }
     }
 
@@ -229,34 +248,65 @@ package struct NotebookBoard: View {
 
     private func column(_ chain: Chain, inBatch: Set<String>) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                    .lineLimit(1).truncationMode(.tail)
-                Spacer(minLength: 4)
-                Text("\(chain.done)/\(chain.total)")
-                    .font(Typography.mono).foregroundStyle(Theme.tx3)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                        .lineLimit(1).truncationMode(.tail)
+                    Spacer(minLength: 4)
+                    Text("\(chain.done)/\(chain.total)")
+                        .font(Typography.mono).foregroundStyle(Theme.tx3)
+                }
+                HStack(spacing: 8) {
+                    MeterBar(value: chain.total == 0 ? 0 : Double(chain.done) / Double(chain.total))
+                    Text(chain.id).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
+                }
+                if !chain.waitsOn.isEmpty {
+                    NotebookStyle.chip("waits on " + chain.waitsOn.joined(separator: ", "))
+                        .lineLimit(1)
+                }
             }
-            HStack(spacing: 8) {
-                MeterBar(value: chain.total == 0 ? 0 : Double(chain.done) / Double(chain.total))
-                Text(chain.id).font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
-            }
-            .padding(.top, 8)
             .padding(.bottom, 14)
 
             ForEach(Array(chain.rows.enumerated()), id: \.element.id) { index, row in
-                if index > 0 { connector }
-                self.row(row, inBatch: inBatch)
+                if index > 0 { gap(before: row) }
+                laid(row, inBatch: inBatch)
             }
         }
         .frame(width: 300, alignment: .topLeading)
     }
 
-    /// The chain drawn as a chain. It carries no information the order does not already —
-    /// it is there so a column reads as one run of work rather than a stack of cards.
-    private var connector: some View {
+    /// The 10pt between two cards, and the one place the column says what waits on what. It
+    /// is a line only where there is really an edge — down from the ring above for a run,
+    /// down the fork's own column for a branch, and nothing at all for a card that waits on
+    /// nothing drawn above it.
+    @ViewBuilder private func gap(before row: Row) -> some View {
+        if row.place.tick {
+            rule(at: CGFloat(row.place.depth) * BoardOutline.step + 20)
+        } else if row.place.fork {
+            rule(at: CGFloat(row.place.depth - 1) * BoardOutline.step + 20)
+        } else {
+            Color.clear.frame(height: 10)
+        }
+    }
+
+    private func rule(at x: CGFloat) -> some View {
         Rectangle().fill(Theme.line2)
-            .frame(width: 1, height: 12)
-            .padding(.leading, 20)
+            .frame(width: 1, height: 10)
+            .padding(.leading, x)
+    }
+
+    /// A row at its indent, with the elbow hanging it off the card above and to the left.
+    private func laid(_ row: Row, inBatch: Set<String>) -> some View {
+        self.row(row, inBatch: inBatch)
+            .padding(.leading, CGFloat(row.place.depth) * BoardOutline.step)
+            .overlay(alignment: .topLeading) {
+                if row.place.fork {
+                    BoardOutline.Elbow(depth: row.place.depth, node: row.nodeY)
+                        .stroke(Theme.line2, lineWidth: 1)
+                        .frame(height: row.nodeY + 1)
+                        .allowsHitTesting(false)
+                }
+            }
     }
 
     // MARK: - Rows
@@ -270,7 +320,7 @@ package struct NotebookBoard: View {
             Button {
                 selected = NotebookBoard.picking(row.card, from: selected)
             } label: {
-                queued(row.card, inBatch: inBatch)
+                queued(row, inBatch: inBatch)
             }
             .buttonStyle(.plain)
             .contextMenu { menu }
@@ -307,14 +357,19 @@ package struct NotebookBoard: View {
 
     /// Still behind something. One line — its title is all there is to decide with, and
     /// picking it pulls in whatever it waits on anyway.
-    private func queued(_ card: NotebookCard, inBatch: Set<String>) -> some View {
+    private func queued(_ row: Row, inBatch: Set<String>) -> some View {
+        let card = row.card
         let isPicked = selected.contains(card.id)
         let inBatch = inBatch.contains(card.id)
-        return HStack(spacing: 9) {
-            Circle().strokeBorder(Theme.tx2.opacity(0.22), lineWidth: 2).frame(width: 15, height: 15)
-            Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
-            Spacer(minLength: 4)
-            if card.isDesignWork { RoleTile(role: "design", size: 20) }
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 9) {
+                Circle().strokeBorder(Theme.tx2.opacity(0.22), lineWidth: 2)
+                    .frame(width: 15, height: 15)
+                Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
+                Spacer(minLength: 4)
+                if card.isDesignWork { RoleTile(role: "design", size: 20) }
+            }
+            if let waits = alsoWaits(row) { waits.font(Typography.mono).padding(.leading, 24) }
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 7)
@@ -368,9 +423,7 @@ package struct NotebookBoard: View {
                 if card.isDesignWork { RoleTile(role: "design", size: 20) }
             }
             .padding(.top, 10)
-            if let waits = NotebookStyle.edge("waits on ", unknown(card), in: cards) {
-                waits.font(Typography.mono).padding(.top, 9)
-            }
+            if let waits = alsoWaits(row) { waits.font(Typography.mono).padding(.top, 9) }
             if let block = row.block {
                 footer(block)
             } else if row.lane == .review {
@@ -400,10 +453,13 @@ package struct NotebookBoard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Order says what a card waits on now, so the line is kept only for the one thing
-    /// order cannot show: an id that resolves to nothing, which is a typo in `depends_on`.
-    private func unknown(_ card: NotebookCard) -> [String] {
-        card.dependsOn.filter { id in !cards.contains { $0.id == id } }
+    /// The blockers the outline could not draw: a second parent, a task in another project,
+    /// one hidden by `Completed`, or an id that resolves to nothing — which shows in amber
+    /// and is how a typo in `depends_on` gets caught. "also" only when a line above already
+    /// says what this waits on.
+    private func alsoWaits(_ row: Row) -> Text? {
+        NotebookStyle.edge(
+            row.place.joined ? "also waits on " : "waits on ", row.place.also, in: cards)
     }
 
     private func footer(_ block: UserBlock) -> some View {
@@ -522,12 +578,14 @@ package struct NotebookBoard: View {
 }
 
 extension NotebookBoard {
-    /// One project's tasks in build order.
+    /// One project's tasks, laid out as an outline.
     struct Chain: Identifiable {
         let id: String
         let title: String
         let done: Int
         let total: Int
+        /// The unfinished projects this one waits on, by title.
+        let waitsOn: [String]
         let rows: [Row]
     }
 
@@ -536,8 +594,21 @@ extension NotebookBoard {
         let lane: Lane
         /// What is waiting on the user on this task, when something is.
         let block: UserBlock?
+        /// Where the outline puts it, and what it could not draw.
+        let place: BoardOutline.Placement
 
         var id: String { card.id }
+
+        /// How far down the row its status ring sits — where a line into it has to land.
+        /// The three row shapes pad differently, and an elbow that misses the ring by 6pt
+        /// reads as a mistake rather than a join.
+        var nodeY: CGFloat {
+            switch lane {
+            case .done: return 13.5
+            case .later: return 14.5
+            default: return 21
+            }
+        }
     }
 
     /// How much of a card is worth drawing, and what it says. The order is the order work

@@ -2,17 +2,31 @@
 
 ![The board, one column per project](../images/board.png)
 
-`Board` is one column per project, its tasks reading downwards in build order. A task sits
-under everything it waits on, so position is the dependency and no card has to spell it
-out — the only `waits on` line left is for an id nothing resolves to, which shows in
-amber, and is how you catch a typo in `depends_on`. Columns are bounded by how many
-projects you have rather than by the longest chain, so the board never scrolls sideways.
+`Board` is one column per project, each an outline read downwards. A task is drawn under
+the one it waits on, joined to it by a line, and **no line above a card means nothing is in
+its way** — that card can start now. Columns are bounded by how many projects you have
+rather than by the longest chain, so the board never scrolls sideways.
+
+A step in marks a *fork*, never a link. One task waiting on a card continues the run at the
+same indent; only a card with two or more waiting on it steps its children in, and each
+branch runs on flat from there. So indentation counts the forks on the path rather than the
+tasks, and a project five tasks deep costs one step, not five. Three steps is the ceiling.
+
+What position cannot show, the card says. A second blocker, a task in another project, one
+hidden by `Completed`, or an id that resolves to nothing all appear as a `waits on` line —
+`also waits on` when a line above already says what it waits on. An unresolvable id shows in
+amber, and is how you catch a typo in `depends_on`. A project that waits on another project
+says so once, as a chip under its column's heading.
 
 Detail goes where it is worth something. A whole card is spent on the live edge of each
 chain — what is being designed, what is waiting on your approval, what an agent is on,
 what is blocked, and whatever could start next — and everything finished or still queued
 behind something is one line. Clicking any of them picks it for a batch and dims what is
 unrelated; the arrow on a card opens its own page.
+
+Where a column has a choice about what to draw first, the shortest goes first: the work
+that could start now sits above the chain that cannot, and under a fork the branch that runs
+on longest is the one drawn directly beneath it.
 
 The inspector carries the batch: what you picked, what came along as a blocker, and in
 which order it will be built. The roadmap and projects are in the list column beside the

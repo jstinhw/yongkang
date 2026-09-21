@@ -123,7 +123,8 @@ package struct ProjectList: View {
     private var footNote: String {
         switch section {
         case .board:
-            return "Tasks live on the board, in their project's build order. The arrow on a card opens its page."
+            return
+                "A task on the board sits under the one it waits on. No line above a card means nothing is in its way. The arrow opens its page."
         case .agents:
             return
                 "A session opens its terminal. Each task under it opens its review: a green one is waiting for your review, one tagged needs you for your answer."
