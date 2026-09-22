@@ -82,9 +82,32 @@ package struct GrokProvider: AgentProvider {
         return split.isEmpty ? sample("grok", usage).map { [$0] } ?? [] : split
     }
 
-    /// No consent screen of Grok's has been captured, so none raises a notice.
+    /// 1.0.30 asks only in a folder with something of its own to load (an AGENTS.md, skills,
+    /// hooks), so whether it would ask is its own call, which `grok inspect` gives. Through the
+    /// login shell, as a session runs, so `grok` is on PATH.
+    package func trusts(_ folder: URL) async -> Bool? {
+        let line = AgentCommand.line(directory: folder.path, run: "exec grok inspect --json")
+        guard let output = try? await AsyncProcess.run(URL(fileURLWithPath: "/bin/zsh"), ["-ilc", line]),
+            output.status == 0
+        else { return nil }
+        return Self.projectTrusted(in: output.text)
+    }
+
+    /// Found by its key rather than by parsing the whole: a login shell may print before it.
+    static func projectTrusted(in output: String) -> Bool? {
+        guard let match = output.range(of: #""projectTrusted"\s*:\s*(true|false)"#, options: .regularExpression)
+        else { return nil }
+        return output[match].hasSuffix("true")
+    }
+
+    /// Captured in `Fixtures/grok/grok-1.0.30-trust-screen.ansi`. The question is Codex's word
+    /// for word; the answers are not.
     package func attentionReason(screen: String) -> String? {
-        nil
+        let text = AgentPrompt.visibleText(screen)
+        guard text.contains("do you trust the contents of this directory?"), text.contains("yes, proceed"),
+            text.contains("no, quit")
+        else { return nil }
+        return "Grok needs you to decide whether to trust this directory."
     }
 
     package var childView: ChildView? { nil }

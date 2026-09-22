@@ -98,7 +98,7 @@ import Testing
             "the project's Agents page shows both, even with the sidebar hidden")
     }
 
-    // Claude Code asks whether it may work in a folder before anything else, in every session.
+    // Every CLI asks whether it may work in a folder before anything else, in every session.
     @Test func anAgentNotYetAllowedInTheFolderIsAskedOnceBeforeAnyWork() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -106,7 +106,7 @@ import Testing
         var allowed = false
         project.trustRecord = { agent, _ in agent == .claude ? allowed : true }
 
-        await project.readTrust()
+        await project.readTrust(Set(AgentKind.allCases))
         #expect(project.untrusted == [.claude], "only the CLI whose record says no")
         #expect(project.askToTrust(.codex) == nil, "one that is allowed has nothing to ask")
         let destination = try #require(project.askToTrust(.claude))
@@ -117,10 +117,30 @@ import Testing
 
         #expect(await !project.trustGranted(by: asking.id), "still no: the answer was not yes")
         allowed = true
-        #expect(await !project.trustGranted(by: UUID()), "another session's answer lets it in, but closes nothing")
+        let other = running("Product", in: project)
+        #expect(await !project.trustGranted(by: other), "another session's answer lets it in, but closes nothing")
         #expect(project.untrusted.isEmpty)
         #expect(await project.trustGranted(by: asking.id), "the session that asked is done")
         #expect(project.trustSession == nil)
+    }
+
+    // A record Yongkang misreads, or one the CLI lost, must not leave the work unable to start.
+    @Test func aSessionOpenedToAskThatAsksNothingLetsItsAgentIn() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        project.trustRecord = { _, _ in false }
+        await project.readTrust([.agy])
+        #expect(!project.trustReadIsDue(), "a record is read at most every 30 s")
+        #expect(project.trustReadIsDue(now: Date().addingTimeInterval(31)))
+
+        _ = try #require(project.askToTrust(.agy))
+        let id = try #require(project.sessions.first).id
+        #expect(!project.trustSettled(by: id, asking: true), "still asking, so the user is still to answer")
+        #expect(project.trustSettled(by: id, asking: false), "up and asking nothing, so there is nothing to ask")
+        #expect(project.untrusted.isEmpty && project.trustSession == nil)
+        await project.readTrust([.agy])
+        #expect(project.untrusted.isEmpty, "let in for the rest of the run, whatever the record says")
     }
 
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {

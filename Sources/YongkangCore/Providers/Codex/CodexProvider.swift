@@ -90,6 +90,57 @@ package struct CodexProvider: AgentProvider {
         return delta.total <= 0 ? nil : UsageSample(at: at, model: cursor.model, tally: delta)
     }
 
+    package func trusts(_ folder: URL) async -> Bool? {
+        Self.trusts(folder, config: TrustedFolder.home(".codex/config.toml"))
+    }
+
+    /// 0.154.0 asks in every folder it has no answer for, and files a yes under the folder's
+    /// repo root — the main repository's, from a linked worktree — or the folder itself outside
+    /// a repo (`TrustedFolder.path`). A trusted root covers its whole repo; a trusted parent
+    /// outside one covers nothing.
+    static func trusts(_ folder: URL, config: URL) -> Bool? {
+        guard FileManager.default.fileExists(atPath: config.path) else { return false }
+        guard let toml = try? String(contentsOf: config, encoding: .utf8) else { return nil }
+        let trusted = trustedProjects(in: toml)
+        let path = TrustedFolder.path(of: folder)
+        return trusted.contains(path) || repoRoot(of: path).map(trusted.contains) == true
+    }
+
+    /// ponytail: a line scan for the one shape Codex writes, `[projects."<path>"]` with
+    /// `trust_level = "trusted"` under it, not a TOML parser. A path with a quote or a
+    /// backslash in it, or an entry written by hand as an inline table, reads as not trusted.
+    static func trustedProjects(in toml: String) -> Set<String> {
+        var table: String?
+        var trusted: Set<String> = []
+        for line in toml.split(whereSeparator: \.isNewline).map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            if line.hasPrefix("[") {
+                let header = line.hasPrefix("[projects.\"") && line.hasSuffix("\"]")
+                table = header ? String(line.dropFirst("[projects.\"".count).dropLast(2)) : nil
+            } else if let table, line.filter({ $0 != " " }) == "trust_level=\"trusted\"" {
+                trusted.insert(table)
+            }
+        }
+        return trusted
+    }
+
+    /// The nearest folder at or above `path` holding `.git`. In a linked worktree that is a file
+    /// naming `<main>/.git/worktrees/<name>`, and Codex files the answer under `<main>`.
+    private static func repoRoot(of path: String) -> String? {
+        var folder = URL(fileURLWithPath: path)
+        while folder.path != "/" {
+            let git = folder.appendingPathComponent(".git")
+            var isFolder: ObjCBool = false
+            if FileManager.default.fileExists(atPath: git.path, isDirectory: &isFolder) {
+                guard !isFolder.boolValue, let pointer = try? String(contentsOf: git, encoding: .utf8),
+                    let start = pointer.range(of: "gitdir: "), let end = pointer.range(of: "/.git/worktrees/")
+                else { return folder.path }
+                return String(pointer[start.upperBound..<end.lowerBound])
+            }
+            folder.deleteLastPathComponent()
+        }
+        return nil
+    }
+
     /// Captured in `Fixtures/codex/codex-0.154.0-trust-screen.ansi`.
     package func attentionReason(screen: String) -> String? {
         let text = AgentPrompt.visibleText(screen)

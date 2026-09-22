@@ -251,11 +251,40 @@ import YongkangCore
         enter(project, at: .session(session.id))
     }
 
+    /// Opens a session only to ask whether `agent` may work in the project's folder, while its
+    /// record says no (`ProjectModel.askToTrust`), and goes to it.
+    ///
+    /// ponytail: a CLI still asking nothing 20 s after it started is taken to have nothing to
+    /// ask (`trustSettled`). One that takes longer than that to draw its question is let in
+    /// early, and its work's sessions each ask instead, answered together by the registry. Its
+    /// session is left open either way: whatever it is showing may be the user's to finish.
+    func askToTrust(_ agent: AgentKind, in project: ProjectModel) {
+        guard foundAgents?.contains(agent) != false, let destination = project.askToTrust(agent) else { return }
+        go(to: destination)
+        settleTrust(in: project, after: .seconds(20))
+    }
+
     /// A question in a session cleared, so its CLI's record may say something new. The session
-    /// opened only to ask it (`ProjectModel.askToTrust`) is closed once it was answered yes, and
-    /// the window goes back to the board. After a no, the CLI exits by itself and stays to say so.
+    /// opened only to ask it is closed once it was answered yes. After a no, the CLI exits by
+    /// itself and stays to say so; a yes its record doesn't show is settled a moment later.
     func trustAnswered(_ session: CodeSession, in project: ProjectModel) async {
-        guard await project.trustGranted(by: session.id) else { return }
+        if await project.trustGranted(by: session.id) {
+            endTrustSession(session, in: project)
+        } else if session.id == project.trustSession {
+            settleTrust(in: project, after: .seconds(3))
+        }
+    }
+
+    private func settleTrust(in project: ProjectModel, after delay: Duration) {
+        guard let id = project.trustSession else { return }
+        Task {
+            try? await Task.sleep(for: delay)
+            _ = project.trustSettled(by: id, asking: attention[id] != nil)
+        }
+    }
+
+    /// Its work done, the session goes, and so does the window, back to the board it came from.
+    private func endTrustSession(_ session: CodeSession, in project: ProjectModel) {
         let watching = project === entered && selection?.pane(of: session.id) != nil
         close(session, in: project)
         if watching { go(to: Destination(section: .board, route: .board)) }
@@ -363,7 +392,7 @@ import YongkangCore
             if project === entered { showFinishedWork(in: project) }
             deliverUnblocks(in: project)
             await endFinishedSetups(in: project)
-            await project.readTrust()
+            if project.trustReadIsDue() { await project.readTrust(foundAgents ?? Set(AgentKind.allCases)) }
             project.reloadSessions()
         }
         reloadAgentTranscript()

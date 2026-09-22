@@ -14,12 +14,6 @@ import Testing
         return url
     }
 
-    /// What `getcwd` says inside `url`, spelled out rather than resolved, so the test and the
-    /// code under it can't agree by sharing a mistake.
-    private func physical(_ url: URL) -> String {
-        url.path.hasPrefix("/var/") ? "/private" + url.path : url.path
-    }
-
     @Test func readsTheAnswerFiledUnderTheFoldersRealPath() throws {
         let dir = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -28,15 +22,15 @@ import Testing
         try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
 
-        let yes = try config([physical(real): true], in: dir)
+        let yes = try config([physicalPath(real): true], in: dir)
         #expect(ClaudeCodeProvider.trusts(real, config: yes) == true)
         #expect(ClaudeCodeProvider.trusts(link, config: yes) == true, "a symlink is the folder it points at")
 
         let typed = try config([real.path: true], in: dir)
         #expect(ClaudeCodeProvider.trusts(real, config: typed) == false, "not under the path as typed")
-        let parent = try config([physical(dir): true], in: dir)
+        let parent = try config([physicalPath(dir): true], in: dir)
         #expect(ClaudeCodeProvider.trusts(real, config: parent) == false, "nor under a parent's")
-        #expect(ClaudeCodeProvider.trusts(real, config: try config([physical(real): false], in: dir)) == false)
+        #expect(ClaudeCodeProvider.trusts(real, config: try config([physicalPath(real): false], in: dir)) == false)
     }
 
     @Test func noRecordIsNoButAnUnreadableOneSaysNothing() throws {

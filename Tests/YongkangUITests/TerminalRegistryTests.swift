@@ -178,7 +178,7 @@ struct TerminalRegistryTests {
         model.enter(project)
         var allowed = false
         project.trustRecord = { agent, _ in agent == .claude ? allowed : true }
-        await project.readTrust()
+        await project.readTrust([.claude])
         // Claude Code 2.1.278's question, then what it draws once it has an answer.
         let id = UUID()
         project.addSession(

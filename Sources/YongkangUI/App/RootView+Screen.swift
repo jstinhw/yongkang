@@ -218,8 +218,7 @@ extension RootView {
         // into the folder the moment its record says no, rather than leaving "Run 0 ready" to
         // explain itself.
         .task(id: project.untrusted.contains(agent) ? project.id : nil) {
-            guard model.foundAgents?.contains(agent) != false else { return }
-            model.go(to: project.askToTrust(agent))
+            model.askToTrust(agent, in: project)
         }
     }
 

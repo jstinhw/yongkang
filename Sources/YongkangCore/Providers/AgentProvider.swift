@@ -86,11 +86,35 @@ package struct ChildView: Sendable {
     }
 }
 
+/// Where the CLIs file a folder's answer to their trust question.
+enum TrustedFolder {
+    /// The folder as `getcwd` gives it from inside, which is what Claude Code, Codex and Agy
+    /// file an answer under: symlinks resolved, `/private` kept. `realpath`, not
+    /// `resolvingSymlinksInPath`, which drops a leading `/private`.
+    static func path(of folder: URL) -> String {
+        guard let resolved = realpath(folder.path, nil) else { return folder.path }
+        defer { free(resolved) }
+        return String(cString: resolved)
+    }
+
+    /// A CLI's JSON settings. Empty when there is no file yet, which is a CLI that has never
+    /// been allowed anywhere; nil when there is one it can't read, such as one caught mid-write.
+    static func json(at url: URL) -> [String: Any]? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    static func home(_ path: String) -> URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(path)
+    }
+}
+
 /// The question a terminal is asking the user, read off what it has rendered. SwiftTerm has
 /// already applied the escape sequences and joined split PTY writes by then.
 package enum AgentPrompt {
     /// Every provider is asked, not only the session's own: the terminal doesn't know which CLI
-    /// drew it, and no two CLIs ask the same question.
+    /// drew it, and no two CLIs draw the same question with the same answers.
     package static func reason(in screen: String) -> String? {
         AgentKind.allCases.lazy.compactMap { $0.provider.attentionReason(screen: screen) }.first
     }

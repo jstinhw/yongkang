@@ -37,9 +37,25 @@ package struct AgyProvider: AgentProvider {
         []
     }
 
-    /// No consent screen of Agy's has been captured, so none raises a notice.
+    package func trusts(_ folder: URL) async -> Bool? {
+        Self.trusts(folder, settings: TrustedFolder.home(".gemini/antigravity-cli/settings.json"))
+    }
+
+    /// 1.2.4 asks in every folder it has no answer for, and files a yes as the folder's own
+    /// path (`TrustedFolder.path`) in `trustedWorkspaces`: not its repo's root, and a trusted
+    /// parent covers nothing.
+    static func trusts(_ folder: URL, settings: URL) -> Bool? {
+        guard let object = TrustedFolder.json(at: settings) else { return nil }
+        return (object["trustedWorkspaces"] as? [String])?.contains(TrustedFolder.path(of: folder)) == true
+    }
+
+    /// Captured in `Fixtures/agy/agy-1.2.4-trust-screen.ansi`.
     package func attentionReason(screen: String) -> String? {
-        nil
+        let text = AgentPrompt.visibleText(screen)
+        guard text.contains("do you trust the contents of this project?"), text.contains("yes, i trust this folder"),
+            text.contains("no, exit")
+        else { return nil }
+        return "Agy needs you to decide whether to trust this folder."
     }
 
     package var childView: ChildView? { nil }

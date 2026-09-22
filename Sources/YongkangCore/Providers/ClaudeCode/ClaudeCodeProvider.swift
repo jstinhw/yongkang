@@ -71,28 +71,15 @@ package struct ClaudeCodeProvider: AgentProvider {
     }
 
     package func trusts(_ folder: URL) async -> Bool? {
-        Self.trusts(
-            folder, config: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json"))
+        Self.trusts(folder, config: TrustedFolder.home(".claude.json"))
     }
 
-    /// The answer is kept in `~/.claude.json`, under the folder's own path as `getcwd` gives
-    /// it — symlinks resolved, `/private` kept — and not under its repo's root or a parent's.
+    /// 2.1.278 keeps the answer in `~/.claude.json`, under the folder's own path
+    /// (`TrustedFolder.path`), and not under its repo's root or a parent's.
     static func trusts(_ folder: URL, config: URL) -> Bool? {
-        // No file yet is a Claude Code that has never been allowed anywhere.
-        guard FileManager.default.fileExists(atPath: config.path) else { return false }
-        // One mid-write, or unreadable, says nothing either way.
-        guard let data = try? Data(contentsOf: config),
-            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        else { return nil }
-        let entry = (object["projects"] as? [String: Any])?[physicalPath(of: folder)] as? [String: Any]
+        guard let object = TrustedFolder.json(at: config) else { return nil }
+        let entry = (object["projects"] as? [String: Any])?[TrustedFolder.path(of: folder)] as? [String: Any]
         return entry?["hasTrustDialogAccepted"] as? Bool == true
-    }
-
-    /// `realpath`, not `resolvingSymlinksInPath`, which drops a leading `/private`.
-    private static func physicalPath(of folder: URL) -> String {
-        guard let resolved = realpath(folder.path, nil) else { return folder.path }
-        defer { free(resolved) }
-        return String(cString: resolved)
     }
 
     /// The question's wording changes between versions, but the choice that answers it has

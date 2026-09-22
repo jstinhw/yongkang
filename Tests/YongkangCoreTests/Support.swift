@@ -11,6 +11,13 @@ func makeTemporaryDirectory() throws -> URL {
     return dir
 }
 
+/// What `getcwd` says inside `url`, which is what the CLIs file a trust answer under. Spelled
+/// out rather than resolved, so a test and the code under it can't agree by sharing a mistake:
+/// the temporary directory is under `/var`, a symlink to `/private/var`.
+func physicalPath(_ url: URL) -> String {
+    url.path.hasPrefix("/var/") ? "/private" + url.path : url.path
+}
+
 /// The contents of `Fixtures/<path>`, e.g. `fixture("codex/trust-screen.ansi")`.
 func fixture(_ path: String) throws -> String {
     guard let url = Bundle.module.url(forResource: "Fixtures/\(path)", withExtension: nil) else {

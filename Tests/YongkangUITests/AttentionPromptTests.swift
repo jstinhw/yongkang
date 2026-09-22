@@ -29,13 +29,16 @@ struct AttentionPromptTests {
         #expect(view.attentionReason != nil, "detect the actual cursor-addressed Codex trust screen")
     }
 
-    // Each rendered capture, asked of each provider: a question is its own CLI's alone. Claude
-    // Code 2.1.278 lays its words out with cursor moves too.
+    // Each rendered capture, asked of each provider: a question is its own CLI's alone, even
+    // Grok's, which is Codex's word for word with other answers. Claude Code 2.1.278 and Grok
+    // lay their words out with cursor moves too.
     @Test(arguments: AgentKind.allCases)
     func onlyTheAskingCLIClaimsItsTrustScreen(kind: AgentKind) throws {
         let captures: [(file: String, asker: AgentKind)] = [
             ("codex/codex-0.154.0-trust-screen.ansi", .codex),
             ("claude/claude-2.1.278-trust-screen.ansi", .claude),
+            ("grok/grok-1.0.30-trust-screen.ansi", .grok),
+            ("agy/agy-1.2.4-trust-screen.ansi", .agy),
         ]
         for capture in captures {
             let view = makeView()

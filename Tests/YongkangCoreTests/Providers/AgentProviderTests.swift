@@ -15,6 +15,8 @@ import Testing
         ("Do you trust the contents of this directory?\n› 1. Yes, continue\n  2. No, quit", .codex),
         ("Do you trust the files in this folder?\n❯ 1. Yes, I trust this folder\n  2. No, exit", .claude),
         ("Is this a project you created or one you trust?\n❯ No, exit\n  Yes, I trust this folder", .claude),
+        ("Do you trust the contents of this directory?\n› Yes, proceed\n  No, quit", .grok),
+        ("Do you trust the contents of this project?\n> Yes, I trust this folder\n  No, exit", .agy),
         ("Documentation: Do you trust the contents of this directory?", nil),
     ]
 

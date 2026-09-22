@@ -29,10 +29,14 @@ import YongkangCore
     /// message records it here too, or the poll would type "Unblocked" over it.
     var deliveredBlocks: Set<String> = []
     /// The agents whose CLI's own record doesn't allow it in this folder yet: a session of one
-    /// would ask before anything else. See `readTrust`.
-    private(set) var untrusted: Set<AgentKind> = []
+    /// would ask before anything else. Written only by `ProjectModel+Trust`, like the rest here.
+    var untrusted: Set<AgentKind> = []
     /// The session opened only for that question, until it is answered. See `askToTrust`.
     var trustSession: UUID?
+    /// Let in for the rest of this run without a record that says so. See `trustSettled`.
+    @ObservationIgnored var allowedThisRun: Set<AgentKind> = []
+    /// When the records were last read. See `trustReadIsDue`.
+    @ObservationIgnored var lastTrustRead = Date.distantPast
     /// Each CLI's record of whether it may work in a folder. The tests stand in for it.
     @ObservationIgnored var trustRecord: (AgentKind, URL) async -> Bool? = { await $0.provider.trusts($1) }
     /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
@@ -177,21 +181,6 @@ import YongkangCore
         notebookRead = read
         await read.value
         notebookRead = nil
-    }
-
-    /// Asks each CLI's own record again whether it may work here. One that can't be read right
-    /// now leaves its agent as it was.
-    ///
-    /// ponytail: Claude Code's record is the whole of `~/.claude.json`, parsed on every reload of
-    /// every project. Skip the parse while the file's modification date holds, if it ever shows
-    /// in a profile.
-    func readTrust() async {
-        var untrusted = self.untrusted
-        for agent in AgentKind.allCases {
-            guard let trusted = await trustRecord(agent, directory) else { continue }
-            if trusted { untrusted.remove(agent) } else { untrusted.insert(agent) }
-        }
-        if untrusted != self.untrusted { self.untrusted = untrusted }
     }
 
     /// What each agent session has spawned and recorded since the last poll. The reader reads

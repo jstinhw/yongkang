@@ -24,7 +24,7 @@ value is the executable's name on PATH, which `AgentKind.installed` looks for.
 | `transcript(at:)` | A transcript's lines as the viewer shows them (Task, Tool, Result, Reply) | `AppModel.reloadAgentTranscript` |
 | `usage(at:) async` | Every turn's spend in a usage file, parsing only what's new | `AgentUsage.spends`, `LeadCoordination.load` |
 | `attentionReason(screen:)` | Why the rendered terminal is waiting on the user, such as a trust question | `AgentPrompt.reason`, which asks every provider |
-| `trusts(_:) async` | Whether the CLI's own record lets it work in a folder, so its sessions there ask nothing. Nil when the record can't be read; true by default. Claude Code reads `~/.claude.json` | `ProjectModel.readTrust`: the board's Assign buttons wait for it, and the board opens a session to ask |
+| `trusts(_:) async` | Whether the CLI's own record lets it work in a folder, so its sessions there ask nothing. Nil when the record can't be read; true by default. Claude Code reads `~/.claude.json`, Codex `~/.codex/config.toml`, Agy `~/.gemini/antigravity-cli/settings.json`, and Grok asks `grok inspect` | `ProjectModel.readTrust`: the board's Assign buttons wait for it, and the board opens a session to ask |
 | `childView` | The CLI's child-agent picker: its command (`/tasks`, `/subagents`), how to recognise it on screen, and the row that goes back to the session. Nil when there's none | `TerminalRegistry.showChild`, which does the typing and key-walking |
 
 **State lives in actors.** A provider is a `Sendable` struct, and the ones with something to
@@ -89,6 +89,11 @@ how to scrub a capture.
      **Action required** bar appears. Nil until one has been captured. Only a question about
      the folder: the user's answer in one session is typed into the folder's other sessions of
      that CLI still asking it.
+   - `trusts`: where the CLI records a folder's answer, and under which path: its own, its repo's
+     root, symlinks resolved or not. Find out by answering yes in a scratch home (`CODEX_HOME`,
+     `GROK_HOME`, or a copied `~/.claude.json` under `CLAUDE_CONFIG_DIR`) and reading what it
+     wrote. A wrong guess isn't fatal: a session opened to ask that asks nothing lets the agent in
+     for the rest of the run. Leave the default (true) for a CLI that never asks.
    - `childView`: nil unless the CLI has a live child-agent picker.
 2. **The kind.** In `Providers/AgentKind.swift`, add the case, named after the executable, and
    its arm in `provider`. That switch is exhaustive, so the compiler points at it.
