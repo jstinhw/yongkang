@@ -3,7 +3,7 @@ import SwiftUI
 import YongkangCore
 
 /// One agent: what it is on and where it has got to, its terminal or its transcript, and beside
-/// them what it is waiting on you for, the task's Done when, what it can reach and what it spawned.
+/// them what it is waiting on you for, the task's Done when and what it spawned.
 /// Whichever pane is showing, the header and the column beside it stay put.
 package struct AgentPage<Content: View>: View {
     let session: CodeSession
@@ -98,7 +98,7 @@ package struct AgentPage<Content: View>: View {
 }
 
 /// The column beside an agent: what it is waiting on you for first, then how far its task has
-/// got, the folders it can reach, and the agents it spawned.
+/// got, and the agents it spawned.
 struct AgentInspector: View {
     let session: CodeSession
     let project: Project
@@ -126,7 +126,6 @@ struct AgentInspector: View {
                     let waiting = summary.waiting(for: session)
                     if !waiting.isEmpty { forReview(waiting) }
                     if let task { doneWhen(task) }
-                    access
                     if !session.subagents.isEmpty { subagents }
                 }
                 .padding(18)
@@ -236,43 +235,6 @@ struct AgentInspector: View {
                 }
             }
         }
-    }
-
-    /// The folder it works in, and any it was given to read beside it.
-    private var access: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            SectionLabel("Access", trailing: "\(session.reading.count + 1) folder\(session.reading.isEmpty ? "" : "s")")
-            VStack(spacing: 0) {
-                folder(project.directory, "edits", Theme.accent)
-                ForEach(session.reading, id: \.self) { url in
-                    Rectangle().fill(Theme.line).frame(height: 1)
-                    folder(url, "reads", Theme.tx2)
-                }
-            }
-            .cardSurface(radius: 10, padding: 0)
-            Text(
-                session.reading.isEmpty
-                    ? "Given no other folders when it started."
-                    : "It changes \(project.name) only. Approving in Review commits there."
-            )
-            .font(Typography.caption).foregroundStyle(Theme.tx3)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func folder(_ url: URL, _ mode: String, _ tint: Color) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Theme.tx3)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(url.lastPathComponent).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                Text(url.path).font(Typography.monoCaption).foregroundStyle(Theme.tx3)
-                    .lineLimit(1).truncationMode(.head)
-            }
-            Spacer(minLength: 4)
-            Text(mode).font(Typography.caption(.semibold)).foregroundStyle(tint)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
     }
 
     private var subagents: some View {

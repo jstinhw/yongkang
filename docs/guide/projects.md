@@ -19,7 +19,7 @@ out with a running session — each with what is happening on it and who is on i
 
 Click a project to see it in the section you are in: its board under Board, its running
 sessions side by side under Agents. Click a session to open it — its terminal or its transcript,
-with its task's Done when, what it can reach and what it spawned beside them. Under Agents each
+with its task's Done when and what it spawned beside them. Under Agents each
 project also has a **Memory** row: what its agents decided and learned, filed by milestone,
 which every agent reads before it starts. **Usage**, pinned under every project, is what all of
 their agents have spent, split by project, model and agent. Right-click a project to reveal its
@@ -59,7 +59,7 @@ Tick any other open project, or any folder, for it to read as well. Claude Code,
 are handed each one with `--add-dir`, and the prompt tells the agent to change nothing there:
 Review only sees, and only commits, the project it works in. Grok takes no folder beside its own,
 so the list is off for it, and Codex makes such a folder writable rather than read-only — the
-prompt is what keeps it to reading. The agent's page lists what it can reach under **Access**.
+prompt is what keeps it to reading.
 
 ## The Agent switch
 

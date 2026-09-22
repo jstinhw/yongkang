@@ -68,7 +68,7 @@ its subagents are on, and the button that acts on it. Work is started from the b
 on it**: the session it was assigned to, and any subagent working it.
 
 Clicking a session opens it: its live terminal or its transcript, one switch apart, with its
-task's Done when, the folders it can reach, what it is waiting on you for and the subagents it
+task's Done when, what it is waiting on you for and the subagents it
 dispatched beside them. Once a task is done and its files wait for your approval, the session's
 row turns green — "ready for review" — and its page lists the task under **Waiting for your
 review**, which opens the task and its review — see [Review](review.md). A session blocked on one

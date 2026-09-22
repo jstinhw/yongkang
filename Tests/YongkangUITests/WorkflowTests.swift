@@ -69,7 +69,7 @@ import Testing
 
         _ = project.assign([try card("wire-auth", in: project)], agent: .claude, reading: [other])
         let session = try #require(project.sessions.first)
-        #expect(session.reading == [other], "the agent page lists what it can reach")
+        #expect(session.reading == [other], "the session keeps the folder it was given")
         #expect(session.line.contains("--add-dir '\(other.path)'"), "Claude Code is handed the folder")
         #expect(session.line.contains("Change nothing there"), "and told it is for reading")
 

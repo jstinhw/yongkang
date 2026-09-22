@@ -88,8 +88,7 @@ for.
      the agent you picked. Its row in the sidebar is the session — **Codex**, say —
      reading **working** and the task's title.
    - The toolbar's agent is unchanged.
-   - Beside the terminal, the page lists the task's **Done when** and, under **Access**, the one
-     folder it works in.
+   - Beside the terminal, the page lists the task's **Done when**.
    - Back on the board, the card has a **wip** pill and can't be picked again.
    - Two other ways in: the ↗ on a card opens the task page, which has its own picker and
      **Assign** button; a milestone's heading opens its page, whose **Pick all** takes every
@@ -217,9 +216,8 @@ for.
       for a task that is neither done nor already with a session. Open a done task: they grey
       out.
     - **Agent → New Agent…**, `⌘N`, opens the New Agent sheet from any screen. Pick a ready task,
-      tick another open project under **Can also read**, and start it: the agent's page lists
-      both folders under **Access**, and `ps -ef | grep add-dir` shows the second on its
-      command line. With Grok picked, the folder list is off.
+      tick another open project under **Can also read**, and start it: `ps -ef | grep add-dir`
+      shows the second on its command line. With Grok picked, the folder list is off.
     - **File → New Project…** is `⇧⌘N`, and **Open Folder…** `⌘O`.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
