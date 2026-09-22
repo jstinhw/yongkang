@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The list's right edge, which you drag: left narrows the list to its narrowest, and past that
-/// shuts it; dragged back out from beside the rail, a shut list opens again. What `NSSplitView`
+/// The list's right edge, which you drag: the edge follows the pointer down to the list's
+/// narrowest, and past that the list shuts; dragged back out from beside the rail, it opens again
+/// under the pointer. What `NSSplitView`
 /// does for a collapsible pane, drawn by hand because the list is not a native split pane — see
 /// `RootView.chrome`.
 package struct ListDivider: View {
@@ -12,7 +13,8 @@ package struct ListDivider: View {
     /// from there rather than added up.
     @State private var start: Double?
 
-    static let minWidth: Double = 220
+    /// Narrow enough that a project's name still shows its first few letters.
+    static let minWidth: Double = 180
     static let maxWidth: Double = 560
 
     package init(width: Binding<Double>, hidden: Binding<Bool>) {
@@ -52,12 +54,13 @@ package struct ListDivider: View {
             }
     }
 
-    /// Where a drag that began with the list `from` wide and has moved `by` leaves it: open at a
-    /// width it allows, or shut (nil). Short of its narrowest the list holds there; well past it,
-    /// the drag means shut — the snap a collapsible `NSSplitView` pane makes.
+    /// Where a drag that began with the list `from` wide and has moved `by` leaves it: open where
+    /// the pointer is, or shut (nil) once the pointer is past its narrowest. It never holds at
+    /// its narrowest while the pointer goes on without it — the edge and the pointer part only at
+    /// the widest, where there is nowhere left to go.
     static func dragged(from: Double, by: Double) -> Double? {
         let proposed = from + by
-        guard proposed >= minWidth * 0.6 else { return nil }
-        return min(max(proposed, minWidth), maxWidth)
+        guard proposed >= minWidth else { return nil }
+        return min(proposed, maxWidth)
     }
 }

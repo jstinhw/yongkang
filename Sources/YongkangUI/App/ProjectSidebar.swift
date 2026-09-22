@@ -123,12 +123,12 @@ package struct ProjectSidebar: View {
         .padding(.vertical, 12)
     }
 
-    /// What the three colours mean, since they are the whole of what a row says at a glance.
+    /// What the three colours mean, since they are the whole of what a row says at a glance. In
+    /// a list dragged narrow the keys stack rather than break inside their words.
     private var legend: some View {
-        HStack(spacing: 12) {
-            key(Theme.amber, "needs you")
-            key(Theme.green, "to review")
-            key(Theme.accent, "working")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { keys }
+            VStack(alignment: .leading, spacing: 4) { keys }
         }
         .font(Typography.caption)
         .foregroundStyle(Theme.tx3)
@@ -138,11 +138,18 @@ package struct ProjectSidebar: View {
         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
 
+    @ViewBuilder private var keys: some View {
+        key(Theme.amber, "needs you")
+        key(Theme.green, "to review")
+        key(Theme.accent, "working")
+    }
+
     private func key(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 6, height: 6)
             Text(text)
         }
+        .fixedSize()
     }
 
     // MARK: - Rows

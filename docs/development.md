@@ -206,9 +206,10 @@ for.
     - **View → Hide List**, `⌘\`, collapses the sidebar, and the toolbar's own button
       agrees with it. The item's title flips to **Show List**. Clicking any rail icon, the
       current one included, brings the list back.
-    - Drag the sidebar's right edge: the pointer is a resize cursor over it. Left narrows the
-      list until it holds at its narrowest; keep going and it shuts, and **View** reads **Show
-      List**. Drag from just right of the rail and it opens again.
+    - Drag the sidebar's right edge: the pointer is a resize cursor over it. The edge follows
+      the pointer down to the list's narrowest, 180pt, and the moment the pointer goes past, the
+      list shuts and **View** reads **Show List**. Drag from just right of the rail and it opens
+      again under the pointer. The legend stacks rather than breaking its words.
     - **Agent → Assign Task** and **Assign Task To ▸** are lit only while a task page is open
       for a task that is neither done nor already with a session. Open a done task: they grey
       out.

@@ -120,8 +120,8 @@ One window, and three things side by side inside it (`RootView.chrome`):
 ```
 HStack
 ├── Rail                       64pt, fixed: Board, Agents
-├── ProjectSidebar             @AppStorage listWidth, 220–560, opens at 268; absent while listHidden
-├── ListDivider                1pt line, 9pt grip: drag to resize, past 60% of the narrowest to shut
+├── ProjectSidebar             @AppStorage listWidth, 180–560, opens at 268; absent while listHidden
+├── ListDivider                1pt line, 9pt grip: drag to resize, past the narrowest to shut
 └── work                       Usage (every project's), screen(for:) the picked project, or NothingPicked
                                .navigationTitle + .navigationSubtitle + .toolbar
 ```
@@ -149,8 +149,9 @@ HStack
   opened the list at its minimum and handed back no width, so the list could not be dragged
   narrower than it opened, dragged shut, or reopened at the width it was left at.
   `ListDivider` does those: it is the list's edge, stores the width in `@AppStorage("listWidth")`,
-  holds the list at its narrowest and shuts it when dragged well past that, the way a
-  collapsible `NSSplitView` pane snaps, and opens it again when dragged out from the rail.
+  follows the pointer down to the list's narrowest and shuts it the moment the pointer goes past
+  — no hold at the narrowest with the pointer carrying on, the gap a collapsible `NSSplitView`
+  pane leaves — and opens it again under the pointer when dragged out from the rail.
   `ListDivider.dragged(from:by:)` is that rule, which `ChromeTests` pins. What is still missing
   from a native sidebar: the collapse animation and a VoiceOver structure that says "sidebar".
 - **The top bar is the window's toolbar.** `RootView+Toolbar.swift` builds it: the screen's

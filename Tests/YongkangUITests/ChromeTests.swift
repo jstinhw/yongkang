@@ -67,14 +67,14 @@ import Testing
 
     /// git is read for every open project now, so the sidebar can count what waits for review in
     /// each — but still at most every 6 s a project, unless you are in it and it has to be now.
-    /// The list's edge, dragged: it narrows to its narrowest and holds there, shuts well past
-    /// that, and opens again from shut.
+    /// The list's edge, dragged: it follows the pointer down to the list's narrowest, shuts past
+    /// that rather than holding there, and opens again under the pointer.
     @Test func draggingTheListsEdgeNarrowsItThenShutsIt() {
         #expect(ListDivider.dragged(from: 268, by: -30) == 238)
-        #expect(ListDivider.dragged(from: 268, by: -100) == ListDivider.minWidth, "holds at its narrowest")
-        #expect(ListDivider.dragged(from: 268, by: -150) == nil, "then shuts")
-        #expect(ListDivider.dragged(from: 0, by: 60) == nil, "a nudge from shut stays shut")
-        #expect(ListDivider.dragged(from: 0, by: 150) == ListDivider.minWidth, "a real drag opens it")
+        #expect(ListDivider.dragged(from: 268, by: -88) == ListDivider.minWidth, "down to its narrowest")
+        #expect(ListDivider.dragged(from: 268, by: -89) == nil, "and one point past it, shut")
+        #expect(ListDivider.dragged(from: 0, by: 120) == nil, "a nudge from shut stays shut")
+        #expect(ListDivider.dragged(from: 0, by: 200) == 200, "a real drag opens it under the pointer")
         #expect(ListDivider.dragged(from: 400, by: 400) == ListDivider.maxWidth)
     }
 
