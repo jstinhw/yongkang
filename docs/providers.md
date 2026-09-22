@@ -78,7 +78,9 @@ how to scrub a capture.
    in an actor the provider owns, like `UsageReader`. Take a home folder in the reader so tests
    can point it at a temporary one.
    - `launch`: how the CLI takes a session id (a flag, a marker in the prompt, or nothing), an
-     opening prompt, and a deny-commit flag if it has one. `AgentCommandTests` pins every line
+     opening prompt, and a deny-commit flag if it has one. Turn off anything it would stop to
+     ask before the prompt that isn't about the folder, such as Codex's update offer
+     (`-c check_for_update_on_startup=false`): every session of a batch would stop on it. `AgentCommandTests` pins every line
      byte for byte, so add a case there.
    - `ask`: the CLI's one-shot mode, answering on stdout with no session. The name it gives
      a new project is read off the last line printed, so a CLI that ends with anything else

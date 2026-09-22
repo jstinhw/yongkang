@@ -21,10 +21,15 @@ package struct CodexProvider: AgentProvider {
     /// session's id rides at the end of the prompt instead, as `marker`.
     package var readsOtherFolders: Bool { true }
 
+    /// Never offers its own update. 0.154.0 asks before anything else in every session while it
+    /// is behind, and taking the offer quits the session to install: each session of a batch
+    /// would stop on it, and the one answered would drop its task. Updating is the user's, in a
+    /// terminal of their own.
+    ///
     /// ponytail: Codex makes an `--add-dir` folder writable, not read-only. The prompt asks it to
     /// change nothing there; a sandbox rule would be the enforcement if that is not enough.
     package func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String] {
-        reading.map { "--add-dir \(AgentCommand.quoted($0))" }
+        ["-c check_for_update_on_startup=false"] + reading.map { "--add-dir \(AgentCommand.quoted($0))" }
             + (prompt.map { text in [AgentCommand.quoted(sessionID.map { "\(text)\n\n\(Self.marker($0))" } ?? text)] }
                 ?? [])
     }

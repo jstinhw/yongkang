@@ -5,6 +5,8 @@ import Testing
 
 @Suite struct AgentCommandTests {
     static let sid = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+    /// Codex's update offer, which would stop every session before its prompt, turned off.
+    static let noUpdate = "-c check_for_update_on_startup=false"
 
     struct LineCase: CustomTestStringConvertible {
         var directory = "/a"
@@ -21,7 +23,7 @@ import Testing
 
     static let lineCases = [
         LineCase(directory: "/a b", agent: .claude, prompt: nil, expected: "cd '/a b' && exec claude"),
-        LineCase(agent: .codex, prompt: "hi there", expected: "cd '/a' && exec codex 'hi there'"),
+        LineCase(agent: .codex, prompt: "hi there", expected: "cd '/a' && exec codex \(Self.noUpdate) 'hi there'"),
         LineCase(
             agent: .grok, prompt: "hi", sessionID: sid,
             expected: "cd '/a' && exec grok --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'"),
@@ -49,7 +51,8 @@ import Testing
             expected: "cd '/a' && exec claude --add-dir '/b c' --session-id aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee 'hi'",
             why: "--add-dir is variadic, so it goes ahead of a flag that ends it — never next to the prompt"),
         LineCase(
-            agent: .codex, prompt: "hi", reading: ["/b"], expected: "cd '/a' && exec codex --add-dir '/b' 'hi'"),
+            agent: .codex, prompt: "hi", reading: ["/b"],
+            expected: "cd '/a' && exec codex \(Self.noUpdate) --add-dir '/b' 'hi'"),
         LineCase(
             agent: .agy, prompt: "hi", reading: ["/b", "/c"],
             expected: "cd '/a' && exec agy --add-dir '/b' --add-dir '/c' --prompt-interactive 'hi'"),
@@ -102,7 +105,7 @@ import Testing
     @Test func codexCarriesTheSessionIDInItsPrompt() {
         let codexLine = AgentCommand.line(directory: "/a", agent: .codex, prompt: "hi", sessionID: Self.sid)
         #expect(
-            codexLine.hasPrefix("cd '/a' && exec codex 'hi"),
+            codexLine.hasPrefix("cd '/a' && exec codex \(Self.noUpdate) 'hi"),
             "codex never understands --session-id, so the flag is never passed")
         #expect(
             codexLine.contains(CodexProvider.marker(Self.sid)),
