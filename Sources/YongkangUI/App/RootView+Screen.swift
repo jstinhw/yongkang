@@ -183,7 +183,9 @@ extension RootView {
 
     /// Every Assign button starts on the toolbar's agent and can pick another for itself.
     private var agentChoice: AgentChoice {
-        AgentChoice(initial: agent, found: model.foundAgents, lookUp: model.lookUpAgents)
+        AgentChoice(
+            initial: agent, found: model.foundAgents, untrusted: model.entered?.untrusted ?? [],
+            lookUp: model.lookUpAgents)
     }
 
     private func boardView(for project: ProjectModel) -> some View {
@@ -212,6 +214,13 @@ extension RootView {
             },
             remove: { card in model.remove(card, in: project) }
         )
+        // The board is where work is handed over, so it asks for the toolbar's agent to be let
+        // into the folder the moment its record says no, rather than leaving "Run 0 ready" to
+        // explain itself.
+        .task(id: project.untrusted.contains(agent) ? project.id : nil) {
+            guard model.foundAgents?.contains(agent) != false else { return }
+            model.go(to: project.askToTrust(agent))
+        }
     }
 
     /// One task's review, opened from the task's row under its session.

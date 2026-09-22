@@ -98,6 +98,31 @@ import Testing
             "the project's Agents page shows both, even with the sidebar hidden")
     }
 
+    // Claude Code asks whether it may work in a folder before anything else, in every session.
+    @Test func anAgentNotYetAllowedInTheFolderIsAskedOnceBeforeAnyWork() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        var allowed = false
+        project.trustRecord = { agent, _ in agent == .claude ? allowed : true }
+
+        await project.readTrust()
+        #expect(project.untrusted == [.claude], "only the CLI whose record says no")
+        #expect(project.askToTrust(.codex) == nil, "one that is allowed has nothing to ask")
+        let destination = try #require(project.askToTrust(.claude))
+        let asking = try #require(project.sessions.first)
+        #expect(destination == Destination(section: .agents, route: .session(asking.id)), "the window opens on it")
+        #expect(asking.agent == .claude && !asking.holdsTasks, "a session with no work, only the question")
+        #expect(project.askToTrust(.claude) == nil, "the session already asking is the one to answer")
+
+        #expect(await !project.trustGranted(by: asking.id), "still no: the answer was not yes")
+        allowed = true
+        #expect(await !project.trustGranted(by: UUID()), "another session's answer lets it in, but closes nothing")
+        #expect(project.untrusted.isEmpty)
+        #expect(await project.trustGranted(by: asking.id), "the session that asked is done")
+        #expect(project.trustSession == nil)
+    }
+
     @Test func assigningAgainStartsItsOwnSessionOnItsOwnAgent() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

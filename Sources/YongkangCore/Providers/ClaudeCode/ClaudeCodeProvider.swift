@@ -70,10 +70,39 @@ package struct ClaudeCodeProvider: AgentProvider {
             : UsageSample(at: at, model: message["model"] as? String ?? "unknown", tally: tally)
     }
 
+    package func trusts(_ folder: URL) async -> Bool? {
+        Self.trusts(
+            folder, config: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json"))
+    }
+
+    /// The answer is kept in `~/.claude.json`, under the folder's own path as `getcwd` gives
+    /// it — symlinks resolved, `/private` kept — and not under its repo's root or a parent's.
+    static func trusts(_ folder: URL, config: URL) -> Bool? {
+        // No file yet is a Claude Code that has never been allowed anywhere.
+        guard FileManager.default.fileExists(atPath: config.path) else { return false }
+        // One mid-write, or unreadable, says nothing either way.
+        guard let data = try? Data(contentsOf: config),
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        let entry = (object["projects"] as? [String: Any])?[physicalPath(of: folder)] as? [String: Any]
+        return entry?["hasTrustDialogAccepted"] as? Bool == true
+    }
+
+    /// `realpath`, not `resolvingSymlinksInPath`, which drops a leading `/private`.
+    private static func physicalPath(of folder: URL) -> String {
+        guard let resolved = realpath(folder.path, nil) else { return folder.path }
+        defer { free(resolved) }
+        return String(cString: resolved)
+    }
+
+    /// The question's wording changes between versions, but the choice that answers it has
+    /// kept its words. 2.1.278's screen is `Fixtures/claude/claude-2.1.278-trust-screen.ansi`.
     package func attentionReason(screen: String) -> String? {
         let text = AgentPrompt.visibleText(screen)
-        guard text.contains("do you trust the files in this folder?"), text.contains("yes"), text.contains("trust")
-        else { return nil }
+        let asks =
+            text.contains("do you trust the files in this folder?")
+            || text.contains("is this a project you created or one you trust?")
+        guard asks, text.contains("yes, i trust this folder") else { return nil }
         return "Claude Code needs you to decide whether to trust this folder."
     }
 

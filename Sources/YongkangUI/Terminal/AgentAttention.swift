@@ -10,7 +10,18 @@ final class AttentionTerminalView: LocalProcessTerminalView {
     /// was waiting for that can go.
     var onCheck: () -> Void = {}
     var onUserInput: () -> Void = {}
+    /// The question the screen asked and the keys the user pressed while it was up, once it's gone.
+    var onAnswer: (_ question: String, _ keys: [[UInt8]]) -> Void = { _, _ in }
     private(set) var hasDraft = false
+    /// What the user has typed since the question on screen went up, one entry per key press.
+    private(set) var answer: [[UInt8]] = []
+
+    /// Every key the user presses reaches the process through here, and nothing the app types
+    /// does: `TerminalRegistry` writes to the process directly.
+    override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        if lastReason != nil { answer.append(Array(data)) }
+        super.send(source: source, data: data)
+    }
 
     func recordInput(_ event: NSEvent) {
         onUserInput()
@@ -47,6 +58,8 @@ final class AttentionTerminalView: LocalProcessTerminalView {
             self.check = nil
             let reason = self.attentionReason
             if reason != self.lastReason {
+                if let asked = self.lastReason, !self.answer.isEmpty { self.onAnswer(asked, self.answer) }
+                self.answer = []
                 self.lastReason = reason
                 self.onAttention(reason)
             }

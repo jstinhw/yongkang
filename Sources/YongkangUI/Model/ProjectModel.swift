@@ -28,6 +28,13 @@ import YongkangCore
     /// poll says so once rather than on every tick. A workflow that clears a block with its own
     /// message records it here too, or the poll would type "Unblocked" over it.
     var deliveredBlocks: Set<String> = []
+    /// The agents whose CLI's own record doesn't allow it in this folder yet: a session of one
+    /// would ask before anything else. See `readTrust`.
+    private(set) var untrusted: Set<AgentKind> = []
+    /// The session opened only for that question, until it is answered. See `askToTrust`.
+    var trustSession: UUID?
+    /// Each CLI's record of whether it may work in a folder. The tests stand in for it.
+    @ObservationIgnored var trustRecord: (AgentKind, URL) async -> Bool? = { await $0.provider.trusts($1) }
     /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
     /// the workflow tests.
     private let terminals: TerminalRegistry?
@@ -172,6 +179,21 @@ import YongkangCore
         notebookRead = nil
     }
 
+    /// Asks each CLI's own record again whether it may work here. One that can't be read right
+    /// now leaves its agent as it was.
+    ///
+    /// ponytail: Claude Code's record is the whole of `~/.claude.json`, parsed on every reload of
+    /// every project. Skip the parse while the file's modification date holds, if it ever shows
+    /// in a profile.
+    func readTrust() async {
+        var untrusted = self.untrusted
+        for agent in AgentKind.allCases {
+            guard let trusted = await trustRecord(agent, directory) else { continue }
+            if trusted { untrusted.remove(agent) } else { untrusted.insert(agent) }
+        }
+        if untrusted != self.untrusted { self.untrusted = untrusted }
+    }
+
     /// What each agent session has spawned and recorded since the last poll. The reader reads
     /// the files off the main actor, so this starts that read and returns. A poll that lands
     /// while the last read is still going starts nothing, rather than a second read of the
@@ -283,7 +305,7 @@ import YongkangCore
         // Every session starts here, so this one event counts them all. A service runner has no agent.
         Analytics.capture("session_started", ["agent": agent?.rawValue ?? "service", "tasks": taskIDs.count])
         resummarize()
-        terminals?.start(session)
+        terminals?.start(session, in: directory)
         // So the new agent's transcript folder is watched now rather than at the next safety
         // beat. A CLI that names its transcript after the session id (every one but Codex, which
         // has to be found by reading its rollouts) is watchable before it has written a byte.

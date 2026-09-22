@@ -80,6 +80,7 @@ import YongkangCore
             // A service runner's output is nobody's question.
             guard let self, let found = self.session(id), found.session.agent != nil else { return }
             self.attentionChanged(reason, session: found.session, project: found.project)
+            if reason == nil { Task { await self.trustAnswered(found.session, in: found.project) } }
         }
     }
 
@@ -250,6 +251,16 @@ import YongkangCore
         enter(project, at: .session(session.id))
     }
 
+    /// A question in a session cleared, so its CLI's record may say something new. The session
+    /// opened only to ask it (`ProjectModel.askToTrust`) is closed once it was answered yes, and
+    /// the window goes back to the board. After a no, the CLI exits by itself and stays to say so.
+    func trustAnswered(_ session: CodeSession, in project: ProjectModel) async {
+        guard await project.trustGranted(by: session.id) else { return }
+        let watching = project === entered && selection?.pane(of: session.id) != nil
+        close(session, in: project)
+        if watching { go(to: Destination(section: .board, route: .board)) }
+    }
+
     func markExited(_ session: CodeSession, in project: ProjectModel) {
         guard project.markExited(session.id) else { return }
         attentionChanged(nil, session: session, project: project)
@@ -351,6 +362,7 @@ import YongkangCore
             await project.reloadNotebook(frontmatter: true, records: true)
             if project === entered { showFinishedWork(in: project) }
             deliverUnblocks(in: project)
+            await project.readTrust()
             project.reloadSessions()
         }
         reloadAgentTranscript()

@@ -233,7 +233,7 @@ package struct TaskDetail: View {
                 Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             }
-            AssignButton(title: "Assign", choice: agents, disabled: locked) { assign([card], $0) }
+            AssignButton(title: { _ in "Assign" }, choice: agents, disabled: locked) { assign([card], $0) }
         }
     }
 

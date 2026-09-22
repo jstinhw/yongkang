@@ -574,8 +574,10 @@ package struct NotebookBoard: View {
             }
             .buttonStyle(.console)
             AssignButton(
-                title: (picked.isEmpty ? "Run \(work.count) ready" : "Assign")
-                    + (designCount > 0 ? " — design first" : ""),
+                title: { runnable in
+                    (picked.isEmpty ? "Run \(runnable ? work.count : 0) ready" : "Assign")
+                        + (runnable && designCount > 0 ? " — design first" : "")
+                },
                 choice: agents, disabled: work.isEmpty
             ) { assign(work, $0) }
         }

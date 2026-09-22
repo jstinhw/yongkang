@@ -29,13 +29,22 @@ struct AttentionPromptTests {
         #expect(view.attentionReason != nil, "detect the actual cursor-addressed Codex trust screen")
     }
 
-    // The same rendered capture, asked of each provider: the question is Codex's alone.
+    // Each rendered capture, asked of each provider: a question is its own CLI's alone. Claude
+    // Code 2.1.278 lays its words out with cursor moves too.
     @Test(arguments: AgentKind.allCases)
-    func onlyCodexClaimsItsTrustScreen(kind: AgentKind) throws {
-        let view = makeView()
-        view.resize(cols: 100, rows: 30)
-        view.dataReceived(slice: Array(try fixture("codex/codex-0.154.0-trust-screen.ansi").utf8)[...])
-        #expect((kind.provider.attentionReason(screen: view.screen) != nil) == (kind == .codex))
+    func onlyTheAskingCLIClaimsItsTrustScreen(kind: AgentKind) throws {
+        let captures: [(file: String, asker: AgentKind)] = [
+            ("codex/codex-0.154.0-trust-screen.ansi", .codex),
+            ("claude/claude-2.1.278-trust-screen.ansi", .claude),
+        ]
+        for capture in captures {
+            let view = makeView()
+            view.resize(cols: 100, rows: 30)
+            view.dataReceived(slice: Array(try fixture(capture.file).utf8)[...])
+            #expect(
+                (kind.provider.attentionReason(screen: view.screen) != nil) == (kind == capture.asker),
+                "\(capture.file)")
+        }
     }
 
     // The trust gate exists only in the PTY, before any rollout. Reproduce split,

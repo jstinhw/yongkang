@@ -169,6 +169,36 @@ struct TerminalRegistryTests {
         #expect(try await eventually { isReaped(pid) }, "and ends the session's process")
     }
 
+    // The board opened a session only to ask whether Claude Code may work in the folder.
+    @Test func theSessionOpenedToAskGoesOnceTheAnswerIsYes() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel(terminals: registry(), notify: { _, _, _ in })
+        let project = model.open(tmp)
+        model.enter(project)
+        var allowed = false
+        project.trustRecord = { agent, _ in agent == .claude ? allowed : true }
+        await project.readTrust()
+        // Claude Code 2.1.278's question, then what it draws once it has an answer.
+        let id = UUID()
+        project.addSession(
+            id: id, title: "Claude Code", icon: "sparkles",
+            line: """
+                printf '%s\\r\\n' 'Is this a project you created or one you trust?' 'No, exit' 'Yes, I trust this folder'
+                read line; printf '\\033[2J\\033[HWelcome\\r\\n'; exec sleep 30
+                """,
+            agent: .claude)
+        project.trustSession = id
+        model.selection = .session(id)
+        #expect(try await eventually { model.attention[id] != nil }, "Claude Code asks")
+
+        allowed = true  // It files the yes before it draws anything else.
+        try #require(model.terminals.view(for: id)).send(txt: "\r")
+        #expect(try await eventually { project.sessions.isEmpty }, "the session that asked is closed")
+        #expect(model.section == .board && model.selection == .board, "and the window is back on the board")
+        #expect(project.untrusted.isEmpty, "where the work can run now")
+    }
+
     // MARK: - Typing
 
     @Test func aMessageWaitsForTheQuestionOnScreenAndIsTypedOnce() async throws {
@@ -194,6 +224,36 @@ struct TerminalRegistryTests {
         terminals.send("bye", to: agent.id)
         #expect(try await eventually { lines(in: log).count >= 4 })
         #expect(lines(in: log) == ["ask", "1", paste("hello"), paste("bye")], "each message reaches the child once")
+    }
+
+    // Agents started in one folder at once each ask whether to trust it. The user answers one.
+    @Test func anAnswerToAFoldersQuestionReachesItsOtherSessionsAskingIt() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let folder = tmp.appendingPathComponent("project")
+        let terminals = registry()
+        var asking: Set<UUID> = []
+        terminals.onAttention = { id, reason in if reason != nil { asking.insert(id) } }
+        // The one the user answers, its sibling, one the user is answering too, and one elsewhere.
+        let agents = (0..<4).map { session(logger(tmp.appendingPathComponent("\($0)")), agent: .codex) }
+        defer { for agent in agents { terminals.terminate(agent.id) } }
+        var views: [AttentionTerminalView] = []
+        for (index, agent) in agents.enumerated() {
+            terminals.start(agent, in: index == 3 ? tmp : folder)
+            views.append(try #require(terminals.view(for: agent.id)))
+            views[index].send(txt: "ask\r")
+        }
+        let log = { (index: Int) in self.lines(in: tmp.appendingPathComponent("\(index)")) }
+        #expect(try await eventually { asking.count == agents.count }, "every session is asking")
+
+        views[2].send(txt: "2")
+        views[0].send(txt: "1\r")
+        #expect(try await eventually { log(1) == ["ask", "1"] }, "the sibling gets the same answer")
+        views[2].send(txt: "\r")
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(log(0) == ["ask", "1"])
+        #expect(log(2) == ["ask", "2"], "one the user was answering keeps their answer")
+        #expect(log(3) == ["ask"], "another folder's question is its own")
     }
 
     @Test func approvingADemoTypesOnlyTheApprovalIntoTheDesigner() async throws {

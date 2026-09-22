@@ -259,7 +259,9 @@ Each running agent's PTY lives inside an `AttentionTerminalView`, a SwiftTerm
 - **`TerminalRegistry`** (`Sources/YongkangUI/Terminal/`), owned by `AppModel` as `terminals`,
   creates one view per session when `ProjectModel.addSession` adds it. Closing the session or its
   project calls `terminate(_:)`. Typing into a session (`send(_:to:)`) and steering its CLI to a
-  child agent (`showChild(_:in:)`) go through it too.
+  child agent (`showChild(_:in:)`) go through it too, and so does answering a folder's question
+  once: the keys the user pressed to answer a trust question in one session are typed into
+  every other session of that CLI in the same folder that is still asking it.
 - **`TerminalHost`**, an `NSViewRepresentable`, **re-parents** the registry's view into the work
   area while that session's pane is on screen, and lets go of it when the pane goes. Since 5.2
   the work area is the split view's second pane, which is a plain hosting view like the

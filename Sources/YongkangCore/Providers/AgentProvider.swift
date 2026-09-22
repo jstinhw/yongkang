@@ -46,7 +46,13 @@ package protocol AgentProvider: Sendable {
 
     /// Why the CLI's rendered screen is waiting on the user, such as a trust question, or nil.
     /// Match the question and its controls, never a mention of it in ordinary output.
+    /// Only a question about the folder: the keys that answer it in one session are typed into
+    /// every other session of the CLI in that folder that is asking it (`TerminalRegistry`).
     func attentionReason(screen: String) -> String?
+    /// Whether the CLI's own record says it may work in `folder`: false while a session of it
+    /// there would ask first. Nil when the record can't be read right now. True, by default,
+    /// for a CLI that never asks.
+    func trusts(_ folder: URL) async -> Bool?
     /// How to show one of its subagents live in the session's terminal. Nil when the CLI can't.
     var childView: ChildView? { get }
 }
@@ -55,6 +61,8 @@ extension AgentProvider {
     package func usageURL(session: UUID, project: URL) async -> URL? {
         await transcriptURL(session: session, project: project)
     }
+
+    package func trusts(_ folder: URL) async -> Bool? { true }
 }
 
 /// A CLI's own picker of child agents. `TerminalRegistry` types `command`, then walks the

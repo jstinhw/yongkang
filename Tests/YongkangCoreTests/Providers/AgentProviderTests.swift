@@ -14,6 +14,7 @@ import Testing
     static let screens: [(screen: String, asker: AgentKind?)] = [
         ("Do you trust the contents of this directory?\n› 1. Yes, continue\n  2. No, quit", .codex),
         ("Do you trust the files in this folder?\n❯ 1. Yes, I trust this folder\n  2. No, exit", .claude),
+        ("Is this a project you created or one you trust?\n❯ No, exit\n  Yes, I trust this folder", .claude),
         ("Documentation: Do you trust the contents of this directory?", nil),
     ]
 

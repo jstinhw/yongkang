@@ -255,7 +255,7 @@ struct ProjectDetail: View {
             Button("Clear") { picked.removeAll() }
                 .buttonStyle(.consoleGhost)
                 .disabled(picked.isEmpty)
-            AssignButton(title: "Assign", choice: agents, disabled: batch.isEmpty) { assign(batch, $0) }
+            AssignButton(title: { _ in "Assign" }, choice: agents, disabled: batch.isEmpty) { assign(batch, $0) }
         }
     }
 

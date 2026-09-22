@@ -236,11 +236,16 @@ struct OtherAgentMenu: View {
 package struct AgentChoice {
     let initial: AgentKind
     let found: Set<AgentKind>?
+    /// Agents not yet allowed in the project's folder, which have nothing they can run there.
+    let untrusted: Set<AgentKind>
     let lookUp: () -> Void
 
-    package init(initial: AgentKind, found: Set<AgentKind>?, lookUp: @escaping () -> Void) {
+    package init(
+        initial: AgentKind, found: Set<AgentKind>?, untrusted: Set<AgentKind> = [], lookUp: @escaping () -> Void
+    ) {
         self.initial = initial
         self.found = found
+        self.untrusted = untrusted
         self.lookUp = lookUp
     }
 }
@@ -249,7 +254,8 @@ package struct AgentChoice {
 /// so which CLI runs it is picked where the work is handed over. The pick belongs to this
 /// button and leaves the toolbar's default alone, the way the New Project sheet's does.
 struct AssignButton: View {
-    let title: String
+    /// Given what the picked agent can run: none of the work while it isn't allowed in the folder.
+    let title: (_ runnable: Bool) -> String
     let choice: AgentChoice
     let disabled: Bool
     let assign: (AgentKind) -> Void
@@ -264,12 +270,13 @@ struct AssignButton: View {
         }
         AgentPicker(agent: agent, found: choice.found, lookUp: choice.lookUp, purpose: "Agent to assign to")
             .disabled(disabled)
+        let runnable = !choice.untrusted.contains(agent.wrappedValue)
         Button {
             assign(agent.wrappedValue)
         } label: {
-            Label(title, systemImage: "point.3.connected.trianglepath.dotted")
+            Label(title(runnable), systemImage: "point.3.connected.trianglepath.dotted")
         }
         .buttonStyle(.consolePrimary)
-        .disabled(disabled || choice.found?.contains(agent.wrappedValue) == false)
+        .disabled(disabled || !runnable || choice.found?.contains(agent.wrappedValue) == false)
     }
 }

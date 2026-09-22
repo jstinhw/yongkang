@@ -48,16 +48,18 @@ import YongkangCore
     }
 
     /// Runs the session's command line in a new PTY. Starting a session twice does nothing.
-    func start(_ session: CodeSession) {
+    /// `folder` is where it runs: the sessions sharing one answer a question about it together.
+    func start(_ session: CodeSession, in folder: URL? = nil) {
         guard entries[session.id] == nil else { return }
         // Non-zero frame matters: a 0x0 terminal starts the PTY at 0 columns and the TUI dies.
         // The first pane that shows it resizes it.
         let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
-        let entry = Entry(view: view, label: session.title, agent: session.agent)
+        let entry = Entry(view: view, label: session.title, agent: session.agent, folder: folder)
         let id = session.id
         entry.onExit = { [weak self] in self?.onExit(id) }
         view.processDelegate = entry
         view.onAttention = { [weak self] reason in self?.onAttention(id, reason) }
+        view.onAnswer = { [weak self] question, keys in self?.answer(question, with: keys, from: id) }
         view.onCheck = { [weak self] in self?.typeQueued(id) }
         view.startProcess(
             executable: shell[0], args: Array(shell.dropFirst()) + [session.line],
@@ -128,6 +130,31 @@ import YongkangCore
 
     private func type(_ text: String, into view: AttentionTerminalView) {
         view.process.send(data: Array(text.utf8)[...])
+    }
+
+    // MARK: - Answering
+
+    /// A CLI asks its question of the folder, such as whether to trust it, and every session
+    /// started there at once asks it again. So the user answers one: the keys they pressed go,
+    /// a key at a time, to every other session of that CLI in the folder still asking it. One
+    /// they have started answering themselves is left to them.
+    private func answer(_ question: String, with keys: [[UInt8]], from id: UUID) {
+        guard let answered = entries[id], let folder = answered.folder else { return }
+        let asking = entries.filter { other, entry in
+            other != id && entry.folder == folder && entry.agent == answered.agent
+                && entry.view.answer.isEmpty && entry.view.attentionReason == question
+        }
+        for entry in asking.values {
+            Task {
+                for key in keys {
+                    guard entry.view.process.running else { return }
+                    entry.view.process.send(data: key[...])
+                    // ponytail: a person's pace between keys, so a CLI that reads one key per
+                    // input event sees each. Lengthen it if a CLI drops replayed keys.
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+            }
+        }
     }
 
     // MARK: - Child agents
@@ -233,6 +260,8 @@ import YongkangCore
     /// Named in the exit notice, so a dead process says which one it was.
     let label: String
     let agent: AgentKind?
+    /// Where the session runs, when the caller said. Nil answers only its own questions.
+    let folder: URL?
     var onExit: () -> Void = {}
     /// Set once the child has exited by itself and SwiftTerm has reaped it.
     private(set) var exited = false
@@ -243,10 +272,11 @@ import YongkangCore
     /// While a child's view may be up, a message would reach the child instead, so it waits.
     var showsChild = false
 
-    init(view: AttentionTerminalView, label: String, agent: AgentKind?) {
+    init(view: AttentionTerminalView, label: String, agent: AgentKind?, folder: URL?) {
         self.view = view
         self.label = label
         self.agent = agent
+        self.folder = folder
     }
 
     // SwiftTerm's protocol is not actor-isolated, so the conformance has to be `nonisolated`.
