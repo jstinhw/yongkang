@@ -12,7 +12,9 @@ ones — then drafts the plan under Blocks before writing any of it: what you wi
 it is built, the projects, and every task with what it waits on and what can start
 together. Change it in that session until it is right; `Create project` writes the roadmap,
 projects and tasks. Calls it had to make on your behalf land as memory entries, so they are
-visible and correctable. The app writes nothing; the agent does. Entries look like:
+visible and correctable. Once it has said what it created, the session closes and the window
+moves to the board it filled; Product takes the plans after that. The app writes nothing; the
+agent does. Entries look like:
 
 ```
 <project>/.notebook/

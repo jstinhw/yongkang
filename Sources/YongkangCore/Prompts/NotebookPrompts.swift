@@ -31,6 +31,9 @@ extension NotebookFormat {
     /// The plan is drafted as a ready proposal before any of it is written, so the user
     /// knows what they are getting while changing it is still cheap. The session id goes
     /// in the draft so `Create project` on it comes back to this conversation.
+    ///
+    /// The draft is marked done last because that is what ends the session (see
+    /// `ProjectModel.finishedSetups`): once it flips, only the agent's summary is left.
     package static func onboardingPrompt(description: String, sessionID: UUID) -> String {
         """
         This project has no notebook yet. Help me start one. What I want to build:
@@ -80,10 +83,12 @@ extension NotebookFormat {
         \(planGraph)
 
         Once I approve, with `Create project` or in my own words, write the roadmap, project
-        and task files, and one memory entry per call you made in the project it affects.
-        Set the draft's `status: done` with
-        `resolution: "Wrote the notebook."`, append one run record for this session with the
-        primary roadmap id as `subject`, and tell me in a few lines what you created.
+        and task files and one memory entry per call you made in the project it affects, and
+        append one run record for this session with the primary roadmap id as `subject`.
+        Then, as your last write, set the draft's `status: done` with
+        `resolution: "Wrote the notebook."`, and tell me in a few lines what you created.
+        That ends this session: the app closes it once you have said it, so ask me nothing
+        after it.
 
         Everything goes in `\(folderName)/`; leave the rest of this folder untouched.
 

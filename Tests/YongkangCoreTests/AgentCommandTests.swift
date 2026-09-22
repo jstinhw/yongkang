@@ -83,6 +83,9 @@ import Testing
             "the plan is drafted as a ready proposal that Create project brings back to this session")
         #expect(prompt.contains("author's problem"), "the spec's apostrophes are what break quoting")
         #expect(prompt.contains("append one run record"), "setup sessions must leave a handoff")
+        #expect(
+            prompt.contains("as your last write, set the draft's `status: done`"),
+            "the draft turning done is what ends the session, so nothing may be written after it")
         #expect(prompt.contains("design nothing"), "setup plans design as tasks; the page it shows is the plan")
         #expect(try echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")
         #expect(try echo(AgentCommand.quoted("/a b'c")) == "/a b'c")

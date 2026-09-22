@@ -202,6 +202,29 @@ import Testing
         #expect(reopened == Destination(section: .agents, route: .session(product.id)))
     }
 
+    @Test func aSetupSessionIsFinishedOnceItsPlanIsDone() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: [], in: tmp)
+        // Agy keeps no transcript, so the draft alone decides.
+        _ = project.startNotebookSetup("a site", agent: .agy)
+        let setup = try #require(project.sessions.first).id
+        let product = running("Product", in: project)
+        let plan = { (session: UUID, status: String) in
+            "---\nkind: proposal\ntitle: Plan\nstatus: \(status)\nsession: \(session)\n---\n"
+        }
+        _ = try block("plan", plan(setup, "open"), in: project)
+        _ = try block("add-checkout", plan(product, "done"), in: project)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(
+            await project.finishedSetups().isEmpty,
+            "a plan still open is still being talked through, and Product outlives the plans it writes")
+
+        _ = try block("plan", plan(setup, "done"), in: project)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(await project.finishedSetups().map(\.id) == [setup], "the notebook is written, so setup is over")
+    }
+
     @Test func approvingAReadyProposalIsTypedIntoTheProductSessionThatShapedIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

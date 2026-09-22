@@ -63,6 +63,9 @@ for.
      opinion**. Its page reads **Product plan is ready**, with a **Create project** button.
      Click it: the window returns to **Notebook Setup** with the approval typed in, and the
      agent writes the notebook.
+   - Once the agent has said what it created, **Notebook Setup** closes by itself: its row
+     leaves the sidebar and the window moves to **Board**. *(The draft turning `done` is the
+     signal, and a CLI with a transcript is waited on until its last message is a reply.)*
    - **Board** in the rail shows the project's roadmap and its milestones, each a column of
      tasks in chains, about a third of a second after the last file lands. The folder is watched with FSEvents, not polled, and the
      watcher holds a burst back by 300 ms so twenty files an agent just wrote are one read.

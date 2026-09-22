@@ -362,6 +362,7 @@ import YongkangCore
             await project.reloadNotebook(frontmatter: true, records: true)
             if project === entered { showFinishedWork(in: project) }
             deliverUnblocks(in: project)
+            await endFinishedSetups(in: project)
             await project.readTrust()
             project.reloadSessions()
         }
@@ -401,6 +402,19 @@ import YongkangCore
                 go(to: Destination(section: .agents, route: .session(session.id), input: message))
             } else {
                 terminals.send(message, to: session.id)
+            }
+        }
+    }
+
+    /// A setup session is closed once it has written the notebook and said so. Watching it,
+    /// you land on the board it just filled rather than on nothing.
+    private func endFinishedSetups(in project: ProjectModel) async {
+        for session in await project.finishedSetups() {
+            let watching = project === entered && selection?.pane(of: session.id) != nil
+            close(session, in: project)
+            if watching {
+                section = .board
+                selection = .board
             }
         }
     }
