@@ -84,10 +84,9 @@ package enum Route: Hashable, Sendable, Codable {
     }
 }
 
-/// The available agent panes. Transcript remains implemented but is hidden for now, so a
-/// session shows its terminal; what it did is its tasks' reviews, each a row under it.
+/// The available agent panes. A session shows its terminal; the page it drew and its tasks'
+/// reviews are each a row under it in the sidebar.
 package enum AgentPane: String, Sendable, Codable {
-    case transcript = "Transcript"
     case session = "Session"
     /// What the session drew for the user, from `NotebookFormat.page(of:in:)`.
     case page = "Page"

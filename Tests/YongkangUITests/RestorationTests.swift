@@ -40,7 +40,7 @@ import Testing
         let session = UUID()
         let routes: [Route] = [
             .board, .usage, .project("checkout"), .task("wire-auth"), .page("q3"),
-            .entry("tasks/wire-auth"), .session(session), .session(session, pane: .transcript),
+            .entry("tasks/wire-auth"), .session(session), .session(session, pane: .page),
             .subagent(session: session, id: "a1"), .block("blocks/needs-a-key.md"),
             .member("David"), .review(file: nil), .review(file: "Sources/App.swift"),
             .reviewTask("wire-auth"), .preview(URL(fileURLWithPath: "/tmp/app")),

@@ -44,15 +44,6 @@ import YongkangCore
     let terminals: TerminalRegistry
     /// Stores `storedSessions` wherever the window keeps it, whenever a project's sessions change.
     @ObservationIgnored var sessionsChanged: () -> Void = {}
-    /// The lines of whichever agent `selection` currently points at — a subagent, or the
-    /// session itself. Kept apart from `CodeSession.subagents`, which only ever holds each
-    /// one's status, because reading and parsing a whole transcript is only worth doing
-    /// for the one actually on screen.
-    private(set) var agentTranscript: [TranscriptLine] = []
-    /// The file those lines came from, so switching agents replaces them rather than
-    /// leaving one agent's work under another's name when the two are the same length. The
-    /// session's inspector names it too.
-    private(set) var transcriptSource: URL?
     /// The safety poll behind the watchers, until `stop()`. See `start(polling:)`.
     @ObservationIgnored private var poll: Task<Void, Never>?
     /// The done tasks the window has already seen in this project. nil until the first
@@ -440,7 +431,6 @@ import YongkangCore
             if project.trustReadIsDue() { await project.readTrust(foundAgents ?? Set(AgentKind.allCases)) }
             project.reloadSessions()
         }
-        reloadAgentTranscript()
         refreshChanges()
     }
 
@@ -519,32 +509,6 @@ import YongkangCore
             await project.refreshRepo()
             guard entered === project, selection == landed else { return }
             selection = project.firstReview
-        }
-    }
-
-    /// Only the agent actually on screen pays for having its transcript read and parsed —
-    /// everything else is covered by the status list above.
-    func reloadAgentTranscript() {
-        // Only when the work area is showing the agent's transcript pane.
-        guard let project = entered, let watched = selectedAgent(in: project),
-            selection?.pane(of: watched.id) == .transcript, let provider = watched.agent?.provider
-        else {
-            transcriptSource = nil
-            agentTranscript = []
-            return
-        }
-        // The provider looks for the file off the main thread and the reader parses it there,
-        // and by the time they answer the window may be showing another agent.
-        let asked = selection
-        Task {
-            let url = await provider.transcriptURL(session: watched.id, project: project.directory)
-            guard selection == asked else { return }
-            var fresh: [TranscriptLine] = []
-            if let url { fresh = await project.reader.transcript(of: provider, at: url) }
-            guard selection == asked else { return }
-            guard url != transcriptSource || fresh.count != agentTranscript.count else { return }
-            transcriptSource = url
-            agentTranscript = fresh
         }
     }
 }

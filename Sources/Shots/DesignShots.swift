@@ -86,22 +86,20 @@ enum DesignShots {
                     waiting: lead, approve: { _ in }, revise: {})
             }, "demo-narrow", into: directory, width: 1120)
 
-        // An agent on its transcript, and one answering a question in its terminal — the pane
-        // offscreen is the frame a real terminal is borrowed into.
-        for (name, session, pane, asking) in [
-            ("lead", lead, AgentPane.transcript, String?.none),
-            ("session", project.sessions[1], AgentPane.transcript, "Allow Bash(swift test)?"),
+        // An agent on its terminal, and one answering a question in it — the pane offscreen is
+        // the frame a real terminal is borrowed into.
+        for (name, session, asking) in [
+            ("lead", lead, String?.none),
+            ("session", project.sessions[1], "Allow Bash(swift test)?"),
         ] {
             let question = asking.map { [session.id: $0] } ?? [:]
             write(
-                console(project, section: .agents, asking: question, selection: .session(session.id, pane: pane)) {
+                console(project, section: .agents, asking: question, selection: .session(session.id)) {
                     AgentPage(
-                        session: session, project: project, summary: ChangeSummary(),
+                        session: session, project: project,
                         row: project.agentRows(summary: ChangeSummary(), asking: question)
                             .first { $0.route == .session(session.id) },
-                        pane: pane, asking: asking, source: URL(fileURLWithPath: "/tmp/\(name).jsonl"),
-                        select: { _ in }, open: { _ in }, stop: {},
-                        content: { SessionTranscript(session: session, lines: transcript(), send: { _ in }) })
+                        content: { Theme.bg })
                 }, name, into: directory)
         }
 

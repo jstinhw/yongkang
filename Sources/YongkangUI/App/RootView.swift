@@ -90,12 +90,7 @@ struct RootView: View {
             model.openSectionDefault()
             storedSection = model.section
         }
-        // The transcript follows the selection rather than the poll: a row that opens an
-        // agent must not leave the one before it on screen for up to two seconds under
-        // the new agent's name. Every screen that opens one is covered by this — the
-        // list column and the board's cards included.
         .onChange(of: model.selection) {
-            model.reloadAgentTranscript()
             storedRoute = model.selection?.stored ?? ""
         }
         .onChange(of: model.entered?.directory.path) { enteredProject = model.entered?.directory.path ?? "" }

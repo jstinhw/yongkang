@@ -28,8 +28,8 @@ import Testing
     @Test func paneFollowsTheRoute() {
         let paneSession = UUID()
         #expect(
-            Route.session(paneSession, pane: .transcript).pane(of: paneSession) == .transcript,
-            "an agent row lands on its transcript, the way a subagent row does")
+            Route.session(paneSession, pane: .page).pane(of: paneSession) == .page,
+            "a route can land on the page a session drew")
         #expect(
             Route.session(paneSession).pane(of: paneSession) == .session,
             "the session stays reachable for anyone who wants to type at it")
@@ -37,7 +37,7 @@ import Testing
             Route.session(paneSession) == .session(paneSession, pane: .session),
             "a terminal row and the session pane are one selection, so the terminal shows for both")
         #expect(
-            Route.session(UUID(), pane: .transcript).pane(of: paneSession) == nil,
+            Route.session(UUID(), pane: .page).pane(of: paneSession) == nil,
             "another session's route is not this one's pane")
         #expect(
             Route.subagent(session: paneSession, id: "a1").pane(of: paneSession) == nil,

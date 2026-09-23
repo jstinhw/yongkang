@@ -18,8 +18,7 @@ out with a running session — each with what is happening on it and who is on i
 `working · Codex`. A task that could start, or is waiting its turn, is only on the board.
 
 Click a project to see it in the section you are in: its board under Board, its running
-sessions side by side under Agents. Click a session to open it — its terminal or its transcript,
-with its task's Done when and what it spawned beside them. Under Agents each
+sessions side by side under Agents. Click a session to open its terminal. Under Agents each
 project also has a **Memory** row: what its agents decided and learned, filed by milestone,
 which every agent reads before it starts. **Usage**, pinned under every project, is what all of
 their agents have spent, split by project, model and agent. Right-click a project to reveal its

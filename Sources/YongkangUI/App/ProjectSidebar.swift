@@ -13,6 +13,10 @@ package struct SidebarProject: Identifiable {
     let tasks: [AgentRow]
     /// How many memory entries its notebook holds, for the Memory row under Agents.
     let memory: Int
+    /// Each session's finished tasks waiting for your review, listed under its row.
+    let reviews: [UUID: [SummaryTask]]
+    /// The sessions that have drawn a page (`NotebookFormat.page(of:in:)`), listed under their row.
+    let pages: Set<UUID>
 
     /// `asking` is each session's terminal question, which only the window can see.
     package init(project: Project, summary: ChangeSummary, asking: [UUID: String] = [:]) {
@@ -20,6 +24,12 @@ package struct SidebarProject: Identifiable {
         rows = project.agentRows(summary: summary, asking: asking)
         tasks = project.taskRows(summary: summary)
         memory = project.cards.filter { $0.kind == .memory }.count
+        reviews = Dictionary(
+            uniqueKeysWithValues: project.sessions.map { ($0.id, summary.waiting(for: $0)) }.filter { !$0.1.isEmpty })
+        pages = Set(
+            project.sessions.map(\.id).filter {
+                FileManager.default.fileExists(atPath: NotebookFormat.page(of: $0, in: project.notebookRoot).path)
+            })
     }
 
     package var id: Project.ID { project.id }
@@ -85,7 +95,13 @@ package struct ProjectSidebar: View {
                     ForEach(projects) { item in
                         projectRow(item)
                         if !collapsed.contains(item.id) {
-                            ForEach(section == .board ? item.tasks : item.sessions) { agentRow($0, in: item) }
+                            ForEach(section == .board ? item.tasks : item.sessions) { row in
+                                agentRow(row, in: item)
+                                if section == .agents, let session = row.session {
+                                    if item.pages.contains(session.id) { sessionPageRow(session, in: item) }
+                                    ForEach(item.reviews[session.id] ?? []) { reviewRow($0, in: item) }
+                                }
+                            }
                             if section == .agents {
                                 pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
                             }
@@ -255,6 +271,56 @@ package struct ProjectSidebar: View {
         }
     }
 
+    /// The page a session drew for you — its report, or Setup's and Product's plan — under it.
+    private func sessionPageRow(_ session: CodeSession, in item: SidebarProject) -> some View {
+        let route = Route.session(session.id, pane: .page)
+        return Button {
+            open(item.id, route, .agents)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "doc.richtext").font(.system(size: 10)).foregroundStyle(Theme.accent)
+                Text("Page").font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
+                Spacer(minLength: 4)
+            }
+            .padding(.leading, 44)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }
+        .buttonStyle(.plain)
+        .rowSelection(entered == item.id && selection == route)
+        .padding(.horizontal, 8)
+        .padding(.top, 1)
+        .help("The page \(session.title) drew")
+    }
+
+    /// A finished task waiting for your review, under the session that did it. Opens its review.
+    private func reviewRow(_ task: SummaryTask, in item: SidebarProject) -> some View {
+        Button {
+            open(item.id, .reviewTask(task.id), .agents)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark.circle").font(.system(size: 10)).foregroundStyle(Theme.green)
+                Text(task.title).font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
+                Spacer(minLength: 4)
+                Text("+\(task.added) −\(task.removed)").font(Typography.monoCaption).foregroundStyle(Theme.tx3)
+            }
+            .padding(.leading, 44)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }
+        .buttonStyle(.plain)
+        .rowSelection(entered == item.id && selection == .reviewTask(task.id))
+        .padding(.horizontal, 8)
+        .padding(.top, 1)
+        .help("Review \(task.title)")
+    }
+
     /// Usage, pinned under every project's list: it is all of theirs.
     private var usageRow: some View {
         Button(action: openUsage) {
@@ -320,23 +386,30 @@ package struct ProjectSidebar: View {
         return selection == route
     }
 
-    /// A session row stands for everything under that session: its terminal and transcript, a
-    /// subagent it spawned, the block it is waiting on, and the reviews of the tasks it holds. A
-    /// task row stands for its page and whatever it opens on.
+    /// A session row stands for everything under that session: its terminal, a subagent it
+    /// spawned, and the block it is waiting on — its page and its reviews are rows of their own.
+    /// A task row stands for its page and whatever it opens on.
     private func isSelected(_ row: AgentRow) -> Bool {
         guard row.isRunningSession, let session = row.session else {
             return selection == row.route || (row.task.map { selection == .task($0) } ?? false)
         }
         switch selection {
-        case .session(session.id, _)?, .subagent(session.id, _)?: return true
+        case .session(session.id, .session)?, .subagent(session.id, _)?: return true
         case .block(let id)?: return row.block?.id == id
-        case .reviewTask(let task)?: return session.taskIDs.contains(task)
+        default: return false
+        }
+    }
+
+    private func isReview(in item: SidebarProject) -> Bool {
+        switch selection {
+        case .reviewTask(let id)?: return item.reviews.values.contains { $0.contains { $0.id == id } }
+        case .session(let id, .page)?: return item.pages.contains(id)
         default: return false
         }
     }
 
     private func childSelected(in item: SidebarProject) -> Bool {
-        (section == .agents && isPage(.memory(nil)))
+        (section == .agents && (isPage(.memory(nil)) || isReview(in: item)))
             || (section == .board ? item.tasks : item.sessions).contains(where: isSelected)
     }
 }

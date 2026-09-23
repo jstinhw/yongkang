@@ -59,25 +59,13 @@ extension RootView {
         } else if let watched = model.selectedAgent(in: project) {
             let pane = model.selection?.pane(of: watched.id) ?? .session
             AgentPage(
-                session: watched, project: project.value, summary: project.summary,
+                session: watched, project: project.value,
                 row: project.value.agentRows(summary: project.summary, asking: model.attention)
                     .first { $0.route == .session(watched.id) },
-                pane: pane, asking: model.attention[watched.id], source: model.transcriptSource,
-                select: { model.selection = .session(watched.id, pane: $0) },
-                open: { route in
-                    // A task's page is the board's; everything else an agent points at is under Agents.
-                    if case .task = route { model.section = .board }
-                    model.selection = route
-                },
-                stop: { model.close(watched, in: project) },
                 content: {
                     switch pane {
                     case .session:
                         terminal(for: watched)
-                    case .transcript:
-                        SessionTranscript(
-                            session: watched, lines: model.agentTranscript,
-                            send: { model.terminals.send($0, to: watched.id) })
                     case .page:
                         SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
                     }

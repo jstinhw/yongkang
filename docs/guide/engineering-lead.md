@@ -56,9 +56,9 @@ then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a 
 `report`, and `## Result` and `## Verification` in the body. That record is what Review
 reads and what approving a task commits beside its code. When it stops, done or waiting
 on you, it shows the same report as a page: one HTML file at
-`.notebook/pages/<session-id>.html`, which the session's **Page** tab shows beside its
-terminal and transcript. Nothing opens a browser. Setup and Product draw their plan graph on
-the same tab.
+`.notebook/pages/<session-id>.html`, which opens from the **Page** row under the session in
+the sidebar. Nothing opens a browser. Setup and Product draw their plan graph on
+the same page.
 
 The sidebar lists every running session under its project, by its own name, with what it is
 doing and the task it is on, for every open project at once: needs you first, then ready for
@@ -69,11 +69,9 @@ its subagents are on, and the button that acts on it. Work is started from the b
 **New Agent**. A task's own page names who is on it under **Working
 on it**: the session it was assigned to, and any subagent working it.
 
-Clicking a session opens it: its live terminal or its transcript, one switch apart, with its
-task's Done when, what it is waiting on you for and the subagents it
-dispatched beside them. Once a task is done and its files wait for your approval, the session's
-row turns green — "ready for review" — and its page lists the task under **Waiting for your
-review**, which opens the task and its review — see [Review](review.md). A session blocked on one
+Clicking a session opens its live terminal, under what it is doing and the task it is on. Once a task is done and its files wait for your
+approval, the session's row turns green — "ready for review" — and the task gets a row of its
+own under the session in the sidebar, which opens the task and its review — see [Review](review.md). A session blocked on one
 task while another waits for review gets a second, green row for the finished one, so the work
 is never hidden behind the block. Approving from the review stays on the task.
 
