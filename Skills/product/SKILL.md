@@ -9,8 +9,6 @@ allowed-tools:
   - Glob
   - Bash(git log *)
   - Bash(git status *)
-  - Bash(open *)
-  - Artifact
   - WebSearch
   - WebFetch
 ---

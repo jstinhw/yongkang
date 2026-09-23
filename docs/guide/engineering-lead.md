@@ -55,8 +55,10 @@ For every task it writes `.notebook/runs/<session-id>-work-<work-id>.md` — the
 then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a one-line
 `report`, and `## Result` and `## Verification` in the body. That record is what Review
 reads and what approving a task commits beside its code. When it stops, done or waiting
-on you, it shows the same report as a page: an artifact where the agent can publish one,
-otherwise an HTML file in the temp folder that it opens for you.
+on you, it shows the same report as a page: one HTML file at
+`.notebook/pages/<session-id>.html`, which the session's **Page** tab shows beside its
+terminal and transcript. Nothing opens a browser. Setup and Product draw their plan graph on
+the same tab.
 
 The sidebar lists every running session under its project, by its own name, with what it is
 doing and the task it is on, for every open project at once: needs you first, then ready for

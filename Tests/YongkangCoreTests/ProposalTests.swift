@@ -30,11 +30,6 @@ import Testing
         #expect(
             proposal.waiting && proposal.session == leadID && !proposal.proposalReady,
             "a discussion notification links back to its Product transcript")
-        let approval = NotebookFormat.unblockPrompt(block: proposal, agent: .claude)
-        #expect(
-            approval.contains("product") && approval.contains(".notebook/blocks/add-checkout.md"),
-            "a proposal can be resumed by product, not an engineer")
-        #expect(approval.contains("`flowchart LR`"), "a reopened proposal still shows its plan as a graph")
     }
 
     @Test func onlyAFinalizedProposalIsReady() throws {
@@ -57,7 +52,7 @@ import Testing
 
         let block = try #require(Blocks.load(root: root).first { $0.slug == "github-token" })
         #expect(
-            !block.isProposal && !NotebookFormat.unblockPrompt(block: block, agent: .claude).contains("product"),
+            !block.isProposal && !NotebookFormat.unblockPrompt(block: block).contains("product"),
             "a gate is walked through with the user, not handed to Product")
     }
 }

@@ -15,7 +15,7 @@ extension ProjectModel {
         return Destination(
             section: .agents,
             route: addSession(
-                agent, prompt: NotebookFormat.unblockPrompt(block: block, agent: agent),
+                agent, prompt: NotebookFormat.unblockPrompt(block: block),
                 title: "Unblock \(block.title)"))
     }
 

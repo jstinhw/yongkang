@@ -89,4 +89,6 @@ package enum Route: Hashable, Sendable, Codable {
 package enum AgentPane: String, Sendable, Codable {
     case transcript = "Transcript"
     case session = "Session"
+    /// What the session drew for the user, from `NotebookFormat.page(of:in:)`.
+    case page = "Page"
 }

@@ -50,7 +50,7 @@ import Testing
         #expect(
             block.body.contains("Authenticate the GitHub MCP"),
             "the procedure rides along for the agent to deliver one step at a time")
-        let guide = NotebookFormat.unblockPrompt(block: block, agent: .claude)
+        let guide = NotebookFormat.unblockPrompt(block: block)
         #expect(
             guide.contains(".notebook/blocks/github-token.md") && guide.contains("`status: done`"),
             "the guiding session is pointed at the file it flips to done")

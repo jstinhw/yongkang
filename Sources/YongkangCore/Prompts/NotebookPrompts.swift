@@ -1,18 +1,31 @@
 import Foundation
 
 extension NotebookFormat {
-    /// Where anything the user has to look at goes. Not every CLI can publish an artifact,
-    /// and a file path in a terminal is something the user has to go and open.
-    private static let page =
-        "an artifact if you can publish one, otherwise one HTML file in the system temp directory that you open for me"
+    /// Where a session's page lives: what it drew for the user, shown on its Page tab. Like
+    /// `blocks/`, `pages/` is a channel to the app rather than notebook content, so the spec
+    /// does not list it; the prompts that ask for a page say where it goes.
+    package static func page(of sessionID: UUID, in notebookRoot: URL) -> URL {
+        notebookRoot.appendingPathComponent(pagePath(sessionID))
+    }
+
+    private static func pagePath(_ sessionID: UUID) -> String { "pages/\(sessionID.uuidString.lowercased()).html" }
+
+    /// Where anything the user has to look at goes: one file per session, in the app. An
+    /// artifact or a file the agent opened put a browser tab in front of the window every
+    /// time, and a file path in a terminal is something the user has to go and open.
+    private static func page(_ sessionID: UUID) -> String {
+        "one HTML file at `\(folderName)/\(pagePath(sessionID))`, which I see on this session's Page tab "
+            + "in the app. Rewrite that file each time, and never publish an artifact or open a browser for it"
+    }
 
     /// How every plan reaches the user's eyes — a new notebook, a described feature, a
     /// review's next move — so setup and Product draw the same map. A graph, not the draft's
     /// lists, because the dependencies are what the user reviews; Mermaid, because any agent
     /// writes it and it lays the arrows out itself.
-    private static let planGraph = """
+    private static func planGraph(_ sessionID: UUID) -> String {
+        """
         Whenever a plan with projects and tasks is ready for me under Blocks, and each time it
-        changes, show it to me as a graph: \(page). Never ask me to open files.
+        changes, show it to me as a graph: \(page(sessionID)). Never ask me to open files.
 
         Draw it with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
         roadmap entry holding its projects, a subgraph per project holding its tasks, each task
@@ -22,6 +35,7 @@ extension NotebookFormat {
         only builds on, and add a one-line legend. It maps the plan, not the product: no
         mockups.
         """
+    }
 
     /// Opens the session an empty project starts with, seeded by what the user typed.
     /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
@@ -80,7 +94,7 @@ extension NotebookFormat {
         Tell me the draft is under Blocks and wait. Change only the draft when I ask, and say
         what moved.
 
-        \(planGraph)
+        \(planGraph(sessionID))
 
         Once I approve, with `Create project` or in my own words, write the roadmap, project
         and task files and one memory entry per call you made in the project it affects, and
@@ -184,7 +198,7 @@ extension NotebookFormat {
                 ## Verification
                 The commands you ran and what they printed.
 
-            When you stop — all done, or waiting on me — show me the report as a page: \(page).
+            When you stop — all done, or waiting on me — show me the report as a page: \(page(sessionID)).
             One section per task: its status, what changed, how you checked it, the files, the
             calls you made, and what is left. Put what needs me first.
             """
@@ -208,30 +222,26 @@ extension NotebookFormat {
     }
 
     /// Product writes its session id into the Blocks notification, making that row a link
-    /// back to the transcript where the proposal is discussed.
+    /// back to the transcript where the proposal is discussed. Every way into Product — a
+    /// review, a described feature, a proposal reopened from Blocks — comes through here, so
+    /// each shows its plan as the same graph setup does.
     package static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
-        productSkill(arguments + "\nSession id: \(sessionID.uuidString.lowercased())", agent: agent)
-    }
-
-    /// Every way into Product — a review, a described feature, a proposal reopened from
-    /// Blocks — shows its plan as the same graph setup does.
-    private static func productSkill(_ arguments: String, agent: AgentKind) -> String {
-        agent.skill("product", arguments: arguments) + "\n\n" + planGraph
+        agent.skill("product", arguments: arguments + "\nSession id: \(sessionID.uuidString.lowercased())")
+            + "\n\n" + planGraph(sessionID)
     }
 
     /// The session that clears one block with the user. The file carries what is needed and
     /// the steps; the way back is setting `status: done` in it, which the app reads and
-    /// types into the session waiting behind it. A proposal instead goes to Product — live
-    /// ones route to their transcript directly, so this is the fallback when it has exited.
-    package static func unblockPrompt(block: UserBlock, agent: AgentKind) -> String {
-        guard !block.isProposal else { return productSkill(relativePath(block.url), agent: agent) }
-        return """
-            Help me clear the block in `\(relativePath(block.url))`. Do every step that does not need \
-            me first. Then say in a few lines what it unblocks, and take the rest one step at a \
-            time: open the page for that step yourself, give one instruction, wait, and verify it \
-            before the next. Never echo a secret I paste or write one anywhere the repo tracks. \
-            When it is done, set the block's `status: done` with a one-line `resolution`.
-            """
+    /// types into the session waiting behind it. A proposal never comes here: it goes back to
+    /// its Product transcript, or to a new Product session once that has exited.
+    package static func unblockPrompt(block: UserBlock) -> String {
+        """
+        Help me clear the block in `\(relativePath(block.url))`. Do every step that does not need \
+        me first. Then say in a few lines what it unblocks, and take the rest one step at a \
+        time: open the page for that step yourself, give one instruction, wait, and verify it \
+        before the next. Never echo a secret I paste or write one anywhere the repo tracks. \
+        When it is done, set the block's `status: done` with a one-line `resolution`.
+        """
     }
 
     /// Incubate mode's opening prompt: the description of an agent that does not exist

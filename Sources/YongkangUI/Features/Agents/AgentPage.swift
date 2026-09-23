@@ -80,6 +80,7 @@ package struct AgentPage<Content: View>: View {
             Picker("Show", selection: Binding(get: { pane }, set: { select($0) })) {
                 Text("Terminal").tag(AgentPane.session)
                 Text("Transcript").tag(AgentPane.transcript)
+                if hasPage { Text("Page").tag(AgentPane.page) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -89,6 +90,14 @@ package struct AgentPage<Content: View>: View {
         .padding(.top, 18)
         .padding(.bottom, 14)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
+    }
+
+    /// Looked up on each redraw, which the agent's own state guarantees: it goes from working
+    /// to waiting once it has written the page and said so.
+    private var hasPage: Bool {
+        pane == .page
+            || FileManager.default.fileExists(
+                atPath: NotebookFormat.page(of: session.id, in: project.notebookRoot).path)
     }
 
     private var status: String {

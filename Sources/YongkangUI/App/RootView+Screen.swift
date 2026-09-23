@@ -78,6 +78,8 @@ extension RootView {
                         SessionTranscript(
                             session: watched, lines: model.agentTranscript,
                             send: { model.terminals.send($0, to: watched.id) })
+                    case .page:
+                        SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
                     }
                 })
         } else if let found = model.selectedSubagent(in: project) {

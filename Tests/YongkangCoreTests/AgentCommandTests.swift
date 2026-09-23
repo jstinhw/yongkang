@@ -152,8 +152,25 @@ import Testing
         let product = NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex)
         for prompt in [setup, product] {
             #expect(prompt.contains("`flowchart LR`"), "the dependencies are drawn, not listed")
-            #expect(prompt.contains("temp directory"), "agents without artifacts still open the graph")
         }
+    }
+
+    @Test func everyPageGoesOnTheSessionsTabNotABrowser() {
+        let page = ".notebook/pages/\(Self.sid.uuidString.lowercased()).html"
+        let task = NotebookCard(
+            id: "wire-auth", url: URL(fileURLWithPath: "/p/.notebook/tasks/wire-auth.md"), kind: .task,
+            title: "Wire auth", status: "todo", project: nil, dependsOn: [])
+        for prompt in [
+            NotebookFormat.onboardingPrompt(description: "a site", sessionID: Self.sid),
+            NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex),
+            NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid),
+        ] {
+            #expect(prompt.contains(page), "the app shows the page it knows the path of")
+            #expect(!prompt.contains("temp directory"), "a page the agent opens itself lands in a browser")
+        }
+        #expect(
+            NotebookFormat.page(of: Self.sid, in: URL(fileURLWithPath: "/p/.notebook")).path == "/p/" + page,
+            "the tab reads the file the prompt named")
     }
 
     @Test func bundledSkillIsSelfContained() {
