@@ -6,6 +6,29 @@ import YongkangCore
 // them, which `RootView` keeps in `@SceneStorage`.
 
 extension AppModel {
+    /// Every open project's agent sessions, as `@AppStorage("openSessions")` keeps them.
+    var storedSessions: String {
+        OpenSessions.encode(
+            Dictionary(
+                projects.map { ($0.directory.path, OpenSessions.stored($0.sessions)) },
+                uniquingKeysWith: { first, _ in first }))
+    }
+
+    /// Starts the agents the last run had open, each on its own conversation where its CLI
+    /// kept one, so a quit or a crash loses neither the agent nor the tasks it holds — the ids
+    /// that keep its finished, unapproved work in Review. A project no longer open is skipped.
+    func resumeSessions(_ stored: String) async {
+        let stored = OpenSessions.decode(stored)
+        for project in projects {
+            for session in stored[project.directory.path] ?? [] {
+                let line = await OpenSessions.line(resuming: session, in: project.directory)
+                project.addSession(
+                    id: session.id, title: session.title, icon: session.icon, line: line, agent: session.agent,
+                    taskIDs: session.taskIDs, reading: session.reading.map { URL(fileURLWithPath: $0) })
+            }
+        }
+    }
+
     /// Enters the project the window was inside and puts it back on the page it had open.
     /// Does nothing if that folder is no longer open — the window then stays on the fleet
     /// screen, which is where a first launch starts anyway.
@@ -38,9 +61,10 @@ extension AppModel {
         case .entry(let id): return NotebookLoader.find(id, in: project.snapshot.entries) != nil
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         case .member(let name): return project.snapshot.team.contains { $0.name == name }
-        // The agents died with the app, so a session route is stale by definition on a
-        // relaunch. Agents opens on whatever is running, which is nothing yet.
-        case .session, .subagent: return false
+        // A session comes back when `resumeSessions` started it again; its subagents are
+        // read off disk later, so one of theirs is stale on a relaunch.
+        case .session(let id, _): return project.sessions.contains { $0.id == id }
+        case .subagent: return false
         // These name what git and service detection say, and neither has been read when the
         // window restores. The next finished task re-opens its review once that read lands.
         case .review, .reviewTask, .preview: return false

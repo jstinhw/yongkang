@@ -75,6 +75,53 @@ package enum OpenProjects {
     }
 }
 
+/// The agent sessions each open project had, as they survive a quit or a crash, by project
+/// path. Only what starts one again: the rest is read back off the notebook and the CLI's own
+/// files. Services are left out — the user starts those.
+package enum OpenSessions {
+    package struct Stored: Codable, Equatable, Sendable {
+        package let id: UUID
+        package let title: String
+        package let icon: String
+        /// The line it was started with, to start it over when there is nothing to resume.
+        package let line: String
+        package let agent: AgentKind
+        package let taskIDs: [String]
+        package let reading: [String]
+    }
+
+    package static func stored(_ sessions: [CodeSession]) -> [Stored] {
+        sessions.compactMap { session in
+            session.agent.map {
+                Stored(
+                    id: session.id, title: session.title, icon: session.icon, line: session.line, agent: $0,
+                    taskIDs: session.taskIDs, reading: session.reading.map(\.path))
+            }
+        }
+    }
+
+    package static func encode(_ sessions: [String: [Stored]]) -> String {
+        guard let data = try? JSONEncoder().encode(sessions) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    package static func decode(_ text: String) -> [String: [Stored]] {
+        (try? JSONDecoder().decode([String: [Stored]].self, from: Data(text.utf8))) ?? [:]
+    }
+
+    /// The line that reopens `session` with its conversation, or the one it was first started
+    /// with when its CLI kept nothing to resume.
+    package static func line(resuming session: Stored, in directory: URL) async -> String {
+        guard
+            let words = await session.agent.provider.resume(
+                sessionID: session.id, project: directory, noCommit: !session.taskIDs.isEmpty,
+                reading: session.agent.provider.readsOtherFolders ? session.reading : [])
+        else { return session.line }
+        let command = ([session.agent.command] + words).joined(separator: " ")
+        return "cd \(AgentCommand.quoted(directory.path)) && exec \(command)"
+    }
+}
+
 /// A terminal in the sidebar. It holds the shell line rather than an agent, because a
 /// running service is the same thing to the window: a PTY in a directory.
 package struct CodeSession: Identifiable, Equatable, Sendable {

@@ -34,6 +34,13 @@ package struct CodexProvider: AgentProvider {
                 ?? [])
     }
 
+    /// `codex resume` takes the thread id Codex picked, found by the marker the prompt carried.
+    package func resume(sessionID: UUID, project: URL, noCommit: Bool, reading: [String]) async -> [String]? {
+        guard let thread = await transcripts.thread(resuming: sessionID, in: project) else { return nil }
+        return ["resume"] + launch(prompt: nil, sessionID: nil, noCommit: noCommit, reading: reading)
+            + [AgentCommand.quoted(thread)]
+    }
+
     /// `exec` refuses to run outside a git repository unless told to, and a question asked
     /// before a project exists is never inside one.
     package func ask(prompt: String) -> [String] {

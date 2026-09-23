@@ -22,6 +22,10 @@ package protocol AgentProvider: Sendable {
     /// record it. `noCommit` denies `AgentCommand.commitRules`,
     /// where the CLI has a flag for it.
     func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String]
+    /// What follows the executable to reopen a session an earlier run of the app started, with
+    /// its conversation, after the app was quit or crashed. Nil when the CLI kept nothing to
+    /// reopen it from, which is a session that never got going: it is started over instead.
+    func resume(sessionID: UUID, project: URL, noCommit: Bool, reading: [String]) async -> [String]?
     /// Whether the CLI can be handed folders beyond the one it starts in, which is what
     /// `reading` in `launch` becomes. A CLI that cannot is never offered any.
     var readsOtherFolders: Bool { get }

@@ -39,6 +39,9 @@ import YongkangCore
     @ObservationIgnored var lastTrustRead = Date.distantPast
     /// Each CLI's record of whether it may work in a folder. The tests stand in for it.
     @ObservationIgnored var trustRecord: (AgentKind, URL) async -> Bool? = { await $0.provider.trusts($1) }
+    /// Called when a session is added or removed, so the list can outlive a crash. See
+    /// `AppModel.storedSessions`.
+    @ObservationIgnored var onSessionsChanged: () -> Void = {}
     /// Where a session added here runs. Nil runs nothing: the session is only a row, as in
     /// the workflow tests.
     private let terminals: TerminalRegistry?
@@ -299,6 +302,7 @@ import YongkangCore
         // beat. A CLI that names its transcript after the session id (every one but Codex, which
         // has to be found by reading its rollouts) is watchable before it has written a byte.
         rewatch()
+        onSessionsChanged()
     }
 
     /// Ends the session's process along with its row: a closed session has no one to stop it later.
@@ -306,6 +310,7 @@ import YongkangCore
         sessions.removeAll { $0.id == id }
         resummarize()
         terminals?.terminate(id)
+        onSessionsChanged()
     }
 
     /// False when this project no longer has the session, so there is nothing to clear.

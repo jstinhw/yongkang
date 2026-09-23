@@ -42,6 +42,8 @@ import YongkangCore
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.
     let terminals: TerminalRegistry
+    /// Stores `storedSessions` wherever the window keeps it, whenever a project's sessions change.
+    @ObservationIgnored var sessionsChanged: () -> Void = {}
     /// The lines of whichever agent `selection` currently points at — a subagent, or the
     /// session itself. Kept apart from `CodeSession.subagents`, which only ever holds each
     /// one's status, because reading and parsing a whole transcript is only worth doing
@@ -158,7 +160,13 @@ import YongkangCore
     func restore(_ stored: String) {
         projects = OpenProjects.decode(stored)
             .filter { FileManager.default.fileExists(atPath: $0) }
-            .map { ProjectModel(directory: URL(fileURLWithPath: $0), terminals: terminals) }
+            .map { model(of: URL(fileURLWithPath: $0)) }
+    }
+
+    private func model(of directory: URL) -> ProjectModel {
+        let project = ProjectModel(directory: directory, terminals: terminals)
+        project.onSessionsChanged = { [weak self] in self?.sessionsChanged() }
+        return project
     }
 
     func project(at directory: URL) -> ProjectModel? {
@@ -171,7 +179,7 @@ import YongkangCore
 
     /// Adds a folder to the open projects. Check `project(at:)` first: a folder opens once.
     func open(_ directory: URL) -> ProjectModel {
-        let project = ProjectModel(directory: directory, terminals: terminals)
+        let project = model(of: directory)
         projects.append(project)
         watch(project)
         return project
@@ -184,6 +192,7 @@ import YongkangCore
             terminals.terminate(session.id)
         }
         projects.removeAll { $0 === project }
+        sessionsChanged()
         if entered === project { leave() }
     }
 

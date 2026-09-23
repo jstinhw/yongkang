@@ -122,9 +122,27 @@ package actor CodexTranscripts {
         return false
     }
 
-    /// Rollouts this app run could have started, newest first. The tree is `YYYY/MM/DD`, so
-    /// the enumerator walks a handful of folders even on a machine with years of sessions.
-    private func rollouts() -> [URL] {
+    /// The thread a session an earlier run of the app started is driving, for `codex resume`.
+    /// Unlike `thread(for:)` it looks past this run's rollouts, since the session's is older.
+    ///
+    /// ponytail: reads every rollout of the folder until one quotes the id, newest first — once
+    /// per Codex session at launch. Keep each row's thread id with the row if that grows slow.
+    func thread(resuming sessionID: UUID, in projectDirectory: URL) -> String? {
+        let needle = sessionID.uuidString.lowercased()
+        for url in rollouts(since: .distantPast) {
+            guard let meta = meta(at: url), !meta.isSubagent, meta.cwd == projectDirectory.path,
+                Self.quotes(needle, in: url)
+            else { continue }
+            threadCache[sessionID] = meta.threadID
+            return meta.threadID
+        }
+        return nil
+    }
+
+    /// Rollouts written since `since` (this app run, by default), newest first. The tree is
+    /// `YYYY/MM/DD`, and sorting on the name keeps it newest first.
+    private func rollouts(since: Date? = nil) -> [URL] {
+        let since = since ?? launched
         let root = codexHome.appendingPathComponent("sessions")
         let keys: [URLResourceKey] = [.creationDateKey, .contentModificationDateKey]
         guard
@@ -136,7 +154,7 @@ package actor CodexTranscripts {
             .filter { $0.pathExtension == "jsonl" }
             .filter { url in
                 let values = try? url.resourceValues(forKeys: Set(keys))
-                return (values?.contentModificationDate ?? .distantPast) >= launched
+                return (values?.contentModificationDate ?? .distantPast) >= since
             }
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }

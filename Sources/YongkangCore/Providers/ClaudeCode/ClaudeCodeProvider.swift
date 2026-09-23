@@ -32,6 +32,14 @@ package struct ClaudeCodeProvider: AgentProvider {
         return words.compactMap { $0 }
     }
 
+    /// `--resume` takes the id `--session-id` gave it, and refuses one with no transcript yet.
+    package func resume(sessionID: UUID, project: URL, noCommit: Bool, reading: [String]) async -> [String]? {
+        let transcript = ClaudeTranscripts.transcriptURL(sessionID: sessionID, projectDirectory: project)
+        guard FileManager.default.fileExists(atPath: transcript.path) else { return nil }
+        return launch(prompt: nil, sessionID: nil, noCommit: noCommit, reading: reading)
+            + ["--resume \(sessionID.uuidString.lowercased())"]
+    }
+
     package func ask(prompt: String) -> [String] {
         ["-p", AgentCommand.quoted(prompt)]
     }

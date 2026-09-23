@@ -11,6 +11,7 @@ struct RootView: View {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
+    @AppStorage("openSessions") private var openSessions = "{}"
     /// Whether the list column is shut, and how wide it is when it is not. Both persist: a
     /// window you have shaped once should come back that way. `listWidth` is the key the old
     /// bundle's defaults are migrated under, from when the list last remembered its width.
@@ -244,6 +245,11 @@ struct RootView: View {
         guard model.projects.isEmpty else { return }
         model.restore(openProjects)
         persist()
+        // Resumed before the hook goes in, so the stored list is read whole, not rewritten one
+        // session at a time as each comes back.
+        await model.resumeSessions(openSessions)
+        model.sessionsChanged = { openSessions = model.storedSessions }
+        model.sessionsChanged()
         model.start()
         model.lookUpAgents()
         await model.reloadNow()

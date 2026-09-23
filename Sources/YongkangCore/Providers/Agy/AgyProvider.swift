@@ -17,6 +17,13 @@ package struct AgyProvider: AgentProvider {
             + (prompt.map { ["--prompt-interactive", AgentCommand.quoted($0)] } ?? [])
     }
 
+    /// ponytail: Agy's conversation id is never read, so `--continue` reopens the folder's newest
+    /// one — the wrong one for all but the last of several Agy sessions in a folder. Read its
+    /// id off disk for `--conversation` if that turns out to matter.
+    package func resume(sessionID: UUID, project: URL, noCommit: Bool, reading: [String]) async -> [String]? {
+        launch(prompt: nil, sessionID: nil, noCommit: noCommit, reading: reading) + ["--continue"]
+    }
+
     package func ask(prompt: String) -> [String] {
         ["-p", AgentCommand.quoted(prompt)]
     }

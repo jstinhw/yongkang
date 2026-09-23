@@ -112,6 +112,30 @@ import Testing
         #expect(model.selection == .agents, "the project's agents — the same screen entering the project gives")
     }
 
+    /// A crash keeps the agent and the task it holds: without the task id, its finished work
+    /// would drop out of Review as unclaimed files.
+    @Test func anAgentOnATaskComesBackAfterACrash() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        let first = reopened(project)
+        var saved = ""
+        first.sessionsChanged = { saved = first.storedSessions }
+        let id = UUID()
+        first.projects[0].addSession(
+            id: id, title: "Claude Code", icon: "sparkles", line: "true", agent: .claude, taskIDs: ["wire-auth"])
+        first.terminals.terminate(id)
+
+        let second = reopened(project)
+        await second.resumeSessions(saved)
+        let entered = try #require(second.projects.first)
+        let back = try #require(entered.sessions.first)
+        defer { second.terminals.terminate(id) }
+        #expect(back.id == id && back.taskIDs == ["wire-auth"] && back.agent == .claude)
+        #expect(back.line == "true", "a Claude session with no transcript yet starts over")
+        #expect(second.restorable(.session(id), in: entered))
+    }
+
     @Test func aResolvedBlockFallsBackToTheProjectsAgents() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

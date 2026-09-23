@@ -234,10 +234,21 @@ read one — validated any earlier, every stored route would look stale on every
 
 - A card, block, entry or team member has to still be there, and a card has to still be the
   kind the route says.
-- A session route is stale by definition: the agents died with the app.
+- A session route holds when that session came back (below); a subagent route never does,
+  since subagents are read off disk later.
 - Review, review-task and preview routes count as stale too, because git and service detection
   have not been read when the window restores. The next task to finish opens its own review
   once that read lands, which is the same answer a moment later.
+
+**The agents come back too.** `@AppStorage("openSessions")` keeps each open project's agent
+sessions (`OpenSessions`): id, title, the line that started it, its tasks and the folders it
+reads. It is written whenever a session is added or closed, so it survives a crash as well as
+a quit. `AppModel.resumeSessions` starts each again before the route is restored, on its own
+conversation where its CLI kept one — `claude --resume`, `codex resume <thread>`,
+`grok --resume`, `agy --continue` (each provider's `resume`) — and on the line it was first
+started with where it kept nothing, which is a session that never got going. Coming back with
+its task ids is what keeps finished, unapproved work in Review: a task counts as handed out
+only while a session, a work record or a block names it. Services are not kept.
 
 Anything that fails drops the route, and `openSectionDefault()` fills it with the section's own
 page for the project: its board, or its running sessions side by side. `RestorationTests` covers the
