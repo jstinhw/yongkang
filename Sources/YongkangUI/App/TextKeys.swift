@@ -27,6 +27,22 @@ import AppKit
         return true
     }
 
+    /// Shift+Return in a prompt box is a new line, not a submit. SwiftUI answers it in a
+    /// `TextField(axis: .vertical)` by selecting everything typed so far instead of breaking the
+    /// line, so the box takes the key itself. Called from `PromptField`'s own monitor rather
+    /// than the app-wide one above: a newline belongs in a box that has room for one.
+    ///
+    /// True when it was Shift+Return in an editable text view, and the key is used up.
+    static func newline(_ event: NSEvent, in responder: NSResponder?) -> Bool {
+        guard let text = responder as? NSTextView, text.isEditable,
+            event.modifierFlags.intersection([.command, .option, .control, .shift]) == .shift,
+            event.keyCode == 36
+        else { return false }
+        // Through `insertText`, so the change is undoable and SwiftUI's binding hears it.
+        text.insertText("\n", replacementRange: text.selectedRange())
+        return true
+    }
+
     /// Back over the spaces before `location`, then back to the next one: `unix-word-rubout`.
     static func wordBefore(_ location: Int, in string: NSString) -> NSRange {
         func isSpace(_ index: Int) -> Bool {

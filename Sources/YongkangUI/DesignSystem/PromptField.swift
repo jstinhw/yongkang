@@ -217,6 +217,7 @@ struct PromptField: View {
     private func claimTab() {
         guard tabWatch == nil else { return }
         tabWatch = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if TextKeys.newline(event, in: event.window?.firstResponder) { return nil }
             guard !event.modifierFlags.contains(.shift) else { return event }
             let open = !shown.isEmpty
             switch event.keyCode {

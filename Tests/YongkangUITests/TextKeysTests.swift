@@ -21,6 +21,23 @@ import Testing
         return text
     }
 
+    /// Return as the system reports it: the carriage return, whatever is held down with it.
+    private func returnKey(_ flags: NSEvent.ModifierFlags) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+            context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+    }
+
+    @Test func shiftReturnBreaksTheLineAtTheCaret() {
+        let text = box("a CLI that", caret: 5)
+        #expect(TextKeys.newline(returnKey(.shift), in: text), "the key is taken before anything selects the box")
+        #expect(text.string == "a CLI\n that", "the line breaks where the caret was")
+        #expect(!TextKeys.newline(returnKey([]), in: text), "plain Return still sends the prompt")
+        #expect(
+            !TextKeys.newline(returnKey([.shift, .command]), in: text),
+            "a shortcut held with Shift is not a new line")
+    }
+
     @Test func deletesBackToThePreviousSpaceLikeAShell() {
         let text = box("build from @designs/type/")
         #expect(TextKeys.handle(key(.control), in: text), "the key is taken")
