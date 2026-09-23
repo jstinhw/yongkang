@@ -4,11 +4,17 @@ import YongkangCore
 /// What is being asked of the user, and the button that starts doing it. The body of a
 /// block is written as steps by whoever hit the gate, so it renders like any other page.
 /// The action bar either opens the guiding session or returns a proposal to Product.
+///
+/// A proposal shows the page its session drew instead of its own body. The body is the
+/// draft — every task, every `depends_on`, every call made — which is too long to decide
+/// on; the page is that plan as outcomes, what waits on the user, and a graph.
 package struct BlockDetail: View {
     let block: UserBlock
     let cards: [NotebookCard]
     /// The session that is waiting on this, if it is still running.
     let waiting: CodeSession?
+    /// Where `pages/<session>.html` is looked for. Nil in the shots, which draw the body.
+    let notebookRoot: URL?
     let start: () -> Void
     let revise: () -> Void
     let resolve: () -> Void
@@ -19,6 +25,7 @@ package struct BlockDetail: View {
         block: UserBlock,
         cards: [NotebookCard],
         waiting: CodeSession?,
+        notebookRoot: URL? = nil,
         start: @escaping () -> Void,
         revise: @escaping () -> Void,
         resolve: @escaping () -> Void
@@ -26,9 +33,20 @@ package struct BlockDetail: View {
         self.block = block
         self.cards = cards
         self.waiting = waiting
+        self.notebookRoot = notebookRoot
         self.start = start
         self.revise = revise
         self.resolve = resolve
+    }
+
+    /// The page its session drew, when a proposal has one. A proposal outlives the session
+    /// that wrote it — setup closes as soon as the draft is done — so this is the only place
+    /// the graph is still reachable. A plain block keeps its body: those steps are the thing
+    /// the user has to follow, not a summary of them.
+    private var page: URL? {
+        guard block.isProposal, let session = block.session, let notebookRoot else { return nil }
+        let url = NotebookFormat.page(of: session, in: notebookRoot)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     private var parent: NotebookCard? {
@@ -38,18 +56,24 @@ package struct BlockDetail: View {
     package var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        header
-                        if !content.isEmpty {
+                // The page scrolls itself, so the header sits in its own band above it rather
+                // than inside a scroll view wrapping both.
+                VStack(alignment: .leading, spacing: 0) {
+                    header.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 20)
+                    if let page {
+                        SessionPage(url: page)
+                    } else if !content.isEmpty {
+                        ScrollView {
                             NotebookContentView(sections: content, cards: cards)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .cardSurface(padding: 16)
+                                .padding([.horizontal, .bottom], 24)
                         }
+                    } else {
+                        Spacer(minLength: 0)
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 inspector
             }
             actionBar

@@ -22,18 +22,28 @@ extension NotebookFormat {
     /// review's next move — so setup and Product draw the same map. A graph, not the draft's
     /// lists, because the dependencies are what the user reviews; Mermaid, because any agent
     /// writes it and it lays the arrows out itself.
+    ///
+    /// The graph says what blocks what, and nothing else. The two lists above it carry what a
+    /// graph cannot: why the plan is worth approving, and the moments it stops without the
+    /// user. Without them the only place those live is the draft, which is the wall of text
+    /// the page exists to replace.
     private static func planGraph(_ sessionID: UUID) -> String {
         """
         Whenever a plan with projects and tasks is ready for me under Blocks, and each time it
-        changes, show it to me as a graph: \(page(sessionID)). Never ask me to open files.
+        changes, show it to me as a page: \(page(sessionID)). Never ask me to open files.
 
-        Draw it with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
+        Open with two short lists, five lines at most each: what I will have once every task
+        lands, in terms of what someone can do; and every moment the plan waits on me — an
+        approval, an account, a secret, a DNS change — each naming the task it belongs to and
+        what I actually do. Then the graph. Nothing else: the detail stays in the draft.
+
+        Draw the graph with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
         roadmap entry holding its projects, a subgraph per project holding its tasks, each task
         a node with its id and a few words on what it changes, and an arrow from every
         `depends_on` to what waits on it, between projects as well as tasks. Style design tasks
-        apart, outline the tasks that can start at once, fade what already exists that the plan
-        only builds on, and add a one-line legend. It maps the plan, not the product: no
-        mockups.
+        apart, mark the ones that wait on me, outline the tasks that can start at once, fade what
+        already exists that the plan only builds on, and add a one-line legend. It maps the plan,
+        not the product: no mockups.
         """
     }
 

@@ -114,6 +114,7 @@ extension RootView {
             BlockDetail(
                 block: block, cards: project.cards,
                 waiting: project.waitingSession(for: block),
+                notebookRoot: project.notebookRoot,
                 start: { model.go(to: project.startUnblock(block, agent: agent)) },
                 revise: { model.go(to: project.openProposal(block, approve: false, agent: agent)) },
                 resolve: {
