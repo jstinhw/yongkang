@@ -190,6 +190,8 @@ struct TaskReviewBar: View {
     let draft: ReviewDraft
     let approve: (String) async -> String?
     let requestChanges: () -> Void
+    /// Asks, then reverts this task's work and hands the task back to be done again.
+    let discard: () -> Void
 
     @State private var message = ""
     @State private var failure = ""
@@ -211,6 +213,10 @@ struct TaskReviewBar: View {
                 Text(failure).font(Typography.mono).foregroundStyle(Theme.red)
                     .lineLimit(2).frame(maxWidth: 260, alignment: .leading)
             }
+            Button(action: discard) { Label("Discard and rerun", systemImage: "arrow.uturn.backward") }
+                .buttonStyle(.console)
+                .disabled(committing || !task.done || task.discardPaths.isEmpty)
+                .help("Revert this task's changes and have an agent start it over")
             if draft.isEmpty {
                 Button(action: requestChanges) { Label("Request changes", systemImage: "text.bubble") }
                     .buttonStyle(.console)

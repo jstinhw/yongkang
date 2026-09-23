@@ -1,7 +1,7 @@
 import Foundation
 import YongkangCore
 
-/// git's reason a commit did not happen, shown under the button that asked for it.
+/// git's reason a commit or a discard did not happen, shown to whoever asked for it.
 struct CommitFailure: Error, Equatable {
     let reason: String
 }
@@ -24,7 +24,25 @@ extension ProjectModel {
     /// Nil when there is nothing written to send, or the task is no longer in the notebook.
     func requestChanges(on task: SummaryTask, agent: AgentKind) -> Destination? {
         guard let draft = reviewDrafts[task.id], !draft.isEmpty else { return nil }
-        let message = draft.message(taskID: task.id, title: task.title)
+        return send(draft.message(taskID: task.id, title: task.title), about: task, agent: agent)
+    }
+
+    /// Discarding is approving's opposite: this task's code and its records go back to the last
+    /// commit, and the task goes back to an agent the way a change request does, to start
+    /// over. The task file is left alone — reopening it is the agent's, like every status.
+    func discard(_ task: SummaryTask, agent: AgentKind) async throws(CommitFailure) -> Destination? {
+        let failure = await GitClient.discard(
+            repo.changes.filter { task.discardPaths.contains($0.path) }, in: directory)
+        await refreshRepo()
+        if let failure { throw CommitFailure(reason: failure) }
+        reviewDrafts[task.id] = nil
+        return send(
+            "Discarded \(task.id) — \"\(task.title)\": its changes and its reports are gone. Set it back to "
+                + "active, do it again from the start, check the Done when, and mark it done again. Do not commit.",
+            about: task, agent: agent)
+    }
+
+    private func send(_ message: String, about task: SummaryTask, agent: AgentKind) -> Destination? {
         if let holder = sessions.first(where: { $0.taskIDs.contains(task.id) && !$0.exited }) {
             reviewDrafts[task.id] = nil
             return Destination(section: .agents, route: .session(holder.id), input: message)

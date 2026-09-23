@@ -24,6 +24,7 @@ package struct TaskReview: View {
     let startBlock: (UserBlock) -> Void
     let approve: (String) async -> String?
     let requestChanges: () -> Void
+    let discard: () -> Void
 
     @State private var content: [NotebookContent.Section] = []
     /// Worked out from each file's diff once the page opens, so a data layer with SQL in
@@ -47,7 +48,8 @@ package struct TaskReview: View {
         openBlock: @escaping (UserBlock) -> Void,
         startBlock: @escaping (UserBlock) -> Void,
         approve: @escaping (String) async -> String?,
-        requestChanges: @escaping () -> Void
+        requestChanges: @escaping () -> Void,
+        discard: @escaping () -> Void
     ) {
         self.task = task
         self.summary = summary
@@ -63,6 +65,7 @@ package struct TaskReview: View {
         self.startBlock = startBlock
         self.approve = approve
         self.requestChanges = requestChanges
+        self.discard = discard
     }
 
     private var checklist: [NotebookContent.ChecklistItem] {
@@ -100,7 +103,8 @@ package struct TaskReview: View {
                 .background(Theme.bg)
                 inspector
             }
-            TaskReviewBar(task: task, draft: draft, approve: approve, requestChanges: requestChanges)
+            TaskReviewBar(
+                task: task, draft: draft, approve: approve, requestChanges: requestChanges, discard: discard)
         }
         .task(id: task.body) { content = NotebookContent.sections(task.body) }
         .task(id: task.files) { await load() }

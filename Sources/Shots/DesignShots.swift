@@ -124,7 +124,7 @@ enum DesignShots {
                 draft: .constant(ReviewDraft()),
                 blocks: result.blocks.filter { $0.waiting && !$0.isProposal && $0.task == task.id },
                 openFile: { _ in }, openBlock: { _ in }, startBlock: { _ in },
-                approve: { _ in nil }, requestChanges: {})
+                approve: { _ in nil }, requestChanges: {}, discard: {})
         }
         // The narrow one also hovers a rail item, whose label draws over the list column.
         if let waiting = resultSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
@@ -264,7 +264,7 @@ enum DesignShots {
                         task: task, summary: reviewedSummary, directory: repo, cards: reviewed.cards,
                         team: Team.defaults, branch: status.branch, head: status.head,
                         draft: .constant(draft), blocks: [], openFile: { _ in }, openBlock: { _ in },
-                        startBlock: { _ in }, approve: { _ in nil }, requestChanges: {})
+                        startBlock: { _ in }, approve: { _ in nil }, requestChanges: {}, discard: {})
                 }, "handover", into: directory)
         }
 

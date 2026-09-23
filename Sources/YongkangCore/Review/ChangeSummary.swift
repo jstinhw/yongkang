@@ -76,19 +76,19 @@ package struct ChangeSummary: Equatable, Sendable {
                     files.append(file)
                     claimed.insert(path)
                 }
-                // The records this task's workers wrote go in with its code, so the commit
-                // carries the reason for itself. A path git does not list is left out.
-                let records =
-                    ([card.url]
-                    + plans(of: project).flatMap { session, plan in
-                        plan.workers.filter { $0.taskID == card.id }.map {
-                            project.notebookRoot.appendingPathComponent("runs")
-                                .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
-                        }
-                    }).compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
+                // The task file and the records this task's workers wrote go in with its code,
+                // so the commit carries the reason for itself. A path git does not list is left out.
+                let records = plans(of: project).flatMap { session, plan in
+                    plan.workers.filter { $0.taskID == card.id }.map {
+                        project.notebookRoot.appendingPathComponent("runs")
+                            .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
+                    }
+                }.compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
                 return SummaryTask(
                     id: card.id, title: card.title, status: card.status, url: card.url,
-                    body: card.body, work: workers, files: files, records: records)
+                    body: card.body, work: workers, files: files,
+                    file: relative(card.url, in: project.directory).flatMap { byPath[$0] == nil ? nil : $0 },
+                    records: records)
             }
         return ChangeSummary(
             tasks: tasks.filter(\.done) + tasks.filter { !$0.done },
@@ -150,13 +150,19 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     package var work: [LeadWork] = []
     /// The changed files this task's workers reported owning, in the order they named them.
     package var files: [FileChange] = []
-    /// Changed notebook files that belong to this task: its own file and its work records.
+    /// The task's own file, when git lists it changed.
+    var file: String? = nil
+    /// Its work records git lists changed.
     var records: [String] = []
 
-    /// What approving this task commits: its code and its records, nothing else.
+    /// What approving this task commits: its code, its file and its records, nothing else.
     package var commitPaths: [String] {
-        files.map(\.path) + records.filter { path in !files.contains { $0.path == path } }
+        files.map(\.path) + ([file].compactMap { $0 } + records).filter { path in !files.contains { $0.path == path } }
     }
+
+    /// What discarding this task throws away: its code and its records. Not its file — its
+    /// status is the agent's to set, and an untracked one is the task itself.
+    package var discardPaths: [String] { commitPaths.filter { $0 != file } }
 
     package var done: Bool { status == "done" }
     package var added: Int { files.reduce(0) { $0 + $1.added } }

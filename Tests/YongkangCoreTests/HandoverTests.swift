@@ -131,6 +131,16 @@ import Testing
         #expect(summary.sharing("Sources/Loader.swift", besides: first) == nil)
     }
 
+    @Test func discardLeavesTheTaskFile() {
+        let task = SummaryTask(
+            id: "t", title: "T", status: "done", files: Self.tree, file: ".notebook/tasks/t.md",
+            records: [".notebook/runs/s-work-t.md"])
+        #expect(task.commitPaths.contains(".notebook/tasks/t.md"), "approving commits the task file")
+        #expect(
+            task.discardPaths == Self.tree.map(\.path) + [".notebook/runs/s-work-t.md"],
+            "discarding reverts the code and the reports, never the task file the agent reopens")
+    }
+
     @Test func recordsOnDiskKeepWorkWaiting() throws {
         let (project, lead) = Self.leadProject()
         var relaunched = project
@@ -186,6 +196,30 @@ import Testing
         #expect(
             await RepoStatus.read(in: repo)?.changes.map(\.path) == ["theirs.txt"],
             "approving one task leaves every other task's files uncommitted")
+    }
+
+    @Test func discardRevertsOnlyTheTasksFiles() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let repo = dir.appendingPathComponent("repo")
+        try await makeRepository(repo)
+        for name in ["kept.txt", "edited.txt"] {
+            try "one\n".write(to: repo.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        #expect(await GitClient.commit(message: "Base", in: repo) == nil)
+        try "two\n".write(to: repo.appendingPathComponent("edited.txt"), atomically: true, encoding: .utf8)
+        try "two\n".write(to: repo.appendingPathComponent("kept.txt"), atomically: true, encoding: .utf8)
+        let runs = repo.appendingPathComponent(".notebook/runs")
+        try FileManager.default.createDirectory(at: runs, withIntermediateDirectories: true)
+        try "report\n".write(to: runs.appendingPathComponent("s-work-t.md"), atomically: true, encoding: .utf8)
+        let changes = try #require(await RepoStatus.read(in: repo)).changes
+        #expect(await GitClient.discard([], in: repo) != nil, "nothing to discard is refused, not the whole tree")
+        #expect(
+            await GitClient.discard(changes.filter { $0.path != "kept.txt" }, in: repo) == nil)
+        #expect(
+            await RepoStatus.read(in: repo)?.changes.map(\.path) == ["kept.txt"],
+            "a tracked file goes back to HEAD, a new one is deleted, and another task's edit stays")
+        #expect(try String(contentsOf: repo.appendingPathComponent("edited.txt"), encoding: .utf8) == "one\n")
     }
 
     @Test func initializeMakesARepository() async throws {

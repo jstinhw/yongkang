@@ -142,8 +142,8 @@ package enum GitClient {
         return lines
     }
 
-    /// Commit — the one write this app makes to a user's repo, and only from a button on
-    /// the review screen. With `paths` it is one approved task: only those files are staged
+    /// Commit — one of the two writes this app makes to a user's repo, both only from a button
+    /// on the review screen. With `paths` it is one approved task: only those files are staged
     /// and committed, and whatever else sits in the index or the tree is left exactly as it
     /// was. Without, everything. Returns git's own words on failure and nil on success.
     /// Pushing and merging stay the user's.
@@ -152,9 +152,29 @@ package enum GitClient {
         guard !text.isEmpty else { return "A commit needs a message." }
         guard paths?.isEmpty != true else { return "This task has no changed files left to commit." }
         guard await isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
-        let steps =
+        return await run(
             paths.map { [["add", "--"] + $0, ["commit", "--message", text, "--"] + $0] }
-            ?? [["add", "--all"], ["commit", "--message", text]]
+                ?? [["add", "--all"], ["commit", "--message", text]],
+            in: directory)
+    }
+
+    /// The other write, commit's opposite and as narrow: a discarded task's `changes` go back
+    /// to how `HEAD` has them, a file git never saw is deleted, and nothing else in the tree or
+    /// the index is touched. Returns git's own words on failure and nil on success.
+    package static func discard(_ changes: [FileChange], in directory: URL) async -> String? {
+        guard !changes.isEmpty else { return "This task has no changed files left to discard." }
+        guard await isRepository(directory) else { return "\(directory.lastPathComponent) is not a git repository." }
+        let tracked = changes.filter { !$0.untracked }.map(\.path)
+        let untracked = changes.filter(\.untracked).map(\.path)
+        // Before the first commit there is no HEAD, and nothing tracked to restore from it.
+        return await run(
+            (tracked.isEmpty ? [] : [["restore", "--source=HEAD", "--staged", "--worktree", "--"] + tracked])
+                + (untracked.isEmpty ? [] : [["clean", "--force", "--"] + untracked]),
+            in: directory)
+    }
+
+    /// Each command in turn, stopping at the first git refuses, with what it said.
+    private static func run(_ steps: [[String]], in directory: URL) async -> String? {
         for arguments in steps {
             let result = await execute(arguments, in: directory)
             guard result.status != 0 else { continue }

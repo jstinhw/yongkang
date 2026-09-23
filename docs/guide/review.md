@@ -47,6 +47,10 @@ The bar at the bottom is the decision, on the task page and on its diffs alike:
   the task. With none running, a new one starts on the toolbar's agent with the task and the
   comments. It answers them as a new attempt, checks the `Done when` again, and the task
   comes back to **Waiting for you**.
+- **Discard and rerun** asks first, then throws the attempt away: the task's files go back
+  to the last commit, the new ones and its run records are deleted, and nothing else in the
+  tree is touched. The task file stays as it is. Then the task goes to an agent the way
+  **Request changes** does, to be done again from the start.
 
 None of it is written for this screen; it is the run records in `.notebook/runs/`, where
 `paths` on each work record is what attributes a file to a task. They are read from disk,

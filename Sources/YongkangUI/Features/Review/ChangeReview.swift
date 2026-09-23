@@ -23,6 +23,7 @@ package struct ChangeReview: View {
     var openTask: (String) -> Void = { _ in }
     var approve: (String) async -> String? = { _ in nil }
     var requestChanges: () -> Void = {}
+    var discard: () -> Void = {}
 
     @State private var lines: [DiffLine] = []
     /// Prefilled from the batch and replaced as tasks finish — until you start typing,
@@ -46,7 +47,8 @@ package struct ChangeReview: View {
         draft: Binding<ReviewDraft> = .constant(ReviewDraft()),
         openTask: @escaping (String) -> Void = { _ in },
         approve: @escaping (String) async -> String? = { _ in nil },
-        requestChanges: @escaping () -> Void = {}
+        requestChanges: @escaping () -> Void = {},
+        discard: @escaping () -> Void = {}
     ) {
         self.project = project
         self.changes = changes
@@ -61,6 +63,7 @@ package struct ChangeReview: View {
         self.openTask = openTask
         self.approve = approve
         self.requestChanges = requestChanges
+        self.discard = discard
     }
 
     private var change: FileChange? { changes.first { $0.path == path } }
@@ -83,7 +86,9 @@ package struct ChangeReview: View {
                 inspector
             }
             if let task {
-                TaskReviewBar(task: task, draft: draft.wrappedValue, approve: approve, requestChanges: requestChanges)
+                TaskReviewBar(
+                    task: task, draft: draft.wrappedValue, approve: approve, requestChanges: requestChanges,
+                    discard: discard)
             } else {
                 commitBar
             }

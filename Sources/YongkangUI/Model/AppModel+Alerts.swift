@@ -87,6 +87,31 @@ extension AppModel {
         }
     }
 
+    /// Asks before throwing a task's finished work away: unlike the Trash, a new file git has
+    /// never seen does not come back. Yes reverts it and hands the task to `agent` to redo.
+    func discard(_ task: SummaryTask, in project: ProjectModel, agent: AgentKind) {
+        let count = task.discardPaths.count
+        let shared = task.files.filter { project.summary.sharing($0.path, besides: task) != nil }.count
+        alert = .confirm(
+            "Discard \u{201C}\(task.title)\u{201D} and run it again?",
+            detail: "Its \(count) changed file\(count == 1 ? "" : "s") go back to the last commit, and the "
+                + "new ones are deleted. This can't be undone. "
+                + (shared == 0 ? "" : "\(shared) of them also hold another task's edits, which go too. ")
+                + "Then an agent starts the task over.",
+            action: "Discard and Rerun"
+        ) { [weak self] in
+            Task {
+                guard let self else { return }
+                do throws(CommitFailure) {
+                    let destination = try await project.discard(task, agent: agent)
+                    self.go(to: destination)
+                } catch {
+                    self.alert = .message("The work was not discarded", detail: error.reason)
+                }
+            }
+        }
+    }
+
     /// Asks before moving `card` to the Trash, and counts what goes with it from the board as it
     /// is now. The answer removes what was counted: the poll keeps running under the question,
     /// and a task an agent files meanwhile is left for the user to see.
