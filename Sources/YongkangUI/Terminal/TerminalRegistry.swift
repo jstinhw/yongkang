@@ -21,6 +21,8 @@ import YongkangCore
     @ObservationIgnored var onExit: (UUID) -> Void = { _ in }
     /// The question a session's terminal is asking the user changed; nil once it is answered.
     @ObservationIgnored var onAttention: (UUID, String?) -> Void = { _, _ in }
+    /// A session's terminal has gone still, so its agent may be waiting for a reply.
+    @ObservationIgnored var onQuiet: (UUID) -> Void = { _ in }
 
     @ObservationIgnored private var entries: [UUID: Entry] = [:]
     private let shell: [String]
@@ -61,6 +63,7 @@ import YongkangCore
         view.onAttention = { [weak self] reason in self?.onAttention(id, reason) }
         view.onAnswer = { [weak self] question, keys in self?.answer(question, with: keys, from: id) }
         view.onCheck = { [weak self] in self?.typeQueued(id) }
+        view.onQuiet = { [weak self] in self?.onQuiet(id) }
         view.startProcess(
             executable: shell[0], args: Array(shell.dropFirst()) + [session.line],
             environment: Terminal.getEnvironmentVariables(termName: "xterm-256color", trueColor: true))

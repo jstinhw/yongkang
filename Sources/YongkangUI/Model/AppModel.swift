@@ -36,6 +36,9 @@ import YongkangCore
     private(set) var foundAgents: Set<AgentKind>?
     @ObservationIgnored private var agentLookup: Task<Void, Never>?
     private(set) var attention: [UUID: String] = [:]
+    /// The sessions whose agent has finished its turn and sits at its prompt, as their
+    /// transcripts last said. Only the step into it is news.
+    @ObservationIgnored private var finishedTurn: Set<UUID> = []
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.
     let terminals: TerminalRegistry
@@ -81,6 +84,9 @@ import YongkangCore
             guard let self, let found = self.session(id), found.session.agent != nil else { return }
             self.attentionChanged(reason, session: found.session, project: found.project)
             if reason == nil { Task { await self.trustAnswered(found.session, in: found.project) } }
+        }
+        terminals.onQuiet = { [weak self] id in
+            Task { await self?.checkTurn(id) }
         }
     }
 
@@ -245,6 +251,28 @@ import YongkangCore
         notify(session.id, "\(project.name) · \(session.title)", reason)
     }
 
+    /// A still terminal is only a hint; the transcript says whether the agent's last word was
+    /// a reply to the user (`AgentState.of`), which is its turn finished and yours begun. That
+    /// step posts the same banner a question does, unless you are already looking at it.
+    ///
+    /// Read once per silence, not per frame: parsing a transcript is the costly read.
+    func checkTurn(_ id: UUID) async {
+        guard let found = session(id), !found.session.exited, let provider = found.session.agent?.provider,
+            let url = await provider.transcriptURL(session: id, project: found.project.directory)
+        else { return }
+        let lines = await found.project.reader.transcript(of: provider, at: url)
+        let finished = AgentState.of(lines: lines, exited: false) == .waiting
+        guard finished != finishedTurn.contains(id) else { return }
+        if finished { finishedTurn.insert(id) } else { finishedTurn.remove(id) }
+        // A question on screen already has its own banner, which this must neither replace nor withdraw.
+        guard attention[id] == nil else { return }
+        let title = "\(found.project.name) · \(found.session.title)"
+        guard finished else { return notify(id, title, nil) }
+        let watching = entered === found.project && selection?.pane(of: id) != nil
+        guard !(watching && AgentNotifications.appIsActive) else { return }
+        notify(id, title, "It has finished and is waiting for your reply.")
+    }
+
     /// Navigation only: the caller brings the app forward.
     func openAttention(_ session: CodeSession, in project: ProjectModel) {
         section = .agents
@@ -293,10 +321,18 @@ import YongkangCore
     func markExited(_ session: CodeSession, in project: ProjectModel) {
         guard project.markExited(session.id) else { return }
         attentionChanged(nil, session: session, project: project)
+        forgetTurn(session.id)
+    }
+
+    /// Withdraws a finished turn's banner, which `attentionChanged` leaves when no question was up.
+    private func forgetTurn(_ id: UUID) {
+        guard finishedTurn.remove(id) != nil, attention[id] == nil else { return }
+        notify(id, "", nil)
     }
 
     func close(_ session: CodeSession, in project: ProjectModel) {
         attentionChanged(nil, session: session, project: project)
+        forgetTurn(session.id)
         project.removeSession(session.id)
         switch selection {
         case .session(session.id, _)?, .subagent(session.id, _)?: selection = nil

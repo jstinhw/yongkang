@@ -10,6 +10,9 @@ final class AttentionTerminalView: LocalProcessTerminalView {
     /// was waiting for that can go.
     var onCheck: () -> Void = {}
     var onUserInput: () -> Void = {}
+    /// The CLI has drawn nothing for `quietAfter`: a working agent animates its spinner, so a
+    /// still screen is one that may have finished its turn and be waiting for a reply.
+    var onQuiet: () -> Void = {}
     /// The question the screen asked and the keys the user pressed while it was up, once it's gone.
     var onAnswer: (_ question: String, _ keys: [[UInt8]]) -> Void = { _, _ in }
     private(set) var hasDraft = false
@@ -35,6 +38,8 @@ final class AttentionTerminalView: LocalProcessTerminalView {
     }
 
     private var check: DispatchWorkItem?
+    private var quiet: DispatchWorkItem?
+    private let quietAfter: TimeInterval = 2
     private var lastReason: String?
 
     var screen: String {
@@ -50,6 +55,13 @@ final class AttentionTerminalView: LocalProcessTerminalView {
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
         super.dataReceived(slice: slice)
+        // Unlike the check below, this one restarts on every frame: it is the silence it waits for.
+        // ponytail: a CLI that redraws while idle never goes quiet, so it never reports a
+        // finished turn; read its transcript on the safety poll instead if one turns out to.
+        quiet?.cancel()
+        let settled = DispatchWorkItem { [weak self] in self?.onQuiet() }
+        quiet = settled
+        DispatchQueue.main.asyncAfter(deadline: .now() + quietAfter, execute: settled)
         // Check on a fixed deadline. Codex redraws even while waiting for input;
         // restarting the delay on every frame can suppress the notice forever.
         guard check == nil else { return }
@@ -76,6 +88,10 @@ final class AttentionTerminalView: LocalProcessTerminalView {
     static let shared = AgentNotifications()
     static let openSession = Notification.Name("Yongkang.openAttentionSession")
     private var active: [UUID: String] = [:]
+
+    /// Whether the window is in front, where a session on screen needs no banner to be seen.
+    /// False with no app at all, as in the tests.
+    static var appIsActive: Bool { NSApp?.isActive ?? false }
 
     func send(sessionID: UUID, title: String, reason: String) {
         active[sessionID] = reason
