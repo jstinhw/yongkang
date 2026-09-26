@@ -65,7 +65,27 @@ extension Project {
     /// apparently twice. Only when that agent is gone is a session opened for the gate alone.
     package func guide(of block: UserBlock) -> CodeSession? {
         guard guided.contains(block.id) else { return nil }
-        return waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
+        let on = waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
+        // Once it has stopped talking the gate is the user's again. A guide works a gate
+        // through one step at a time, and its step is often a sentence rather than a prompt —
+        // nothing on screen for the window to read as a question — so the end of its turn is
+        // the only sign that it is the user's move. One guard here, because every screen that
+        // asks who is on a gate asks through this.
+        return on.flatMap { $0.idle ? nil : $0 }
+    }
+
+    /// Whether every task these ids name is finished in the notebook. A session whose chain is
+    /// spent has nothing left to be open for: its work is over, and its reports stay in
+    /// `runs/` whether or not it is still listed, so Review keeps them either way.
+    ///
+    /// Empty is not spent. A session handed no tasks — Product, a gate's guide, a service
+    /// runner — is open for a reason its task list says nothing about.
+    ///
+    /// Read off the cards rather than the summary so a relaunch can ask before git has been
+    /// read: `blocked` outranks `done` in `NotebookIndex.settled`, so a task still holding a
+    /// gate open is never counted as finished here.
+    package func isSpent(_ taskIDs: [String]) -> Bool {
+        !taskIDs.isEmpty && taskIDs.allSatisfy { id in cards.first { $0.id == id }?.status == "done" }
     }
 
     /// What is actually on the user's desk: everything open in `blocks/`, less the gates an
@@ -103,8 +123,11 @@ extension Project {
             let guiding = blocks.waitingOnUser.first { guide(of: $0)?.id == session.id }
             let block = question == nil ? (guiding ?? raised) : nil
             let waiting = summary.waiting(for: session)
+            // The task it is on now: the first of its chain not yet done. None left means its
+            // chain is spent, and the row keeps the last one's name rather than going anonymous.
+            let unfinished = session.taskIDs.first { id in summary.tasks.first { $0.id == id }?.done != true }
             // Held up on one task, the row is about that task, not whichever is first in its chain.
-            let task = block?.task ?? guiding?.task ?? current(of: session, in: summary)
+            let task = block?.task ?? guiding?.task ?? unfinished ?? session.taskIDs.last
             let title =
                 task.flatMap { id in summary.tasks.first { $0.id == id }?.title ?? cards.first { $0.id == id }?.title }
                 ?? session.title
@@ -121,6 +144,8 @@ extension Project {
                 )
             } else if !waiting.isEmpty {
                 state = .review
+            } else if session.idle, !session.exited {
+                (state, reason) = (.needsYou, "It has finished and is waiting for your reply.")
             } else if !session.exited {
                 state = .working
             } else {
@@ -200,11 +225,5 @@ extension Project {
                 block: block ?? guided, route: route)
         }
         return rows.enumerated().sorted { ($0.element.state, $0.offset) < ($1.element.state, $1.offset) }.map(\.element)
-    }
-
-    /// The task a session is on now: the first of its chain not yet done, or the last one once
-    /// every one is.
-    private func current(of session: CodeSession, in summary: ChangeSummary) -> String? {
-        session.taskIDs.first { id in summary.tasks.first { $0.id == id }?.done != true } ?? session.taskIDs.last
     }
 }

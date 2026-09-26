@@ -88,6 +88,51 @@ import Testing
         #expect(rows[0].reason == "Allow Bash?" && rows[0].block == nil, "the session's row is the question")
     }
 
+    /// Both halves of one bug: an agent sitting at its prompt read as working, so a gate it had
+    /// come back from and a task it had finished both showed as work in progress.
+    @Test func anAgentThatHasStoppedTalkingIsYourMove() {
+        let guiding = CodeSession(
+            title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["deploy"], idle: true)
+        let spent = CodeSession(
+            title: "Codex", icon: "", line: "", agent: .codex, taskIDs: ["shipped"], idle: true)
+        let gate = block("vercel", session: guiding.id, task: "deploy")
+        let project = Project(
+            directory: directory,
+            cards: [
+                NotebookCard(
+                    id: "deploy", url: directory, kind: .task, title: "Vercel with previews",
+                    status: "blocked", project: nil, dependsOn: [])
+            ],
+            blocks: [gate], sessions: [guiding, spent], guided: [gate.id])
+        let summary = ChangeSummary(tasks: [SummaryTask(id: "shipped", title: "Shipped", status: "done")])
+
+        #expect(project.guide(of: gate) == nil, "it has handed the step back")
+        #expect(project.blocksForUser.map(\.id) == ["vercel"], "so the gate is on the user's desk again")
+
+        let rows = project.agentRows(summary: summary, asking: [:])
+
+        #expect(rows.map(\.state) == [.needsYou, .needsYou], "neither is working")
+        #expect(rows[0].reason == "Block vercel", "the gate says what it needs")
+        #expect(rows[1].reason == "It has finished and is waiting for your reply.")
+        #expect(project.taskRows(summary: summary).first?.state == .needsYou, "and the board agrees")
+    }
+
+    /// Which sessions have nothing left to be open for. A chain every task of which is done is
+    /// over; one handed no tasks is open for a reason its task list cannot see.
+    @Test func aSessionIsSpentOnlyOnceItsWholeChainIsDone() {
+        func task(_ id: String, _ status: String) -> NotebookCard {
+            NotebookCard(
+                id: id, url: directory, kind: .task, title: "Task \(id)", status: status, project: nil, dependsOn: [])
+        }
+        let project = Project(
+            directory: directory, cards: [task("a", "done"), task("b", "done"), task("c", "blocked")])
+
+        #expect(project.isSpent(["a", "b"]))
+        #expect(!project.isSpent(["a", "c"]), "one still held up keeps the agent on it")
+        #expect(!project.isSpent([]), "Product and a service runner are open for their own reasons")
+        #expect(!project.isSpent(["gone"]), "a task that left the notebook is not a finished one")
+    }
+
     @Test func onlyARunningSessionsOwnRowIsListedUnderAgents() {
         let session = CodeSession(
             title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["built", "deploy"])

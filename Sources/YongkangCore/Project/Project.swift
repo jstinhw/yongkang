@@ -142,6 +142,11 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     package var taskIDs: [String] = []
     /// Set once the underlying process exits — a dead session is never routed more work.
     package var exited: Bool = false
+    /// Its turn is over and the next word is yours, as its transcript last read
+    /// (`AgentState.of`). A CLI that answers in prose rather than at a prompt gives no other
+    /// sign that it has stopped, and a session taken for working when nothing is running is
+    /// one the user waits on for ever.
+    package var idle: Bool = false
     /// Descendants discovered from the provider's on-disk transcripts.
     package var subagents: [SubagentStatus] = []
     /// The reports this session filed against its tasks, including completed work.
@@ -158,8 +163,8 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     /// `--session-id`, so this row's id is the key that finds that session's transcript.
     package init(
         id: UUID = UUID(), title: String, icon: String, line: String, agent: AgentKind? = nil,
-        taskIDs: [String] = [], exited: Bool = false, subagents: [SubagentStatus] = [],
-        coordination: LeadCoordination? = nil, reading: [URL] = []
+        taskIDs: [String] = [], exited: Bool = false, idle: Bool = false,
+        subagents: [SubagentStatus] = [], coordination: LeadCoordination? = nil, reading: [URL] = []
     ) {
         self.id = id
         self.title = title
@@ -168,6 +173,7 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
         self.agent = agent
         self.taskIDs = taskIDs
         self.exited = exited
+        self.idle = idle
         self.subagents = subagents
         self.coordination = coordination
         self.reading = reading

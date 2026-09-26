@@ -38,7 +38,10 @@ extension AgentRow {
     var doing: String {
         switch state {
         case .needsYou:
-            guard let block else { return "asks a question" }
+            // "your turn" rather than "asks a question": with no block it is either a question
+            // on its screen or a turn it has finished, and `reason` — which the card and the
+            // agent page spell out — is what says which.
+            guard let block else { return "your turn" }
             return block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready" : "blocked"
         case .review: return "ready for review"
         // A gate on a working row is one an agent is clearing for you, which is worth its own

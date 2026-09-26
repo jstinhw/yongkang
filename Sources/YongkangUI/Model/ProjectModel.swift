@@ -318,6 +318,16 @@ import YongkangCore
         onSessionsChanged()
     }
 
+    /// Whether its turn is over changed. False when it already read that way, or the session is
+    /// gone: the caller only announces the step into it.
+    func markIdle(_ id: UUID, _ idle: Bool) -> Bool {
+        guard let index = sessions.firstIndex(where: { $0.id == id }), sessions[index].idle != idle else {
+            return false
+        }
+        sessions[index].idle = idle
+        return true
+    }
+
     /// False when this project no longer has the session, so there is nothing to clear.
     func markExited(_ id: UUID) -> Bool {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return false }

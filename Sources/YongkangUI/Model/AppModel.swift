@@ -39,9 +39,6 @@ import YongkangCore
     /// The CLI a new session starts on, mirrored from the toolbar's own storage. The poll opens
     /// the sessions that clear blocks, and it runs here rather than in a view.
     @ObservationIgnored var agent = AgentKind.claude
-    /// The sessions whose agent has finished its turn and sits at its prompt, as their
-    /// transcripts last said. Only the step into it is news.
-    @ObservationIgnored private var finishedTurn: Set<UUID> = []
     /// Every open session's terminal. Projects start a session's process when they add it, and
     /// closing the session or its project ends it; nothing on screen does either.
     let terminals: TerminalRegistry
@@ -260,7 +257,8 @@ import YongkangCore
 
     /// A still terminal is only a hint; the transcript says whether the agent's last word was
     /// a reply to the user (`AgentState.of`), which is its turn finished and yours begun. That
-    /// step posts the same banner a question does, unless you are already looking at it.
+    /// step posts the same banner a question does, unless you are already looking at it, and
+    /// the session carries it so every row of it reads as the user's move rather than as work.
     ///
     /// Read once per silence, not per frame: parsing a transcript is the costly read.
     func checkTurn(_ id: UUID) async {
@@ -269,8 +267,11 @@ import YongkangCore
         else { return }
         let lines = await found.project.reader.transcript(of: provider, at: url)
         let finished = AgentState.of(lines: lines, exited: false) == .waiting
-        guard finished != finishedTurn.contains(id) else { return }
-        if finished { finishedTurn.insert(id) } else { finishedTurn.remove(id) }
+        guard found.project.markIdle(id, finished) else { return }
+        // Going quiet is the last thing a spent agent does, so this is where it is noticed
+        // rather than on the beat behind it. Closed, it has no banner to post.
+        endSpentSessions(in: found.project)
+        guard found.project.sessions.contains(where: { $0.id == id }) else { return }
         // A question on screen already has its own banner, which this must neither replace nor withdraw.
         guard attention[id] == nil else { return }
         let title = "\(found.project.name) · \(found.session.title)"
@@ -328,18 +329,18 @@ import YongkangCore
     func markExited(_ session: CodeSession, in project: ProjectModel) {
         guard project.markExited(session.id) else { return }
         attentionChanged(nil, session: session, project: project)
-        forgetTurn(session.id)
+        forgetTurn(session.id, in: project)
     }
 
     /// Withdraws a finished turn's banner, which `attentionChanged` leaves when no question was up.
-    private func forgetTurn(_ id: UUID) {
-        guard finishedTurn.remove(id) != nil, attention[id] == nil else { return }
+    private func forgetTurn(_ id: UUID, in project: ProjectModel) {
+        guard project.markIdle(id, false), attention[id] == nil else { return }
         notify(id, "", nil)
     }
 
     func close(_ session: CodeSession, in project: ProjectModel) {
         attentionChanged(nil, session: session, project: project)
-        forgetTurn(session.id)
+        forgetTurn(session.id, in: project)
         project.removeSession(session.id)
         switch selection {
         case .session(session.id, _)?, .subagent(session.id, _)?: selection = nil
@@ -436,6 +437,7 @@ import YongkangCore
             deliverUnblocks(in: project)
             startGuide(in: project)
             await endFinishedSetups(in: project)
+            endSpentSessions(in: project)
             if project.trustReadIsDue() { await project.readTrust(foundAgents ?? Set(AgentKind.allCases)) }
             project.reloadSessions()
         }
@@ -457,6 +459,24 @@ import YongkangCore
         else { return }
         section = .agents
         openReview(in: project)
+    }
+
+    /// An agent whose chain is finished, approved and quiet has nothing left to be open for, so
+    /// it goes the same way one whose CLI quit does — the terminal with it, and the window back
+    /// to the board if that is what it was showing.
+    ///
+    /// All three conditions, because each one on its own closes something the user still wants:
+    /// a task marked done whose work nobody has committed is still in Review, and an agent
+    /// mid-answer is still typing. Its reports live in `runs/`, so closing it never takes its
+    /// work out of Review.
+    func endSpentSessions(in project: ProjectModel) {
+        let notebook = project.value
+        for session in project.sessions
+        where !session.exited && session.idle && notebook.isSpent(session.taskIDs)
+            && project.summary.waiting(for: session).isEmpty
+        {
+            end(session, in: project)
+        }
     }
 
     /// A block whose file has flipped to done is news the waiting session cannot see —

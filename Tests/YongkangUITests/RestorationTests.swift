@@ -136,6 +136,67 @@ import Testing
         #expect(second.restorable(.session(id), in: entered))
     }
 
+    /// The other half of that: an agent whose whole chain finished while the app was closed has
+    /// nothing to come back for. Starting its CLI only to close it on the first read would be a
+    /// process and a sidebar row the user watches appear and disappear.
+    @Test func anAgentWhoseChainFinishedWhileClosedDoesNotComeBack() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        let first = reopened(project)
+        var saved = ""
+        first.sessionsChanged = { saved = first.storedSessions }
+        let id = UUID()
+        first.projects[0].addSession(
+            id: id, title: "Claude Code", icon: "sparkles", line: "true", agent: .claude, taskIDs: ["wire-auth"])
+        first.terminals.terminate(id)
+        try markDone("wire-auth", in: project)
+
+        let second = reopened(project)
+        await second.resumeSessions(saved)
+
+        #expect(second.projects.first?.sessions.isEmpty == true, "its work is over; its reports stay in runs/")
+    }
+
+    /// And once the user approves it while the app is running: the session that did the work
+    /// goes with the last task it was waiting on, rather than sitting in the list saying it is
+    /// your turn. Quiet, finished and committed are all three needed — an agent still typing,
+    /// or work nobody has accepted, is a session the user still wants.
+    @Test func anAgentGoesWhenItsApprovedChainIsDoneAndItHasStoppedTalking() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        let model = reopened(project)
+        let entered = try #require(model.projects.first)
+        let id = UUID()
+        // A line that stays up: `true` would exit at once, and a CLI that quits cleanly is
+        // already closed by `onExit` — a different rule from the one under test.
+        entered.addSession(
+            id: id, title: "Claude Code", icon: "sparkles", line: "sleep 30", agent: .claude, taskIDs: ["wire-auth"])
+        defer { model.terminals.terminate(id) }
+
+        model.endSpentSessions(in: entered)
+        #expect(entered.sessions.count == 1, "nothing is done yet")
+
+        try markDone("wire-auth", in: project)
+        await entered.reloadNotebook(frontmatter: true, records: true)
+        model.endSpentSessions(in: entered)
+        #expect(entered.sessions.count == 1, "and it has not said it is finished")
+
+        #expect(entered.markIdle(id, true))
+        model.endSpentSessions(in: entered)
+        #expect(entered.sessions.isEmpty, "now it is spent")
+    }
+
+    /// `status: done` written into a task file, the way an agent marks one off.
+    private func markDone(_ id: String, in project: ProjectModel) throws {
+        let url = NotebookFormat.root(in: project.directory)
+            .appendingPathComponent("tasks").appendingPathComponent("\(id).md")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        try text.replacingOccurrences(of: "status: todo", with: "status: done")
+            .write(to: url, atomically: true, encoding: .utf8)
+    }
+
     @Test func aResolvedBlockFallsBackToTheProjectsAgents() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

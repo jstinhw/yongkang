@@ -92,6 +92,9 @@ extension RootView {
     func approve(_ task: SummaryTask, message: String, in project: ProjectModel) async -> String? {
         do {
             _ = try await project.approve(task, message: message)
+            // Approving is the last thing an agent's chain was waiting on, so the session that
+            // did it may have just become spent. Nothing else re-asks until the safety beat.
+            model.endSpentSessions(in: project)
             return nil
         } catch {
             return error.reason

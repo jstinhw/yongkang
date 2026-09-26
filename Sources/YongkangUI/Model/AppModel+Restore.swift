@@ -17,10 +17,20 @@ extension AppModel {
     /// Starts the agents the last run had open, each on its own conversation where its CLI
     /// kept one, so a quit or a crash loses neither the agent nor the tasks it holds — the ids
     /// that keep its finished, unapproved work in Review. A project no longer open is skipped.
+    /// A session whose chain finished while the app was closed does not come back: it has
+    /// nothing left to do, and `endSpentSessions` would close it a beat later anyway — after
+    /// starting a CLI and putting a row in the sidebar for the user to watch vanish. Its
+    /// reports are in `runs/`, so work it finished but you have not approved is still in
+    /// Review, and sending that task back starts a fresh agent with your comments.
+    ///
+    /// The notebook is read first for that reason alone: nothing else here needs it, and the
+    /// read that follows a moment later answers from what this one already found.
     func resumeSessions(_ stored: String) async {
         let stored = OpenSessions.decode(stored)
         for project in projects {
-            for session in stored[project.directory.path] ?? [] {
+            await project.reloadNotebook(frontmatter: true, records: false)
+            let notebook = project.value
+            for session in stored[project.directory.path] ?? [] where !notebook.isSpent(session.taskIDs) {
                 let line = await OpenSessions.line(resuming: session, in: project.directory)
                 project.addSession(
                     id: session.id, title: session.title, icon: session.icon, line: line, agent: session.agent,
