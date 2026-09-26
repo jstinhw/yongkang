@@ -56,8 +56,8 @@ extension RootView {
     @ToolbarContentBuilder func toolbar(for project: ProjectModel?) -> some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) { listToggle }
         ToolbarItemGroup(placement: .primaryAction) {
-            if let project { actions(for: project) }
-            newAgentButton
+            // In a project, New Agent heads the one "+" menu rather than being a second "+".
+            if let project { actions(for: project) } else { newAgentButton }
         }
     }
 
@@ -94,14 +94,9 @@ extension RootView {
             if let scoped = model.selection?.card(in: project.cards), scoped.kind == .project {
                 boardProgress(scoped, in: project)
             }
+            // Product review lives in the board's bar, beside Run: the toolbar adds and views.
             completedToggle
             addMenu(for: project)
-            Button {
-                model.go(to: project.startProductReview(agent: agent))
-            } label: {
-                Label("Product review", systemImage: "sparkles")
-            }
-            .buttonStyle(.console)
         case .agents:
             if isReviewingTree {
                 if let head = project.repo.head {
@@ -148,14 +143,17 @@ extension RootView {
             model.showDone.toggle()
         } label: {
             Label(
-                model.showDone ? "Hide completed" : "Completed",
-                systemImage: model.showDone ? "eye.slash" : "eye")
+                model.showDone ? "Hide completed" : "Show completed",
+                systemImage: model.showDone
+                    ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
-        .buttonStyle(.consoleGhost)
+        .help(model.showDone ? "Hide completed tasks" : "Show completed tasks")
     }
 
     private func addMenu(for project: ProjectModel) -> some View {
         Menu {
+            // ⌘N is the File menu's; a toolbar menu's shortcut only answers while it is drawn.
+            Button("New Agent…", systemImage: "plus") { model.startingAgent = true }
             Section("Session") {
                 Button(agent.displayName, systemImage: agent.systemImage) {
                     model.selection = project.addSession(agent)
@@ -182,14 +180,12 @@ extension RootView {
                 model.go(to: project.startProduct("describe", agent: agent))
             }
             .disabled(!project.hasNotebook)
-            Button("Reveal in Finder", systemImage: "folder") {
-                NSWorkspace.shared.activateFileViewerSelecting([project.directory])
-            }
-            Button("Close Project", systemImage: "xmark") { close(project) }
+            // Reveal in Finder and Close Project are the project row's context menu and the
+            // File menu's: they are about the project, not something new.
         } label: {
             Label("New", systemImage: "plus")
         }
         .menuStyle(.borderlessButton)
-        .frame(width: 62)
+        .help("New agent, session or notebook entry (⌘N for an agent)")
     }
 }

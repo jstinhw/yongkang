@@ -16,6 +16,8 @@ struct AgentPicker: View {
     let lookUp: () -> Void
     /// What the choice is for, for a reader that cannot see where the button sits.
     let purpose: String
+    /// Borderless, for a picker sitting inside another control's tray, like Assign's.
+    var ghost = false
 
     @State private var open = false
 
@@ -31,7 +33,7 @@ struct AgentPicker: View {
                     .foregroundStyle(Theme.tx3)
             }
         }
-        .buttonStyle(.console)
+        .buttonStyle(ConsoleButtonStyle(ghost: ghost))
         .accessibilityLabel(purpose)
         .accessibilityValue(agent.displayName)
         .help(purpose)
@@ -268,15 +270,23 @@ struct AssignButton: View {
         } set: {
             chosen = $0
         }
-        AgentPicker(agent: agent, found: choice.found, lookUp: choice.lookUp, purpose: "Agent to assign to")
-            .disabled(disabled)
         let runnable = !choice.untrusted.contains(agent.wrappedValue)
-        Button {
-            assign(agent.wrappedValue)
-        } label: {
-            Label(title(runnable), systemImage: "point.3.connected.trianglepath.dotted")
+        // One tray, so which agent and go read as a single decision rather than two buttons.
+        HStack(spacing: 2) {
+            AgentPicker(
+                agent: agent, found: choice.found, lookUp: choice.lookUp, purpose: "Agent to assign to", ghost: true)
+            Button {
+                assign(agent.wrappedValue)
+            } label: {
+                Label(title(runnable), systemImage: "play.fill")
+            }
+            .buttonStyle(.consolePrimary)
+            .disabled(!runnable || choice.found?.contains(agent.wrappedValue) == false)
         }
-        .buttonStyle(.consolePrimary)
-        .disabled(disabled || !runnable || choice.found?.contains(agent.wrappedValue) == false)
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.controlLine, lineWidth: 1))
+        .disabled(disabled)
+        .opacity(disabled ? 0.5 : 1)
     }
 }

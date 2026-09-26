@@ -548,39 +548,60 @@ package struct NotebookBoard: View {
     /// own session, since none of them waits on another.
     private var work: [NotebookCard] { picked.isEmpty ? ready : batch }
 
+    /// Idle, the bar offers the two moves on a board: ask Product, or run what is ready. Once
+    /// something is picked it is about the picks, so Product review steps aside and Clear is
+    /// the chip's ×, there only while there is something to clear.
     private var assignBar: some View {
         ActionBar {
             if picked.isEmpty {
-                Text("Pick the work, or run everything that could start now.")
-                    .font(Typography.body).foregroundStyle(Theme.tx3)
-            } else {
-                let pulled = batch.count - picked.count
-                Text("\(picked.count) picked").font(Typography.body).foregroundStyle(Theme.tx)
-                if pulled > 0 {
-                    Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in")
-                        .font(Typography.body).foregroundStyle(Theme.tx3)
+                // Never disabled: this one asks what should be on the board at all, which is
+                // the question an empty or stalled board most needs.
+                Button {
+                    review()
+                } label: {
+                    Label("Product review", systemImage: "sparkles")
                 }
-            }
-            Spacer(minLength: 12)
-            Button("Clear") { selected.removeAll() }
                 .buttonStyle(.consoleGhost)
-                .disabled(selected.isEmpty)
-            // Never disabled and never about the picks: this one asks what should be on the
-            // board at all, which is the question an empty or stalled board most needs.
-            Button {
-                review()
-            } label: {
-                Label("Product review", systemImage: "sparkles")
+                Spacer(minLength: 12)
+                Text("or pick tasks on the board").font(Typography.caption).foregroundStyle(Theme.tx3)
+            } else {
+                pickedChip
+                Spacer(minLength: 12)
             }
-            .buttonStyle(.console)
             AssignButton(
                 title: { runnable in
-                    (picked.isEmpty ? "Run \(runnable ? work.count : 0) ready" : "Assign")
+                    (picked.isEmpty ? "Run \(runnable ? work.count : 0) ready" : "Assign \(work.count)")
                         + (runnable && designCount > 0 ? " — design first" : "")
                 },
                 choice: agents, disabled: work.isEmpty
             ) { assign(work, $0) }
         }
+    }
+
+    private var pickedChip: some View {
+        let pulled = batch.count - picked.count
+        return HStack(spacing: 8) {
+            Text("\(picked.count) picked").foregroundStyle(Theme.tx)
+            if pulled > 0 {
+                Text("· \(pulled) blocker\(pulled == 1 ? "" : "s") pulled in").foregroundStyle(Theme.tx2)
+            }
+            Button {
+                selected.removeAll()
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(Theme.raised))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.tx2)
+            .help("Clear the picks")
+            .accessibilityLabel("Clear the picks")
+        }
+        .font(Typography.body)
+        .padding(.leading, 12).padding(.trailing, 6)
+        .frame(height: 30)
+        .background(Capsule().fill(Theme.accent.opacity(0.12)))
+        .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1))
     }
 
     private var empty: some View {
