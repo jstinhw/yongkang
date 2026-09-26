@@ -26,6 +26,13 @@ extension AgentRow {
     /// Who it is: the session's own name, "Claude Code 2" or "Product".
     var name: String { session?.title ?? title }
 
+    /// What the sidebar calls it: the task it is on, "Astro project scaffold", or its own name
+    /// when it is on none.
+    var label: String { task == nil ? name : title }
+
+    /// The coding agent it runs, "Codex", or its own name for a service runner.
+    var agentName: String { session?.agent?.displayName ?? name }
+
     /// What it is doing, in a word or three: "asks a question", "blocked", "demo ready". Why —
     /// the question, the block — is its `reason`, which the card and the agent page spell out.
     var doing: String {
@@ -38,9 +45,9 @@ extension AgentRow {
         }
     }
 
-    /// What it is doing, then the task it is doing it on: "asks a question · Wire auth". A session
-    /// on no task says only the first.
-    var line: String { task == nil ? doing : "\(doing) · \(title)" }
+    /// What it is doing, then the coding agent doing it: "working · Codex". A session on no task
+    /// is already named after itself, so it says only the first.
+    var line: String { task == nil ? doing : "\(doing) · \(agentName)" }
 
     /// A task's line: what is happening on it, then who is on it: "working · Codex".
     var byLine: String { session.map { "\(doing) · \($0.title)" } ?? doing }

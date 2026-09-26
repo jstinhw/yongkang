@@ -70,7 +70,11 @@ import YongkangCore
         self.notify = notify
         terminals.onExit = { [weak self] id, code in
             guard let self, let found = self.session(id) else { return }
-            self.markExited(found.session, in: found.project)
+            if code == 0 {
+                self.end(found.session, in: found.project)
+            } else {
+                self.markExited(found.session, in: found.project)
+            }
         }
         terminals.onAttention = { [weak self] id, reason in
             // A service runner's output is nobody's question.

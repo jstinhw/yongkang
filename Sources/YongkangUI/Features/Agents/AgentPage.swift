@@ -40,14 +40,14 @@ package struct AgentPage<Content: View>: View {
                     if let row { AgentStateGlyph(state: row.state, size: 11) }
                     Text(status).font(Typography.caption(.semibold)).foregroundStyle(row?.state.color ?? Theme.tx3)
                 }
-                Text(session.title).font(Typography.title).foregroundStyle(Theme.tx)
+                Text(task?.title ?? session.title).font(Typography.title).foregroundStyle(Theme.tx)
                     .lineLimit(1)
                 HStack(spacing: 8) {
                     NotebookStyle.chip(project.name, mono: true)
                     if let task {
                         NotebookStyle.chip(task.id, mono: true)
-                        Text("on \(task.title)").font(Typography.caption).foregroundStyle(Theme.tx3)
-                            .lineLimit(1)
+                        Text(session.agent?.displayName ?? session.title)
+                            .font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
                     }
                 }
             }

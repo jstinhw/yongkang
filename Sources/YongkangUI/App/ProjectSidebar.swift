@@ -235,8 +235,8 @@ package struct ProjectSidebar: View {
         return parts.joined(separator: ", ")
     }
 
-    /// A session under Agents, named after itself; a task under Board, named after itself and
-    /// saying who is on it. Either opens in the section it is listed in.
+    /// A session under Agents, named after its task and saying which agent runs it; a task under
+    /// Board, named after itself and saying who is on it. Either opens in the section it is listed in.
     private func agentRow(_ row: AgentRow, in item: SidebarProject) -> some View {
         let isTask = !row.isRunningSession
         return Button {
@@ -245,7 +245,7 @@ package struct ProjectSidebar: View {
             HStack(alignment: .top, spacing: 9) {
                 AgentStateGlyph(state: row.state).padding(.top, 2)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(isTask ? row.title : row.name).font(Typography.body).foregroundStyle(Theme.tx)
+                    Text(isTask ? row.title : row.label).font(Typography.body).foregroundStyle(Theme.tx)
                         .lineLimit(1)
                     Text(isTask ? row.byLine : row.line).font(Typography.caption)
                         .foregroundStyle(row.state == .working ? Theme.tx3 : row.state.color)
