@@ -17,6 +17,48 @@ import Testing
         return url
     }
 
+    /// One `UserBlock` built by hand, so the body under test is exactly the body written here.
+    private func made(kind: String = "block", body: String) -> UserBlock {
+        UserBlock(
+            id: "b", url: URL(fileURLWithPath: "/tmp/b.md"), slug: "b", title: "Needs a key",
+            status: "open", kind: kind, stage: "ready", session: nil, action: "", link: nil,
+            task: nil, resolution: "", body: body, before: nil, branch: "", revisions: [])
+    }
+
+    @Test func theUsersHalfOfABlockStopsAtTheProcedure() {
+        let block = made(
+            body: """
+                The deploy cannot go out until Vercel will take it from CI.
+
+                ## Needed from you
+
+                - A token scoped to the project.
+
+                ## Steps
+
+                1. Open the token page and create one scoped to this project.
+                2. Set PROJECT_URL in CI from the linked project.
+                """)
+        #expect(
+            block.brief == """
+                The deploy cannot go out until Vercel will take it from CI.
+
+                ## Needed from you
+
+                - A token scoped to the project.
+                """,
+            "the steps are the engineer's, and never reach the screen the user opened")
+    }
+
+    @Test func aBlockWithNoProcedureKeepsItsWholeBody() {
+        #expect(made(body: "Paste the key.").brief == "Paste the key.")
+    }
+
+    @Test func aProposalKeepsItsWholeBodyEvenWithSteps() {
+        let body = "A plan.\n\n## Steps\n\n1. Write the tasks."
+        #expect(made(kind: "proposal", body: body).brief == body, "a proposal is read, not followed")
+    }
+
     /// What zsh actually passes to the agent for a given quoted argument.
     private func echo(_ quotedArgument: String) throws -> String {
         let process = Process()
@@ -54,6 +96,9 @@ import Testing
         #expect(
             guide.contains(".notebook/blocks/github-token.md") && guide.contains("`status: done`"),
             "the guiding session is pointed at the file it flips to done")
+        #expect(
+            guide.contains("go and read what you need yourself"),
+            "and told that my half ends at signing in — a value on a page is its to fetch")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }

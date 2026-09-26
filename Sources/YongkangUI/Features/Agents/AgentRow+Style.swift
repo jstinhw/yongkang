@@ -41,7 +41,11 @@ extension AgentRow {
             guard let block else { return "asks a question" }
             return block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready" : "blocked"
         case .review: return "ready for review"
-        case .working: return session?.agent == nil ? "running" : "working"
+        // A gate on a working row is one an agent is clearing for you, which is worth its own
+        // word: "working" would hide that the task is still held up.
+        case .working:
+            if block != nil { return "setting up" }
+            return session?.agent == nil ? "running" : "working"
         }
     }
 

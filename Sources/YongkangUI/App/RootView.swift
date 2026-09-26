@@ -70,6 +70,7 @@ struct RootView: View {
             Text(item.detail)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { attentionNotices }
+        .onChange(of: agent, initial: true) { model.agent = agent }
         .onReceive(NotificationCenter.default.publisher(for: AgentNotifications.openSession)) { note in
             guard let id = note.object as? String else { return }
             for project in model.projects {

@@ -84,6 +84,34 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
     package var proposalReady: Bool { isProposal && stage == "ready" }
     /// A design waiting on the user before any engineer starts on what it blocks.
     package var isDemo: Bool { kind == "demo" }
+    /// A gate an agent hit — a credential, a consent screen, an account. Unlike a demo or a
+    /// proposal, which are the user's own to settle, it is something an engineer can be sent
+    /// to work through with them, so it is the only kind the app opens a session for.
+    package var isGate: Bool { !isProposal && !isDemo }
+
+    /// The title for a session opened only to clear this gate — the fallback, when the agent
+    /// that filed it is gone and there is nobody left to hand it back to.
+    package var guideTitle: String { "Unblock \(title)" }
+
+    /// The half of the body addressed to the user: the brief, and what is needed from them.
+    ///
+    /// `## Steps` and everything after it is the procedure — exact pages, exact scopes, exact
+    /// commands — written for the engineer who sits with the user, not for the user. Drawing
+    /// it was the whole of "the guidance is too lengthy": ten steps, most of them the agent's
+    /// own, on a screen opened to find out what was wanted. Every screen that shows a block
+    /// shows this, so the answer cannot be right on one and wrong on the next.
+    ///
+    /// A proposal has no such half and keeps its whole body.
+    package var brief: String {
+        guard !isProposal else { return body }
+        let lines = body.components(separatedBy: "\n")
+        guard
+            let steps = lines.firstIndex(where: {
+                $0.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("## steps")
+            })
+        else { return body }
+        return lines[..<steps].joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 extension Collection<UserBlock> {

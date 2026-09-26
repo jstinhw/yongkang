@@ -36,6 +36,9 @@ import YongkangCore
     private(set) var foundAgents: Set<AgentKind>?
     @ObservationIgnored private var agentLookup: Task<Void, Never>?
     private(set) var attention: [UUID: String] = [:]
+    /// The CLI a new session starts on, mirrored from the toolbar's own storage. The poll opens
+    /// the sessions that clear blocks, and it runs here rather than in a view.
+    @ObservationIgnored var agent = AgentKind.claude
     /// The sessions whose agent has finished its turn and sits at its prompt, as their
     /// transcripts last said. Only the step into it is news.
     @ObservationIgnored private var finishedTurn: Set<UUID> = []
@@ -431,6 +434,7 @@ import YongkangCore
             await project.reloadNotebook(frontmatter: true, records: true)
             if project === entered { showFinishedWork(in: project) }
             deliverUnblocks(in: project)
+            startGuide(in: project)
             await endFinishedSetups(in: project)
             if project.trustReadIsDue() { await project.readTrust(foundAgents ?? Set(AgentKind.allCases)) }
             project.reloadSessions()
@@ -471,6 +475,24 @@ import YongkangCore
             } else {
                 terminals.send(message, to: session.id)
             }
+        }
+    }
+
+    /// The next gate gets an engineer, in every open project, without being asked and without
+    /// the window moving. See `ProjectModel.startGuide` for why it is not the user's click.
+    ///
+    /// Not while the CLI is missing or still untrusted in the folder: the first would open a
+    /// session that cannot run, the second a trust question the user never asked for. Both
+    /// settle on their own, and the next tick starts the guide.
+    private func startGuide(in project: ProjectModel) {
+        guard foundAgents?.contains(agent) != false, !project.untrusted.contains(agent) else { return }
+        guard let next = project.nextGate() else { return }
+        _ = project.takeGate(next.block, agent: agent)
+        // The agent that filed it is stopped at its prompt: telling it to clear the gate keeps
+        // one thread, one row and everything it already knows about the task. Only when it has
+        // gone does `takeGate` open a session of the gate's own.
+        if let session = next.session {
+            terminals.send(NotebookFormat.unblockPrompt(block: next.block), to: session.id)
         }
     }
 

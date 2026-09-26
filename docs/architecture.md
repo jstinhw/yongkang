@@ -34,6 +34,21 @@ leaves every screen that reads it alone.
   block or a finished task in a project you are not looking at is exactly what it is there to
   tell you. A resolved block is typed into its waiting session wherever it is; only in the
   project on screen does the window go there too.
+- **A gate goes back to the agent that filed it.** A new file in `blocks/` whose `kind` is
+  neither `demo` nor `proposal` is handed straight back to the session its `session:` names
+  (`ProjectModel.nextGate`/`takeGate`, typed in by `AppModel.startGuide`), without asking and
+  without the window moving. That session is stopped at its prompt having just written the
+  file: it knows the task, and it is one thread and one sidebar row. A session of the gate's
+  own, `Unblock <title>`, is the fallback for when that agent has gone. Most gates turn out to
+  need nothing from the user; the ones that do are asked one step at a time, and you hear about
+  it when the agent finishes its turn, like any other session. While it is being worked the
+  gate is that session's row and is not counted as waiting on you (`Project.guide(of:)`,
+  `blocksForUser`). One gate at a time per project, once each per run: an agent that gives up
+  puts the gate back on your desk rather than being replaced. The page the block names in
+  `url:` is shown beside the terminal (`GuideBrowser`), so the agent changes that field instead
+  of opening a browser behind the app.
+  `Project.guided` is in memory only, so a relaunch puts a half-worked gate back on the desk
+  and hands it over once more — the resumed session is told again what it was on.
 - **git** is asked at most every 6 s a project (`ProjectModel.repoReadIsDue`): an agent writing
   a file a second must not mean a repo-wide diff a second. The project on screen can be asked
   at once — when it is picked, and after a commit — and only its review screens count lines.

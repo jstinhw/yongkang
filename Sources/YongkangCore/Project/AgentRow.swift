@@ -43,6 +43,39 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
 }
 
 extension Project {
+    /// The session waiting on this block — and, once the app has handed the gate back to it,
+    /// the one working it through with the user. A block names its own session, so the answer
+    /// reaches the one that asked even with several running; one written without a session id
+    /// falls back to the newest live session holding the task it names, then any.
+    package func waitingSession(for block: UserBlock) -> CodeSession? {
+        // A proposal links to Product, but does not block an assigned session.
+        guard !block.isProposal else { return nil }
+        if let id = block.session {
+            return sessions.first { $0.id == id && !$0.exited }
+        }
+        let live = sessions.filter { $0.holdsTasks && !$0.exited }
+        return live.last { session in block.task.map { session.taskIDs.contains($0) } ?? false } ?? live.last
+    }
+
+    /// The agent working a gate through with the user right now: one the app has handed over
+    /// this run, whose session is still alive to be doing it.
+    ///
+    /// It is the same agent that filed the gate, still on the task, rather than a second
+    /// session beside it — which is what the user saw, two rows of the same name, one agent
+    /// apparently twice. Only when that agent is gone is a session opened for the gate alone.
+    package func guide(of block: UserBlock) -> CodeSession? {
+        guard guided.contains(block.id) else { return nil }
+        return waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
+    }
+
+    /// What is actually on the user's desk: everything open in `blocks/`, less the gates an
+    /// agent is already working through for them. A gate being worked is that agent's row —
+    /// it reaches the user when the agent comes back with a question, which is one thing to
+    /// answer rather than the whole procedure at once.
+    package var blocksForUser: [UserBlock] {
+        blocks.waitingOnUser.filter { guide(of: $0) == nil }
+    }
+
     /// Every agent of this project worth a row: needs you first, then review, then working,
     /// each in the order the sessions were started. `asking` is each session's terminal question,
     /// which only the window can see.
@@ -64,10 +97,14 @@ extension Project {
             // A question on its screen is what the row is about; a block beside it is counted
             // with a row of its own below.
             let question = session.exited ? nil : asking[session.id]
-            let block = question == nil ? raised : nil
+            // The gate this session is working through. It is not waiting on the user while
+            // the agent is on it — the agent is the one moving it on — so the row stays
+            // working until the agent itself asks something.
+            let guiding = blocks.waitingOnUser.first { guide(of: $0)?.id == session.id }
+            let block = question == nil ? (guiding ?? raised) : nil
             let waiting = summary.waiting(for: session)
             // Held up on one task, the row is about that task, not whichever is first in its chain.
-            let task = block?.task ?? current(of: session, in: summary)
+            let task = block?.task ?? guiding?.task ?? current(of: session, in: summary)
             let title =
                 task.flatMap { id in summary.tasks.first { $0.id == id }?.title ?? cards.first { $0.id == id }?.title }
                 ?? session.title
@@ -75,6 +112,8 @@ extension Project {
             var reason: String?
             if let question {
                 (state, reason) = (.needsYou, question)
+            } else if guiding != nil {
+                state = .working
             } else if let block {
                 (state, reason) = (
                     .needsYou,
@@ -94,6 +133,9 @@ extension Project {
                 ? (block.map { .block($0.id) } ?? waiting.first.map { .reviewTask($0.id) } ?? .session(session.id))
                 : .session(session.id)
             if let block { claimedBlocks.insert(block.id) }
+            // Claimed even when a question pushed it off this row: a gate someone is on must
+            // not also appear below as something nobody has picked up.
+            if let guiding { claimedBlocks.insert(guiding.id) }
             // A session waiting on you for one thing may have finished another: its row says the
             // first, so the finished work gets a review row of its own below rather than hiding.
             let reviewed = state == .review ? [] : Set(waiting.map(\.id))
@@ -135,11 +177,16 @@ extension Project {
         let waiting = summary.waitingIDs
         let assigned = assignedTaskIDs
         let rows = NotebookIndex.ordered(cards.filter { $0.kind == .task }).compactMap { task -> AgentRow? in
-            let block = blocks.waiting(on: task.id)
+            let block = blocksForUser.waiting(on: task.id)
+            // A gate a session is already clearing keeps its row — the task is neither idle nor
+            // yours yet — but reads as work in progress rather than as something to answer.
+            let guided = block == nil ? blocks.waiting(on: task.id) : nil
             let state: AgentRow.State
             let route: Route
             if let block {
                 (state, route) = (.needsYou, .block(block.id))
+            } else if let guided {
+                (state, route) = (.working, .block(guided.id))
             } else if waiting.contains(task.id) {
                 (state, route) = (.review, .reviewTask(task.id))
             } else if assigned.contains(task.id), task.status != "done" {
@@ -150,7 +197,7 @@ extension Project {
             return AgentRow(
                 id: "task:\(task.id)", state: state, title: task.title, reason: block?.title,
                 session: sessions.first { !$0.exited && $0.taskIDs.contains(task.id) }, task: task.id,
-                block: block, route: route)
+                block: block ?? guided, route: route)
         }
         return rows.enumerated().sorted { ($0.element.state, $0.offset) < ($1.element.state, $1.offset) }.map(\.element)
     }

@@ -669,7 +669,13 @@ enum DesignShots {
                 slug: "vercel-token", title: "Vercel project token", status: "open",
                 kind: "block", stage: "ready", session: leadID, action: "", link: URL(string: "https://vercel.com"),
                 task: "deploy-to-vercel", resolution: "",
-                body: "## Steps\n\n1. Open the Vercel dashboard and pick the project\n"
+                // Both halves, the way SRE files one: the shot is the check that only the
+                // first reaches the user.
+                body: "The deploy cannot go out until Vercel will take it from CI.\n\n"
+                    + "## Needed from you\n\n"
+                    + "- A Vercel account the project can be deployed from.\n"
+                    + "- A token scoped to that project, which is never written down.\n\n"
+                    + "## Steps\n\n1. Open the Vercel dashboard and pick the project\n"
                     + "2. Settings, then Tokens, then Create token\n"
                     + "3. Paste it when the agent asks — it is never written down\n",
                 before: nil, branch: "", revisions: []),

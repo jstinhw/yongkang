@@ -40,6 +40,147 @@ import Testing
         return try #require(Blocks.block(at: file))
     }
 
+    /// A gate, filed the way SRE files one: the user's half, then the procedure. `session` is
+    /// the agent that hit it and stopped, which is what the frontmatter's `session:` names.
+    private func gate(
+        _ slug: String, kind: String = "block", session: UUID? = nil, in project: ProjectModel
+    ) async throws -> UserBlock {
+        let gate = try block(
+            slug,
+            """
+            ---
+            kind: \(kind)
+            title: Signing secrets for v0.1.0
+            status: open
+            task: ship-it
+            url: https://example.com/tokens
+            \(session.map { "session: \($0.uuidString)" } ?? "")
+            ---
+
+            The deploy cannot go out without a project token.
+
+            ## Needed from you
+
+            - A project-scoped token for the service.
+
+            ## Steps
+
+            1. Open the token page and create one scoped to this project.
+            2. Paste it into the session; do not write it anywhere.
+            """, in: project)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        return gate
+    }
+
+    /// The handover half of a poll tick. Typing the prompt into a live session is the window's
+    /// half (`AppModel.startGuide`), which needs a terminal these tests do not run.
+    @discardableResult
+    private func handOver(in project: ProjectModel) -> (block: UserBlock, session: CodeSession?)? {
+        guard let next = project.nextGate() else { return nil }
+        _ = project.takeGate(next.block, agent: .claude)
+        return next
+    }
+
+    // MARK: - Gates
+
+    @Test func aGateGoesBackToTheAgentThatFiledIt() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
+        let gate = try await gate("needs-a-key", session: worker, in: project)
+
+        let handed = try #require(handOver(in: project))
+        #expect(handed.session?.id == worker, "the agent that hit the gate takes it, in its own session")
+        #expect(project.sessions.count == 1, "and no second row on the same task, with the same name")
+        #expect(project.value.guide(of: gate)?.id == worker)
+        #expect(project.value.blocksForUser.isEmpty, "so the gate is not also waiting on you")
+        #expect(handOver(in: project) == nil, "however often the poll comes round")
+    }
+
+    @Test func aGateWithNoAgentLeftGetsASessionOfItsOwn() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let gate = try await gate("needs-a-key", in: project)
+
+        let handed = try #require(handOver(in: project))
+        #expect(handed.session == nil)
+        let opened = try #require(project.sessions.first)
+        #expect(opened.title == gate.guideTitle, "named after the gate, not after the task")
+        #expect(project.value.guide(of: gate)?.id == opened.id)
+        #expect(project.value.blocksForUser.isEmpty)
+    }
+
+    @Test func onlyOneGateIsHandedOverAtATime() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
+        _ = try await gate("needs-a-key", session: worker, in: project)
+        _ = try block(
+            "needs-an-account",
+            """
+            ---
+            kind: block
+            title: Needs an account
+            status: open
+            ---
+            Sign up.
+            """, in: project)
+        await project.reloadNotebook(frontmatter: true, records: true)
+
+        handOver(in: project)
+        handOver(in: project)
+
+        #expect(project.sessions.count == 1, "a folder full of open gates is not a CLI per file")
+        #expect(project.value.blocksForUser.map(\.title) == ["Needs an account"], "the rest wait their turn")
+    }
+
+    @Test func aDemoIsNeverHandedOver() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let demo = try await gate("hero-demo", kind: "demo", in: project)
+
+        #expect(handOver(in: project) == nil, "a demo is the user's own to look at, not a gate to work through")
+        #expect(project.sessions.isEmpty)
+        #expect(project.value.blocksForUser.map(\.id) == [demo.id])
+    }
+
+    @Test func aGateBeingWorkedReadsAsWorkUntilItsAgentAsks() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
+        _ = try await gate("needs-a-key", session: worker, in: project)
+        handOver(in: project)
+
+        let quiet = project.value.agentRows(summary: project.summary)
+        #expect(quiet.count == 1, "one agent, one row")
+        #expect(quiet[0].state == .working && quiet[0].route == .session(worker))
+        #expect(quiet[0].task == "ship-it", "which still says what is held up")
+
+        let asked = project.value.agentRows(summary: project.summary, asking: [worker: "Paste your token."])
+        #expect(asked.count == 1 && asked[0].state == .needsYou && asked[0].reason == "Paste your token.")
+    }
+
+    @Test func aGateWhoseAgentIsGoneIsYoursAgain() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
+        let gate = try await gate("needs-a-key", session: worker, in: project)
+        handOver(in: project)
+        project.sessions[0].exited = true
+
+        #expect(project.value.blocksForUser.map(\.id) == [gate.id])
+        #expect(
+            project.value.agentRows(summary: project.summary).contains { $0.route == .block(gate.id) },
+            "back on the desk rather than quietly lost with the session that was on it")
+        #expect(handOver(in: project) == nil, "and not handed out again on a loop")
+    }
+
     // MARK: - Assign
 
     @Test func assigningStartsOneSessionOnTheTaskAndItsBlockers() async throws {

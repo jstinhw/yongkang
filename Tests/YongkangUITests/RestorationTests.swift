@@ -158,9 +158,11 @@ import Testing
         model.restore(entered: project.directory.path, section: .agents, route: .block("blocks/gone.md"))
         #expect(model.section == .agents)
         #expect(model.selection == .agents, "the project's agents, not an empty pane")
+        let guide = try #require(entered.value.guide(of: waiting))
+        defer { model.terminals.terminate(guide.id) }
         #expect(
-            entered.value.agentRows(summary: entered.summary).first?.route == .block(waiting.id),
-            "where the block still waiting on you is the first card")
+            entered.value.agentRows(summary: entered.summary).first?.route == .session(guide.id),
+            "where the agent the poll handed that block to is the first card")
     }
 
     /// The same guard from the other side: a block that is still there is what stays open,

@@ -16,6 +16,9 @@ package struct Project: Identifiable, Equatable, Sendable {
     /// folder exists). Read the same way — the folder tree is the state.
     package var team: [TeamMember] = Team.defaults
     package var sessions: [CodeSession] = []
+    /// Gates, by id, the app has handed to an agent to work through with the user. In memory
+    /// only, so a relaunch puts a half-finished one back on the desk — see `ProjectModel`.
+    package var guided: Set<String> = []
     /// Every assigned session's reports on disk, by session id — including sessions that are
     /// closed or ran before a relaunch, whose finished work may still be waiting for review.
     package var records: [UUID: LeadCoordination] = [:]
@@ -28,6 +31,7 @@ package struct Project: Identifiable, Equatable, Sendable {
         blocks: [UserBlock] = [],
         team: [TeamMember] = Team.defaults,
         sessions: [CodeSession] = [],
+        guided: Set<String> = [],
         records: [UUID: LeadCoordination] = [:]
     ) {
         self.id = id
@@ -37,6 +41,7 @@ package struct Project: Identifiable, Equatable, Sendable {
         self.blocks = blocks
         self.team = team
         self.sessions = sessions
+        self.guided = guided
         self.records = records
     }
 

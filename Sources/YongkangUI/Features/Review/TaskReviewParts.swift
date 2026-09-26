@@ -82,7 +82,7 @@ struct NeedsYouCard: View {
                 Text(block.action).font(Typography.body).foregroundStyle(Theme.prose)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            NotebookContentView(sections: NotebookContent.sections(block.body), cards: cards)
+            NotebookContentView(sections: NotebookContent.sections(block.brief), cards: cards)
             HStack(spacing: 8) {
                 if block.isDemo {
                     Button("Open the demo") { open(block) }.buttonStyle(.consolePrimary)

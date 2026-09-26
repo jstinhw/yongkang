@@ -66,7 +66,18 @@ extension RootView {
                 content: {
                     switch pane {
                     case .session:
-                        terminal(for: watched)
+                        // A session clearing a gate gets the page that gate names beside it, so
+                        // the instruction and the screen it is about are one glance apart.
+                        if let link = project.value.blocks.waitingOnUser
+                            .first(where: { project.value.guide(of: $0)?.id == watched.id })?.link
+                        {
+                            HSplitView {
+                                terminal(for: watched).frame(minWidth: 420)
+                                GuideBrowser(url: link).frame(minWidth: 360)
+                            }
+                        } else {
+                            terminal(for: watched)
+                        }
                     case .page:
                         SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
                     }
@@ -185,6 +196,7 @@ extension RootView {
         NotebookBoard(
             cards: project.cards,
             blocks: project.snapshot.blocks,
+            guided: project.guidedBlockIDs,
             assigned: project.assignedTaskIDs,
             reviewing: project.summary.waitingIDs,
             showDone: model.showDone,

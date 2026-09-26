@@ -28,6 +28,10 @@ import YongkangCore
     /// poll says so once rather than on every tick. A workflow that clears a block with its own
     /// message records it here too, or the poll would type "Unblocked" over it.
     var deliveredBlocks: Set<String> = []
+    /// Gates, by id, a session has already been opened for in this run. Not persisted: a
+    /// relaunch restores the guide itself (`OpenSessions`), and a gate whose guide is gone is
+    /// one worth another try. See `startGuide`.
+    var guidedBlocks: Set<String> = []
     /// The agents whose CLI's own record doesn't allow it in this folder yet: a session of one
     /// would ask before anything else. Written only by `ProjectModel+Trust`, like the rest here.
     var untrusted: Set<AgentKind> = []
@@ -115,7 +119,8 @@ import YongkangCore
     var value: Project {
         Project(
             id: id, directory: directory, entries: snapshot.entries, cards: cards,
-            blocks: snapshot.blocks, team: snapshot.team, sessions: sessions, records: snapshot.records)
+            blocks: snapshot.blocks, team: snapshot.team, sessions: sessions, guided: guidedBlocks,
+            records: snapshot.records)
     }
 
     /// What the screens draw, rather than what the files say: the snapshot's cards with any
@@ -321,18 +326,9 @@ import YongkangCore
         return true
     }
 
-    /// The session this block is holding up. A block names its own session, so the answer
-    /// reaches the one that asked even with several running; one written without a session
-    /// id falls back to the newest live session holding the task it names, then any.
-    func waitingSession(for block: UserBlock) -> CodeSession? {
-        // A proposal links to Product, but does not block an assigned session.
-        guard !block.isProposal else { return nil }
-        if let id = block.session {
-            return sessions.first { $0.id == id && !$0.exited }
-        }
-        let live = sessions.filter { $0.holdsTasks && !$0.exited }
-        return live.last { session in block.task.map { session.taskIDs.contains($0) } ?? false } ?? live.last
-    }
+    /// The session this block is holding up. One definition, in `Project`, so the poll that
+    /// answers a cleared block and the rule that says who is working it cannot disagree.
+    func waitingSession(for block: UserBlock) -> CodeSession? { value.waitingSession(for: block) }
 }
 
 /// Where a workflow leaves the window, for the view to apply. A workflow decides where to go

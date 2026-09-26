@@ -1,8 +1,9 @@
 import SwiftUI
 import YongkangCore
 
-/// What is being asked of the user, and the button that starts doing it. The body of a
-/// block is written as steps by whoever hit the gate, so it renders like any other page.
+/// What is being asked of the user, and the button that goes to the engineer doing it. Only
+/// the user's half of the body is drawn — `UserBlock.brief`; the walking-through happens in
+/// that engineer's session, a step at a time, with the page it needs beside it.
 /// The action bar either opens the guiding session or returns a proposal to Product.
 ///
 /// A proposal shows the page its session drew instead of its own body. The body is the
@@ -41,8 +42,7 @@ package struct BlockDetail: View {
 
     /// The page its session drew, when a proposal has one. A proposal outlives the session
     /// that wrote it — setup closes as soon as the draft is done — so this is the only place
-    /// the graph is still reachable. A plain block keeps its body: those steps are the thing
-    /// the user has to follow, not a summary of them.
+    /// the graph is still reachable.
     private var page: URL? {
         guard block.isProposal, let session = block.session, let notebookRoot else { return nil }
         let url = NotebookFormat.page(of: session, in: notebookRoot)
@@ -79,7 +79,7 @@ package struct BlockDetail: View {
             actionBar
         }
         .background(Theme.bg)
-        .task(id: block.body) { load() }
+        .task(id: block.brief) { load() }
     }
 
     private var tint: Color {
@@ -247,6 +247,6 @@ package struct BlockDetail: View {
     }
 
     private func load() {
-        content = NotebookContent.sections(block.body)
+        content = NotebookContent.sections(block.brief)
     }
 }

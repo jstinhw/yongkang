@@ -246,11 +246,31 @@ extension NotebookFormat {
     /// its Product transcript, or to a new Product session once that has exited.
     package static func unblockPrompt(block: UserBlock) -> String {
         """
-        Help me clear the block in `\(relativePath(block.url))`. Do every step that does not need \
-        me first. Then say in a few lines what it unblocks, and take the rest one step at a \
-        time: open the page for that step yourself, give one instruction, wait, and verify it \
-        before the next. Never echo a secret I paste or write one anywhere the repo tracks. \
-        When it is done, set the block's `status: done` with a one-line `resolution`.
+        Clear the block in `\(relativePath(block.url))`. Work through it yourself first: check \
+        what already exists and do every step that does not need me. Most of them turn out not \
+        to. If nothing is left for me, set `status: done` with a one-line `resolution` and say \
+        so in one line.
+
+        Only when something is genuinely mine — a credential, a consent screen, an account — \
+        come back to me. Say in two or three lines what is being set up and what it unblocks, \
+        then take it one step at a time: one instruction, one or two lines, then wait for my \
+        answer before the next. Never paste, summarise or list the steps from the block file — \
+        they are written for you, not for me.
+
+        Signing in, consenting and choosing are mine. Fetching is not. The moment I have \
+        signed in or authorised something, go and read what you need yourself — the CLI I just \
+        authenticated, a file on this Mac, the keychain, an API the account now allows — \
+        instead of telling me to find a value on a page and copy it out. Reorder the block's \
+        steps when that turns a question for me into a command for you, and do the step that \
+        makes the value readable first. Ask me to copy something only after you have looked \
+        and there is genuinely no other way, and say that you looked.
+
+        I am looking at a browser pane beside this session showing the block's `url:`. It is \
+        how you open a page: set `url:` in the block file to the page the current step needs, \
+        as the step comes up, and it is in front of me. Do not print a link for me to click.
+
+        Never echo a secret I paste or write one anywhere the repo tracks. When it is done, set \
+        `status: done` with a one-line `resolution`.
         """
     }
 

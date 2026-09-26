@@ -21,6 +21,10 @@ package struct NotebookBoard: View {
     let cards: [NotebookCard]
     /// Everything on the user's desk — demos, gates, proposals — not just the demos.
     let blocks: [UserBlock]
+    /// Gates a session is already clearing. The task is still held up — its own status says
+    /// so — but there is nothing for the user to open, so the board neither lists them in the
+    /// inspector nor puts an "Open block" footer on the card.
+    var guided: Set<String> = []
     /// Tasks a still-open session already has — shown as WIP and not pickable for a new batch.
     let assigned: Set<String>
     /// Tasks an agent has finished whose work nobody has committed. `done` in the notebook,
@@ -44,6 +48,7 @@ package struct NotebookBoard: View {
     package init(
         cards: [NotebookCard],
         blocks: [UserBlock],
+        guided: Set<String> = [],
         assigned: Set<String>,
         reviewing: Set<String>,
         showDone: Bool,
@@ -57,6 +62,7 @@ package struct NotebookBoard: View {
     ) {
         self.cards = cards
         self.blocks = blocks
+        self.guided = guided
         self.assigned = assigned
         self.reviewing = reviewing
         self.showDone = showDone
@@ -148,7 +154,7 @@ package struct NotebookBoard: View {
 
     /// Everything still on the user's desk, in file order — the same set the sidebar counts.
     private var waiting: [UserBlock] {
-        blocks.waitingOnUser
+        blocks.waitingOnUser.filter { !guided.contains($0.id) }
     }
 
     /// Nothing on the desk and nothing picked leaves the inspector with nothing to say, and
@@ -156,7 +162,7 @@ package struct NotebookBoard: View {
     private var hasInspector: Bool { !waiting.isEmpty || !batch.isEmpty }
 
     private func block(for card: NotebookCard) -> UserBlock? {
-        blocks.waiting(on: card.id)
+        waiting.waiting(on: card.id)
     }
 
     /// One column per project, in dependency order, plus a last column for tasks filed
