@@ -68,7 +68,7 @@ import YongkangCore
         let terminals = terminals ?? TerminalRegistry()
         self.terminals = terminals
         self.notify = notify
-        terminals.onExit = { [weak self] id in
+        terminals.onExit = { [weak self] id, code in
             guard let self, let found = self.session(id) else { return }
             self.markExited(found.session, in: found.project)
         }
@@ -297,7 +297,7 @@ import YongkangCore
     /// itself and stays to say so; a yes its record doesn't show is settled a moment later.
     func trustAnswered(_ session: CodeSession, in project: ProjectModel) async {
         if await project.trustGranted(by: session.id) {
-            endTrustSession(session, in: project)
+            end(session, in: project)
         } else if session.id == project.trustSession {
             settleTrust(in: project, after: .seconds(3))
         }
@@ -311,8 +311,8 @@ import YongkangCore
         }
     }
 
-    /// Its work done, the session goes, and so does the window, back to the board it came from.
-    private func endTrustSession(_ session: CodeSession, in project: ProjectModel) {
+    /// Its work done, or its CLI quit, the session goes, and so does the window, back to the board.
+    private func end(_ session: CodeSession, in project: ProjectModel) {
         let watching = project === entered && selection?.pane(of: session.id) != nil
         close(session, in: project)
         if watching { go(to: Destination(section: .board, route: .board)) }

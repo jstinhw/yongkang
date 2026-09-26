@@ -398,6 +398,9 @@ through the same `setFrameSize` path as point 3.
     main thread, with SIGKILL if the child is still there after 5 s. `onExit` only covers a child
     that exits by itself, and SwiftTerm reaps that one, so closing its session sends nothing to a
     pid that may have been reused.
+- **A clean exit closes its session.** A CLI that exits 0 was quit by the user (Ctrl+C, `/exit`),
+  so its session goes and the window returns to the board. Any other exit keeps the session,
+  marked exited, with a notice in the terminal saying how it ended.
 - **Keep terminals in one window.** Moving to another `NSWindow` is untested. A second app window
   showing the same session would take the terminal from the first. With Metal on, it
   rebuilds the Metal view (`MacTerminalView.swift:220-226`, 583-592).

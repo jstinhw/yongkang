@@ -136,6 +136,18 @@ struct TerminalRegistryTests {
         #expect(model.terminals.view(for: id) == nil && project.sessions.isEmpty)
     }
 
+    @Test func aSessionWhoseCLIQuitsCleanlyCloses() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel(terminals: registry())
+        let project = model.open(tmp)
+        let id = UUID()
+        project.addSession(id: id, title: "Claude Code", icon: "", line: "exit 0")
+
+        #expect(try await eventually { project.sessions.isEmpty }, "quitting the CLI closes its session")
+        #expect(model.terminals.view(for: id) == nil)
+    }
+
     // MARK: - Attention
 
     /// Codex's captured trust screen, printed through a real PTY, up to the notice and the

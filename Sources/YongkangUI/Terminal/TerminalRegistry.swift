@@ -17,8 +17,9 @@ import YongkangCore
     /// Progress, or an instruction to pick by hand, while a session's CLI is being steered to a
     /// child agent's view. By session id.
     private(set) var childNavigation: [UUID: String] = [:]
-    /// A session's process exited by itself. One that `terminate` ended isn't reported.
-    @ObservationIgnored var onExit: (UUID) -> Void = { _ in }
+    /// A session's process exited by itself, with its exit code (nil when a signal ended it).
+    /// One that `terminate` ended isn't reported.
+    @ObservationIgnored var onExit: (UUID, Int32?) -> Void = { _, _ in }
     /// The question a session's terminal is asking the user changed; nil once it is answered.
     @ObservationIgnored var onAttention: (UUID, String?) -> Void = { _, _ in }
     /// A session's terminal has gone still, so its agent may be waiting for a reply.
@@ -58,7 +59,7 @@ import YongkangCore
         let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
         let entry = Entry(view: view, label: session.title, agent: session.agent, folder: folder)
         let id = session.id
-        entry.onExit = { [weak self] in self?.onExit(id) }
+        entry.onExit = { [weak self] code in self?.onExit(id, code) }
         view.processDelegate = entry
         view.onAttention = { [weak self] reason in self?.onAttention(id, reason) }
         view.onAnswer = { [weak self] question, keys in self?.answer(question, with: keys, from: id) }
@@ -265,7 +266,7 @@ import YongkangCore
     let agent: AgentKind?
     /// Where the session runs, when the caller said. Nil answers only its own questions.
     let folder: URL?
-    var onExit: () -> Void = {}
+    var onExit: (Int32?) -> Void = { _ in }
     /// Set once the child has exited by itself and SwiftTerm has reaped it.
     private(set) var exited = false
     /// Messages waiting for the terminal to be free.
@@ -290,10 +291,15 @@ import YongkangCore
     nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
         MainActor.assumeIsolated {
             exited = true
-            let code = exitCode.map(String.init) ?? "?"
-            source.feed(
-                text: "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
-            onExit()
+            // A clean exit is the user quitting the CLI, and its session closes; only a failure
+            // stays on screen to say what happened.
+            if exitCode != 0 {
+                let code = exitCode.map(String.init) ?? "?"
+                source.feed(
+                    text:
+                        "\r\n\u{1b}[33m[\(label) exited (\(code)) — close the session and start it again]\u{1b}[0m\r\n")
+            }
+            onExit(exitCode)
         }
     }
 
