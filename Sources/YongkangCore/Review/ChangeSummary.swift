@@ -160,8 +160,8 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
         files.map(\.path) + ([file].compactMap { $0 } + records).filter { path in !files.contains { $0.path == path } }
     }
 
-    /// What discarding this task throws away: its code and its records. Not its file — its
-    /// status is the agent's to set, and an untracked one is the task itself.
+    /// What discarding this task throws away: its code and its records. Not its file — an
+    /// untracked one is the task itself, so discarding sets its status back to `todo` instead.
     package var discardPaths: [String] { commitPaths.filter { $0 != file } }
 
     package var done: Bool { status == "done" }

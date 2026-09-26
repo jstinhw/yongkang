@@ -88,23 +88,36 @@ extension AppModel {
     }
 
     /// Asks before throwing a task's finished work away: unlike the Trash, a new file git has
-    /// never seen does not come back. Yes reverts it and hands the task to `agent` to redo.
-    func discard(_ task: SummaryTask, in project: ProjectModel, agent: AgentKind) {
+    /// never seen does not come back. Yes reverts it and sets the task back to `todo`; with an
+    /// `agent`, that agent starts it over, and without one it waits on the board to be assigned.
+    func discard(_ task: SummaryTask, in project: ProjectModel, rerunningWith agent: AgentKind? = nil) {
         let count = task.discardPaths.count
         let shared = task.files.filter { project.summary.sharing($0.path, besides: task) != nil }.count
         alert = .confirm(
-            "Discard \u{201C}\(task.title)\u{201D} and run it again?",
-            detail: "Its \(count) changed file\(count == 1 ? "" : "s") go back to the last commit, and the "
-                + "new ones are deleted. This can't be undone. "
+            agent == nil
+                ? "Discard \u{201C}\(task.title)\u{201D}?"
+                : "Discard \u{201C}\(task.title)\u{201D} and run it again?",
+            detail: (count == 0
+                ? "It has no changed files. "
+                : "Its \(count) changed file\(count == 1 ? "" : "s") go back to the last commit, and the "
+                    + "new ones are deleted. This can't be undone. ")
                 + (shared == 0 ? "" : "\(shared) of them also hold another task's edits, which go too. ")
-                + "Then an agent starts the task over.",
-            action: "Discard and Rerun"
+                + (project.blockedTaskIDs.contains(task.id) ? "Its open demo or block is closed. " : "")
+                + (agent != nil
+                    ? "Then an agent starts the task over."
+                    : project.assignedTaskIDs.contains(task.id)
+                        ? "The task goes back to todo; close the session holding it to assign it again."
+                        : "The task goes back to todo, ready to assign again."),
+            action: agent == nil ? "Discard" : "Discard and Rerun"
         ) { [weak self] in
             Task {
                 guard let self else { return }
                 do throws(CommitFailure) {
-                    let destination = try await project.discard(task, agent: agent)
-                    self.go(to: destination)
+                    if let agent {
+                        self.go(to: try await project.discardAndRerun(task, agent: agent))
+                    } else {
+                        try await project.discard(task)
+                    }
                 } catch {
                     self.alert = .message("The work was not discarded", detail: error.reason)
                 }

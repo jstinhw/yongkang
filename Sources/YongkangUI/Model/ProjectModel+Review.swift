@@ -27,18 +27,43 @@ extension ProjectModel {
         return send(draft.message(taskID: task.id, title: task.title), about: task, agent: agent)
     }
 
+    /// A task the user can throw away from the board: finished and waiting for review, or
+    /// stopped on a demo or a gate. Nil when there is neither work nor a block to discard.
+    func discardable(_ id: String) -> SummaryTask? {
+        guard let task = summary.tasks.first(where: { $0.id == id }) else { return nil }
+        let held = cards.first { $0.id == id }?.status == "blocked"
+        return (task.done && !task.discardPaths.isEmpty) || held ? task : nil
+    }
+
     /// Discarding is approving's opposite: this task's code and its records go back to the last
-    /// commit, and the task goes back to an agent the way a change request does, to start
-    /// over. The task file is left alone — reopening it is the agent's, like every status.
-    func discard(_ task: SummaryTask, agent: AgentKind) async throws(CommitFailure) -> Destination? {
-        let failure = await GitClient.discard(
-            repo.changes.filter { task.discardPaths.contains($0.path) }, in: directory)
-        await refreshRepo()
-        if let failure { throw CommitFailure(reason: failure) }
+    /// commit, a demo or a gate still open on it is settled, and the task goes back to `todo`
+    /// for the board to assign again. No agent starts.
+    func discard(_ task: SummaryTask) async throws(CommitFailure) {
+        let changes = repo.changes.filter { task.discardPaths.contains($0.path) }
+        // A task stopped on a block may have left nothing in the tree yet.
+        if !changes.isEmpty {
+            let failure = await GitClient.discard(changes, in: directory)
+            await refreshRepo()
+            if let failure { throw CommitFailure(reason: failure) }
+        }
         reviewDrafts[task.id] = nil
+        // Left open, a block would hold the task at `blocked` over the `todo` below.
+        snapshot.blocks.waitingOnUser.filter { !$0.isProposal && $0.task == task.id }.forEach(Blocks.resolve)
+        do {
+            try task.url.map(NotebookFormat.reopen)
+        } catch {
+            throw CommitFailure(
+                reason: "The work is gone, but \(task.id) could not be set back to todo: "
+                    + error.localizedDescription)
+        }
+    }
+
+    /// Discarding, then handing the task to an agent the way a change request does, to start over.
+    func discardAndRerun(_ task: SummaryTask, agent: AgentKind) async throws(CommitFailure) -> Destination? {
+        try await discard(task)
         return send(
-            "Discarded \(task.id) — \"\(task.title)\": its changes and its reports are gone. Set it back to "
-                + "active, do it again from the start, check the Done when, and mark it done again. Do not commit.",
+            "Discarded \(task.id) — \"\(task.title)\": its changes and its reports are gone. Do it again "
+                + "from the start, check the Done when, and mark it done again. Do not commit.",
             about: task, agent: agent)
     }
 

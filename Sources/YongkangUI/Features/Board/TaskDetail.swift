@@ -14,6 +14,9 @@ package struct TaskDetail: View {
     let open: (URL) -> Void
     let agents: AgentChoice
     let assign: ([NotebookCard], AgentKind) -> Void
+    /// Asks, then reverts the work this task left uncommitted, closes its demo or block, and
+    /// sets it back to `todo`. Nil unless it is ready for review, demo ready or blocked.
+    let discard: (() -> Void)?
     let check: (TaskAgent) -> Void
 
     @State private var content: [NotebookContent.Section] = []
@@ -26,6 +29,7 @@ package struct TaskDetail: View {
         open: @escaping (URL) -> Void,
         agents: AgentChoice,
         assign: @escaping ([NotebookCard], AgentKind) -> Void,
+        discard: (() -> Void)? = nil,
         check: @escaping (TaskAgent) -> Void
     ) {
         self.card = card
@@ -35,6 +39,7 @@ package struct TaskDetail: View {
         self.open = open
         self.agents = agents
         self.assign = assign
+        self.discard = discard
         self.check = check
     }
 
@@ -224,14 +229,19 @@ package struct TaskDetail: View {
             Spacer(minLength: 12)
             if locked {
                 Text(
-                    card.status == "done"
-                        ? "Done — nothing to assign."
-                        : "A session already has this task."
+                    card.status != "done"
+                        ? "A session already has this task."
+                        : discard == nil ? "Done — nothing to assign." : "Done — discard its work to run it again."
                 )
                 .font(Typography.body).foregroundStyle(Theme.tx3)
             } else if batch.count > 1 {
                 Text("pulls in \(batch.count - 1) blocker\(batch.count == 2 ? "" : "s")")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
+            }
+            if let discard {
+                Button(action: discard) { Label("Discard", systemImage: "arrow.uturn.backward") }
+                    .buttonStyle(.console)
+                    .help("Revert this task's uncommitted changes, close its demo or block, and set it back to todo")
             }
             AssignButton(title: { _ in "Assign" }, choice: agents, disabled: locked) { assign([card], $0) }
         }

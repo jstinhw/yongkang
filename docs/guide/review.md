@@ -49,8 +49,12 @@ The bar at the bottom is the decision, on the task page and on its diffs alike:
   comes back to **Waiting for you**.
 - **Discard and rerun** asks first, then throws the attempt away: the task's files go back
   to the last commit, the new ones and its run records are deleted, and nothing else in the
-  tree is touched. The task file stays as it is. Then the task goes to an agent the way
-  **Request changes** does, to be done again from the start.
+  tree is touched. The task's `status` goes back to `todo` and the rest of its file stays as
+  it is. Then the task goes to an agent the way **Request changes** does, to be done again
+  from the start.
+- **Discard** on the board's task page does the same without starting an agent, for a task
+  that is ready for review, demo ready or blocked. Its open demo or block is closed too, and
+  the task waits on the board as `todo`, for you to assign it again when you choose.
 
 None of it is written for this screen; it is the run records in `.notebook/runs/`, where
 `paths` on each work record is what attributes a file to a task. They are read from disk,

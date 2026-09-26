@@ -44,6 +44,7 @@ extension RootView {
                 open: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
                 agents: agentChoice,
                 assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },
+                discard: project.discardable(card.id).map { task in { model.discard(task, in: project) } },
                 check: { worker in
                     model.section = .agents
                     model.selection = worker.route
@@ -133,7 +134,7 @@ extension RootView {
                     return await approve(owner, message: message, in: project)
                 },
                 requestChanges: { if let owner { model.go(to: project.requestChanges(on: owner, agent: agent)) } },
-                discard: { if let owner { model.discard(owner, in: project, agent: agent) } })
+                discard: { if let owner { model.discard(owner, in: project, rerunningWith: agent) } })
         } else if let step = previewStep(in: project) {
             ProjectPreview(
                 repo: step.repo, services: step.services,
@@ -226,7 +227,7 @@ extension RootView {
             startBlock: { model.go(to: project.startUnblock($0, agent: agent)) },
             approve: { await approve(task, message: $0, in: project) },
             requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) },
-            discard: { model.discard(task, in: project, agent: agent) }
+            discard: { model.discard(task, in: project, rerunningWith: agent) }
         )
     }
 

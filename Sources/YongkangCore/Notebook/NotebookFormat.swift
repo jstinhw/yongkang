@@ -165,6 +165,23 @@ package enum NotebookFormat {
         return file
     }
 
+    /// The one status the app sets on a task, and only because the user threw its work away:
+    /// `status: todo`, so the board offers it to an agent again. The status line in the
+    /// frontmatter and nothing else in the file, like resolving a block by hand.
+    package static func reopen(_ task: URL) throws {
+        let text = try String(contentsOf: task, encoding: .utf8)
+        let front = text.range(
+            of: "\n---",
+            range: text.index(text.startIndex, offsetBy: 3, limitedBy: text.endIndex)
+                .map { $0..<text.endIndex })
+        guard text.hasPrefix("---"), let front,
+            let line = text.range(
+                of: #"\nstatus:[^\n]*"#, options: .regularExpression, range: text.startIndex..<front.lowerBound)
+        else { return }
+        try text.replacingCharacters(in: line, with: "\nstatus: todo").write(
+            to: task, atomically: true, encoding: .utf8)
+    }
+
     private static func body(for kind: EntryKind) -> String {
         switch kind {
         case .roadmap:

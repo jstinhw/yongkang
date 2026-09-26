@@ -138,7 +138,20 @@ import Testing
         #expect(task.commitPaths.contains(".notebook/tasks/t.md"), "approving commits the task file")
         #expect(
             task.discardPaths == Self.tree.map(\.path) + [".notebook/runs/s-work-t.md"],
-            "discarding reverts the code and the reports, never the task file the agent reopens")
+            "discarding reverts the code and the reports, never the task file, which is reopened instead")
+    }
+
+    @Test func reopenSetsOnlyTheStatusLine() throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("t.md")
+        try "---\nid: t\nstatus: done\nupdated: x\n---\n\nstatus: in the body\n".write(
+            to: file, atomically: true, encoding: .utf8)
+        try NotebookFormat.reopen(file)
+        #expect(
+            try String(contentsOf: file, encoding: .utf8)
+                == "---\nid: t\nstatus: todo\nupdated: x\n---\n\nstatus: in the body\n",
+            "a discarded task goes back to todo, and nothing else in its file changes")
     }
 
     @Test func recordsOnDiskKeepWorkWaiting() throws {
