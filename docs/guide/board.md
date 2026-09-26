@@ -35,8 +35,9 @@ Where a column has a choice about what to draw first, the shortest goes first: t
 that could start now sits above the chain that cannot, and under a fork the branch that runs
 on longest is the one drawn directly beneath it.
 
-The inspector carries the batch: what you picked, what came along as a blocker, and in
-which order it will be built.
+The inspector carries what is waiting on you, and what the console will do with the batch —
+whether a designer has to build a screen first. The batch itself is the board: the cards you
+picked and the ones they pulled in stay lit, and the bar below counts them.
 
 Completed milestones and tasks are hidden from the board and milestone task lists by default.
 `Completed` in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A

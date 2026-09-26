@@ -81,10 +81,8 @@ package struct NotebookBoard: View {
                     } else {
                         board(narrow: narrow)
                     }
-                    if !narrow {
-                        BoardInspector(
-                            waiting: waiting, cards: cards, batch: batch,
-                            picked: Set(picked.map(\.id)), openBlock: openBlock)
+                    if !narrow, hasInspector {
+                        BoardInspector(waiting: waiting, batch: batch, openBlock: openBlock)
                     }
                 }
                 assignBar
@@ -99,12 +97,10 @@ package struct NotebookBoard: View {
         let inBatch = Set(batch.map(\.id))
         return ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 18) {
-                if narrow {
-                    DisclosureGroup("The batch, and what is waiting on you") {
+                if narrow, hasInspector {
+                    DisclosureGroup("What is waiting on you") {
                         BoardInspector(
-                            waiting: waiting, cards: cards, batch: batch,
-                            picked: Set(picked.map(\.id)), openBlock: openBlock,
-                            inline: true)
+                            waiting: waiting, batch: batch, openBlock: openBlock, inline: true)
                     }
                     .font(Typography.body).tint(Theme.tx2).cardSurface()
                 }
@@ -154,6 +150,10 @@ package struct NotebookBoard: View {
     private var waiting: [UserBlock] {
         blocks.waitingOnUser
     }
+
+    /// Nothing on the desk and nothing picked leaves the inspector with nothing to say, and
+    /// an empty fourth column reads as a bug. Give the board the width instead.
+    private var hasInspector: Bool { !waiting.isEmpty || !batch.isEmpty }
 
     private func block(for card: NotebookCard) -> UserBlock? {
         blocks.waiting(on: card.id)
