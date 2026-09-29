@@ -138,6 +138,39 @@ import Testing
         #expect(block.slug == "gate" && !block.title.isEmpty)
     }
 
+    /// How a demo comes back after a quit took its page down: the command the designer wrote.
+    @Test func aDemoSaysHowToServeItAgain() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let blocks = Blocks.root(in: NotebookFormat.root(in: tmp))
+        try FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
+        try """
+        ---
+        kind: demo
+        title: "Task page diff"
+        url: http://localhost:3101
+        serve: npm run dev -- --port 3101
+        ---
+        """.write(to: blocks.appendingPathComponent("diff-demo.md"), atomically: true, encoding: .utf8)
+        try "---\nkind: demo\nurl: https://example.com/canvas\n---\n"
+            .write(to: blocks.appendingPathComponent("page-demo.md"), atomically: true, encoding: .utf8)
+
+        let found = Blocks.load(root: NotebookFormat.root(in: tmp))
+        #expect(found.first { $0.slug == "diff-demo" }?.serve == "npm run dev -- --port 3101")
+        #expect(found.first { $0.slug == "page-demo" }?.serve == "", "a published demo has nothing to start")
+    }
+
+    @Test func onlyAPageOnThisMacIsOursToStart() throws {
+        #expect(DemoServer.isLocal(try #require(URL(string: "http://localhost:3101"))))
+        #expect(DemoServer.isLocal(try #require(URL(string: "http://127.0.0.1:5173/board"))))
+        #expect(!DemoServer.isLocal(try #require(URL(string: "https://claude.ai/artifact/abc"))))
+    }
+
+    @Test func aPortNothingListensOnDoesNotAnswer() async throws {
+        // Port 1 is privileged and never a dev server: refused at once, not timed out.
+        #expect(await !DemoServer.answers(try #require(URL(string: "http://127.0.0.1:1"))))
+    }
+
     @Test func garbledFieldsAreDroppedNotTrusted() throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

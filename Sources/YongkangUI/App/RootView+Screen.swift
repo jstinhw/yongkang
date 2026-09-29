@@ -107,7 +107,8 @@ extension RootView {
                 revise: {
                     let note = project.reviewDrafts[block.id]?.note ?? ""
                     model.go(to: project.requestDemoChanges(block, note: note, agent: agent))
-                }
+                },
+                serve: { await model.serve(block, in: project) }
             )
             .id(block.id)
         } else if let block = selectedBlock(in: project) {

@@ -42,6 +42,10 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
     /// Demos only: every pass the designer made, oldest first, so the change can be
     /// followed rather than arriving as one finished thing.
     package let revisions: [DemoRevision]
+    /// Demos only: the command, run in the project folder, that serves `url` again. The
+    /// designer's own session served it, so a quit took the page down with it; this is how
+    /// the app brings it back. Empty for a demo published somewhere that stays up.
+    package let serve: String
 
     package init(
         id: String,
@@ -59,7 +63,8 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
         body: String,
         before: URL?,
         branch: String,
-        revisions: [DemoRevision]
+        revisions: [DemoRevision],
+        serve: String = ""
     ) {
         self.id = id
         self.url = url
@@ -77,6 +82,7 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
         self.before = before
         self.branch = branch
         self.revisions = revisions
+        self.serve = serve
     }
 
     package var waiting: Bool { status != "done" }
@@ -178,7 +184,8 @@ package enum Blocks {
             body: body,
             before: web(fields["before"]),
             branch: fields["branch"] ?? "",
-            revisions: revisions(body)
+            revisions: revisions(body),
+            serve: fields["serve"] ?? ""
         )
     }
 

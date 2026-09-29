@@ -33,6 +33,39 @@ enum AlertItem {
 
 // The workflows that can end in a question or an explanation rather than somewhere to go.
 extension AppModel {
+    /// Brings back, at launch, each waiting demo whose page a quit took down — only those
+    /// whose command the user already let run. Anything else waits until its demo is opened,
+    /// so a launch never opens on a pile of questions.
+    func serveDemos() async {
+        for project in projects {
+            for block in project.snapshot.blocks where block.isDemo && block.waiting {
+                guard let down = await project.downDemo(block), project.trustsServe(down.command) else { continue }
+                project.startServing(block)
+            }
+        }
+    }
+
+    /// Opening a demo whose page is down: runs its command, asking first when this project has
+    /// not run that exact command before, and shows the exact command in the question. True once
+    /// the page answers; after a question, the panes are reloaded when the server is up.
+    func serve(_ block: UserBlock, in project: ProjectModel) async -> Bool {
+        guard let down = await project.downDemo(block) else { return false }
+        guard project.trustsServe(down.command) else {
+            alert = .confirm(
+                "Serve this demo?",
+                detail: "Its page is not running. This runs, in \(project.name):\n\n\(down.command)",
+                action: "Run"
+            ) {
+                project.trustServe(down.command)
+                project.startServing(block)
+                Task { if await DemoServer.waitUntilAnswering(down.url) { DemoPages.reload(down.url) } }
+            }
+            return false
+        }
+        project.startServing(block)
+        return await DemoServer.waitUntilAnswering(down.url)
+    }
+
     func assign(_ tasks: [NotebookCard], in project: ProjectModel, agent: AgentKind, reading: [URL] = []) {
         guard let destination = project.assign(tasks, agent: agent, reading: reading) else {
             guard !tasks.isEmpty else { return }

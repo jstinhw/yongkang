@@ -24,6 +24,8 @@ package struct DesignDemo: View {
     @Binding var note: String
     /// Sends `note` to whoever has the demo, as the brief for the next pass.
     let revise: () -> Void
+    /// Starts the demo's page if it is down, true once it answers. Nil in the shots.
+    let serve: (() async -> Bool)?
 
     @State private var pane = Pane.both
     /// Which revision is in the After pane. Nil is the demo's own `url` — the newest one.
@@ -35,7 +37,8 @@ package struct DesignDemo: View {
         waiting: CodeSession?,
         approve: @escaping (DemoRevision?) -> Void,
         note: Binding<String> = .constant(""),
-        revise: @escaping () -> Void
+        revise: @escaping () -> Void,
+        serve: (() async -> Bool)? = nil
     ) {
         self.block = block
         self.cards = cards
@@ -43,6 +46,7 @@ package struct DesignDemo: View {
         self.approve = approve
         self._note = note
         self.revise = revise
+        self.serve = serve
     }
 
     enum Pane: String, CaseIterable, Identifiable {
@@ -86,6 +90,15 @@ package struct DesignDemo: View {
             }
         }
         .background(Theme.bg)
+        // A designer's next pass often republishes to the same link, so a new revision line
+        // is the cue to fetch both panes again rather than keep showing the last pass.
+        .onChange(of: block.revisions.count) { reloadPanes() }
+        // A page a quit took down comes back on its own; the panes load it once it answers.
+        .task(id: block.id) { if await serve?() == true { reloadPanes() } }
+    }
+
+    private func reloadPanes() {
+        [block.before, after].compactMap { $0 }.forEach(DemoPages.reload)
     }
 
     // MARK: - Controls
@@ -212,12 +225,26 @@ package struct DesignDemo: View {
                 Text(url?.absoluteString ?? "—")
                     .font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
                 Spacer(minLength: 0)
+                if let url {
+                    Button {
+                        DemoPages.reload(url)
+                    } label: {
+                        Image(systemName: "arrow.clockwise").font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.tx3)
+                    .help("Load the latest version of this page")
+                    .accessibilityLabel("Reload \(label)")
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: 34)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.line2).frame(height: 1) }
             if let url {
+                // Opening the demo shows the design as it is now, not as it was the first
+                // time this link was loaded in this run of the app.
                 WebPane(webView: DemoPages.view(for: url))
+                    .onAppear { DemoPages.reload(url) }
             } else {
                 fallback()
             }
@@ -362,6 +389,15 @@ package struct DesignDemo: View {
 @MainActor enum DemoPages {
     private static var views: [URL: WKWebView] = [:]
     private static var order: [URL] = []
+
+    /// Fetches the page again, keeping the view, so a design edited in place at the same
+    /// link shows its latest version. A view not made yet has nothing stale to reload; one
+    /// whose first load failed, because the server was down, has no page to reload and is
+    /// sent to the address again.
+    static func reload(_ url: URL) {
+        guard let view = views[url], !view.isLoading else { return }
+        if view.url == nil { view.load(URLRequest(url: url)) } else { view.reload() }
+    }
 
     static func view(for url: URL) -> WKWebView {
         if let existing = views[url] { return existing }

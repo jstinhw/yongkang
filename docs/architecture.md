@@ -218,7 +218,7 @@ Full Keyboard Access and VoiceOver read an app through.
 - **One binding per shortcut.** ⌘\ came off the toolbar's list toggle when its item landed,
   and the toggle keeps its `.help`, which still names the shortcut. ⌘N is New Agent's, since
   putting an agent on work is what the window is for; New Project moved to ⇧⌘N. The toolbar's
-  New Agent button and the empty screen's two buttons carry no shortcut of their own. There is
+  New Agent item and the empty screen's two buttons carry no shortcut of their own. There is
   no Go menu: with every project in the sidebar there is no page of projects to go back to.
 - **Assign Task is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
@@ -263,7 +263,13 @@ conversation where its CLI kept one — `claude --resume`, `codex resume <thread
 `grok --resume`, `agy --continue` (each provider's `resume`) — and on the line it was first
 started with where it kept nothing, which is a session that never got going. Coming back with
 its task ids is what keeps finished, unapproved work in Review: a task counts as handed out
-only while a session, a work record or a block names it. Services are not kept.
+only while a session, a work record or a block names it. Services are not kept. The one
+exception is a waiting demo: its page died with the designer's session, so after the first read
+`AppModel.serveDemos()` runs each local demo's `serve:` command again in a `Serve <task>`
+terminal, only when its address does not answer, and only a command the user has already let
+that project run (`ProjectModel.trustsServe`). `serve:` is read from a file in the project, so
+an unapproved one is never run at launch: opening its demo asks first, showing the command.
+That terminal is not stored either; the next launch asks the same question.
 
 Anything that fails drops the route, and `openSectionDefault()` fills it with the section's own
 page for the project: its board, or its running sessions side by side. `RestorationTests` covers the

@@ -40,11 +40,15 @@ a settled decision is what the user's approval was for.
 3. Build the demo straight in the project's own stack: the running page is the design.
    Never draw it on a canvas or in a mockup first and then build it again. Only when the
    product does not render in a browser (a native or mobile app) is the demo a design
-   canvas, or one HTML page you publish.
+   canvas, or one HTML page you publish. Either way `url:` is a live link the console
+   loads, never a screenshot: publish every pass to that same link, so it always shows the
+   latest design.
 4. Build it in place, on the branch you are on. Never create or switch a branch, because
    other sessions share this checkout. Build only enough to answer "is this the thing you
    wanted": stub what is behind it, and never touch a migration, an endpoint or a
-   deployment. Serve it and leave it running.
+   deployment. Serve it and leave it running, and write the command that serves it as
+   `serve:` in the demo file: your session ends when the app quits, and the page with it,
+   so that line is how the app brings it back.
 5. Look at it yourself once, at phone and desktop widths, and fix what is off. That is
    your check, and the user's approval is the rest: build no test harness for a demo.
 6. Set the task `status: designing`, and write the demo file (below) to
@@ -71,6 +75,7 @@ session: <the session id you were given>
 branch: <the branch you built on>
 before: <http url of the screen as it stands, when something serves it — otherwise empty>
 url: <http url of the running demo — the newest revision>
+serve: <the command, run in the project folder, that serves `url` — empty for a published page>
 action: "Approve this, or say what is wrong with it."
 created: YYYY-MM-DD
 updated: YYYY-MM-DD

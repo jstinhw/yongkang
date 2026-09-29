@@ -250,6 +250,9 @@ struct RootView: View {
         model.lookUpAgents()
         await model.reloadNow()
         model.restore(entered: enteredProject, section: storedSection, route: Route(stored: storedRoute))
+        // After the read, which is what finds the demos; not awaited, since a server booting
+        // must not hold the window back.
+        Task { await model.serveDemos() }
     }
 
     func persist() {

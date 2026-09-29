@@ -19,6 +19,15 @@ empty and says so when the task adds a surface that does not exist yet. Every pa
 designer made is a chip on the `Revisions` strip, so you can follow how the change got
 there rather than being handed one finished thing; a pass they kept serving opens again.
 
+The demo is a live page, never a picture of one: opening it, or a new revision arriving,
+loads the latest version, and each pane's reload button fetches it again. A demo served on
+this Mac stops when Yongkang quits, since the designer's session was serving it. The demo
+file's `serve:` line is the command that serves it. The first time a demo's page is down when
+you open it, Yongkang shows you that exact command and asks before running it, since the line
+comes from a file in the project and a cloned repo brings its own. Once you say `Run`, that
+command runs by itself in a `Serve <task>` terminal whenever its page is down: when Yongkang
+opens again, or when you open the demo. A changed command asks again.
+
 `Build it` clears the demo and tells the waiting session which revision won — only then
 does the work on that screen start. To say no, write what should change in the box beside
 the buttons, in your own words, and `Request changes` sends it to whoever has the demo as
