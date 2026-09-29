@@ -174,11 +174,25 @@ struct Inspector<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) { content }
-            .padding(18)
-            .frame(width: width, alignment: .topLeading)
-            .frame(maxHeight: .infinity, alignment: .top)
-            .background(Theme.panel)
-            .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 1) }
+        // It scrolls, because its lists are as long as the work is: a review of 39 files drew a
+        // column taller than the window, and a column taller than the window sizes the whole
+        // four-column layout past it — the rail, the sidebar's header and the toolbar all out of
+        // frame, with no scroller anywhere to bring them back.
+        //
+        // At least as tall as the column, so a short one still reads as one page: several of
+        // these end on a footnote a trailing Spacer holds at the bottom, and a scroll view's
+        // content is its ideal height, where that Spacer is nothing.
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) { content }
+                    .padding(18)
+                    .frame(width: width, alignment: .topLeading)
+                    .frame(minHeight: proxy.size.height, alignment: .top)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .frame(width: width)
+        .background(Theme.panel)
+        .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 1) }
     }
 }
