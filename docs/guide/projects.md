@@ -50,7 +50,7 @@ git, for every open project; the app keeps no state of its own to drift.
 
 ## New Agent
 
-`New Agent` (⌘N, and the button at the right of the toolbar) puts an agent on work in any open
+`New Agent` (⌘N, and the top of the toolbar's `+` menu) puts an agent on work in any open
 project. Pick a ready task — every project's are listed, the one you are in first — or describe
 anything in a line under **Anything**. It works in that task's project.
 

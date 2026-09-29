@@ -39,6 +39,11 @@ The inspector carries what is waiting on you, and what the console will do with 
 whether a designer has to build a screen first. The batch itself is the board: the cards you
 picked and the ones they pulled in stay lit, and the bar below counts them.
 
+The bar is where agents are started. With nothing picked it offers `Product review` on the left
+and, on the right, the agent beside `Run N ready`, which gives every task that could start now a
+session of its own. Pick cards and the left side becomes a count of the picks and the blockers
+they pulled in, whose `×` clears them, and the button becomes `Assign N`.
+
 Completed milestones and tasks are hidden from the board and milestone task lists by default.
-`Completed` in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A
+The filter button in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A
 milestone counts as finished when its own status says so, or when every task under it is done.

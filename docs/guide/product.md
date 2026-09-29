@@ -8,7 +8,7 @@ mode. It asks only the decisions that change the scope, then drafts one project 
 tasks as a ready proposal under Blocks. `Request changes` takes you back to the transcript to
 adjust the draft; `Create project` writes it. Nothing reaches the board before that.
 
-`Product review` on the board — or `Agent ▸ Product Review`, which works from any screen —
+`Product review` at the bottom left of the board — or `Agent ▸ Product Review`, which works from any screen —
 starts a session that reads the whole notebook — roadmap,
 projects, tasks, memory, the last run records — inspects the product, researches relevant
 current alternatives when useful, and works out what should come next. It presents at
