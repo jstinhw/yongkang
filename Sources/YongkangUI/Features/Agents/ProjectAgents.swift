@@ -121,16 +121,19 @@ package struct ProjectAgentsPage: View {
             Button {
                 open(row.route)
             } label: {
-                Text(row.name).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                Text(row.label).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // The work is the headline and the CLI running it is the note under it, the same
+            // way round as the sidebar. "Run 2 ready" starts two sessions at once, and two
+            // cards reading "Claude Code" and "Claude Code 2" say nothing about which is which.
             if row.task != nil {
                 HStack(spacing: 6) {
-                    RoleTile(role: row.name, size: 18)
-                    Text("on \(row.title)").font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
+                    RoleTile(role: row.agentName, size: 18)
+                    Text(row.agentName).font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
                 }
             }
             if let detail = detail(of: row) {
