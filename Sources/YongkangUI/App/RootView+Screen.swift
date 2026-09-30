@@ -6,7 +6,17 @@ extension RootView {
     // MARK: - Work area
 
     @ViewBuilder func screen(for project: ProjectModel) -> some View {
-        if let empty = needsIntake {
+        if project.missing {
+            // Its folder was renamed or deleted: an empty read of it is not a new project.
+            VStack(spacing: 8) {
+                Image(systemName: "questionmark.folder").font(.system(size: 22)).foregroundStyle(Theme.tx4)
+                Text("Can’t find this project").font(Typography.body).foregroundStyle(Theme.tx2)
+                Text(project.directory.path).font(Typography.caption).foregroundStyle(Theme.tx3)
+                Button("Remove from Yongkang") { close(project) }.padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg)
+        } else if let empty = needsIntake {
             // An empty project has nothing to click, so it asks what it is instead.
             ProjectIntake(project: empty.value) { description in
                 model.selection = empty.startNotebookSetup(description, agent: agent)

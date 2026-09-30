@@ -197,6 +197,8 @@ import YongkangCore
     /// section's own page for it. The section stays: picking a project in the sidebar while on
     /// the board shows its board, and while on Agents its agents.
     func enter(_ project: ProjectModel, at route: Route? = nil) {
+        // Before the first frame, so a folder renamed since the last poll never flashes the intake.
+        project.checkFolder()
         if entered !== project {
             // Once per move into a project, not per agent row clicked inside it.
             Analytics.capture("project_opened", ["notebook": project.hasNotebook, "open_projects": projects.count])

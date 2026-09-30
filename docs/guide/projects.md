@@ -43,8 +43,9 @@ it is for on the way in. With no project open at all, the empty screen offers bo
 
 Open projects come back on the next launch. Only the folders are remembered, not the
 sessions — those PTYs died with the app. A folder renamed, moved or deleted since stays in the
-list, greyed and marked **Can't find this folder**, with a **Remove** button beside it: you see
-where a project went rather than it vanishing on you. Nothing on disk is touched.
+list, greyed and marked **Can't find this project**, with a **Remove** button beside it: you see
+where a project went rather than it vanishing on you. Opening one shows the same, never the
+new-project prompt. Nothing on disk is touched.
 
 The rail holds two sections: `Board`, the work the notebook describes, and `Agents`, the
 sessions on it. All of it is read from the notebook, the transcripts and
