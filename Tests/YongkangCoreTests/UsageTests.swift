@@ -309,6 +309,26 @@ import Testing
         #expect(await AgentUsage.claudeQuota(configURL: dir.appendingPathComponent("nope.json")) == nil)
     }
 
+    // Newer Claude Code keeps no cache; the endpoint's body is the same shape and wins, and
+    // the plan's name still comes from the config.
+    @Test func claudeQuotaFromTheEndpoint() async throws {
+        let dir = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let config = dir.appendingPathComponent("claude.json")
+        try #"{"oauthAccount":{"organizationType":"claude_max"}}"#.write(to: config, atomically: true, encoding: .utf8)
+        let live = Data(
+            (#"{"five_hour":{"utilization":47.0,"resets_at":"2026-09-30T16:39:59.709158+00:00"},"#
+                + #""seven_day":{"utilization":7.0,"resets_at":"2026-10-05T13:59:59+00:00"},"seven_day_opus":null}"#)
+                .utf8)
+        let now = Date(timeIntervalSince1970: 1_790_700_000)
+
+        let quota = try #require(await AgentUsage.claudeQuota(configURL: config, live: live, now: now))
+        #expect(quota.plan == "claude_max")
+        #expect(quota.windows.map(\.percent) == [47, 7])
+        #expect(quota.asOf == now, "a live answer is as fresh as the fetch")
+        #expect(await AgentUsage.claudeQuota(configURL: config) == nil, "no cache and no fetch is nothing")
+    }
+
     // Codex only rewrites its limits on a turn, so the newest rollout can be days old: a
     // window whose reset has passed is empty now, not still at the old snapshot's number.
     @Test func codexQuotaRollsOverStaleWindows() async throws {

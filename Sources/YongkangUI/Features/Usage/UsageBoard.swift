@@ -26,10 +26,11 @@ package struct UsageBoard: View {
     /// Which project each run was in, by the run's id.
     @State private var owners: [AgentSpend.ID: Project.ID] = [:]
     @State private var quotas: [ProviderQuota] = []
-    /// How far back every panel below the plan limits is counting. 24 hours by default:
+    /// How far back the panels under the plan limits count. 24 hours by default:
     /// a day is the span a person actually remembers working, and all time on a machine
     /// that has been running agents for months answers a different question.
     @State private var range: UsageRange = .day
+    @State private var breakdown: Breakdown = .project
     /// Pinned when the screen loads rather than read per render, so the window edge and
     /// the histogram's last bucket do not creep while you look at them.
     @State private var now = Date()
@@ -64,23 +65,12 @@ package struct UsageBoard: View {
 
     package var body: some View {
         ScrollView {
-            HStack(alignment: .top, spacing: 22) {
-                VStack(alignment: .leading, spacing: 20) {
-                    limits
-                    overTime
-                    byModel
-                    runs
-                    Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 22) {
+                limits
+                HStack(alignment: .top, spacing: 20) {
+                    spent.frame(maxWidth: .infinity)
+                    whereItWent.frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                VStack(alignment: .leading, spacing: 20) {
-                    totals
-                    byProject
-                    byAgent
-                    Spacer(minLength: 0)
-                }
-                .frame(width: 332)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 22)
@@ -92,6 +82,9 @@ package struct UsageBoard: View {
     }
 
     private func load() async {
+        // Limits first: they are the screen's first question, and a busy day's transcripts
+        // take seconds to parse — the top of the screen should not wait on the bottom.
+        quotas = await AgentUsage.quotas(claudeLive: await ClaudeLimits.shared.usage())
         var found: [AgentSpend] = []
         var owned: [AgentSpend.ID: Project.ID] = [:]
         for project in projects {
@@ -104,46 +97,51 @@ package struct UsageBoard: View {
             for run in runs { owned[run.id] = project.id }
             found += runs
         }
-        let limits = await AgentUsage.quotas()
         now = Date()
         spends = found
         owners = owned
-        quotas = limits
     }
 
-    // MARK: - Over time
+    // MARK: - Spent
 
-    /// The range picker and the histogram under it. The picker sits here rather than in
-    /// the top bar because this is the first panel it governs — the plan limits above are
-    /// the provider's own windows and are not ours to re-slice.
-    private var overTime: some View {
+    /// The total for the range, and when in the range it was spent. The range picker sits
+    /// here rather than in the toolbar because this is the first panel it governs — the plan
+    /// limits above are the provider's own windows and are not ours to re-slice.
+    private var spent: some View {
         let buckets = AgentUsage.histogram(spends.flatMap(\.samples), range: range, now: now)
         let peak = buckets.map(\.total).max() ?? 0
         // Segments stack in the window's overall ranking, not each bucket's own, so a model
         // holds the same band across every bar instead of swapping places between them.
         let order = AgentUsage.byModel(spends, since: since).map(\.key)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                SectionLabel("Usage over time")
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(AgentUsage.short(total.total)).font(Typography.title)
+                Text("tokens").font(Typography.body).foregroundStyle(Theme.tx3)
                 Spacer(minLength: 12)
                 Picker("", selection: $range) {
                     ForEach(UsageRange.allCases) { Text($0.rawValue).tag($0) }
                 }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 210)
+                .pickerStyle(.segmented).labelsHidden().frame(width: 190)
             }
+            Text(
+                "\(Int((total.cacheRate * 100).rounded()))% from cache · "
+                    + "\(windowed.filter(\.running).count) running · in the \(range.caption)"
+            )
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             if peak == 0 {
-                note("Nothing spent in the \(range.caption).")
+                Text("Nothing spent in the \(range.caption).")
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
+                    .frame(maxWidth: .infinity, minHeight: 108, alignment: .center)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .bottom, spacing: 2) {
-                        ForEach(buckets) { bar($0, peak: peak, order: order) }
-                    }
-                    .frame(height: 108)
-                    axis(buckets)
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(buckets) { bar($0, peak: peak, order: order) }
                 }
-                .cardSurface()
+                .frame(height: 108)
+                axis(buckets)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
     }
 
     /// One bucket, stacked by model — the tallest bar is the busiest slice of the range,
@@ -198,54 +196,122 @@ package struct UsageBoard: View {
 
     // MARK: - Plan limits
 
+    /// One row per coding tool, the one closest to a limit first, so the answer to "can I
+    /// keep going" is the top line. A row grows sideways by windows, the list down by tools,
+    /// and neither ever needs a scroll of its own.
     private var limits: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Plan limits", trailing: "read from each CLI's own cache")
-            // Stretched across the column while every card fits at a readable width, and a
-            // row that scrolls sideways once there are more tools than room.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(quotas, id: \.provider) { quotaCard($0).frame(minWidth: 260) }
-                }
-                ScrollView(.horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(quotas, id: \.provider) { quotaCard($0).frame(width: 280) }
-                    }
+        let rows = quotas.sorted { tightest($0) > tightest($1) }
+        return VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Plan limits", trailing: "tightest first")
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.provider) { index, quota in
+                    if index > 0 { Divider().overlay(Theme.line) }
+                    limitRow(quota)
                 }
             }
+            .cardSurface(padding: 6)
         }
     }
 
-    private func quotaCard(_ quota: ProviderQuota) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
+    /// A tool with nothing on disk sorts under every tool that reported, even one at 0%.
+    private func tightest(_ quota: ProviderQuota) -> Double {
+        quota.windows.map(\.percent).max() ?? -1
+    }
+
+    private func limitRow(_ quota: ProviderQuota) -> some View {
+        HStack(spacing: 24) {
             HStack(spacing: 8) {
                 Image(systemName: quota.provider.systemImage)
-                    .font(.system(size: 11)).foregroundStyle(Theme.tx2)
-                Text(quota.provider.displayName).font(Typography.headline)
+                    .font(.system(size: 11)).foregroundStyle(Theme.tx2).frame(width: 14)
+                Text(quota.provider.displayName).font(Typography.headline).lineLimit(1)
                 if let plan = quota.plan {
                     NotebookStyle.chip(plan.replacingOccurrences(of: "_", with: " "))
                 }
-                Spacer(minLength: 8)
-                if let asOf = quota.asOf {
-                    Text(AgentUsage.ago(asOf)).font(Typography.monoCaption).foregroundStyle(Theme.tx4)
-                }
             }
+            .frame(width: 210, alignment: .leading)
             if quota.windows.isEmpty {
-                Text(
-                    quota.asOf == nil
-                        ? "Nothing on disk yet. \(quota.provider.displayName) doesn't cache its limits, "
-                            + "or hasn't run here."
-                        : "No windows reported."
-                ).font(Typography.body).foregroundStyle(Theme.tx3)
+                Text("No limits reported.")
+                    .font(Typography.body).foregroundStyle(Theme.tx3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ForEach(quota.windows) { window($0) }
             }
-            if let credits = quota.credits {
-                Divider().overlay(Theme.line)
-                HStack(spacing: 6) {
-                    Text(credits.label).font(Typography.body).foregroundStyle(Theme.tx3)
-                    Spacer(minLength: 8)
-                    Text(credits.value).font(Typography.mono).foregroundStyle(Theme.tx2)
+            Text(quota.asOf.map { AgentUsage.ago($0) } ?? "—")
+                .font(Typography.monoCaption).foregroundStyle(Theme.tx4)
+                .frame(width: 80, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .opacity(quota.windows.isEmpty ? 0.6 : 1)
+    }
+
+    private func window(_ window: PlanWindow) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("\(Int(window.percent.rounded()))%")
+                    .font(Typography.mono(.semibold))
+                    .foregroundStyle(AgentUsage.tint(window.percent))
+                Text(window.name).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
+                Spacer(minLength: 8)
+                if let until = AgentUsage.until(window.resetsAt) {
+                    Text("resets \(until)").font(Typography.monoCaption).foregroundStyle(Theme.tx4)
+                        .lineLimit(1)
+                }
+            }
+            MeterBar(value: window.percent / 100, tint: AgentUsage.tint(window.percent), height: 5)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Where it went
+
+    /// The three ways the range's spend is cut. One panel with a switch rather than three
+    /// panels side by side: the question is always "where did it go", only the cut changes.
+    private enum Breakdown: String, CaseIterable, Identifiable {
+        case project = "Project"
+        case model = "Model"
+        case agent = "Agent"
+        var id: Self { self }
+    }
+
+    private var whereItWent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text("Where it went").font(Typography.headline)
+                Spacer(minLength: 12)
+                Picker("", selection: $breakdown) {
+                    ForEach(Breakdown.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+            }
+            if windowed.isEmpty {
+                Text(
+                    spends.isEmpty
+                        ? "No agent has a transcript on disk yet. Assign work on the board and "
+                            + "its agents show up here as they run."
+                        : "Nothing spent in the \(range.caption)."
+                )
+                .font(Typography.body).foregroundStyle(Theme.tx3)
+            } else {
+                switch breakdown {
+                case .project:
+                    let rows = AgentUsage.group(windowed, since: since) { owners[$0.id] }
+                    ForEach(rows, id: \.key) { row in
+                        shareRow(
+                            projects.first { $0.id == row.key }?.name ?? "Elsewhere", row.tally,
+                            peak: rows.first?.tally.total ?? 0, tint: Theme.accent)
+                    }
+                case .model:
+                    let rows = AgentUsage.byModel(spends, since: since)
+                    ForEach(rows, id: \.key) { row in
+                        shareRow(
+                            AgentUsage.modelName(row.key), row.tally,
+                            peak: rows.first?.tally.total ?? 0, tint: tint(row.key))
+                    }
+                case .agent:
+                    // Runs rather than sums: each row opens the transcript it counts.
+                    VStack(spacing: 0) { ForEach(windowed) { agentRow($0) } }
+                        .padding(.horizontal, -8)
                 }
             }
         }
@@ -253,103 +319,17 @@ package struct UsageBoard: View {
         .cardSurface()
     }
 
-    private func window(_ window: PlanWindow) -> some View {
+    /// Ranked against the biggest row, so the top one always fills its track — the
+    /// comparison is between rows, not against an absolute nobody knows.
+    private func shareRow(_ name: String, _ tally: TokenTally, peak: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(window.name).font(Typography.body).foregroundStyle(Theme.tx2)
+                Text(name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
+                Text("\(share(tally))%").font(Typography.mono).foregroundStyle(Theme.tx4)
                 Spacer(minLength: 8)
-                if let until = AgentUsage.until(window.resetsAt) {
-                    Text("resets in \(until)").font(Typography.mono).foregroundStyle(Theme.tx4)
-                }
-                Text("\(Int(window.percent.rounded()))%")
-                    .font(Typography.mono(.semibold))
-                    .foregroundStyle(AgentUsage.tint(window.percent))
+                Text(AgentUsage.short(tally.total)).font(Typography.mono(.semibold)).foregroundStyle(Theme.tx2)
             }
-            MeterBar(value: window.percent / 100, tint: AgentUsage.tint(window.percent), height: 5)
-        }
-    }
-
-    // MARK: - By model
-
-    private var byModel: some View {
-        let rows = AgentUsage.byModel(spends, since: since)
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("By model", trailing: range.caption)
-            if rows.isEmpty {
-                note("Nothing spent in the \(range.caption).")
-            } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    // One bar for everything in range, split by model — the share each model
-                    // took is the question, and separate bars would not answer it.
-                    GeometryReader { geo in
-                        HStack(spacing: 2) {
-                            ForEach(rows, id: \.key) { row in
-                                Capsule().fill(tint(row.key))
-                                    .frame(
-                                        width: max(
-                                            2,
-                                            geo.size.width
-                                                * Double(row.tally.total)
-                                                / Double(max(1, total.total))))
-                            }
-                        }
-                    }
-                    .frame(height: 8)
-                    ForEach(rows, id: \.key) { modelRow($0.key, $0.tally) }
-                }
-                .cardSurface()
-            }
-        }
-    }
-
-    private func modelRow(_ model: String, _ tally: TokenTally) -> some View {
-        HStack(spacing: 10) {
-            Circle().fill(tint(model)).frame(width: 7, height: 7)
-            Text(AgentUsage.modelName(model)).font(Typography.code).foregroundStyle(Theme.tx)
-            Text("\(share(tally))%").font(Typography.mono).foregroundStyle(Theme.tx3)
-            Spacer(minLength: 12)
-            splitLabels(tally)
-            Text(AgentUsage.short(tally.total))
-                .font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
-                .frame(width: 56, alignment: .trailing)
-        }
-    }
-
-    /// The three numbers behind a total, in the order they cost: what was written, what was
-    /// sent fresh, and what the cache already held.
-    private func splitLabels(_ tally: TokenTally) -> some View {
-        HStack(spacing: 10) {
-            ForEach(
-                [
-                    ("out", tally.output), ("in", tally.input),
-                    ("cache", tally.cacheRead + tally.cacheWrite),
-                ], id: \.0
-            ) { label, value in
-                Text("\(label) \(AgentUsage.short(value))")
-                    .font(Typography.mono).foregroundStyle(Theme.tx3)
-            }
-        }
-    }
-
-    // MARK: - Every run
-
-    /// One row per run — a session, or one subagent it dispatched. The panel beside it
-    /// sums these by who they belong to; this is the list you click through to a transcript.
-    private var runs: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Agent runs", trailing: range.caption)
-            if windowed.isEmpty {
-                note(
-                    spends.isEmpty
-                        ? "No agent has a transcript on disk yet. Assign work on the board and "
-                            + "its agents show up here as they run."
-                        : "No agent spent anything in the \(range.caption).")
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(windowed) { agentRow($0) }
-                }
-                .cardSurface(padding: 6)
-            }
+            MeterBar(value: peak == 0 ? 0 : Double(tally.total) / Double(peak), tint: tint)
         }
     }
 
@@ -396,135 +376,6 @@ package struct UsageBoard: View {
         .disabled(spend.route == nil)
     }
 
-    // MARK: - Totals and roles
-
-    private var totals: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("All projects", trailing: range.caption)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(AgentUsage.short(total.total)).font(Typography.title)
-                    Text("tokens").font(Typography.body).foregroundStyle(Theme.tx3)
-                }
-                ForEach(
-                    [
-                        ("Output", total.output), ("Input", total.input),
-                        ("Cache write", total.cacheWrite), ("Cache read", total.cacheRead),
-                    ],
-                    id: \.0
-                ) { label, value in
-                    HStack(spacing: 8) {
-                        Text(label).font(Typography.body).foregroundStyle(Theme.tx3)
-                        Spacer(minLength: 8)
-                        Text(AgentUsage.short(value)).font(Typography.mono).foregroundStyle(Theme.tx2)
-                    }
-                }
-                Divider().overlay(Theme.line)
-                HStack(spacing: 8) {
-                    Text("Cache hit rate").font(Typography.body).foregroundStyle(Theme.tx3)
-                    Spacer(minLength: 8)
-                    Text("\(Int((total.cacheRate * 100).rounded()))%")
-                        .font(Typography.mono).foregroundStyle(Theme.green)
-                }
-                HStack(spacing: 8) {
-                    Text("Agents").font(Typography.body).foregroundStyle(Theme.tx3)
-                    Spacer(minLength: 8)
-                    Text("\(windowed.filter(\.running).count) running · \(windowed.count) active")
-                        .font(Typography.mono).foregroundStyle(Theme.tx2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface()
-        }
-    }
-
-    /// Spend by project, largest first: where the range's tokens went.
-    private var byProject: some View {
-        let rows = projects.map { project in
-            (
-                project: project,
-                tally: windowed.filter { owners[$0.id] == project.id }
-                    .map { $0.tally(since: since) }.reduce(TokenTally(), +)
-            )
-        }
-        .filter { $0.tally.total > 0 }
-        .sorted { $0.tally.total > $1.tally.total }
-        let peak = rows.first?.tally.total ?? 0
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("By project", trailing: range.caption)
-            if rows.isEmpty {
-                note("Nothing spent in the \(range.caption).")
-            } else {
-                VStack(spacing: 13) {
-                    ForEach(rows, id: \.project.id) { row in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
-                                Text(row.project.name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
-                                Spacer(minLength: 8)
-                                Text(AgentUsage.short(row.tally.total))
-                                    .font(Typography.mono(.semibold)).foregroundStyle(Theme.tx2)
-                            }
-                            MeterBar(value: peak == 0 ? 0 : Double(row.tally.total) / Double(peak))
-                        }
-                    }
-                }
-                .cardSurface()
-            }
-        }
-    }
-
-    /// Spend by who it belongs to rather than by which run spent it: a team member
-    /// dispatched five times is one member of the team spending five times, and their name
-    /// is the number worth reading. Split by provider underneath, because the same agent
-    /// runs under either CLI and the two plans are metered apart.
-    private var byAgent: some View {
-        let rows = AgentUsage.group(windowed, since: since, by: person)
-        // Ranked against the biggest spender here, not the biggest single run — a person's
-        // bar has to be able to reach the end of the track.
-        let peak = rows.first?.tally.total ?? 0
-        return VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("By agent", trailing: range.caption)
-            if rows.isEmpty {
-                note("Nothing spent in the \(range.caption).")
-            } else {
-                VStack(spacing: 13) {
-                    ForEach(rows, id: \.key) { agentGroup($0.key, $0.tally, peak: peak) }
-                }
-                .cardSurface()
-            }
-        }
-    }
-
-    private func agentGroup(_ name: String, _ tally: TokenTally, peak: Int) -> some View {
-        let mine = windowed.filter { person($0) == name }
-        // Off the skill, not the name: renaming an agent never changes its colour.
-        let role = mine.first?.role ?? name
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 9) {
-                RoleTile(role: role, size: 20)
-                Text(name).font(Typography.body).foregroundStyle(Theme.tx).lineLimit(1)
-                Text("\(mine.count)").font(Typography.mono).foregroundStyle(Theme.tx4)
-                Spacer(minLength: 8)
-                Text(AgentUsage.short(tally.total))
-                    .font(Typography.mono(.semibold)).foregroundStyle(Theme.tx2)
-            }
-            MeterBar(
-                value: peak == 0 ? 0 : Double(tally.total) / Double(peak),
-                tint: RoleTile.color(of: role))
-            ForEach(AgentUsage.group(mine, since: since, by: \.provider), id: \.key) { row in
-                HStack(spacing: 7) {
-                    Image(systemName: row.key.systemImage)
-                        .font(.system(size: 9)).foregroundStyle(Theme.tx4).frame(width: 11)
-                    Text(row.key.displayName).font(Typography.caption).foregroundStyle(Theme.tx3)
-                    Spacer(minLength: 8)
-                    Text(AgentUsage.short(row.tally.total))
-                        .font(Typography.mono).foregroundStyle(Theme.tx3)
-                }
-                .padding(.leading, 29)
-            }
-        }
-    }
-
     /// Whose spend a run is. A team member's subagent is that member, by the skill it ran;
     /// anything else is itself.
     private func person(_ spend: AgentSpend) -> String {
@@ -546,12 +397,5 @@ package struct UsageBoard: View {
 
     private func share(_ tally: TokenTally) -> Int {
         total.total == 0 ? 0 : Int((Double(tally.total) / Double(total.total) * 100).rounded())
-    }
-
-    private func note(_ text: String) -> some View {
-        Text(text)
-            .font(Typography.body).foregroundStyle(Theme.tx3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface()
     }
 }

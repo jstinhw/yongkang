@@ -72,6 +72,7 @@ Sign-in works in any build with a Supabase project set, so it can be tried from 
 |---|---|---|
 | Update check | the appcast URL, daily | an ordinary HTTPS GET. Sparkle's system profile is off. |
 | Sign in (optional) | Supabase Auth, then GitHub | the OAuth flow. The app keeps the user's id, email and GitHub login in UserDefaults, and never keeps a token. |
+| Claude plan limits | `api.anthropic.com/api/oauth/usage`, at most once a minute while Usage is open | a GET signed with Claude Code's own login, read from the keychain the way Claude Code reads it. Nothing else is sent, and the token is never kept. |
 | Usage analytics | PostHog | event names and a few properties (below), the app and macOS versions, and a random id, or the Supabase user id after sign-in. |
 
 The events: `app_opened`, `$screen` (Board or Agents), `project_opened` (whether it has a

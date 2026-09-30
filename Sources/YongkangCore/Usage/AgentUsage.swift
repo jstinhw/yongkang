@@ -283,34 +283,38 @@ package enum AgentUsage {
 
     // MARK: - Plan limits
 
-    /// One card per coding tool, in the rail's order. Grok and agy keep no plan limits on
-    /// disk — they ask their servers each time — so theirs come back empty and say so.
-    /// ponytail: only Claude and Codex are read; a CLI that starts caching its limits gets
-    /// a reader here.
-    package static func quotas() async -> [ProviderQuota] {
-        let read = [await claudeQuota(), await codexQuota()].compactMap { $0 }
+    /// One row per coding tool, in the rail's order. Grok and agy keep no plan limits on
+    /// disk and have no reader, so theirs come back empty and say so. `claudeLive` is the
+    /// usage endpoint's answer, fetched by `Online/`, because Claude Code stopped caching it.
+    /// ponytail: Claude and Codex only; a CLI that exposes its limits gets a reader here.
+    package static func quotas(claudeLive: Data? = nil) async -> [ProviderQuota] {
+        let read = [await claudeQuota(live: claudeLive), await codexQuota()].compactMap { $0 }
         return AgentKind.allCases.map { kind in
             read.first { $0.provider == kind } ?? ProviderQuota(provider: kind)
         }
     }
 
-    /// Claude Code caches what the API told it about the plan in `~/.claude.json`, and
-    /// refreshes it as it works. Nothing here is a published API, so a missing field
-    /// leaves a bar out instead of failing.
+    /// Claude's windows, from `live` — the usage endpoint's body, fetched just now — or
+    /// else from the copy older Claude Code versions cached in `~/.claude.json`. Both are the
+    /// same shape, and neither is a published API, so a missing field leaves a bar out
+    /// instead of failing. The plan's name only ever comes from the config.
     package static func claudeQuota(
         configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json"),
-        now: Date = Date()
+        live: Data? = nil, now: Date = Date()
     ) async -> ProviderQuota? {
-        guard let data = try? Data(contentsOf: configURL),
-            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let cached = root["cachedUsageUtilization"] as? [String: Any],
-            let utilization = cached["utilization"] as? [String: Any]
-        else { return nil }
+        let root =
+            (try? Data(contentsOf: configURL))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        let cached = root["cachedUsageUtilization"] as? [String: Any]
+        let fetched = live.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        guard let utilization = fetched ?? cached?["utilization"] as? [String: Any] else { return nil }
 
         var quota = ProviderQuota(
             provider: .claude,
             plan: (root["oauthAccount"] as? [String: Any])?["organizationType"] as? String)
-        if let ms = (cached["fetchedAtMs"] as? NSNumber)?.doubleValue {
+        if fetched != nil {
+            quota.asOf = now
+        } else if let ms = (cached?["fetchedAtMs"] as? NSNumber)?.doubleValue {
             quota.asOf = Date(timeIntervalSince1970: ms / 1000)
         }
         // The named windows, in the order the CLI itself shows them. Per-model bars only
