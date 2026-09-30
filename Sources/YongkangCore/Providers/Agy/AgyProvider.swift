@@ -8,6 +8,10 @@ package struct AgyProvider: AgentProvider {
     package var displayName: String { "Agy" }
     package var systemImage: String { "a.circle" }
     package var skillPrefix: String { "/" }
+    /// The paths its own skill-migration notes give.
+    package var skillFolders: SkillFolders {
+        SkillFolders(project: [".agents/skills", "_agents/skills"], home: [".gemini/config/skills"])
+    }
 
     /// No session id and no deny flag. A prompted session starts with `--prompt-interactive`.
     package var readsOtherFolders: Bool { true }

@@ -13,6 +13,15 @@ package struct GrokProvider: AgentProvider {
     package var displayName: String { "Grok" }
     package var systemImage: String { "bolt" }
     package var skillPrefix: String { "/" }
+    /// As `grok inspect` lists them in 1.0.30: it reads both other CLIs' folders as well as its own.
+    ///
+    /// ponytail: the folders only. Grok also finds skills nested inside those and in Claude Code
+    /// plugins; list `grok inspect --json`'s `skills` instead if the page has to match it exactly.
+    package var skillFolders: SkillFolders {
+        SkillFolders(
+            project: [".claude/skills", ".agents/skills"],
+            home: [".grok/skills", ".claude/skills", ".agents/skills"])
+    }
 
     /// `--session-id` like Claude Code; the commit rules are denied one `--deny` at a time.
     /// Grok takes a working directory and nothing beside it.

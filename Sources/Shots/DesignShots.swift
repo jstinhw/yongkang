@@ -151,6 +151,12 @@ enum DesignShots {
                 MemoryPage(project: project, selected: nil, select: { _ in }, edit: { _ in }, add: { _ in })
             }, "memory", into: directory)
 
+        // Reads the real home folders, like review.png reads git: it differs from Mac to Mac.
+        write(
+            console(project, section: .agents, selection: .skills) {
+                SkillsPage(project: project.directory)
+            }, "skills", into: directory)
+
         // A task held up by something only the user can do: the block's steps open the page.
         // Its brief is set here rather than in `pages`, whose files the board would list as news.
         if var blocked = resultSummary.tasks.first(where: { $0.id == "deploy-to-vercel" }) {

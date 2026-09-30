@@ -39,8 +39,36 @@ package enum Skills {
     /// Every skill this project could give an agent, one entry per name — the first root
     /// that answers to a name wins, so a project copy shadows the packaged one.
     package static func available(project: URL?) -> [SkillDoc] {
+        docs(in: roots(project: project))
+    }
+
+    // MARK: - What each agent loads
+
+    /// Every skill in a home folder some CLI reads: what every project's agents share. First
+    /// folder wins a name, in `AgentKind` order.
+    package static func shared(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [SkillDoc] {
         var seen: Set<String> = []
-        return roots(project: project)
+        let folders = AgentKind.allCases.flatMap { $0.provider.skillFolders.home }.filter { seen.insert($0).inserted }
+        return docs(in: folders.map(home.appendingPathComponent))
+    }
+
+    /// What one CLI finds on its own in a project: the project's folders, then the home ones
+    /// with any name the project already has left out, since the project's copy is what runs.
+    package static func loaded(
+        by kind: AgentKind, project: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> (project: [SkillDoc], shared: [SkillDoc]) {
+        let folders = kind.provider.skillFolders
+        let own = docs(in: folders.project.map(project.appendingPathComponent))
+        let names = Set(own.map(\.name))
+        let shared = docs(in: folders.home.map(home.appendingPathComponent)).filter { !names.contains($0.name) }
+        return (own, shared)
+    }
+
+    /// One entry per name across `roots`, the first root that answers to a name winning.
+    private static func docs(in roots: [URL]) -> [SkillDoc] {
+        var seen: Set<String> = []
+        return
+            roots
             .flatMap(folders(in:))
             .filter { seen.insert($0.lastPathComponent).inserted }
             // Listed under the folder, never under whatever the frontmatter calls itself:

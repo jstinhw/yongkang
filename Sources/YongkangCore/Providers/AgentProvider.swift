@@ -15,6 +15,8 @@ package protocol AgentProvider: Sendable {
     var systemImage: String { get }
     /// What starts a skill in a prompt: `/` for most CLIs, `$` for Codex.
     var skillPrefix: String { get }
+    /// Where the CLI finds skills on its own, which is what the Skills page lists for it.
+    var skillFolders: SkillFolders { get }
 
     /// What follows the executable on the command line, already shell-quoted and joined with
     /// spaces by `AgentCommand.line`, ending with the opening prompt when there is one.
@@ -67,6 +69,18 @@ extension AgentProvider {
     }
 
     package func trusts(_ folder: URL) async -> Bool? { true }
+}
+
+/// The folders a CLI reads `<name>/SKILL.md` from, in the order it prefers them: some under the
+/// project, some under `$HOME`. A skill in a home folder is shared by every project.
+package struct SkillFolders: Sendable {
+    package let project: [String]
+    package let home: [String]
+
+    package init(project: [String], home: [String]) {
+        self.project = project
+        self.home = home
+    }
 }
 
 /// A CLI's own picker of child agents. `TerminalRegistry` types `command`, then walks the

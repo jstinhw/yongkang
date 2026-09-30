@@ -81,6 +81,29 @@ import Testing
             "a member's page reads the installed skill, not just a packaged one")
     }
 
+    // The Skills page: shared is every CLI's home folders; one CLI sees only its own folders,
+    // and a project copy hides the shared one it shadows.
+    @Test func eachCLIListsOnlyTheFoldersItReads() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let (home, project) = (tmp.appendingPathComponent("home"), tmp.appendingPathComponent("project"))
+        try writeSkill(home.appendingPathComponent(".claude/skills"), "review", described: "Shared review.")
+        try writeSkill(home.appendingPathComponent(".agents/skills"), "guidelines", described: "Codex's.")
+        try writeSkill(project.appendingPathComponent(".claude/skills"), "review", described: "This project's.")
+
+        #expect(
+            Skills.shared(home: home).map(\.name) == ["guidelines", "review"],
+            "every CLI's home folders, one row a name")
+
+        let claude = Skills.loaded(by: .claude, project: project, home: home)
+        #expect(claude.project.map(\.summary) == ["This project's."])
+        #expect(claude.shared.isEmpty, "the shared review is shadowed, and Claude Code never reads ~/.agents")
+
+        let codex = Skills.loaded(by: .codex, project: project, home: home)
+        #expect(codex.project.isEmpty, "Codex does not read .claude/skills")
+        #expect(codex.shared.map(\.name) == ["guidelines"])
+    }
+
     // A SKILL.md that calls itself something else is still only reachable at its folder.
     @Test func folderNamesTheSkillNotItsFrontmatter() throws {
         let tmp = try makeTemporaryDirectory()

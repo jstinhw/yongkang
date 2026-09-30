@@ -120,6 +120,7 @@ package struct ProjectSidebar: View {
                             }
                             if section == .agents {
                                 pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
+                                pageRow(item, "Skills", icon: "book.closed", route: .skills)
                                 newTerminalRow(item)
                             }
                         }
@@ -489,7 +490,7 @@ package struct ProjectSidebar: View {
     }
 
     private func childSelected(in item: SidebarProject) -> Bool {
-        (section == .agents && (isPage(.memory(nil)) || isReview(in: item)))
+        (section == .agents && (isPage(.memory(nil)) || isPage(.skills) || isReview(in: item)))
             || (section == .board ? item.tasks : item.sessions).contains(where: isSelected)
     }
 }

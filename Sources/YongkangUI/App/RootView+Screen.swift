@@ -36,6 +36,8 @@ extension RootView {
                 select: { model.selection = .memory($0) },
                 edit: { url in model.selection = .entry(NotebookEntry.id(for: url)) },
                 add: { milestone in model.add(.memory, to: project, under: .project(milestone)) })
+        } else if model.selection == .skills {
+            SkillsPage(project: project.directory)
         } else if let card = scopedCard(in: project, kind: .project) {
             ProjectDetail(
                 card: card, cards: project.cards, repos: project.services(of: card),

@@ -23,6 +23,7 @@ extension RootView {
         case .agents:
             if isReviewingTree { return "Review changes" }
             if case .memory? = model.selection { return "Memory" }
+            if model.selection == .skills { return "Skills" }
             return model.selectedSubagent(in: project)?.subagent.description
                 ?? reviewedTask(in: project)?.title
                 ?? selectedBlock(in: project)?.title

@@ -390,7 +390,7 @@ import YongkangCore
             return true
         }
         switch selection {
-        case .agents, .memory, .review, .reviewTask: return true
+        case .agents, .memory, .skills, .review, .reviewTask: return true
         case .block(let id): return project.snapshot.blocks.contains { $0.id == id }
         default: return false
         }

@@ -16,6 +16,11 @@ package struct CodexProvider: AgentProvider {
     package var displayName: String { "Codex" }
     package var systemImage: String { "chevron.left.forwardslash.chevron.right" }
     package var skillPrefix: String { "$" }
+    /// 0.154's own install notes put a skill in `$CODEX_HOME/skills`; it also reads the
+    /// `.agents/skills` convention.
+    package var skillFolders: SkillFolders {
+        SkillFolders(project: [".agents/skills"], home: [".agents/skills", ".codex/skills"])
+    }
 
     /// Only the prompt: Codex has no `--session-id`, and no deny flag. A prompted
     /// session's id rides at the end of the prompt instead, as `marker`.

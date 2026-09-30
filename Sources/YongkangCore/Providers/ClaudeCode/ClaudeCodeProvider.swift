@@ -13,6 +13,9 @@ package struct ClaudeCodeProvider: AgentProvider {
     package var displayName: String { "Claude Code" }
     package var systemImage: String { "sparkles" }
     package var skillPrefix: String { "/" }
+    package var skillFolders: SkillFolders {
+        SkillFolders(project: [".claude/skills"], home: [".claude/skills"])
+    }
 
     /// `--session-id` names the transcript after the app's row. `=` keeps the variadic
     /// `--disallowedTools` from swallowing the prompt after it.

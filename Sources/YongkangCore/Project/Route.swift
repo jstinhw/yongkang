@@ -16,6 +16,8 @@ package enum Route: Hashable, Sendable, Codable {
     case agents
     /// What the project's agents decided and learned, on one memory entry or on the first.
     case memory(String?)
+    /// The skills the project's agents can load: the shared ones, or one CLI's.
+    case skills
 
     /// Notebook pages on the board, by card id. Projects and tasks have screens of their
     /// own; `page` is every other kind.

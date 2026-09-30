@@ -61,7 +61,7 @@ extension AppModel {
         let cards = project.snapshot.cards
         switch route {
         // Screens rather than objects: there is nothing for them to have lost.
-        case .board, .agents, .memory(nil):
+        case .board, .agents, .memory(nil), .skills:
             return true
         // Every project's, not this one's: see `restore(entered:section:route:)`.
         case .usage: return false

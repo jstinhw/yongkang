@@ -16,6 +16,7 @@ value is the executable's name on PATH, which `AgentKind.installed` looks for.
 |---|---|---|
 | `kind`, `displayName`, `systemImage` | Identity, and the agent picker's label and icon, which are the row's too | `AgentKind` forwards the last two |
 | `skillPrefix` | What starts a skill in a prompt: `$` for Codex, `/` for the rest | `AgentKind.skillInvocation` |
+| `skillFolders` | The folders the CLI reads `<name>/SKILL.md` from, under the project and under `$HOME` | `Skills.shared`, `Skills.loaded(by:project:)`, for the Skills page |
 | `launch(prompt:sessionID:noCommit:)` | The words after the executable: the session id strategy, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
 | `ask(prompt:)` | The words that make the CLI answer one prompt on stdout and exit: `-p`, or `exec --skip-git-repo-check` for Codex | `ProjectNaming.ask`, which names a described project's folder before its session starts |
 | `transcriptURL(session:project:) async` | The session's own transcript, or nil | `AppModel.reloadAgentTranscript`, `AgentUsage.spends` (through `usageURL`) |
@@ -85,6 +86,8 @@ how to scrub a capture.
    - `ask`: the CLI's one-shot mode, answering on stdout with no session. The name it gives
      a new project is read off the last line printed, so a CLI that ends with anything else
      (a token count) has to print that to stderr.
+   - `skillFolders`: where the CLI looks for skills, under the project and under `$HOME`. Its
+     home folders join the Skills page's shared list.
    - `transcriptURL`, `subagents`, `transcript`, `usage`: return nil or empty for what the CLI
      doesn't write, as `AgyProvider` does.
    - `attentionReason`: the CLI's trust question, matched with its controls, so the
