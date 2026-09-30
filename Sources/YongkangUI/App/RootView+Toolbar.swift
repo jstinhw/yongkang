@@ -56,21 +56,10 @@ extension RootView {
     @ToolbarContentBuilder func toolbar(for project: ProjectModel?) -> some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) { listToggle }
         ToolbarItemGroup(placement: .primaryAction) {
+            // Nothing new starts here: New Agent (⌘N) and the rest are the menu bar's, and a
+            // project's terminal is the sidebar's.
             if let project { actions(for: project) }
-            // Everything else new is the menu bar's: File, Agent and Notebook.
-            newAgentButton
         }
-    }
-
-    /// The one action every screen has: put an agent on a task, in any project.
-    private var newAgentButton: some View {
-        Button {
-            model.startingAgent = true
-        } label: {
-            Label("New Agent", systemImage: "plus")
-        }
-        .buttonStyle(.consolePrimary)
-        .help("Put an agent on a task (⌘N)")
     }
 
     /// The list column's switch; dragging its edge shut is the other way. ⌘\ is not bound here: it is View → Hide List, so it works on a screen

@@ -221,11 +221,10 @@ Full Keyboard Access and VoiceOver read an app through.
   carries stays readable and the menu keeps the same shape on every screen.
 - **One binding per shortcut.** ⌘\ came off the toolbar's list toggle when its item landed,
   and the toggle keeps its `.help`, which still names the shortcut. ⌘N is New Agent's, since
-  putting an agent on work is what the window is for; New Project moved to ⇧⌘N. The toolbar's
-  New Agent item, the sidebar's New Terminal rows and the empty screen's two buttons carry no
-  shortcut of their own. The toolbar has no `+` menu: what it held is the Agent and Notebook
-  menus', so there is one place to look for anything new. There is
-  no Go menu: with every project in the sidebar there is no page of projects to go back to.
+  putting an agent on work is what the window is for; New Project moved to ⇧⌘N. The sidebar's
+  New Terminal rows and the empty screen's two buttons carry no shortcut of their own. The
+  toolbar starts nothing new — no `+` menu, no New Agent button: the File, Agent and Notebook
+  menus are the one place to look for anything new. There is no Go menu: with every project in the sidebar there is no page of projects to go back to.
 - **Assign Task is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's
   job. `AppModel.assignableTask` is the rule — a task card, not done, not already with a session —

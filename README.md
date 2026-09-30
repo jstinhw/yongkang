@@ -17,7 +17,7 @@ drag the sidebar's edge to resize it, or past its narrowest to hide it, and back
 the screen's name and the project are the window's own title and subtitle.
 
 Every action is also a menu item, because a shortcut hung on a button only answers while that
-button is drawn. File, View and Agent hold `⌘N` (New Agent), `⇧⌘N`, `⌘O`, `⌘1`–`⌘2` and `⌘\`.
+button is drawn. File, View and Agent hold `⌘N` (New Agent), `⇧⌘N`, `⌘O`, `⌘T` (New Terminal), `⌘1`–`⌘2` and `⌘\`.
 
 ## Requirements
 
