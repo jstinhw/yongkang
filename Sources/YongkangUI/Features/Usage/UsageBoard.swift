@@ -104,7 +104,7 @@ package struct UsageBoard: View {
             for run in runs { owned[run.id] = project.id }
             found += runs
         }
-        let limits = [await AgentUsage.claudeQuota(), await AgentUsage.codexQuota()].compactMap { $0 }
+        let limits = await AgentUsage.quotas()
         now = Date()
         spends = found
         owners = owned
@@ -201,13 +201,16 @@ package struct UsageBoard: View {
     private var limits: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Plan limits", trailing: "read from each CLI's own cache")
-            if quotas.isEmpty {
-                note(
-                    "No plan limits on disk yet. Both CLIs write these as they work — run "
-                        + "an agent and they appear.")
-            } else {
+            // Stretched across the column while every card fits at a readable width, and a
+            // row that scrolls sideways once there are more tools than room.
+            ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
-                    ForEach(quotas, id: \.provider) { quotaCard($0) }
+                    ForEach(quotas, id: \.provider) { quotaCard($0).frame(minWidth: 260) }
+                }
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(quotas, id: \.provider) { quotaCard($0).frame(width: 280) }
+                    }
                 }
             }
         }
@@ -228,7 +231,12 @@ package struct UsageBoard: View {
                 }
             }
             if quota.windows.isEmpty {
-                Text("No windows reported.").font(Typography.body).foregroundStyle(Theme.tx3)
+                Text(
+                    quota.asOf == nil
+                        ? "Nothing on disk yet. \(quota.provider.displayName) doesn't cache its limits, "
+                            + "or hasn't run here."
+                        : "No windows reported."
+                ).font(Typography.body).foregroundStyle(Theme.tx3)
             } else {
                 ForEach(quota.windows) { window($0) }
             }

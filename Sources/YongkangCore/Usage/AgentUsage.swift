@@ -283,6 +283,17 @@ package enum AgentUsage {
 
     // MARK: - Plan limits
 
+    /// One card per coding tool, in the rail's order. Grok and agy keep no plan limits on
+    /// disk — they ask their servers each time — so theirs come back empty and say so.
+    /// ponytail: only Claude and Codex are read; a CLI that starts caching its limits gets
+    /// a reader here.
+    package static func quotas() async -> [ProviderQuota] {
+        let read = [await claudeQuota(), await codexQuota()].compactMap { $0 }
+        return AgentKind.allCases.map { kind in
+            read.first { $0.provider == kind } ?? ProviderQuota(provider: kind)
+        }
+    }
+
     /// Claude Code caches what the API told it about the plan in `~/.claude.json`, and
     /// refreshes it as it works. Nothing here is a published API, so a missing field
     /// leaves a bar out instead of failing.
