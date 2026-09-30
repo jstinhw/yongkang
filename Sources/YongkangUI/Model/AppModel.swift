@@ -31,6 +31,8 @@ import YongkangCore
     /// The New Agent sheet: a task from any project, the folders it may read, and its CLI. Here
     /// for the same reason: the Agent menu and the toolbar both open it.
     var startingAgent = false
+    /// The New Team Member sheet, adding one file to the entered project's `.notebook/team/`.
+    var addingMember = false
     /// The agent CLIs the login shell finds on PATH, which the agent picker lists first. Nil
     /// until the first look comes back, and while it is nil no agent is shown as missing.
     private(set) var foundAgents: Set<AgentKind>?

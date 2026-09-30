@@ -20,8 +20,6 @@ struct RootView: View {
     /// The provider for every new agent session. Running sessions keep the provider they
     /// started with; switching a process underneath a live PTY is not possible.
     @AppStorage("agentKind") var agent = AgentKind.claude
-    /// The "New → Agent…" sheet, adding one file to `.notebook/team/`.
-    @State var addingAgent = false
     /// What the title prompt's field holds while `model.alert` asks for one.
     @State var typedTitle = ""
     /// The project the window was inside when it last closed, by path, and where in it it
@@ -150,6 +148,11 @@ struct RootView: View {
                             model.enter(project, at: route)
                         },
                         create: { model.creatingProject = true }, add: { model.pickingFolder = true },
+                        newTerminal: { id in
+                            guard let project = model.project(id) else { return }
+                            model.section = .agents
+                            model.enter(project, at: project.addTerminal())
+                        },
                         closeSession: { id, session in
                             if let project = model.project(id) { model.close(session, in: project) }
                         },
@@ -171,7 +174,7 @@ struct RootView: View {
                     .toolbar { toolbar(for: model.entered) }
             }
         }
-        .sheet(isPresented: $addingAgent) {
+        .sheet(isPresented: $model.addingMember) {
             if let project = model.entered {
                 NewAgentForm(
                     directory: project.directory,
@@ -180,14 +183,14 @@ struct RootView: View {
                         do { try Team.write(member, root: project.notebookRoot) } catch {
                             model.alert = .error(error)
                         }
-                        addingAgent = false
+                        model.addingMember = false
                         model.reload()
                     },
                     incubate: { brief in
-                        addingAgent = false
+                        model.addingMember = false
                         model.go(to: project.startIncubation(brief, agent: agent))
                     },
-                    cancel: { addingAgent = false }
+                    cancel: { model.addingMember = false }
                 )
             }
         }

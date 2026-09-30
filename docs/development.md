@@ -220,6 +220,12 @@ for.
       tick another open project under **Can also read**, and start it: `ps -ef | grep add-dir`
       shows the second on its command line. With Grok picked, the folder list is off.
     - **File → New Project…** is `⇧⌘N`, and **Open Project…** `⌘O`.
+    - **Agent → New Terminal**, `⌘T`, opens a shell in the project's folder, the same as the
+      **New Terminal** row under each project in the Agents sidebar. Its row is named after the
+      folder, has a terminal icon instead of a state, and reads **terminal** under its name;
+      `exit` closes it. It does not come back on a relaunch.
+    - **Notebook → New Task…** asks for a title and opens the new task. The toolbar has no
+      **+** menu.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
     - **Yongkang → Check for Updates…** is disabled in a `make run` build: only a Release build

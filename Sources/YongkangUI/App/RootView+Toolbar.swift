@@ -56,8 +56,9 @@ extension RootView {
     @ToolbarContentBuilder func toolbar(for project: ProjectModel?) -> some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) { listToggle }
         ToolbarItemGroup(placement: .primaryAction) {
-            // In a project, New Agent heads the one "+" menu rather than being a second "+".
-            if let project { actions(for: project) } else { newAgentButton }
+            if let project { actions(for: project) }
+            // Everything else new is the menu bar's: File, Agent and Notebook.
+            newAgentButton
         }
     }
 
@@ -96,7 +97,6 @@ extension RootView {
             }
             // Product review lives in the board's bar, beside Run: the toolbar adds and views.
             completedToggle
-            addMenu(for: project)
         case .agents:
             if isReviewingTree {
                 if let head = project.repo.head {
@@ -110,7 +110,6 @@ extension RootView {
                 .buttonStyle(.console)
             } else {
                 providerPicker
-                addMenu(for: project)
                 if let found = model.selectedSubagent(in: project) {
                     Button {
                         model.selection = .session(found.session.id)
@@ -148,44 +147,5 @@ extension RootView {
                     ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
         .help(model.showDone ? "Hide completed tasks" : "Show completed tasks")
-    }
-
-    private func addMenu(for project: ProjectModel) -> some View {
-        Menu {
-            // ⌘N is the File menu's; a toolbar menu's shortcut only answers while it is drawn.
-            Button("New Agent…", systemImage: "plus") { model.startingAgent = true }
-            Section("Session") {
-                Button(agent.displayName, systemImage: agent.systemImage) {
-                    model.selection = project.addSession(agent)
-                    model.section = .agents
-                }
-                OtherAgentMenu(title: "Other Agent", agent: agent, found: model.foundAgents) { other in
-                    model.selection = project.addSession(other)
-                    model.section = .agents
-                }
-            }
-            Section("Team") {
-                Button("Team Member…", systemImage: "person.badge.plus") { addingAgent = true }
-                    .disabled(!project.hasNotebook)
-            }
-            Section("Notebook") {
-                Button("Roadmap Entry…", systemImage: "map") { model.add(.roadmap, to: project) }
-                Button("Milestone…", systemImage: "shippingbox") { model.add(.project, to: project) }
-                Button("Task…", systemImage: "checkmark.circle") { model.add(.task, to: project) }
-                Button("Memory…", systemImage: "brain") { model.add(.memory, to: project) }
-                    .disabled(project.notebookProject(for: model.selection) == nil)
-            }
-            Divider()
-            Button("Describe New Feature…", systemImage: "text.bubble") {
-                model.go(to: project.startProduct("describe", agent: agent))
-            }
-            .disabled(!project.hasNotebook)
-            // Reveal in Finder and Close Project are the project row's context menu and the
-            // File menu's: they are about the project, not something new.
-        } label: {
-            Label("New", systemImage: "plus")
-        }
-        .menuStyle(.borderlessButton)
-        .help("New agent, session or notebook entry (⌘N for an agent)")
     }
 }

@@ -48,6 +48,7 @@ extension AgentRow {
         // word: "working" would hide that the task is still held up.
         case .working:
             if block != nil { return "setting up" }
+            if session?.isTerminal == true { return "terminal" }
             return session?.agent == nil ? "running" : "working"
         }
     }

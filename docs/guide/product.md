@@ -2,7 +2,7 @@
 
 ![A Product session's transcript](../images/session.png)
 
-`Describe New Feature…` in the toolbar's `New` menu starts a Product conversation. Describe
+`Agent → Describe New Feature…` starts a Product conversation. Describe
 what the user should be able to do; the agent does not research or invent features in this
 mode. It asks only the decisions that change the scope, then drafts one project and its
 tasks as a ready proposal under Blocks. `Request changes` takes you back to the transcript to

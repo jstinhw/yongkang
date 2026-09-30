@@ -347,7 +347,8 @@ enum DesignShots {
                 projects: [SidebarProject(project: project, summary: summary, asking: asking)]
                     + neighbours(),
                 entered: entered ? project.id : nil, selection: selection,
-                open: { _, _, _ in }, create: {}, add: {}, closeSession: { _, _ in }, close: { _ in },
+                open: { _, _, _ in }, create: {}, add: {}, newTerminal: { _ in }, closeSession: { _, _ in },
+                close: { _ in },
                 openUsage: {}
             )
             .frame(width: Theme.listWidth)
@@ -368,6 +369,8 @@ enum DesignShots {
         sync.sessions = [
             CodeSession(title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["resume"]),
             CodeSession(title: "Codex", icon: "sparkles", line: "codex", agent: .codex, taskIDs: ["merge-runs"]),
+            // A plain shell beside the agents, which the sidebar marks with its icon, not a state.
+            CodeSession(title: "notebook-sync", icon: CodeSession.terminalIcon, line: "zsh", agent: nil),
         ]
         let synced = ChangeSummary(tasks: [
             SummaryTask(id: "resume", title: "Resume sync after sleep", status: "active"),

@@ -20,7 +20,9 @@ out with a running session — each with what is happening on it and who is on i
 Click a project to see it in the section you are in: its board under Board, its running
 sessions side by side under Agents. Click a session to open its terminal. Under Agents each
 project also has a **Memory** row: what its agents decided and learned, filed by milestone,
-which every agent reads before it starts. **Usage**, pinned under every project, is what all of
+which every agent reads before it starts. **New Terminal** under it (⌘T) opens a plain shell in
+the project's folder: its row is named after the folder and marked with a terminal icon rather
+than an agent's state, since nothing watches or reviews it. **Usage**, pinned under every project, is what all of
 their agents have spent, split by project, model and agent. Right-click a project to reveal its
 folder or close it; the folder stays on disk. Agents keep running whichever project is on screen:
 terminals are hidden, never torn down.
@@ -54,7 +56,7 @@ git, for every open project; the app keeps no state of its own to drift.
 
 ## New Agent
 
-`New Agent` (⌘N, and the top of the toolbar's `+` menu) puts an agent on work in any open
+`New Agent` (⌘N, and the toolbar's button) puts an agent on work in any open
 project. Pick a ready task — every project's are listed, the one you are in first — or describe
 anything in a line under **Anything**. It works in that task's project.
 

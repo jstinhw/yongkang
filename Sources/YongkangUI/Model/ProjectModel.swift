@@ -307,6 +307,17 @@ import YongkangCore
         return .session(id)
     }
 
+    /// A plain shell in the project's folder, named after the folder. It has no agent, so
+    /// nothing watches it, Usage does not count it, and a relaunch does not bring it back.
+    func addTerminal() -> Route {
+        let id = UUID()
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        addSession(
+            id: id, title: directory.lastPathComponent, icon: CodeSession.terminalIcon,
+            line: AgentCommand.line(directory: directory.path, run: "exec \(AgentCommand.quoted(shell)) -l"))
+        return .session(id)
+    }
+
     func addSession(
         id: UUID, title: String, icon: String, line: String,
         agent: AgentKind? = nil, taskIDs: [String] = [], reading: [URL] = []

@@ -210,15 +210,21 @@ Full Keyboard Access and VoiceOver read an app through.
 | **View** | Board ⌘1 · Agents ⌘2 · Hide List ⌘\ | always |
 | | Show Completed | a project is picked |
 | **Agent** | New Agent… ⌘N | always |
-| | New Session · New Session With ▸ · Product Review | a project is picked |
+| | New Session · New Session With ▸ · New Terminal ⌘T | a project is picked |
 | | Assign Task · Assign Task To ▸ | `AppModel.assignableTask` is not nil |
+| | Product Review | a project is picked |
+| | Describe New Feature… · New Team Member… | the project has a notebook |
+| **Notebook** | New Roadmap Entry… · New Milestone… · New Task… | a project is picked |
+| | New Memory… | the selection sits in a milestone |
 
 - **Nothing is ever hidden.** An item the window cannot act on is disabled, so the shortcut it
   carries stays readable and the menu keeps the same shape on every screen.
 - **One binding per shortcut.** ⌘\ came off the toolbar's list toggle when its item landed,
   and the toggle keeps its `.help`, which still names the shortcut. ⌘N is New Agent's, since
   putting an agent on work is what the window is for; New Project moved to ⇧⌘N. The toolbar's
-  New Agent item and the empty screen's two buttons carry no shortcut of their own. There is
+  New Agent item, the sidebar's New Terminal rows and the empty screen's two buttons carry no
+  shortcut of their own. The toolbar has no `+` menu: what it held is the Agent and Notebook
+  menus', so there is one place to look for anything new. There is
   no Go menu: with every project in the sidebar there is no page of projects to go back to.
 - **Assign Task is the selected task**, not the board's ticked batch. Those ticks are
   `NotebookBoard`'s own `@State`, which no menu can see; picking several is still the board's

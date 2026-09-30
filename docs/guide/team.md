@@ -11,7 +11,7 @@ the folder is the truth, so editing a file — or deleting one — changes who g
 A roster member's page shows the skill text the agent is actually handed plus its agents running
 right now.
 
-`New → Team Member…` adds one, two ways:
+`Agent → New Team Member…` adds one, two ways:
 
 **Manual** is the form: a name, the skills to give it, and what it owns. The skill list is
 every skill this project can already load — `.claude/skills/` and `.agents/skills/` in the

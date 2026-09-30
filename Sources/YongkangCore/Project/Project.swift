@@ -137,6 +137,10 @@ package struct CodeSession: Identifiable, Equatable, Sendable {
     /// Nil for service terminals; agent sessions keep their provider so follow-up skill
     /// prompts still use the right syntax after the toolbar selection changes.
     package let agent: AgentKind?
+    /// The icon a plain shell is started with, which is what tells it from a service runner.
+    package static let terminalIcon = "terminal"
+    /// A plain shell the user opened, rather than an agent or a service.
+    package var isTerminal: Bool { agent == nil && icon == Self.terminalIcon }
     /// Tasks this session was handed, in the order it was given them. Empty for a session
     /// nobody assigned work to.
     package var taskIDs: [String] = []

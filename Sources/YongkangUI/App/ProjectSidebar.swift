@@ -58,6 +58,8 @@ package struct ProjectSidebar: View {
     /// The two ways a project arrives: described, or a folder that already exists.
     let create: () -> Void
     let add: () -> Void
+    /// Opens a plain shell in the project's folder, under Agents.
+    let newTerminal: (Project.ID) -> Void
     let closeSession: (Project.ID, CodeSession) -> Void
     let close: (Project.ID) -> Void
     /// Usage, which is every project's rather than one's.
@@ -70,6 +72,7 @@ package struct ProjectSidebar: View {
         section: ConsoleSection, projects: [SidebarProject], entered: Project.ID?, selection: Route?,
         open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
         create: @escaping () -> Void, add: @escaping () -> Void,
+        newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
         close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void
     ) {
@@ -80,6 +83,7 @@ package struct ProjectSidebar: View {
         self.open = open
         self.create = create
         self.add = add
+        self.newTerminal = newTerminal
         self.closeSession = closeSession
         self.close = close
         self.openUsage = openUsage
@@ -107,6 +111,7 @@ package struct ProjectSidebar: View {
                             }
                             if section == .agents {
                                 pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
+                                newTerminalRow(item)
                             }
                         }
                     }
@@ -264,7 +269,13 @@ package struct ProjectSidebar: View {
             open(item.id, row.route, section)
         } label: {
             HStack(alignment: .top, spacing: 9) {
-                AgentStateGlyph(state: row.state).padding(.top, 2)
+                // A plain shell has no state to show: its icon is what tells it from an agent.
+                if row.session?.isTerminal == true {
+                    Image(systemName: CodeSession.terminalIcon).font(.system(size: 10))
+                        .foregroundStyle(Theme.tx2).frame(width: 12).padding(.top, 2)
+                } else {
+                    AgentStateGlyph(state: row.state).padding(.top, 2)
+                }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(isTask ? row.title : row.label).font(Typography.body).foregroundStyle(Theme.tx)
                         .lineLimit(1)
@@ -389,6 +400,31 @@ package struct ProjectSidebar: View {
         .rowSelection(entered == item.id && isPage(route))
         .padding(.horizontal, 8)
         .padding(.top, 1)
+    }
+
+    /// Opens a plain shell in the project's folder. Last under the project, below Memory, so it
+    /// reads as an action rather than one of the rows it adds.
+    private func newTerminalRow(_ item: SidebarProject) -> some View {
+        Button {
+            newTerminal(item.id)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "plus").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3)
+                    .frame(width: 12)
+                Text("New Terminal").font(Typography.body).foregroundStyle(Theme.tx3)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 26)
+            .padding(.trailing, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(item.missing)
+        .padding(.horizontal, 8)
+        .padding(.top, 1)
+        .help("Open a shell in \(item.project.name)’s folder")
     }
 
     // MARK: - Selection

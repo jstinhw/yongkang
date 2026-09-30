@@ -29,6 +29,7 @@ struct YongkangCommands: Commands {
         // The View menu, above the system's "Show Toolbar".
         CommandGroup(before: .toolbar) { view }
         CommandMenu("Agent") { agentMenu }
+        CommandMenu("Notebook") { notebookMenu }
     }
 
     /// The project the selection is in, which is what every item below the first two acts on.
@@ -119,6 +120,14 @@ struct YongkangCommands: Commands {
             model.section = .agents
         }
         .disabled(project == nil)
+        Button("New Terminal") {
+            guard let project else { return }
+            model.selection = project.addTerminal()
+            model.section = .agents
+        }
+        .keyboardShortcut("t")
+        .disabled(project == nil)
+        Divider()
         Button("Assign Task") {
             guard let project, let task = model.assignableTask else { return }
             model.assign([task], in: project, agent: agent)
@@ -134,6 +143,33 @@ struct YongkangCommands: Commands {
             model.go(to: project.startProductReview(agent: agent))
         }
         .disabled(project == nil)
+        Button("Describe New Feature…") {
+            guard let project else { return }
+            model.go(to: project.startProduct("describe", agent: agent))
+        }
+        .disabled(project?.hasNotebook != true)
+        Divider()
+        Button("New Team Member…") { model.addingMember = true }
+            .disabled(project?.hasNotebook != true)
+    }
+
+    // MARK: - Notebook
+
+    /// A new entry in the entered project's notebook, filed under whatever is selected.
+    @ViewBuilder private var notebookMenu: some View {
+        Button("New Roadmap Entry…") { add(.roadmap) }
+            .disabled(project == nil)
+        Button("New Milestone…") { add(.project) }
+            .disabled(project == nil)
+        Button("New Task…") { add(.task) }
+            .disabled(project == nil)
+        Button("New Memory…") { add(.memory) }
+            .disabled(project?.notebookProject(for: model.selection) == nil)
+    }
+
+    private func add(_ kind: EntryKind) {
+        guard let project else { return }
+        model.add(kind, to: project)
     }
 }
 
