@@ -356,7 +356,7 @@ enum DesignShots {
                 open: { _, _, _ in }, create: {}, add: {}, newTerminal: { _ in }, closeSession: { _, _ in },
                 close: { _ in },
                 openUsage: {},
-                move: { _, _ in }
+                move: { _, _, _ in }, makeGroup: { _ in }, renameGroup: { _ in }, ungroup: { _ in }
             )
             .frame(width: Theme.listWidth)
             ListDivider(width: .constant(Double(Theme.listWidth)), hidden: .constant(false))
@@ -401,9 +401,10 @@ enum DesignShots {
                 action: "", link: nil, task: "deploy", resolution: "", body: "", before: nil, branch: "", revisions: [])
         ]
         let deploying = ChangeSummary(tasks: [SummaryTask(id: "deploy", title: "Deploy to Vercel", status: "blocked")])
+        // Both in one group, so the list shows what a group looks like beside a loose project.
         return [
-            SidebarProject(project: sync, summary: synced),
-            SidebarProject(project: site, summary: deploying),
+            SidebarProject(project: sync, summary: synced, group: "Client work"),
+            SidebarProject(project: site, summary: deploying, group: "Client work"),
         ]
     }
 

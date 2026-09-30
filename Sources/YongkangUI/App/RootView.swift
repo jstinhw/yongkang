@@ -11,6 +11,9 @@ struct RootView: View {
     /// Which folders were open last time. Sessions are not restored — the agents died
     /// with the app — but the projects and their notebooks come back.
     @AppStorage("openProjects") private var openProjects = "[]"
+    /// Which group each of those folders sits in. Its own key, so a build without groups reads
+    /// the project list exactly as it always did.
+    @AppStorage("projectGroups") private var projectGroups = "{}"
     @AppStorage("openSessions") private var openSessions = "{}"
     /// Whether the list column is shut, and how wide it is when it is not. Both persist: a
     /// window you have shaped once should come back that way. `listWidth` is the key the old
@@ -158,8 +161,14 @@ struct RootView: View {
                         },
                         close: { id in if let project = model.project(id) { close(project) } },
                         openUsage: { model.openUsage() },
-                        move: { id, index in
-                            model.move(id, before: index)
+                        move: { id, index, group in
+                            model.move(id, before: index, into: group)
+                            persist()
+                        },
+                        makeGroup: { id in nameGroup(putting: id) },
+                        renameGroup: { group in renameGroup(group) },
+                        ungroup: { group in
+                            model.ungroup(group)
                             persist()
                         }
                     )
@@ -204,7 +213,8 @@ struct RootView: View {
     private var sidebarProjects: [SidebarProject] {
         model.projects.map { project in
             SidebarProject(
-                project: project.value, summary: project.summary, asking: model.attention, missing: project.missing)
+                project: project.value, summary: project.summary, asking: model.attention,
+                missing: project.missing, group: project.group)
         }
     }
 
@@ -248,7 +258,7 @@ struct RootView: View {
     /// earlier, every stored route would look stale on every launch.
     private func restore() async {
         guard model.projects.isEmpty else { return }
-        model.restore(openProjects)
+        model.restore(openProjects, groups: projectGroups)
         persist()
         // Resumed before the hook goes in, so the stored list is read whole, not rewritten one
         // session at a time as each comes back.
@@ -266,6 +276,26 @@ struct RootView: View {
 
     func persist() {
         openProjects = model.storedProjects
+        projectGroups = model.storedGroups
+    }
+
+    /// Starting a group: the project that asked for it goes in, and the others are dragged in
+    /// afterwards, so there is never an empty group to look at.
+    private func nameGroup(putting id: Project.ID) {
+        guard let project = model.project(id) else { return }
+        model.alert = .title("Name this group", action: "Create Group") { typed in
+            model.group(id, as: typed)
+            persist()
+        }
+        typedTitle = project.name
+    }
+
+    private func renameGroup(_ group: String) {
+        model.alert = .title("Rename \u{201C}\(group)\u{201D}", action: "Rename") { typed in
+            model.renameGroup(group, to: typed)
+            persist()
+        }
+        typedTitle = group
     }
 }
 

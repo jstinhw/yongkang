@@ -724,7 +724,7 @@ import Testing
     private func answer(_ model: AppModel, typing typed: String = "") throws {
         switch try #require(model.alert, "a question was asked") {
         case .confirm(_, _, _, let perform): perform()
-        case .title(_, let create): create(typed)
+        case .title(_, _, let create): create(typed)
         case .message(let title, _): Issue.record("\(title) has nothing to answer")
         }
     }

@@ -19,11 +19,18 @@ package struct SidebarProject: Identifiable {
     let pages: Set<UUID>
     /// Its folder was renamed, moved or deleted since it was opened. See `ProjectModel.missing`.
     let missing: Bool
+    /// The group it sits in, nil for a loose project. Neighbours naming the same group are that
+    /// group: the sidebar draws a header over each such run. See `ProjectGroups`.
+    let group: String?
 
     /// `asking` is each session's terminal question, which only the window can see.
-    package init(project: Project, summary: ChangeSummary, asking: [UUID: String] = [:], missing: Bool = false) {
+    package init(
+        project: Project, summary: ChangeSummary, asking: [UUID: String] = [:], missing: Bool = false,
+        group: String? = nil
+    ) {
         self.project = project
         self.missing = missing
+        self.group = group
         rows = project.agentRows(summary: summary, asking: asking)
         tasks = project.taskRows(summary: summary)
         memory = project.cards.filter { $0.kind == .memory }.count
@@ -64,16 +71,25 @@ package struct ProjectSidebar: View {
     let close: (Project.ID) -> Void
     /// Usage, which is every project's rather than one's.
     let openUsage: () -> Void
-    /// Moves a dragged project into the gap before the project at this index. There is one list
-    /// for every section, so an order set under Board is the order Agents lists them in too.
-    let move: (Project.ID, Int) -> Void
+    /// Moves a dragged project into the gap before the project at this index, and into the group
+    /// that gap belongs to. There is one list for every section, so an order set under Board is
+    /// the order Agents lists them in too.
+    let move: (Project.ID, Int, String?) -> Void
+    /// Starts a group at this project, which is the only way one is made.
+    let makeGroup: (Project.ID) -> Void
+    /// Renames a group, or lets its projects loose where they sit.
+    let renameGroup: (String) -> Void
+    let ungroup: (String) -> Void
 
     /// Projects start open; this only remembers the ones the user folded.
     @State private var collapsed: Set<Project.ID> = []
+    /// Groups fold the same way, by name — a group is its name, so a rename folds it open again,
+    /// which is the moment you want to see what you just renamed.
+    @State var foldedGroups: Set<String> = []
     /// Which gap the insertion line is in while a project is dragged. A `LazyVStack` draws no
     /// line of its own — that comes with `List`'s `.onMove`, and a `List` here would bring its
     /// own chrome — so the gaps are drop targets and this says which one is lit.
-    @State private var insertion: Int?
+    @State var insertion: Insertion?
 
     package init(
         section: ConsoleSection, projects: [SidebarProject], entered: Project.ID?, selection: Route?,
@@ -82,7 +98,10 @@ package struct ProjectSidebar: View {
         newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
         close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void,
-        move: @escaping (Project.ID, Int) -> Void
+        move: @escaping (Project.ID, Int, String?) -> Void,
+        makeGroup: @escaping (Project.ID) -> Void,
+        renameGroup: @escaping (String) -> Void,
+        ungroup: @escaping (String) -> Void
     ) {
         self.section = section
         self.projects = projects
@@ -96,6 +115,9 @@ package struct ProjectSidebar: View {
         self.close = close
         self.openUsage = openUsage
         self.move = move
+        self.makeGroup = makeGroup
+        self.renameGroup = renameGroup
+        self.ungroup = ungroup
     }
 
     package var body: some View {
@@ -108,21 +130,27 @@ package struct ProjectSidebar: View {
                             .font(Typography.body).foregroundStyle(Theme.tx3)
                             .padding(.horizontal, 19).padding(.vertical, 8)
                     }
-                    ForEach(projects) { item in
-                        projectRow(item)
-                        if !collapsed.contains(item.id) {
-                            ForEach(section == .board ? item.tasks : item.sessions) { row in
-                                agentRow(row, in: item)
-                                if section == .agents, let session = row.session {
-                                    if item.pages.contains(session.id) { sessionPageRow(session, in: item) }
-                                    ForEach(item.reviews[session.id] ?? []) { reviewRow($0, in: item) }
+                    // One pass over the flat list: a group is the run of neighbours naming it, so
+                    // its header goes in where a run starts and its own end gap where one stops.
+                    ForEach(Array(projects.enumerated()), id: \.element.id) { index, item in
+                        if startsRun(at: index), let group = item.group { groupHeader(group, at: index) }
+                        if !folded(item) {
+                            projectRow(item, at: index)
+                            if !collapsed.contains(item.id) {
+                                ForEach(section == .board ? item.tasks : item.sessions) { row in
+                                    agentRow(row, in: item)
+                                    if section == .agents, let session = row.session {
+                                        if item.pages.contains(session.id) { sessionPageRow(session, in: item) }
+                                        ForEach(item.reviews[session.id] ?? []) { reviewRow($0, in: item) }
+                                    }
+                                }
+                                if section == .agents {
+                                    pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
+                                    pageRow(item, "Skills", icon: "book.closed", route: .skills)
+                                    newTerminalRow(item)
                                 }
                             }
-                            if section == .agents {
-                                pageRow(item, "Memory", icon: "brain", route: .memory(nil), count: item.memory)
-                                pageRow(item, "Skills", icon: "book.closed", route: .skills)
-                                newTerminalRow(item)
-                            }
+                            if endsRun(at: index), let group = item.group { groupEndGap(group, before: index + 1) }
                         }
                     }
                     if !projects.isEmpty { endGap }
@@ -192,17 +220,16 @@ package struct ProjectSidebar: View {
 
     // MARK: - Rows
 
-    /// The gap past the last project, without which a project could be dragged anywhere but
-    /// to the end of the list.
+    /// The gap past the last project, at the top level, without which a project could be dragged
+    /// anywhere but to the end of the list.
     private var endGap: some View {
         Color.clear.frame(height: 18)
             .contentShape(Rectangle())
-            .dropTarget(before: projects.count, line: $insertion, move: move)
+            .dropTarget(before: projects.count, into: nil, line: $insertion, move: move)
     }
 
-    private func projectRow(_ item: SidebarProject) -> some View {
+    private func projectRow(_ item: SidebarProject, at index: Int) -> some View {
         let folded = collapsed.contains(item.id)
-        let index = projects.firstIndex { $0.id == item.id } ?? 0
         return Button {
             open(item.id, page(for: section), section)
         } label: {
@@ -245,24 +272,24 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .rowSelection(entered == item.id && !childSelected(in: item))
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
+        .groupIndented(item, top: 8)
         .accessibilityLabel(summary(of: item))
         // The id, not the path: a project is only ever dragged within this list, and the
         // window looks it up by id anyway.
         .draggable(item.id.uuidString)
-        .dropTarget(before: index, line: $insertion, move: move)
+        .dropTarget(before: index, into: item.group, line: $insertion, move: move)
         .contextMenu {
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.project.directory])
             }
             .disabled(item.missing)
+            Button("New Group…") { makeGroup(item.id) }
             Button(item.missing ? "Remove Project" : "Close Project") { close(item.id) }
         }
     }
 
     /// A lit count: amber for what needs you, green for what waits for your review.
-    private func count(_ number: Int, _ color: Color, dot: Bool) -> some View {
+    func count(_ number: Int, _ color: Color, dot: Bool) -> some View {
         HStack(spacing: 3) {
             if dot {
                 Circle().fill(color).frame(width: 5, height: 5)
@@ -318,8 +345,7 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .rowSelection(entered == item.id && isSelected(row))
-        .padding(.horizontal, 8)
-        .padding(.top, 1)
+        .groupIndented(item, top: 1)
         .contextMenu {
             if !isTask, let session = row.session {
                 Button("Close Session") { closeSession(item.id, session) }
@@ -347,8 +373,7 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .rowSelection(entered == item.id && selection == route)
-        .padding(.horizontal, 8)
-        .padding(.top, 1)
+        .groupIndented(item, top: 1)
         .help("The page \(session.title) drew")
     }
 
@@ -372,8 +397,7 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .rowSelection(entered == item.id && selection == .reviewTask(task.id))
-        .padding(.horizontal, 8)
-        .padding(.top, 1)
+        .groupIndented(item, top: 1)
         .help("Review \(task.title)")
     }
 
@@ -422,8 +446,7 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .rowSelection(entered == item.id && isPage(route))
-        .padding(.horizontal, 8)
-        .padding(.top, 1)
+        .groupIndented(item, top: 1)
     }
 
     /// Opens a plain shell in the project's folder. Last under the project, below Memory, so it
@@ -446,8 +469,7 @@ package struct ProjectSidebar: View {
         }
         .buttonStyle(.plain)
         .disabled(item.missing)
-        .padding(.horizontal, 8)
-        .padding(.top, 1)
+        .groupIndented(item, top: 1)
         .help("Open a shell in \(item.project.name)’s folder")
     }
 
@@ -492,35 +514,5 @@ package struct ProjectSidebar: View {
     private func childSelected(in item: SidebarProject) -> Bool {
         (section == .agents && (isPage(.memory(nil)) || isPage(.skills) || isReview(in: item)))
             || (section == .board ? item.tasks : item.sessions).contains(where: isSelected)
-    }
-}
-
-extension View {
-    /// Makes the gap above this row a place a dragged project lands: the insertion line while a
-    /// drag is over it, and the move when it is dropped. Only the line moves — a row never lights
-    /// up, because a project highlighted under the cursor reads as somewhere to drop the drag
-    /// *into*, and nothing here goes inside a project.
-    fileprivate func dropTarget(
-        before index: Int, line: Binding<Int?>, move: @escaping (Project.ID, Int) -> Void
-    ) -> some View {
-        overlay(alignment: .top) {
-            Rectangle().fill(Theme.accent)
-                .frame(height: 2)
-                .padding(.horizontal, 8)
-                .offset(y: 3)
-                .opacity(line.wrappedValue == index ? 1 : 0)
-        }
-        .dropDestination(for: String.self) { dropped, _ in
-            line.wrappedValue = nil
-            guard let dragged = dropped.first.flatMap(UUID.init(uuidString:)) else { return false }
-            move(dragged, index)
-            return true
-        } isTargeted: { over in
-            if over {
-                line.wrappedValue = index
-            } else if line.wrappedValue == index {
-                line.wrappedValue = nil
-            }
-        }
     }
 }

@@ -17,6 +17,9 @@ import YongkangCore
     private let inode: Int?
     /// The folder is gone or is no longer the one opened: the sidebar says so and offers removal.
     private(set) var missing = false
+    /// The sidebar group this project sits in, nil for a loose one. Nothing on disk in the
+    /// project says it — it is the user's arrangement of the list, kept in `ProjectGroups`.
+    var group: String?
     private(set) var snapshot: NotebookSnapshot
     /// What the agents changed on disk, read from git. Only refreshed while you are inside
     /// the project — a repo-wide diff of every open project would be rude.

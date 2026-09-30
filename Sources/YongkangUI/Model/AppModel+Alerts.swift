@@ -9,8 +9,8 @@ enum AlertItem {
     case message(String, detail: String = "")
     /// `perform` runs when the user picks `action`; Cancel does nothing.
     case confirm(String, detail: String, action: String, perform: @MainActor @Sendable () -> Void)
-    /// A title to type. `create` gets what was typed when the user picks Create.
-    case title(String, create: @MainActor @Sendable (String) -> Void)
+    /// A title to type. `create` gets what was typed when the user picks `action`.
+    case title(String, action: String = "Create", create: @MainActor @Sendable (String) -> Void)
 
     static func error(_ error: any Error) -> AlertItem {
         let error = error as NSError
@@ -19,7 +19,7 @@ enum AlertItem {
 
     var title: String {
         switch self {
-        case .message(let title, _), .confirm(let title, _, _, _), .title(let title, _): return title
+        case .message(let title, _), .confirm(let title, _, _, _), .title(let title, _, _): return title
         }
     }
 

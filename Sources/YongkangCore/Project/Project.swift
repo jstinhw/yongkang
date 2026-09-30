@@ -80,6 +80,21 @@ package enum OpenProjects {
     }
 }
 
+/// Which group each open project sits in, by path, as it survives a relaunch. A project with
+/// no entry here is loose. A group is a name carried by the projects in it rather than a thing
+/// of its own, so an empty group cannot be written down — or exist. The order is still
+/// `OpenProjects`: the projects of one group are the run of neighbours that name it.
+package enum ProjectGroups {
+    package static func encode(_ groups: [String: String]) -> String {
+        guard let data = try? JSONEncoder().encode(groups) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    package static func decode(_ text: String) -> [String: String] {
+        (try? JSONDecoder().decode([String: String].self, from: Data(text.utf8))) ?? [:]
+    }
+}
+
 /// The agent sessions each open project had, as they survive a quit or a crash, by project
 /// path. Only what starts one again: the rest is read back off the notebook and the CLI's own
 /// files. Services are left out — the user starts those.

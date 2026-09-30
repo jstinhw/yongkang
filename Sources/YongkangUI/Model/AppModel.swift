@@ -153,12 +153,24 @@ import YongkangCore
     /// The open folders, in order, as `@AppStorage("openProjects")` keeps them.
     var storedProjects: String { OpenProjects.encode(projects.map(\.directory.path)) }
 
-    /// Reopens last session's folders. One moved away while the app was closed stays in the
-    /// list, marked missing, so the user sees where it went rather than it silently vanishing.
+    /// The groups those folders sit in, as `@AppStorage("projectGroups")` keeps them.
+    var storedGroups: String {
+        ProjectGroups.encode(
+            Dictionary(uniqueKeysWithValues: projects.compactMap { p in p.group.map { (p.directory.path, $0) } }))
+    }
+
+    /// Reopens last session's folders, in their groups. One moved away while the app was closed
+    /// stays in the list, marked missing, so the user sees where it went rather than it silently
+    /// vanishing.
     /// ponytail: a folder recreated at the old path before the relaunch passes as the project;
     /// store each folder's inode beside its path if that turns up.
-    func restore(_ stored: String) {
-        projects = OpenProjects.decode(stored).map { model(of: URL(fileURLWithPath: $0)) }
+    func restore(_ stored: String, groups: String = "{}") {
+        let named = ProjectGroups.decode(groups)
+        projects = OpenProjects.decode(stored).map { path in
+            let project = model(of: URL(fileURLWithPath: path))
+            project.group = named[path]
+            return project
+        }
         for project in projects { project.checkFolder() }
     }
 
@@ -184,14 +196,39 @@ import YongkangCore
         return project
     }
 
-    /// Puts `id` in the gap before the project at `index` — `projects.count` for the end — which
-    /// is the gap the sidebar's insertion line was in. One list, so the new order holds in every
-    /// section, and `storedProjects` keeps it.
-    func move(_ id: Project.ID, before index: Int) {
-        guard let from = projects.firstIndex(where: { $0.id == id }), from != index else { return }
+    /// Puts `id` in the gap before the project at `index` — `projects.count` for the end — and in
+    /// the group that gap belongs to, nil for a loose one. That is the gap the sidebar's insertion
+    /// line was in, and its indent was `group`. One list, so the new order holds in every section,
+    /// and `storedProjects` and `storedGroups` keep it.
+    func move(_ id: Project.ID, before index: Int, into group: String?) {
+        guard let from = projects.firstIndex(where: { $0.id == id }) else { return }
+        projects[from].group = group
+        guard from != index else { return }
         var reordered = projects
         reordered.insert(reordered.remove(at: from), at: from < index ? index - 1 : index)
         projects = reordered
+    }
+
+    /// Starts a group at `id`, which is the only way one is made: a group is a name on the
+    /// projects in it, so there is never an empty one to fill.
+    func group(_ id: Project.ID, as name: String) {
+        guard let index = projects.firstIndex(where: { $0.id == id }), !trimmed(name).isEmpty else { return }
+        projects[index].group = trimmed(name)
+    }
+
+    /// Renames every project in a group at once — the run is the group.
+    func renameGroup(_ name: String, to renamed: String) {
+        guard !trimmed(renamed).isEmpty else { return }
+        for project in projects where project.group == name { project.group = trimmed(renamed) }
+    }
+
+    /// Lets a group's projects loose where they already sit. The group goes with its last member.
+    func ungroup(_ name: String) {
+        for project in projects where project.group == name { project.group = nil }
+    }
+
+    private func trimmed(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func close(_ project: ProjectModel) {

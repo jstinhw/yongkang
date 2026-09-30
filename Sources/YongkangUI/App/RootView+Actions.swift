@@ -19,9 +19,9 @@ extension RootView {
         case .confirm(_, _, let action, let perform):
             Button(action, role: .destructive) { DispatchQueue.main.async(execute: perform) }
             Button("Cancel", role: .cancel) {}
-        case .title(_, let create):
+        case .title(_, let action, let create):
             TextField("Title", text: $typedTitle)
-            Button("Create") {
+            Button(action) {
                 let title = typedTitle
                 typedTitle = ""
                 DispatchQueue.main.async { create(title) }
