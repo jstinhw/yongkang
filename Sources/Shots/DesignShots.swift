@@ -349,7 +349,8 @@ enum DesignShots {
                 entered: entered ? project.id : nil, selection: selection,
                 open: { _, _, _ in }, create: {}, add: {}, newTerminal: { _ in }, closeSession: { _, _ in },
                 close: { _ in },
-                openUsage: {}
+                openUsage: {},
+                move: { _, _ in }
             )
             .frame(width: Theme.listWidth)
             ListDivider(width: .constant(Double(Theme.listWidth)), hidden: .constant(false))

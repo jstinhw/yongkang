@@ -184,6 +184,16 @@ import YongkangCore
         return project
     }
 
+    /// Puts `id` in the gap before the project at `index` — `projects.count` for the end — which
+    /// is the gap the sidebar's insertion line was in. One list, so the new order holds in every
+    /// section, and `storedProjects` keeps it.
+    func move(_ id: Project.ID, before index: Int) {
+        guard let from = projects.firstIndex(where: { $0.id == id }), from != index else { return }
+        var reordered = projects
+        reordered.insert(reordered.remove(at: from), at: from < index ? index - 1 : index)
+        projects = reordered
+    }
+
     func close(_ project: ProjectModel) {
         project.stopWatching()
         for session in project.sessions {

@@ -143,6 +143,17 @@ package struct PlanWindow: Identifiable, Sendable {
     /// 0–100, as both providers report it.
     package let percent: Double
     package let resetsAt: Date?
+
+    /// Both caches are only rewritten when their CLI takes a turn, so a tool left quiet
+    /// past a reset still holds the old window's number. Once `resetsAt` has passed, the
+    /// window is empty again, whatever the stale snapshot says.
+    init(id: String, name: String, percent: Double, resetsAt: Date?, now: Date) {
+        let rolledOver = resetsAt.map { $0 <= now } ?? false
+        self.id = id
+        self.name = name
+        self.percent = rolledOver ? 0 : percent
+        self.resetsAt = rolledOver ? nil : resetsAt
+    }
 }
 
 /// What one coding tool says about the plan behind it. Read from that tool's own cache on
@@ -276,7 +287,8 @@ package enum AgentUsage {
     /// refreshes it as it works. Nothing here is a published API, so a missing field
     /// leaves a bar out instead of failing.
     package static func claudeQuota(
-        configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+        configURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json"),
+        now: Date = Date()
     ) async -> ProviderQuota? {
         guard let data = try? Data(contentsOf: configURL),
             let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -302,7 +314,7 @@ package enum AgentUsage {
             else { return nil }
             return PlanWindow(
                 id: key, name: name, percent: percent,
-                resetsAt: date(window["resets_at"] as? String))
+                resetsAt: date(window["resets_at"] as? String), now: now)
         }
         if let spend = utilization["spend"] as? [String: Any],
             let used = money(spend["used"] as? [String: Any] ?? [:]),
@@ -329,7 +341,8 @@ package enum AgentUsage {
     /// Codex has no config cache for this: the limits ride along on every turn's
     /// `token_count` event, so the newest rollout that carries one is the current answer.
     package static func codexQuota(
-        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+        codexHome: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex"),
+        now: Date = Date()
     ) async -> ProviderQuota? {
         let root = codexHome.appendingPathComponent("sessions")
         guard
@@ -354,7 +367,7 @@ package enum AgentUsage {
                     let resets = (window["resets_at"] as? NSNumber)?.doubleValue
                     return PlanWindow(
                         id: key, name: name, percent: percent,
-                        resetsAt: resets.map { Date(timeIntervalSince1970: $0) })
+                        resetsAt: resets.map { Date(timeIntervalSince1970: $0) }, now: now)
                 }
             // Only when the account actually has credits: a zero balance on an account
             // that never bought any is not a fact worth a row.

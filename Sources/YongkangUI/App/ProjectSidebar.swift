@@ -64,9 +64,16 @@ package struct ProjectSidebar: View {
     let close: (Project.ID) -> Void
     /// Usage, which is every project's rather than one's.
     let openUsage: () -> Void
+    /// Moves a dragged project into the gap before the project at this index. There is one list
+    /// for every section, so an order set under Board is the order Agents lists them in too.
+    let move: (Project.ID, Int) -> Void
 
     /// Projects start open; this only remembers the ones the user folded.
     @State private var collapsed: Set<Project.ID> = []
+    /// Which gap the insertion line is in while a project is dragged. A `LazyVStack` draws no
+    /// line of its own — that comes with `List`'s `.onMove`, and a `List` here would bring its
+    /// own chrome — so the gaps are drop targets and this says which one is lit.
+    @State private var insertion: Int?
 
     package init(
         section: ConsoleSection, projects: [SidebarProject], entered: Project.ID?, selection: Route?,
@@ -74,7 +81,8 @@ package struct ProjectSidebar: View {
         create: @escaping () -> Void, add: @escaping () -> Void,
         newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
-        close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void
+        close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void,
+        move: @escaping (Project.ID, Int) -> Void
     ) {
         self.section = section
         self.projects = projects
@@ -87,6 +95,7 @@ package struct ProjectSidebar: View {
         self.closeSession = closeSession
         self.close = close
         self.openUsage = openUsage
+        self.move = move
     }
 
     package var body: some View {
@@ -115,6 +124,7 @@ package struct ProjectSidebar: View {
                             }
                         }
                     }
+                    if !projects.isEmpty { endGap }
                 }
                 .padding(.bottom, 14)
             }
@@ -181,8 +191,17 @@ package struct ProjectSidebar: View {
 
     // MARK: - Rows
 
+    /// The gap past the last project, without which a project could be dragged anywhere but
+    /// to the end of the list.
+    private var endGap: some View {
+        Color.clear.frame(height: 18)
+            .contentShape(Rectangle())
+            .dropTarget(before: projects.count, line: $insertion, move: move)
+    }
+
     private func projectRow(_ item: SidebarProject) -> some View {
         let folded = collapsed.contains(item.id)
+        let index = projects.firstIndex { $0.id == item.id } ?? 0
         return Button {
             open(item.id, page(for: section), section)
         } label: {
@@ -228,6 +247,10 @@ package struct ProjectSidebar: View {
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .accessibilityLabel(summary(of: item))
+        // The id, not the path: a project is only ever dragged within this list, and the
+        // window looks it up by id anyway.
+        .draggable(item.id.uuidString)
+        .dropTarget(before: index, line: $insertion, move: move)
         .contextMenu {
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.project.directory])
@@ -468,5 +491,35 @@ package struct ProjectSidebar: View {
     private func childSelected(in item: SidebarProject) -> Bool {
         (section == .agents && (isPage(.memory(nil)) || isReview(in: item)))
             || (section == .board ? item.tasks : item.sessions).contains(where: isSelected)
+    }
+}
+
+extension View {
+    /// Makes the gap above this row a place a dragged project lands: the insertion line while a
+    /// drag is over it, and the move when it is dropped. Only the line moves — a row never lights
+    /// up, because a project highlighted under the cursor reads as somewhere to drop the drag
+    /// *into*, and nothing here goes inside a project.
+    fileprivate func dropTarget(
+        before index: Int, line: Binding<Int?>, move: @escaping (Project.ID, Int) -> Void
+    ) -> some View {
+        overlay(alignment: .top) {
+            Rectangle().fill(Theme.accent)
+                .frame(height: 2)
+                .padding(.horizontal, 8)
+                .offset(y: 3)
+                .opacity(line.wrappedValue == index ? 1 : 0)
+        }
+        .dropDestination(for: String.self) { dropped, _ in
+            line.wrappedValue = nil
+            guard let dragged = dropped.first.flatMap(UUID.init(uuidString:)) else { return false }
+            move(dragged, index)
+            return true
+        } isTargeted: { over in
+            if over {
+                line.wrappedValue = index
+            } else if line.wrappedValue == index {
+                line.wrappedValue = nil
+            }
+        }
     }
 }

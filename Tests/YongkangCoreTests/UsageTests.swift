@@ -299,13 +299,35 @@ import Testing
         let config = dir.appendingPathComponent("claude.json")
         try fixture("usage/claude-config-cached-usage.json").write(to: config, atomically: true, encoding: .utf8)
 
-        let quota = try #require(await AgentUsage.claudeQuota(configURL: config))
+        let fetched = Date(timeIntervalSince1970: 1_788_260_110)
+        let quota = try #require(await AgentUsage.claudeQuota(configURL: config, now: fetched))
         #expect(quota.plan == "claude_pro")
         try #require(quota.windows.map(\.percent) == [42, 3], "a null window is skipped, not zeroed")
         #expect(quota.windows[0].resetsAt != nil, "the ISO shape with fractional seconds parses")
         #expect(quota.windows[1].resetsAt != nil, "and the one without")
         #expect(quota.credits?.value == "$2.50 of $100.00")
         #expect(await AgentUsage.claudeQuota(configURL: dir.appendingPathComponent("nope.json")) == nil)
+    }
+
+    // Codex only rewrites its limits on a turn, so the newest rollout can be days old: a
+    // window whose reset has passed is empty now, not still at the old snapshot's number.
+    @Test func codexQuotaRollsOverStaleWindows() async throws {
+        let home = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let day = home.appendingPathComponent("sessions/2026/09/21")
+        try FileManager.default.createDirectory(at: day, withIntermediateDirectories: true)
+        let line = """
+            {"type":"event_msg","payload":{"type":"token_count","rate_limits":{\
+            "primary":{"used_percent":3.0,"resets_at":1790014980},\
+            "secondary":{"used_percent":40.0,"resets_at":1790601780},"plan_type":"plus"}}}
+            """
+        try line.write(to: day.appendingPathComponent("rollout-a.jsonl"), atomically: true, encoding: .utf8)
+
+        let between = Date(timeIntervalSince1970: 1_790_100_000)
+        let quota = try #require(await AgentUsage.codexQuota(codexHome: home, now: between))
+        #expect(quota.plan == "plus")
+        #expect(quota.windows.map(\.percent) == [0, 40], "the 5h window reset, the weekly one did not")
+        #expect(quota.windows[0].resetsAt == nil)
     }
 
     @Test(arguments: [(999, "999"), (1_500, "1.5K"), (45_000, "45K"), (2_400_000, "2.4M")])

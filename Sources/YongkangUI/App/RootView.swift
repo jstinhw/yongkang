@@ -157,7 +157,11 @@ struct RootView: View {
                             if let project = model.project(id) { model.close(session, in: project) }
                         },
                         close: { id in if let project = model.project(id) { close(project) } },
-                        openUsage: { model.openUsage() }
+                        openUsage: { model.openUsage() },
+                        move: { id, index in
+                            model.move(id, before: index)
+                            persist()
+                        }
                     )
                     .frame(width: min(max(listWidth, ListDivider.minWidth), ListDivider.maxWidth))
                 }
