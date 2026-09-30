@@ -209,8 +209,20 @@ import YongkangCore
         projects = reordered
     }
 
-    /// Starts a group at `id`, which is the only way one is made: a group is a name on the
-    /// projects in it, so there is never an empty one to fill.
+    /// A group named from the + menu that nothing is in yet. It is drawn at the end of the list,
+    /// asking for a project, and it is a name and nothing else: no project carries it, so
+    /// `storedGroups` has never heard of it and a relaunch does not bring it back. That is the
+    /// point — an empty group is nothing to come back to. It stops being pending the moment a
+    /// project is dragged in, because then the run exists and draws itself.
+    var pendingGroup: String?
+
+    func newGroup(named name: String) {
+        guard !trimmed(name).isEmpty else { return }
+        pendingGroup = trimmed(name)
+    }
+
+    /// Starts a group at `id`, the other way one is made: a group is a name on the projects in
+    /// it, so filling one is the same act as making it.
     func group(_ id: Project.ID, as name: String) {
         guard let index = projects.firstIndex(where: { $0.id == id }), !trimmed(name).isEmpty else { return }
         projects[index].group = trimmed(name)
@@ -220,11 +232,14 @@ import YongkangCore
     func renameGroup(_ name: String, to renamed: String) {
         guard !trimmed(renamed).isEmpty else { return }
         for project in projects where project.group == name { project.group = trimmed(renamed) }
+        if pendingGroup == name { pendingGroup = trimmed(renamed) }
     }
 
-    /// Lets a group's projects loose where they already sit. The group goes with its last member.
+    /// Lets a group's projects loose where they already sit. The group goes with its last member,
+    /// and on one still waiting for its first this is how you take the offer back.
     func ungroup(_ name: String) {
         for project in projects where project.group == name { project.group = nil }
+        if pendingGroup == name { pendingGroup = nil }
     }
 
     private func trimmed(_ name: String) -> String {

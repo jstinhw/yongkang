@@ -4,8 +4,9 @@ import YongkangCore
 /// Groups in the sidebar. A group is a name its projects carry rather than a box holding them
 /// (`ProjectGroups`), so what the list draws as one group is the run of neighbours naming it —
 /// which is why everything here is asked of an index rather than of a group object. It also means
-/// an empty group cannot exist: one is started from a project, and it goes when its last project
-/// leaves it.
+/// a group with nothing in it is not written down anywhere: one is made by naming a project's, or
+/// by naming one from the + menu, which leaves an offer at the end of the list (`pendingGroupRows`)
+/// rather than a group. Either way a group goes when its last project leaves it.
 extension ProjectSidebar {
     /// Where the insertion line is while a project is dragged. The index alone will not do: the
     /// gap above a group's header and the gap above its first project are the same height and the
@@ -76,6 +77,43 @@ extension ProjectSidebar {
         }
     }
 
+    /// A group named from the + menu with nothing in it yet: its header, and under it the one
+    /// thing an empty group can offer — somewhere to drop the first project. It is drawn last
+    /// because a group with no projects has no place among them, and it is gone the moment one
+    /// lands in it, or on the next launch, whichever comes first.
+    @ViewBuilder func pendingGroupRows(_ group: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3).frame(width: 12)
+            Text(group).font(Typography.body(.semibold)).foregroundStyle(Theme.tx2).lineLimit(1)
+            Spacer(minLength: 4)
+        }
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.top, 10)
+        .contextMenu {
+            Button("Rename Group…") { renameGroup(group) }
+            Button("Ungroup") { ungroup(group) }
+        }
+
+        Text("Drag a project here")
+            .font(Typography.caption).foregroundStyle(Theme.tx3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .foregroundStyle(Theme.controlLine)
+            )
+            .contentShape(Rectangle())
+            .groupIndented(placeholder: true, top: 2)
+            .dropTarget(before: projects.count, into: group, line: $insertion, move: move)
+    }
+
     /// The gap after a run's last project, so a project can be dragged to the end of a group
     /// rather than only above one of its members. The twin of `endGap`, one level in.
     func groupEndGap(_ group: String, before index: Int) -> some View {
@@ -90,10 +128,16 @@ extension View {
     /// A row's place in the list: indented again when its project is inside a group, and carrying
     /// that group's rule. `top` is the gap above it — 8 over a project, 1 over one of its rows.
     func groupIndented(_ item: SidebarProject, top: CGFloat) -> some View {
-        padding(.leading, item.group == nil ? 8 : 8 + ProjectSidebar.groupIndent)
+        groupIndented(placeholder: item.group != nil, top: top)
+    }
+
+    /// The same, for a row that stands in a group without being a project's: the pending group's
+    /// invitation to drop one.
+    func groupIndented(placeholder inGroup: Bool, top: CGFloat) -> some View {
+        padding(.leading, inGroup ? 8 + ProjectSidebar.groupIndent : 8)
             .padding(.trailing, 8)
             .padding(.top, top)
-            .groupRule(item.group != nil)
+            .groupRule(inGroup)
     }
 
     /// The 1pt rule down the left of everything in a group. Each row draws its own segment, over

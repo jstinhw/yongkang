@@ -151,6 +151,7 @@ struct RootView: View {
                             model.enter(project, at: route)
                         },
                         create: { model.creatingProject = true }, add: { model.pickingFolder = true },
+                        newGroup: nameNewGroup, pending: model.pendingGroup,
                         newTerminal: { id in
                             guard let project = model.project(id) else { return }
                             model.section = .agents
@@ -279,8 +280,17 @@ struct RootView: View {
         projectGroups = model.storedGroups
     }
 
-    /// Starting a group: the project that asked for it goes in, and the others are dragged in
-    /// afterwards, so there is never an empty group to look at.
+    /// Naming a group from the + menu. Nothing is in it yet, so nothing is written down: it
+    /// waits at the end of the list for its first project. See `AppModel.pendingGroup`.
+    private func nameNewGroup() {
+        model.alert = .title("Name this group", action: "Create Group") { typed in
+            model.newGroup(named: typed)
+        }
+        typedTitle = ""
+    }
+
+    /// Starting a group from a project instead: that project goes in, and the others are dragged
+    /// in afterwards, so there is never an empty group to look at.
     private func nameGroup(putting id: Project.ID) {
         guard let project = model.project(id) else { return }
         model.alert = .title("Name this group", action: "Create Group") { typed in

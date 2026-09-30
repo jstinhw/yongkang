@@ -65,6 +65,11 @@ package struct ProjectSidebar: View {
     /// The two ways a project arrives: described, or a folder that already exists.
     let create: () -> Void
     let add: () -> Void
+    /// Names a group from the + menu, before anything is in it. See `pending`.
+    let newGroup: () -> Void
+    /// A group named but not filled yet, drawn last, asking for its first project. Nil once one
+    /// is in it: from then on the run draws the group.
+    let pending: String?
     /// Opens a plain shell in the project's folder, under Agents.
     let newTerminal: (Project.ID) -> Void
     let closeSession: (Project.ID, CodeSession) -> Void
@@ -95,6 +100,7 @@ package struct ProjectSidebar: View {
         section: ConsoleSection, projects: [SidebarProject], entered: Project.ID?, selection: Route?,
         open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
         create: @escaping () -> Void, add: @escaping () -> Void,
+        newGroup: @escaping () -> Void, pending: String? = nil,
         newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
         close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void,
@@ -110,6 +116,8 @@ package struct ProjectSidebar: View {
         self.open = open
         self.create = create
         self.add = add
+        self.newGroup = newGroup
+        self.pending = pending
         self.newTerminal = newTerminal
         self.closeSession = closeSession
         self.close = close
@@ -153,6 +161,9 @@ package struct ProjectSidebar: View {
                             if endsRun(at: index), let group = item.group { groupEndGap(group, before: index + 1) }
                         }
                     }
+                    if let pending, !projects.contains(where: { $0.group == pending }) {
+                        pendingGroupRows(pending)
+                    }
                     if !projects.isEmpty { endGap }
                 }
                 .padding(.bottom, 14)
@@ -174,6 +185,11 @@ package struct ProjectSidebar: View {
                 // one. Nothing is copied, so it is Open, not Import.
                 Button("New Project…", action: create)
                 Button("Open Project…", action: add)
+                Divider()
+                // A group of nothing is not a group, so this one waits at the end of the list
+                // for its first project rather than being written down. See `pending`.
+                Button("New Group…", action: newGroup)
+                    .disabled(projects.isEmpty)
             } label: {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.tx2)

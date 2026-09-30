@@ -353,7 +353,8 @@ enum DesignShots {
                 projects: [SidebarProject(project: project, summary: summary, asking: asking)]
                     + neighbours(),
                 entered: entered ? project.id : nil, selection: selection,
-                open: { _, _, _ in }, create: {}, add: {}, newTerminal: { _ in }, closeSession: { _, _ in },
+                open: { _, _, _ in }, create: {}, add: {}, newGroup: {},
+                newTerminal: { _ in }, closeSession: { _, _ in },
                 close: { _ in },
                 openUsage: {},
                 move: { _, _, _ in }, makeGroup: { _ in }, renameGroup: { _ in }, ungroup: { _ in }

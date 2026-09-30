@@ -82,6 +82,30 @@ import Testing
         #expect(order(model) == ["a", "b", "c"], "ungrouping leaves them where they sit")
     }
 
+    @Test func aGroupNamedFromThePlusMenuIsNothingUntilAProjectIsDraggedIn() {
+        let model = model(["a", "b"])
+        model.newGroup(named: " Client work ")
+        #expect(model.pendingGroup == "Client work")
+        #expect(groups(model) == [nil, nil], "naming a group writes nothing down on its own")
+        #expect(model.storedGroups == "{}", "and nothing a relaunch would bring back")
+
+        // Dropped on its "drag a project here" row, which is the gap past the last project.
+        model.move(model.projects[0].id, before: 2, into: "Client work")
+        #expect(order(model) == ["b", "a"])
+        #expect(groups(model) == [nil, "Client work"])
+    }
+
+    @Test func ungroupingTakesBackAGroupThatNothingIsInYet() {
+        let model = model(["a"])
+        model.newGroup(named: "Client work")
+        model.ungroup("Client work")
+        #expect(model.pendingGroup == nil)
+
+        model.newGroup(named: "Client work")
+        model.renameGroup("Client work", to: "Paid")
+        #expect(model.pendingGroup == "Paid", "it is still the same offer, under a new name")
+    }
+
     @Test func theGroupsComeBackWithTheProjectsAfterARelaunch() {
         let before = model(["a", "b", "c"])
         before.group(before.projects[0].id, as: "Client work")
