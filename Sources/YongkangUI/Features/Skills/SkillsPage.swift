@@ -14,6 +14,9 @@ package struct SkillsPage: View {
     @State private var own: [SkillDoc] = []
     @State private var shared: [SkillDoc] = []
     @State private var query = ""
+    /// The sections folded away, by title. Kept across launches: 80-odd shared skills are a
+    /// list you shut once and leave shut.
+    @AppStorage("skillsFolded") private var folded = ""
 
     private let home = FileManager.default.homeDirectoryForCurrentUser
 
@@ -94,14 +97,28 @@ package struct SkillsPage: View {
 
     @ViewBuilder private func section(_ title: String, _ docs: [SkillDoc]) -> some View {
         let shown = docs.filter(matches)
+        // A name you typed is never kept behind a closed fold.
+        let open = !isFolded(title) || !query.isEmpty
         if !docs.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                SectionLabel(title, trailing: "\(docs.count)")
+                Button {
+                    toggle(title)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: open ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3).frame(width: 10)
+                        SectionLabel(title, trailing: "\(docs.count)")
+                    }
                     .padding(.horizontal, 14).padding(.vertical, 9)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.panel)
-                ForEach(shown) { row($0) }
-                if shown.isEmpty {
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(title), \(docs.count) skills, \(open ? "shown" : "hidden")")
+                .accessibilityHint(open ? "Hides the list" : "Shows the list")
+                if open { ForEach(shown) { row($0) } }
+                if open, shown.isEmpty {
                     Text("None match “\(query)”.").font(Typography.body).foregroundStyle(Theme.tx3)
                         .padding(.horizontal, 14).padding(.vertical, 10)
                         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
@@ -152,6 +169,15 @@ package struct SkillsPage: View {
     }
 
     // MARK: - Reading
+
+    private func isFolded(_ title: String) -> Bool {
+        folded.split(separator: "\n").contains { $0 == title }
+    }
+
+    private func toggle(_ title: String) {
+        let rest = folded.split(separator: "\n").map(String.init).filter { $0 != title }
+        folded = (isFolded(title) ? rest : rest + [title]).joined(separator: "\n")
+    }
 
     private func matches(_ doc: SkillDoc) -> Bool {
         query.isEmpty || doc.name.localizedCaseInsensitiveContains(query)
