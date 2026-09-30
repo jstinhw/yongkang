@@ -78,9 +78,7 @@ extension RootView {
                     case .session:
                         // A session clearing a gate gets the page that gate names beside it, so
                         // the instruction and the screen it is about are one glance apart.
-                        if let link = project.value.blocks.waitingOnUser
-                            .first(where: { project.value.guide(of: $0)?.id == watched.id })?.link
-                        {
+                        if let link = project.value.gate(of: watched)?.link {
                             HSplitView {
                                 terminal(for: watched).frame(minWidth: 420)
                                 GuideBrowser(url: link).frame(minWidth: 360)

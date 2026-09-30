@@ -108,6 +108,10 @@ import Testing
 
         #expect(project.guide(of: gate) == nil, "it has handed the step back")
         #expect(project.blocksForUser.map(\.id) == ["vercel"], "so the gate is on the user's desk again")
+        #expect(
+            project.gate(of: guiding)?.id == "vercel",
+            "but the page it named stays beside it: waiting on the user is when they need it")
+        #expect(project.gate(of: spent) == nil, "and only beside the session the gate was handed to")
 
         let rows = project.agentRows(summary: summary, asking: [:])
 

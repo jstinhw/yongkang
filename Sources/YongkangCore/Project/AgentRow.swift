@@ -64,14 +64,28 @@ extension Project {
     /// session beside it — which is what the user saw, two rows of the same name, one agent
     /// apparently twice. Only when that agent is gone is a session opened for the gate alone.
     package func guide(of block: UserBlock) -> CodeSession? {
-        guard guided.contains(block.id) else { return nil }
-        let on = waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
         // Once it has stopped talking the gate is the user's again. A guide works a gate
         // through one step at a time, and its step is often a sentence rather than a prompt —
         // nothing on screen for the window to read as a question — so the end of its turn is
         // the only sign that it is the user's move. One guard here, because every screen that
         // asks who is on a gate asks through this.
-        return on.flatMap { $0.idle ? nil : $0 }
+        holder(of: block).flatMap { $0.idle ? nil : $0 }
+    }
+
+    /// The session a gate was handed to, whose it stays whether or not its turn is over.
+    private func holder(of block: UserBlock) -> CodeSession? {
+        guard guided.contains(block.id) else { return nil }
+        return waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
+    }
+
+    /// The gate this session is working through, and so the page that belongs beside it.
+    ///
+    /// Not `guide(of:)`: whose move it is and which session the gate is in are different
+    /// questions, and the pane needs the second. The user is on that page exactly while the
+    /// agent waits for them — which is the moment `guide(of:)` hands the gate back, and the
+    /// moment the page is most needed. Asking the first closed the pane on every step.
+    package func gate(of session: CodeSession) -> UserBlock? {
+        blocks.waitingOnUser.first { holder(of: $0)?.id == session.id }
     }
 
     /// Whether every task these ids name is finished in the notebook. A session whose chain is
