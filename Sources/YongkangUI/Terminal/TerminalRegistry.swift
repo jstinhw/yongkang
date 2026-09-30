@@ -57,6 +57,7 @@ import YongkangCore
         // Non-zero frame matters: a 0x0 terminal starts the PTY at 0 columns and the TUI dies.
         // The first pane that shows it resizes it.
         let view = AttentionTerminalView(frame: CGRect(x: 0, y: 0, width: 900, height: 560))
+        if let font = TerminalFont.preferred { view.font = font }
         let entry = Entry(view: view, label: session.title, agent: session.agent, folder: folder)
         let id = session.id
         entry.onExit = { [weak self] code in self?.onExit(id, code) }
