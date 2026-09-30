@@ -73,9 +73,17 @@ extension Project {
     }
 
     /// The session a gate was handed to, whose it stays whether or not its turn is over.
-    private func holder(of block: UserBlock) -> CodeSession? {
+    ///
+    /// A session opened for the gate alone carries its name, which is how it is still the
+    /// holder after a relaunch: `guided` is this run's memory and starts empty, while the
+    /// session comes back (`OpenSessions`). Asking `guided` first was what opened a second
+    /// agent of the same name on every launch.
+    package func holder(of block: UserBlock) -> CodeSession? {
+        if let opened = sessions.first(where: { !$0.exited && $0.title.hasPrefix(block.guideTitle) }) {
+            return opened
+        }
         guard guided.contains(block.id) else { return nil }
-        return waitingSession(for: block) ?? sessions.first { !$0.exited && $0.title.hasPrefix(block.guideTitle) }
+        return waitingSession(for: block)
     }
 
     /// The gate this session is working through, and so the page that belongs beside it.

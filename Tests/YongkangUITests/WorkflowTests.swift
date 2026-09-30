@@ -112,6 +112,22 @@ import Testing
         #expect(project.value.blocksForUser.isEmpty)
     }
 
+    @Test func aGuideThatCameBackWithTheAppKeepsItsGate() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Ship it"], in: tmp)
+        let gate = try await gate("needs-a-key", in: project)
+        // What a relaunch leaves: the guide's session started again under its own name, and
+        // nothing in `guidedBlocks`, because this run has handed nothing over yet.
+        let restored = running(gate.guideTitle, in: project)
+
+        #expect(handOver(in: project) == nil, "the gate has its agent already, launch after launch")
+        #expect(project.sessions.count == 1, "and not a second row of the same name beside it")
+        #expect(
+            project.startUnblock(gate, agent: .claude) == Destination(section: .agents, route: .session(restored)),
+            "opening the gate goes to it rather than starting another")
+    }
+
     @Test func onlyOneGateIsHandedOverAtATime() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

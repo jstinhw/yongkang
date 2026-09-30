@@ -9,7 +9,7 @@ extension ProjectModel {
         guard !block.isProposal else {
             return openProposal(block, approve: block.proposalReady, agent: agent)
         }
-        if let running = value.guide(of: block) {
+        if let running = value.holder(of: block) {
             return Destination(section: .agents, route: .session(running.id))
         }
         if let route = takeGate(block, agent: agent) {
@@ -41,7 +41,10 @@ extension ProjectModel {
         // `blocks` alone, before building a whole `Project` value to ask the rest.
         guard let next = open.first(where: { $0.isGate && !guidedBlocks.contains($0.id) }) else { return nil }
         let project = value
-        guard !open.contains(where: { project.guide(of: $0) != nil }) else { return nil }
+        // Whether a gate has an agent, not whose move it is: a guide restored from the last run
+        // is idle at its prompt, which `guide(of:)` reads as the user's turn — and starting a
+        // second agent of the same name is what the user saw on every launch.
+        guard !open.contains(where: { project.holder(of: $0) != nil }) else { return nil }
         return (next, project.waitingSession(for: next))
     }
 
