@@ -33,11 +33,12 @@ for.
 
 ### Open a folder
 
-1. With no project open, the empty screen offers **Open a Folder…**; click it and choose the
-   empty folder. The **+** beside **Projects** in the sidebar and **File → Open Folder… (⌘O)**
-   are the same door, and the menu item is the one that carries the shortcut — try them too.
+1. With no project open, the empty screen offers **New Project…** and **Open Project…**; click
+   **Open Project…** and choose the empty folder. The **+** beside **Projects** in the sidebar
+   and **File → Open Project… (⌘O)** are the same door, and the menu item is the one that
+   carries the shortcut — try them too.
    - The panel's message reads "Agents run in this folder and its notebook lives in
-     .notebook/."
+     .notebook/.", and its button **Open Project**.
    - The project appears in the sidebar, picked. The rail shows Board and Agents. The
      **window's title** reads **Board** with **yk-smoke** under it, and the work area asks
      **What is yk-smoke for?**
@@ -218,7 +219,7 @@ for.
     - **Agent → New Agent…**, `⌘N`, opens the New Agent sheet from any screen. Pick a ready task,
       tick another open project under **Can also read**, and start it: `ps -ef | grep add-dir`
       shows the second on its command line. With Grok picked, the folder list is off.
-    - **File → New Project…** is `⇧⌘N`, and **Open Folder…** `⌘O`.
+    - **File → New Project…** is `⇧⌘N`, and **Open Project…** `⌘O`.
     - There is no **New Window**: the model and its terminals are app-wide, so a second
       window would take the first one's terminals.
     - **Yongkang → Check for Updates…** is disabled in a `make run` build: only a Release build

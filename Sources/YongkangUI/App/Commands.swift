@@ -64,7 +64,7 @@ struct YongkangCommands: Commands {
         // New Agent's: putting an agent on work is what this window is for.
         Button("New Project…") { model.creatingProject = true }
             .keyboardShortcut("n", modifiers: [.command, .shift])
-        Button("Open Folder…") { model.pickingFolder = true }
+        Button("Open Project…") { model.pickingFolder = true }
             .keyboardShortcut("o")
         Divider()
         Button("Close Project") {

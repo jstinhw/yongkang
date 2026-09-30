@@ -39,6 +39,7 @@ struct RootView: View {
         // The two doors into a project hang on the window, not on the Fleet page that used to
         // own them, so the File menu can open either from inside a project as well.
         .fileImporter(isPresented: $model.pickingFolder, allowedContentTypes: [.folder], onCompletion: openProject)
+        .fileDialogConfirmationLabel("Open Project")
         .fileDialogMessage("Agents run in this folder and its notebook lives in \(NotebookFormat.folderName)/.")
         .sheet(isPresented: $model.creatingProject) {
             NewProjectForm(
@@ -303,12 +304,16 @@ package struct NothingPicked: View {
 
     package var body: some View {
         VStack(spacing: 14) {
-            Text(hasProjects ? "Pick a project or an agent on the left." : "Add a project to start.")
-                .font(Typography.body).foregroundStyle(Theme.tx3)
+            Text(
+                hasProjects
+                    ? "Pick a project or an agent on the left."
+                    : "Start a new project, or open a folder you already have."
+            )
+            .font(Typography.body).foregroundStyle(Theme.tx3)
             if !hasProjects {
                 HStack(spacing: 10) {
-                    Button("Describe a New Project…", action: create).buttonStyle(.consolePrimary)
-                    Button("Open a Folder…", action: add).buttonStyle(.console)
+                    Button("New Project…", action: create).buttonStyle(.consolePrimary)
+                    Button("Open Project…", action: add).buttonStyle(.console)
                 }
             }
         }

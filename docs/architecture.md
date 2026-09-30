@@ -205,7 +205,7 @@ Full Keyboard Access and VoiceOver read an app through.
 |---|---|---|
 | **Yongkang** | Check for Updates… / Restart to Update to X | a Release build with an update key |
 | | Sign In with GitHub… / Sign Out · Share Usage Analytics | a Supabase project is set · always |
-| **File** | New Project ⇧⌘N · Open Folder ⌘O | always |
+| **File** | New Project ⇧⌘N · Open Project ⌘O | always |
 | | Close Project · Reveal in Finder | a project is picked |
 | **View** | Board ⌘1 · Agents ⌘2 · Hide List ⌘\ | always |
 | | Show Completed | a project is picked |

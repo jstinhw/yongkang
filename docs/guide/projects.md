@@ -25,7 +25,7 @@ their agents have spent, split by project, model and agent. Right-click a projec
 folder or close it; the folder stays on disk. Agents keep running whichever project is on screen:
 terminals are hidden, never torn down.
 
-The `+` beside **Projects** is the two doors — `New Project…` and `Existing Project…` — and the
+The `+` beside **Projects** is the two doors — `New Project…` and `Open Project…` — and the
 `File` menu opens either from anywhere.
 `New Project…` (⇧⌘N) opens a prompt: say what to build and tag anything it should read with
 `@`. Where the folder goes is worked out from the prompt — `~/code/todo` in it is enough.
@@ -38,8 +38,9 @@ project's session. It lists the CLIs found on your login shell's PATH first; the
 path is shown before you press Return. If the agent cannot answer — not signed in, no network —
 the box says why and nothing is created; naming a path in the prompt skips the question. The
 folder is created and the prompt goes straight to the session that writes its notebook.
-`Open Folder…` (⌘O) is the other door, for a folder that already exists; an empty one asks what
-it is for on the way in. With no project open at all, the empty screen offers both.
+`Open Project…` (⌘O) is the other door, for a folder that already exists; an empty one asks what
+it is for on the way in. With no project open at all, the empty screen offers both, under the
+same names.
 
 Open projects come back on the next launch. Only the folders are remembered, not the
 sessions — those PTYs died with the app. A folder renamed, moved or deleted since stays in the

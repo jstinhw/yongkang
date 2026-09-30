@@ -36,7 +36,7 @@ extension RootView {
 
     // MARK: - Projects
 
-    /// The folder picked in the Open Folder panel.
+    /// The folder picked in the Open Project panel.
     func openProject(_ picked: Result<URL, any Error>) {
         let directory: URL
         do {
