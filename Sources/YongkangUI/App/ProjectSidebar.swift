@@ -17,10 +17,13 @@ package struct SidebarProject: Identifiable {
     let reviews: [UUID: [SummaryTask]]
     /// The sessions that have drawn a page (`NotebookFormat.page(of:in:)`), listed under their row.
     let pages: Set<UUID>
+    /// Its folder was renamed, moved or deleted since it was opened. See `ProjectModel.missing`.
+    let missing: Bool
 
     /// `asking` is each session's terminal question, which only the window can see.
-    package init(project: Project, summary: ChangeSummary, asking: [UUID: String] = [:]) {
+    package init(project: Project, summary: ChangeSummary, asking: [UUID: String] = [:], missing: Bool = false) {
         self.project = project
+        self.missing = missing
         rows = project.agentRows(summary: summary, asking: asking)
         tasks = project.taskRows(summary: summary)
         memory = project.cards.filter { $0.kind == .memory }.count
@@ -187,9 +190,22 @@ package struct ProjectSidebar: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel(
                     folded ? "Show \(item.project.name)’s agents" : "Hide \(item.project.name)’s agents")
-                Text(item.project.name).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.project.name).font(Typography.body(.semibold))
+                        .foregroundStyle(item.missing ? Theme.tx3 : Theme.tx)
+                        .lineLimit(1)
+                    if item.missing {
+                        Text("Can’t find this project").font(Typography.caption).foregroundStyle(Theme.amber)
+                            .lineLimit(1)
+                    }
+                }
                 Spacer(minLength: 4)
+                if item.missing {
+                    Button("Remove") { close(item.id) }
+                        .buttonStyle(.borderless)
+                        .font(Typography.caption)
+                        .help("Remove \(item.project.name) from Yongkang. Nothing on disk is touched.")
+                }
                 if item.needsYou > 0 { count(item.needsYou, Theme.amber, dot: true) }
                 if item.toReview > 0 { count(item.toReview, Theme.green, dot: false) }
             }
@@ -208,7 +224,8 @@ package struct ProjectSidebar: View {
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([item.project.directory])
             }
-            Button("Close Project") { close(item.id) }
+            .disabled(item.missing)
+            Button(item.missing ? "Remove Project" : "Close Project") { close(item.id) }
         }
     }
 
@@ -230,6 +247,7 @@ package struct ProjectSidebar: View {
 
     private func summary(of item: SidebarProject) -> String {
         var parts = [item.project.name]
+        if item.missing { parts.append("project not found") }
         if item.needsYou > 0 { parts.append("\(item.needsYou) need you") }
         if item.toReview > 0 { parts.append("\(item.toReview) to review") }
         return parts.joined(separator: ", ")

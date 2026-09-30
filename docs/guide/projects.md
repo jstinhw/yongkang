@@ -41,8 +41,9 @@ folder is created and the prompt goes straight to the session that writes its no
 it is for on the way in. With no project open at all, the empty screen offers both.
 
 Open projects come back on the next launch. Only the folders are remembered, not the
-sessions — those PTYs died with the app — and a folder that has since moved is dropped
-from the list rather than shown broken.
+sessions — those PTYs died with the app. A folder renamed, moved or deleted since stays in the
+list, greyed and marked **Can't find this folder**, with a **Remove** button beside it: you see
+where a project went rather than it vanishing on you. Nothing on disk is touched.
 
 The rail holds two sections: `Board`, the work the notebook describes, and `Agents`, the
 sessions on it. All of it is read from the notebook, the transcripts and

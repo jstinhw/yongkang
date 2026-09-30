@@ -11,6 +11,12 @@ import YongkangCore
 @MainActor @Observable final class ProjectModel: Identifiable {
     let id = UUID()
     let directory: URL
+    /// The folder's inode when it was opened. A rename in Terminal leaves nothing at the path,
+    /// or — when a dev server still running there writes its cache back — a new folder with
+    /// only `node_modules` in it. Either way the inode no longer matches.
+    private let inode: Int?
+    /// The folder is gone or is no longer the one opened: the sidebar says so and offers removal.
+    private(set) var missing = false
     private(set) var snapshot: NotebookSnapshot
     /// What the agents changed on disk, read from git. Only refreshed while you are inside
     /// the project — a repo-wide diff of every open project would be rude.
@@ -71,6 +77,7 @@ import YongkangCore
         terminals: TerminalRegistry? = nil
     ) {
         self.directory = directory
+        self.inode = ProjectModel.inode(of: directory)
         self.snapshot =
             snapshot ?? NotebookSnapshot(entries: NotebookLoader.load(root: NotebookFormat.root(in: directory)))
         self.sessions = sessions
@@ -80,6 +87,18 @@ import YongkangCore
         // changes what `git status` says, so those writes never reach the watcher at all.
         self.watcher = FSEventWatcher(excluding: [directory.appendingPathComponent(".git/objects")])
         resummarize()
+    }
+
+    // MARK: - The folder
+
+    /// Looks again for the folder this project was opened on. See `inode`.
+    func checkFolder() {
+        let gone = inode == nil || ProjectModel.inode(of: directory) != inode
+        if gone != missing { missing = gone }
+    }
+
+    private static func inode(of directory: URL) -> Int? {
+        (try? FileManager.default.attributesOfItem(atPath: directory.path))?[.systemFileNumber] as? Int
     }
 
     // MARK: - Watching

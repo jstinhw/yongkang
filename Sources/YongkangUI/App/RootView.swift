@@ -195,7 +195,8 @@ struct RootView: View {
     /// Every open project with its agents, as the sidebar lists them.
     private var sidebarProjects: [SidebarProject] {
         model.projects.map { project in
-            SidebarProject(project: project.value, summary: project.summary, asking: model.attention)
+            SidebarProject(
+                project: project.value, summary: project.summary, asking: model.attention, missing: project.missing)
         }
     }
 

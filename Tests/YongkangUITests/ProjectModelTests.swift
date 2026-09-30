@@ -219,7 +219,27 @@ import Testing
         let relaunched = AppModel()
         relaunched.restore(try #require(defaults.string(forKey: "openProjects")))
         #expect(
-            relaunched.projects.map(\.directory.path) == [folders[0].path, folders[2].path],
-            "the same folders in the same order, less one that was moved away")
+            relaunched.projects.map(\.directory.path) == folders.map(\.path),
+            "the same folders in the same order, the one moved away included")
+        #expect(relaunched.projects.map(\.missing) == [false, true, false], "and only that one marked missing")
+    }
+
+    // Renamed in Terminal while open, and a dev server writes its cache back to the old path.
+    @Test func aRenamedFolderIsMissingEvenWhenItsPathComesBack() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let folder = try notebook("site", in: tmp)
+        let project = AppModel().open(folder)
+        project.checkFolder()
+        #expect(!project.missing)
+
+        try FileManager.default.moveItem(at: folder, to: tmp.appendingPathComponent("renamed"))
+        project.checkFolder()
+        #expect(project.missing, "gone from its path")
+
+        try FileManager.default.createDirectory(
+            at: folder.appendingPathComponent("node_modules/.vite"), withIntermediateDirectories: true)
+        project.checkFolder()
+        #expect(project.missing, "and a new folder at that path is not the project")
     }
 }

@@ -151,11 +151,13 @@ import YongkangCore
     /// The open folders, in order, as `@AppStorage("openProjects")` keeps them.
     var storedProjects: String { OpenProjects.encode(projects.map(\.directory.path)) }
 
-    /// Reopens last session's folders, dropping any that have since been moved away.
+    /// Reopens last session's folders. One moved away while the app was closed stays in the
+    /// list, marked missing, so the user sees where it went rather than it silently vanishing.
+    /// ponytail: a folder recreated at the old path before the relaunch passes as the project;
+    /// store each folder's inode beside its path if that turns up.
     func restore(_ stored: String) {
-        projects = OpenProjects.decode(stored)
-            .filter { FileManager.default.fileExists(atPath: $0) }
-            .map { model(of: URL(fileURLWithPath: $0)) }
+        projects = OpenProjects.decode(stored).map { model(of: URL(fileURLWithPath: $0)) }
+        for project in projects { project.checkFolder() }
     }
 
     private func model(of directory: URL) -> ProjectModel {
@@ -432,6 +434,7 @@ import YongkangCore
     /// long list of open projects makes this slow.
     func reloadNow() async {
         for project in projects {
+            project.checkFolder()
             await project.reloadNotebook(frontmatter: true, records: true)
             if project === entered { showFinishedWork(in: project) }
             deliverUnblocks(in: project)
