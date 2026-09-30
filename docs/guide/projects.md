@@ -25,7 +25,8 @@ their agents have spent, split by project, model and agent. Right-click a projec
 folder or close it; the folder stays on disk. Agents keep running whichever project is on screen:
 terminals are hidden, never torn down.
 
-The `+` beside **Projects** is the two doors, and the `File` menu opens either from anywhere.
+The `+` beside **Projects** is the two doors — `New Project…` and `Existing Project…` — and the
+`File` menu opens either from anywhere.
 `New Project…` (⇧⌘N) opens a prompt: say what to build and tag anything it should read with
 `@`. Where the folder goes is worked out from the prompt — `~/code/todo` in it is enough.
 Otherwise it lands beside the projects you already have (`~/Projects` on a first run), and when

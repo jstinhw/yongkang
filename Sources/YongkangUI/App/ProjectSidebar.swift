@@ -125,8 +125,10 @@ package struct ProjectSidebar: View {
             SectionLabel("Projects")
             Spacer(minLength: 0)
             Menu {
+                // Both doors name a project: under a + beside Projects, "Open Folder…" reads as
+                // if it opened a folder inside one. Nothing is copied, so it is Open, not Import.
                 Button("New Project…", action: create)
-                Button("Open Folder…", action: add)
+                Button("Existing Project…", action: add)
             } label: {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.tx2)
