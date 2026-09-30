@@ -77,15 +77,16 @@ package struct NotebookBoard: View {
 
     package var body: some View {
         GeometryReader { geometry in
-            // Below this the window cannot carry a fourth column: the inspector folds into
-            // the board rather than squeezing the chains into a strip.
+            // Below this the window cannot carry a fourth column, so the inspector goes rather
+            // than squeezing the chains into a strip: what waits on you is on its cards and in
+            // the sidebar anyway.
             let narrow = geometry.size.width < 950
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     if chains.isEmpty {
                         empty
                     } else {
-                        board(narrow: narrow)
+                        board
                     }
                     if !narrow, hasInspector {
                         BoardInspector(waiting: waiting, batch: batch, openBlock: openBlock)
@@ -97,19 +98,12 @@ package struct NotebookBoard: View {
         .background(Theme.bg)
     }
 
-    private func board(narrow: Bool) -> some View {
+    private var board: some View {
         // Worked out once per pass rather than per card: `batch` walks the whole graph,
         // and every row asks whether it is in it.
         let inBatch = Set(batch.map(\.id))
         return ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 18) {
-                if narrow, hasInspector {
-                    DisclosureGroup("What is waiting on you") {
-                        BoardInspector(
-                            waiting: waiting, batch: batch, openBlock: openBlock, inline: true)
-                    }
-                    .font(Typography.body).tint(Theme.tx2).cardSurface()
-                }
                 ForEach(roadmaps) { roadmap in RoadmapBand(roadmap: roadmap, cards: cards) { openCard(roadmap) } }
                 SectionLabel("Milestones", trailing: "\(chains.count)")
                 // Columns are bounded by how many milestones there are, not by the longest

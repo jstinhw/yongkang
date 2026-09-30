@@ -12,19 +12,11 @@ struct BoardInspector: View {
     /// The picks plus the unfinished work they pull in, in build order.
     let batch: [NotebookCard]
     let openBlock: (UserBlock) -> Void
-    /// Folded into the board itself when the window is too narrow to carry a fourth
-    /// column.
-    var inline = false
 
     private var designCount: Int { batch.filter(\.isDesignWork).count }
 
     var body: some View {
-        if inline {
-            VStack(alignment: .leading, spacing: 14) { content }
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            Inspector { content }
-        }
+        Inspector { content }
     }
 
     @ViewBuilder private var content: some View {
@@ -36,7 +28,7 @@ struct BoardInspector: View {
         }
 
         if !batch.isEmpty { design }
-        if !inline { Spacer(minLength: 0) }
+        Spacer(minLength: 0)
     }
 
     /// One thing on the user's desk. A demo, a gate and a proposal are the same card — what
