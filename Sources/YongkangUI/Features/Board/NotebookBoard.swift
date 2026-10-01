@@ -42,6 +42,12 @@ package struct NotebookBoard: View {
     let openReview: (NotebookCard) -> Void
     /// Sends a task to the Trash. Off for one a session already has.
     let remove: (NotebookCard) -> Void
+    /// What Product filed for the last request, marked "new" until the user dismisses it.
+    var fresh: Set<String> = []
+    /// Opens the request box. No button without it.
+    var request: (() -> Void)?
+    /// The request box, drawn in the assign bar's place while it is open.
+    var dock: AnyView?
 
     @State private var selected: Set<String> = []
 
@@ -58,7 +64,10 @@ package struct NotebookBoard: View {
         openCard: @escaping (NotebookCard) -> Void,
         openBlock: @escaping (UserBlock) -> Void,
         openReview: @escaping (NotebookCard) -> Void,
-        remove: @escaping (NotebookCard) -> Void
+        remove: @escaping (NotebookCard) -> Void,
+        fresh: Set<String> = [],
+        request: (() -> Void)? = nil,
+        dock: AnyView? = nil
     ) {
         self.cards = cards
         self.blocks = blocks
@@ -73,6 +82,9 @@ package struct NotebookBoard: View {
         self.openBlock = openBlock
         self.openReview = openReview
         self.remove = remove
+        self.fresh = fresh
+        self.request = request
+        self.dock = dock
     }
 
     package var body: some View {
@@ -92,7 +104,7 @@ package struct NotebookBoard: View {
                         BoardInspector(waiting: waiting, batch: batch, openBlock: openBlock)
                     }
                 }
-                assignBar
+                if let dock { dock } else { assignBar }
             }
         }
         .background(Theme.bg)
@@ -278,6 +290,7 @@ package struct NotebookBoard: View {
                         Text(chain.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                             .lineLimit(1).truncationMode(.tail)
                     }
+                    if fresh.contains(chain.id) { NotebookStyle.pill("new", Theme.accent) }
                     Spacer(minLength: 4)
                     Text("\(chain.done)/\(chain.total)")
                         .font(Typography.mono).foregroundStyle(Theme.tx3)
@@ -393,6 +406,7 @@ package struct NotebookBoard: View {
                     .frame(width: 15, height: 15)
                 Text(card.title).font(Typography.body).foregroundStyle(Theme.tx2).lineLimit(1)
                 Spacer(minLength: 4)
+                if fresh.contains(card.id) { NotebookStyle.pill("new", Theme.accent) }
                 if card.isDesignWork { RoleTile(role: "design", size: 20) }
             }
             if let waits = alsoWaits(row) { waits.font(Typography.mono).padding(.leading, 24) }
@@ -442,6 +456,7 @@ package struct NotebookBoard: View {
                 .accessibilityLabel("Open \(card.title)")
             }
             HStack(spacing: 6) {
+                if fresh.contains(card.id) { NotebookStyle.pill("new", Theme.accent) }
                 NotebookStyle.pill(row.lane.label, row.lane.tint)
                 if assigned.contains(card.id) { NotebookStyle.pill("wip") }
                 if !card.designer.isEmpty { NotebookStyle.chip(card.designer) }
@@ -562,6 +577,15 @@ package struct NotebookBoard: View {
                     Label("Product review", systemImage: "sparkles")
                 }
                 .buttonStyle(.consoleGhost)
+                if let request {
+                    Button {
+                        request()
+                    } label: {
+                        Label("New request", systemImage: "text.bubble")
+                    }
+                    .buttonStyle(.consoleGhost)
+                    .help("Ask Product for something in your own words (⌥⌘N)")
+                }
                 Spacer(minLength: 12)
                 Text("or pick tasks on the board").font(Typography.caption).foregroundStyle(Theme.tx3)
             } else {

@@ -2,11 +2,20 @@
 
 ![A Product session's transcript](../images/session.png)
 
-`Agent → Describe New Feature…` starts a Product conversation. Describe
-what the user should be able to do; the agent does not research or invent features in this
-mode. It asks only the decisions that change the scope, then drafts one project and its
-tasks as a ready proposal under Blocks. `Request changes` takes you back to the transcript to
-adjust the draft; `Create project` writes it. Nothing reaches the board before that.
+`New request` at the bottom of the board — or `Agent ▸ New Request…` (⌥⌘N) from any
+screen — opens a box where the bar was. Say what you want in your own words and `@`-tag
+what it is about: `@app/page.tsx` is a file in this project, `@/notebook-sync` another
+project in the same sidebar group, and `@../personal/blog` one in another group (`@../name`
+for a project in no group). A project's tag is a folder, so Tab walks into its files:
+`@/notebook-sync/Sources/Sync.swift`. Product reads what you tagged, but files the work in
+this project's notebook only.
+
+Product files the request straight onto the board: tasks under an existing milestone when
+the request serves it, otherwise a new milestone, with what waits on what decided for you.
+There is no proposal to approve; the board stays on screen, and what Product filed is marked
+`new` under a line saying what landed. `Ask for changes` opens the box again and sends what
+you type to the same Product session; `Open session` shows its transcript. Nothing is
+assigned or run until you pick it.
 
 `Product review` at the bottom left of the board — or `Agent ▸ Product Review`, which works from any screen —
 starts a session that reads the whole notebook — roadmap,

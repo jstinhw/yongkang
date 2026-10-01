@@ -204,6 +204,25 @@ extension RootView {
     }
 
     private func boardView(for project: ProjectModel) -> some View {
+        VStack(spacing: 0) {
+            if let request = project.request {
+                RequestBanner(
+                    filed: project.filed,
+                    openSession: { model.go(to: Destination(section: .agents, route: .session(request.session))) },
+                    askForChanges: { project.requestOpen = true },
+                    dismiss: { project.request = nil })
+            }
+            board(for: project)
+        }
+        // The board is where work is handed over, so it asks for the toolbar's agent to be let
+        // into the folder the moment its record says no, rather than leaving "Run 0 ready" to
+        // explain itself.
+        .task(id: project.untrusted.contains(agent) ? project.id : nil) {
+            model.askToTrust(agent, in: project)
+        }
+    }
+
+    private func board(for project: ProjectModel) -> some View {
         NotebookBoard(
             cards: project.cards,
             blocks: project.snapshot.blocks,
@@ -228,14 +247,25 @@ extension RootView {
                 model.section = .agents
                 model.selection = .reviewTask(card.id)
             },
-            remove: { card in model.remove(card, in: project) }
+            remove: { card in model.remove(card, in: project) },
+            fresh: Set(project.filed.map(\.id)),
+            request: { project.requestOpen = true },
+            dock: project.requestOpen ? AnyView(requestDock(for: project)) : nil
         )
-        // The board is where work is handed over, so it asks for the toolbar's agent to be let
-        // into the folder the moment its record says no, rather than leaving "Run 0 ready" to
-        // explain itself.
-        .task(id: project.untrusted.contains(agent) ? project.id : nil) {
-            model.askToTrust(agent, in: project)
-        }
+    }
+
+    private func requestDock(for project: ProjectModel) -> some View {
+        RequestDock(
+            root: project.directory, projects: model.taggable(from: project),
+            followUp: project.requestFollowsUp,
+            text: Binding {
+                project.requestDraft
+            } set: {
+                project.requestDraft = $0
+            },
+            agents: agentChoice,
+            send: { agent in model.request(project.requestDraft, in: project, agent: agent) },
+            close: { project.requestOpen = false })
     }
 
     /// One task's review, opened from the task's row under its session.

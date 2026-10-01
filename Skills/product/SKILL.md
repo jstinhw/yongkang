@@ -1,6 +1,6 @@
 ---
 name: product
-description: Review the whole Yongkang product with the user and turn the agreed next move into roadmap-aware project and task files, or plan a feature the user already described.
+description: Review the whole Yongkang product with the user and turn the agreed next move into roadmap-aware project and task files, or file a feature the user described straight onto the board.
 allowed-tools:
   - Read
   - Write
@@ -28,22 +28,28 @@ Do not switch modes because another mode sounds relevant to something the user s
 
 ## Describing
 
-1. Your first response only asks the user to describe the feature in their own words:
-   what someone should be able to do and why. Wait for the answer. Do not inspect the
-   board, code, or web first.
-2. Treat that description as the source of truth. Read `.notebook/NOTEBOOK.md`, then the
-   roadmap, projects, tasks, and relevant project memory only to fit the requested work
-   into what already exists. Do not independently invent other features in this mode.
-3. Clarify only gaps that materially change scope or task order. Ask one question at a
-   time, with two to four concrete options; put your recommendation first.
-4. Once clear, state the scope in one line and draft it: write `.notebook/blocks/<slug>.md`
-   as a **Complete proposal**, with the **Discussion notification** frontmatter, its own
-   title and action, and `stage: ready`. The described feature is already the decision, so
-   there is no discussion stage; the draft is how the user checks you heard them right, and
-   knows what they will own once it is built. Tell them it is under Blocks and wait.
-5. Feedback comes back in this transcript. Change the same file, say what moved, and leave
-   it `status: open`. Write no roadmap, project, task or memory file until the user
-   approves it — `Create project`, or saying so — then follow **Creating the Approved Plan**.
+The user wrote this on the board and is watching the board, not this transcript. What they
+wrote follows the first line of the arguments; an `@` path in it is a file, or another
+project's folder, they pointed you at.
+
+1. If nothing follows the first line, ask the user to describe the feature in their own
+   words — what someone should be able to do and why — and wait for the answer.
+2. Treat the description as the source of truth. Read `.notebook/NOTEBOOK.md`, then the
+   roadmap, projects, tasks and relevant project memory, and every path the user tagged,
+   only to fit the request into what already exists. Do not invent other features.
+3. Work lands in this notebook only. A tagged project outside this folder is there to be
+   read — its code, its notebook — never written to.
+4. Do not stop to ask. Where a gap would change scope or task order, take the reading that
+   fits the request best and record it as a memory file of its own. Ask only when no
+   reading makes sense: one question, two to four options, your recommendation first.
+5. Place it. Tasks go under an existing project when the request serves that project's
+   outcome; otherwise write a new project, with `depends_on` naming the projects it builds
+   on. Cut the tasks by **Shaping tasks** and **Design work**.
+6. Write it straight to the board, following steps 3 to 5 of **Creating the Approved Plan**.
+   The request is the approval: no proposal and no Blocks file.
+7. Say in two or three lines what landed — the project, its tasks, what waits on what — and
+   name the first task that can start. Do not assign it.
+8. Changes come back in this transcript. Edit the same files and say what moved.
 
 ## Reviewing the Product
 

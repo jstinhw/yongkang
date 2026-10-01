@@ -3,7 +3,7 @@ import SwiftUI
 
 /// `@`-tagging for the prompt boxes. Type `@` and the folder is offered, so a prompt can
 /// point an agent at files and folders it has not been told about yet.
-enum Mention {
+package enum Mention {
     /// The `@token` being typed, or nil when the caret is not in one.
     ///
     /// ponytail: the trailing token only — SwiftUI's TextField does not expose its caret,
@@ -122,9 +122,9 @@ enum Mention {
     /// further, and stalling there is a dead Tab on the folder you were heading for.
     ///
     /// True whenever a tag is open, so Tab stays inside the box rather than moving focus.
-    static func extend(_ text: inout String, root: URL) -> Bool {
+    static func extend(_ text: inout String, root: URL, projects: [Project] = []) -> Bool {
         guard let query = query(in: text) else { return false }
-        let all = matches(query, root: root)
+        let all = matches(query, root: root, projects: projects)
         guard let first = all.first else { return false }
         let shared = all.dropFirst().reduce(first) {
             $0.commonPrefix(with: $1, options: .caseInsensitive)
@@ -141,8 +141,8 @@ enum Mention {
     /// Return in a prompt box takes the first tag on offer before it sends anything —
     /// sending `@REA` would hand the agent a path that does not exist. True when it took
     /// the key, so the caller knows not to submit.
-    static func accept(_ text: inout String, root: URL) -> Bool {
-        guard let query = query(in: text), let top = matches(query, root: root).first
+    static func accept(_ text: inout String, root: URL, projects: [Project] = []) -> Bool {
+        guard let query = query(in: text), let top = matches(query, root: root, projects: projects).first
         else { return false }
         text = complete(text, with: inserted(top))
         return true
@@ -158,6 +158,10 @@ struct PromptField: View {
     let placeholder: String
     /// Where `@` starts browsing.
     let root: URL
+    /// The other open projects `@/` and `@../` name. None leaves `@/` meaning `root`.
+    var projects: [Mention.Project] = []
+    /// The tags listed over the box rather than under it, for a box along the bottom of a screen.
+    var tagsAbove = false
     @Binding var text: String
     let submit: () -> Void
 
@@ -177,6 +181,7 @@ struct PromptField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if tagsAbove, !suggestions.isEmpty { tags }
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(4...14)
@@ -186,7 +191,7 @@ struct PromptField: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line2, lineWidth: 1))
                 .focused($focused)
                 .onSubmit(submit)
-            if !suggestions.isEmpty { tags }
+            if !tagsAbove, !suggestions.isEmpty { tags }
         }
         .task { focused = true }
         .task(id: Mention.query(in: text)) { await offerTags() }
@@ -202,7 +207,8 @@ struct PromptField: View {
             suggestions = []
             return
         }
-        let found = await Task.detached { [root] in Mention.matches(query, root: root) }.value
+        let found = await Task.detached { [root, projects] in Mention.matches(query, root: root, projects: projects) }
+            .value
         guard !Task.isCancelled else { return }
         suggestions = found
     }
@@ -229,7 +235,7 @@ struct PromptField: View {
                 take(shown[highlighted])
             case 48:
                 var draft = text
-                guard Mention.extend(&draft, root: root) else { return event }
+                guard Mention.extend(&draft, root: root, projects: projects) else { return event }
                 // Nothing left to fill in — `sources/` and `website/` agree on nothing —
                 // so Tab takes the highlighted one rather than sitting there dead.
                 if draft == text { take(shown[highlighted]) } else { text = draft }
@@ -252,6 +258,13 @@ struct PromptField: View {
         return (trimmed as NSString).lastPathComponent + (match.hasSuffix("/") ? "/" : "")
     }
 
+    /// A project and a group draw as what they are, not as the folders their tags look like.
+    private func icon(of match: String) -> String {
+        if projects.contains(where: { $0.tag == match }) { return "macwindow" }
+        if Mention.isGroup(match, among: projects) { return "square.on.square" }
+        return match.hasSuffix("/") ? "folder" : "doc"
+    }
+
     private func releaseTab() {
         if let tabWatch { NSEvent.removeMonitor(tabWatch) }
         tabWatch = nil
@@ -265,7 +278,7 @@ struct PromptField: View {
                     focused = true
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: match.hasSuffix("/") ? "folder" : "doc")
+                        Image(systemName: icon(of: match))
                             .font(.system(size: 10))
                             .foregroundStyle(Theme.tx3)
                         // The name, not the path: the path is already in the box above,
@@ -273,6 +286,9 @@ struct PromptField: View {
                         Text(name(of: match)).font(Typography.mono)
                             .foregroundStyle(index == highlighted ? Theme.tx : Theme.tx2)
                         Spacer(minLength: 8)
+                        if icon(of: match) != "folder", icon(of: match) != "doc" {
+                            Text("@" + match).font(Typography.mono).foregroundStyle(Theme.tx3)
+                        }
                         if index == highlighted {
                             Text("↩").font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                         }

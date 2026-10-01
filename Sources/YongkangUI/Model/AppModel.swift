@@ -115,6 +115,20 @@ import YongkangCore
         }
     }
 
+    /// The board's request box, sent. Product gets it and the board stays where it is: a
+    /// session already running is typed into without being opened.
+    func request(_ text: String, in project: ProjectModel, agent: AgentKind) {
+        let sent = project.sendRequest(text, projects: taggable(from: project), agent: agent)
+        if let input = sent.input, case .session(let id, _)? = sent.route { terminals.send(input, to: id) }
+    }
+
+    /// Every other open project, by the tag it has from `project`'s group.
+    func taggable(from project: ProjectModel) -> [Mention.Project] {
+        Mention.projects(
+            from: projects.filter { !$0.missing }.map { ($0.directory, $0.group) },
+            for: project.directory, in: project.group)
+    }
+
     // MARK: - Watching
 
     /// Watches every open project and starts the safety poll behind them. Called once, when the

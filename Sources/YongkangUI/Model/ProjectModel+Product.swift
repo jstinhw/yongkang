@@ -10,8 +10,9 @@ extension ProjectModel {
     }
 
     /// One product voice per project. A second session would propose against a board the
-    /// first one is already rewriting, so a running one is talked to instead.
-    func startProduct(_ arguments: String, agent: AgentKind) -> Destination {
+    /// first one is already rewriting, so a running one is talked to instead. `reading` lets a
+    /// new one into other projects' folders; a running one keeps the folders it started with.
+    func startProduct(_ arguments: String, agent: AgentKind, reading: [URL] = []) -> Destination {
         if let running = sessions.first(where: { $0.isProduct && !$0.exited }) {
             return Destination(
                 section: .agents, route: .session(running.id),
@@ -24,7 +25,7 @@ extension ProjectModel {
             route: addSession(
                 agent, id: id,
                 prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
-                title: "Product"))
+                title: "Product", reading: reading))
     }
 
     /// The session an empty project starts with. It drafts its plan into Blocks under its

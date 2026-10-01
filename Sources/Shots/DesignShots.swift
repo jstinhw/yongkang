@@ -67,6 +67,7 @@ enum DesignShots {
                     assign: { _, _ in }, review: {}, openCard: { _ in },
                     openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
             }, "board-narrow", into: directory, width: 1120)
+        writeRequestShots(project, agents: agents, into: directory)
 
         // The gate itself. Both panes are live pages in the app; offscreen they render as
         // the frames, which is enough to catch the layout going wrong.
@@ -336,7 +337,7 @@ enum DesignShots {
     ///
     /// The list column is framed at the width it opens at, with the divider the window draws
     /// beside it.
-    @MainActor private static func console<Content: View>(
+    @MainActor static func console<Content: View>(
         _ project: Project, section: ConsoleSection,
         summary: ChangeSummary = ChangeSummary(), asking: [UUID: String] = [:],
         hovering: ConsoleSection? = nil, selection: Route? = nil, entered: Bool = true,
@@ -411,7 +412,7 @@ enum DesignShots {
 
     /// Drawn through a real offscreen window rather than `ImageRenderer`: the renderer
     /// silently draws nothing inside a `ScrollView`, which is most of every screen here.
-    @MainActor private static func write<V: View>(
+    @MainActor static func write<V: View>(
         _ view: V, _ name: String, into directory: URL,
         width: CGFloat = 1440
     ) {

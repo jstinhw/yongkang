@@ -213,7 +213,7 @@ Full Keyboard Access and VoiceOver read an app through.
 | | New Session · New Session With ▸ · New Terminal ⌘T | a project is picked |
 | | Assign Task · Assign Task To ▸ | `AppModel.assignableTask` is not nil |
 | | Product Review | a project is picked |
-| | Describe New Feature… · New Team Member… | the project has a notebook |
+| | New Request… ⌥⌘N · New Team Member… | the project has a notebook |
 | **Notebook** | New Roadmap Entry… · New Milestone… · New Task… | a project is picked |
 | | New Memory… | the selection sits in a milestone |
 

@@ -44,6 +44,10 @@ and, on the right, the agent beside `Run N ready`, which gives every task that c
 session of its own. Pick cards and the left side becomes a count of the picks and the blockers
 they pulled in, whose `×` clears them, and the button becomes `Assign N`.
 
+`New request`, beside `Product review`, swaps the bar for a box: say what you want and
+`@`-tag the files and projects it is about, and Product files it onto this board as
+milestones and tasks. What it filed is marked `new`. See [Product review](product.md).
+
 Completed milestones and tasks are hidden from the board and milestone task lists by default.
 The filter button in the toolbar, or `View ▸ Show Completed`, reveals them everywhere at once. A
 milestone counts as finished when its own status says so, or when every task under it is done.

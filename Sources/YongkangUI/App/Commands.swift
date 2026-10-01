@@ -143,10 +143,13 @@ struct YongkangCommands: Commands {
             model.go(to: project.startProductReview(agent: agent))
         }
         .disabled(project == nil)
-        Button("Describe New Feature…") {
+        // On the board, because what it files lands there: the box takes the bar's place.
+        Button("New Request…") {
             guard let project else { return }
-            model.go(to: project.startProduct("describe", agent: agent))
+            model.go(to: Destination(section: .board, route: .board))
+            project.requestOpen = true
         }
+        .keyboardShortcut("n", modifiers: [.command, .option])
         .disabled(project?.hasNotebook != true)
         Divider()
         Button("New Team Member…") { model.addingMember = true }
