@@ -36,8 +36,7 @@ extension RootView {
                 project: project.value,
                 rows: project.value.agentRows(summary: project.summary, asking: model.attention),
                 summary: project.summary, open: { model.selection = $0 },
-                openBoard: { model.go(to: Destination(section: .board, route: .board)) },
-                newAgent: { model.startingAgent = true })
+                openBoard: { model.go(to: Destination(section: .board, route: .board)) })
         } else if case .memory(let id)? = model.selection {
             MemoryPage(
                 project: project.value, selected: id,
@@ -273,7 +272,8 @@ extension RootView {
         let session = setup.session
         return AnyView(
             NotebookSetupCard(
-                phase: setup.phase, waiting: setup.waiting, agent: (session?.agent ?? agent).displayName,
+                phase: setup.phase, waiting: setup.waiting, reviewsPlan: setup.reviewsPlan,
+                agent: (session?.agent ?? agent).displayName,
                 project: project.name, planTitle: setup.plan?.title, cards: project.cards,
                 hasSession: session != nil,
                 openSession: {

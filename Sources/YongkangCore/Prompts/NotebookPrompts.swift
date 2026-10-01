@@ -48,103 +48,115 @@ extension NotebookFormat {
     }
 
     /// Opens the session a project without a notebook starts with, seeded by what the user
-    /// typed or, with no description, by the folder's own contents. It carries the spec
-    /// inline rather than pointing at NOTEBOOK.md, because nothing has been written to the
-    /// notebook yet — the agent writes the first file.
+    /// typed or, with no description, by the folder's own contents (`importPrompt`). It carries
+    /// the spec inline rather than pointing at NOTEBOOK.md, because nothing has been written to
+    /// the notebook yet — the agent writes the first file.
     ///
-    /// The plan is drafted as a ready proposal before any of it is written, so the user
+    /// A described project's plan is drafted as a ready proposal before any of it is written, so the user
     /// knows what they are getting while changing it is still cheap. The session id goes
     /// in the draft so `Create project` on it comes back to this conversation.
     ///
     /// The draft is marked done last because that is what ends the session (see
     /// `ProjectModel.finishedSetups`): once it flips, only the agent's summary is left.
     package static func onboardingPrompt(description: String?, sessionID: UUID) -> String {
-        """
-        \(description.map(describedStart) ?? existingStart)
+        guard let description else { return importPrompt }
+        return """
+            This project has no notebook yet. Help me start one. What I want to build:
 
-        Then write the format below verbatim to `\(folderName)/\(specFile)`, and draft the
-        plan as `\(folderName)/blocks/plan.md` with this frontmatter:
+            \(description)
 
-            ---
-            id: plan
-            kind: proposal
-            title: "Plan for <the product, in two or three words>"
-            status: open
-            stage: ready
-            session: \(sessionID.uuidString.lowercased())
-            action: "Return to the setup session to change the plan."
-            created: YYYY-MM-DD
-            updated: YYYY-MM-DD
-            ---
+            First ask what is missing or ambiguous, one question at a time, each with two to
+            four numbered options and your recommendation first, so I can answer with one
+            character. Write nothing to this folder while we talk, and design nothing: how
+            something looks is settled later, by a design task in the plan.
 
-        The draft, in this order:
+            Then write the format below verbatim to `\(folderName)/\(specFile)`, and draft the
+            plan as `\(folderName)/blocks/plan.md` with this frontmatter:
 
-        - What I will have once every task lands: what someone can do, not how it is built.
-        - The roadmap entries and their projects, each with its outcome, `depends_on` and
-          `repos`.
-        - Every task, grouped by project in build order: its id, the change I could see or
-          check, its `depends_on`, its `designer` if it is design work, and its Done when.
-        - Which tasks can start together.
-        - The calls you made where I was vague, and what is left out.
+                ---
+                id: plan
+                kind: proposal
+                title: "Plan for <the product, in two or three words>"
+                status: open
+                stage: ready
+                session: \(sessionID.uuidString.lowercased())
+                action: "Return to the setup session to change the plan."
+                created: YYYY-MM-DD
+                updated: YYYY-MM-DD
+                ---
 
-        Each task goes to its own agent, which sees only that task's file and the files it
-        depends on. So a task is the smallest change that can be checked on its own;
-        `depends_on` names only what it uses, and its Context says what it takes from each;
-        tasks with no dependency between them never change the same screen, endpoint or
-        module. A screen, layout or visual style to settle is its own task with
-        `designer: Allen`, and the tasks that build it depend on it.
+            The draft, in this order:
 
-        Tell me the draft is under Blocks and wait. Change only the draft when I ask, and say
-        what moved.
+            - What I will have once every task lands: what someone can do, not how it is built.
+            - The roadmap entries and their projects, each with its outcome, `depends_on` and
+              `repos`.
+            - Every task, grouped by project in build order: its id, the change I could see or
+              check, its `depends_on`, its `designer` if it is design work, and its Done when.
+            - Which tasks can start together.
+            - The calls you made where I was vague, and what is left out.
 
-        \(planGraph(sessionID))
+            Each task goes to its own agent, which sees only that task's file and the files it
+            depends on. So a task is the smallest change that can be checked on its own;
+            `depends_on` names only what it uses, and its Context says what it takes from each;
+            tasks with no dependency between them never change the same screen, endpoint or
+            module. A screen, layout or visual style to settle is its own task with
+            `designer: Allen`, and the tasks that build it depend on it.
 
-        Once I approve, with `Create project` or in my own words, write the roadmap, project
-        and task files and one memory entry per call you made in the project it affects, and
-        append one run record for this session with the primary roadmap id as `subject`.
-        Then, as your last write, set the draft's `status: done` with
-        `resolution: "Wrote the notebook."`, and tell me in a few lines what you created.
-        That ends this session: the app closes it once you have said it, so ask me nothing
-        after it.
+            Tell me the draft is under Blocks and wait. Change only the draft when I ask, and say
+            what moved.
+
+            \(planGraph(sessionID))
+
+            Once I approve, with `Create project` or in my own words, write the roadmap, project
+            and task files and one memory entry per call you made in the project it affects, and
+            append one run record for this session with the primary roadmap id as `subject`.
+            Then, as your last write, set the draft's `status: done` with
+            `resolution: "Wrote the notebook."`, and tell me in a few lines what you created.
+            That ends this session: the app closes it once you have said it, so ask me nothing
+            after it.
+
+            Everything goes in `\(folderName)/`; leave the rest of this folder untouched.
+
+            The format:
+
+            \(specText)
+            """
+    }
+
+    /// A folder that already holds a project answers "what is it for" itself, so the agent reads
+    /// rather than asks, and writes only what the notebook needs to stand up: its format, a run
+    /// record and the roadmap. Milestones and tasks are Product's to plan from that roadmap, so
+    /// there is no plan to approve and the import is over as soon as the code is understood.
+    ///
+    /// The roadmap is the last write because its folder appearing is what makes the project read
+    /// as having a notebook, which is what ends the session (see `ProjectModel.finishedSetups`).
+    private static let importPrompt = """
+        This folder already holds a project, but it has no notebook yet. Start one for it: the
+        roadmap only. Milestones and tasks come later, planned by Product from that roadmap.
+
+        First read the whole project: the README and docs, the code, its config and build
+        files, the tests and the git history. Work out what it is, who it is for, what it
+        already does and where it is heading. Ask me nothing — the project answers that — and
+        where reading leaves a choice open, make the call and say so in the roadmap's Context.
+        Design nothing.
+
+        Then write, in this order:
+
+        1. The format below, verbatim, to `\(folderName)/\(specFile)`.
+        2. One run record for this session in `\(folderName)/runs/`, with the roadmap's id as
+           `subject`.
+        3. As your last write, one roadmap entry in `\(folderName)/roadmap/`: the goal, what
+           success looks like, the context an agent needs before changing this code, and what
+           it is not doing. No milestones, tasks or memory: leave its Projects section out.
+
+        Then tell me in a few lines what you wrote. That ends this session: the app closes it
+        once you have said it, so ask me nothing after it.
 
         Everything goes in `\(folderName)/`; leave the rest of this folder untouched.
 
         The format:
 
         \(specText)
-        """
-    }
-
-    private static func describedStart(_ description: String) -> String {
-        """
-        This project has no notebook yet. Help me start one. What I want to build:
-
-        \(description)
-
-        First ask what is missing or ambiguous, one question at a time, each with two to
-        four numbered options and your recommendation first, so I can answer with one
-        character. Write nothing to this folder while we talk, and design nothing: how
-        something looks is settled later, by a design task in the plan.
-        """
-    }
-
-    /// A folder that already holds a project answers "what is it for" itself, so the agent
-    /// reads rather than asks. What is built goes in as done, so the board starts where the
-    /// code is and the tasks are only what is left.
-    private static let existingStart = """
-        This folder already holds a project, but it has no notebook yet. Write one for it.
-
-        First read the whole project: the README and docs, the code, its config and build
-        files, the tests and the git history. Work out what it is, who it is for, what it
-        already does and what is unfinished — TODOs, open issues, failing tests, half-built
-        features. Don't ask me what it is for; the project answers that. Where reading leaves
-        a choice open, make the call and list it in the draft. Write nothing to this folder
-        while you read, and design nothing: how something looks is settled later, by a
-        design task in the plan.
-
-        Record what is already built rather than planning it: a project with `status: done`
-        for each area the code already covers, and memory entries with `source: code` for
-        what an agent needs to know before changing it. The tasks are what is left.
         """
 
     private static func taskList(_ tasks: [NotebookCard]) -> String {

@@ -14,18 +14,16 @@ package struct ProjectAgentsPage: View {
     let summary: ChangeSummary
     let open: (Route) -> Void
     let openBoard: () -> Void
-    let newAgent: () -> Void
 
     package init(
         project: Project, rows: [AgentRow], summary: ChangeSummary, open: @escaping (Route) -> Void,
-        openBoard: @escaping () -> Void, newAgent: @escaping () -> Void
+        openBoard: @escaping () -> Void
     ) {
         self.project = project
         self.rows = rows
         self.summary = summary
         self.open = open
         self.openBoard = openBoard
-        self.newAgent = newAgent
     }
 
     private var sessions: [AgentRow] { rows.filter(\.isRunningSession) }
@@ -75,10 +73,6 @@ package struct ProjectAgentsPage: View {
             }
             Spacer(minLength: 12)
             Button("Open Board", action: openBoard).buttonStyle(.console)
-            Button(action: newAgent) {
-                Label("New Agent Here", systemImage: "plus")
-            }
-            .buttonStyle(.console)
         }
         .padding(.horizontal, 28)
         .padding(.top, 22)

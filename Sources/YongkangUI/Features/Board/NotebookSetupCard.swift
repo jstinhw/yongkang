@@ -1,8 +1,8 @@
 import SwiftUI
 import YongkangCore
 
-/// What the board shows while Notebook Setup writes the first notebook: three steps — the
-/// agent reads, you approve its plan, it writes — with where it is, what it last did, and the
+/// What the board shows while Notebook Setup writes the first notebook: the agent reads, you
+/// approve its plan when it drafted one, it writes — with where it is, what it last did, and the
 /// one thing to press. An import stays on the board rather than dropping you into a terminal,
 /// so this is where the setup is followed; the session is a click away for whoever wants it.
 package struct NotebookSetupCard: View {
@@ -11,6 +11,9 @@ package struct NotebookSetupCard: View {
     let phase: Phase
     /// A question is up in its session. The step it is on turns amber and the card says so.
     let waiting: Bool
+    /// A described project's setup, which drafts a plan to approve. An import writes only the
+    /// roadmap, and Product plans the rest from it.
+    let reviewsPlan: Bool
     let agent: String
     let project: String
     let planTitle: String?
@@ -26,13 +29,14 @@ package struct NotebookSetupCard: View {
     @State private var live: AgentActivity?
 
     package init(
-        phase: Phase, waiting: Bool, agent: String, project: String, planTitle: String?,
+        phase: Phase, waiting: Bool, reviewsPlan: Bool, agent: String, project: String, planTitle: String?,
         cards: [NotebookCard], hasSession: Bool, openSession: @escaping () -> Void,
         reviewPlan: @escaping () -> Void, rerun: @escaping () -> Void,
         activity: @escaping () async -> AgentActivity?, initial: AgentActivity? = nil
     ) {
         self.phase = phase
         self.waiting = waiting
+        self.reviewsPlan = reviewsPlan
         self.agent = agent
         self.project = project
         self.planTitle = planTitle
@@ -113,7 +117,7 @@ package struct NotebookSetupCard: View {
         switch phase {
         case .reading: return "Reading \(project)"
         case .planReady: return "The plan is ready for you"
-        case .writing: return "Writing the notebook"
+        case .writing: return reviewsPlan ? "Writing the notebook" : "Writing the roadmap"
         case .stopped: return hasSession ? "Notebook Setup stopped" : "No notebook yet"
         }
     }
@@ -123,19 +127,24 @@ package struct NotebookSetupCard: View {
             return "It stopped to ask you something. Answer it in its session, and this page carries on from there."
         }
         switch phase {
+        case .reading where reviewsPlan:
+            return "\(agent) is working out what you want to build. Nothing is written until you approve a plan."
         case .reading:
-            return "\(agent) is reading the code, docs and git history to work out what this project is for "
-                + "and what is left to do. Nothing is written until you approve a plan."
+            return "\(agent) is reading the code, docs and git history to work out what this project is for, "
+                + "and writes its roadmap from that. Milestones and tasks come later, from Product."
         case .planReady:
             return "Read what you will have and what waits on you. Create project there writes the notebook; "
                 + "anything else you say changes the plan first."
-        case .writing:
+        case .writing where reviewsPlan:
             return "You approved the plan. The roadmap, milestones, tasks and memory are being written now, "
                 + "and the board opens on them when it is done."
+        case .writing:
+            return "It has read the project and is writing the roadmap. The board opens on it when it is done, "
+                + "ready for Product to plan the first milestones."
         case .stopped:
             return hasSession
                 ? "Its session ended before the notebook was written. Run it again and it reads the project from the start."
-                : "Notebook Setup reads the project and drafts a notebook for you to approve."
+                : "Notebook Setup reads the project and writes its roadmap."
         }
     }
 
@@ -155,47 +164,41 @@ package struct NotebookSetupCard: View {
 
     // MARK: - Steps
 
+    /// An import reads and writes its roadmap; a described project has its plan approved between.
     private var steps: [SetupStep] {
-        let held: SetupStep.State = waiting ? .waiting : .active
-        let paused = "Paused — waiting for you in its session."
+        reviewsPlan ? [readStep, approveStep, writeStep] : [readStep, writeStep]
+    }
+
+    private var held: SetupStep.State { waiting ? .waiting : .active }
+    private let paused = "Paused — waiting for you in its session."
+
+    private var readStep: SetupStep {
         let read = live.flatMap { $0.filesRead > 0 ? "\($0.filesRead) files read" : nil }
         switch phase {
         case .reading:
-            return [
-                SetupStep(
-                    title: "Read the project", state: held, meta: read,
-                    detail: waiting ? paused : live == nil ? "Starting \(agent)…" : nil,
-                    content: waiting ? .none : .live(live)),
-                approve(.pending), write(.pending),
-            ]
-        case .planReady:
-            return [
-                SetupStep(
-                    title: "Read the project", state: .done, meta: read,
-                    detail: "Read the code, docs and history, and drafted a plan."),
-                approve(.waiting, plan: true),
-                write(.pending),
-            ]
-        case .writing:
-            return [
-                SetupStep(
-                    title: "Read the project", state: .done, meta: read,
-                    detail: "Read the code, docs and history, and drafted a plan."),
-                approve(.done),
-                write(held, detail: waiting ? paused : nil, content: .counts(counts, waiting ? nil : live)),
-            ]
+            return SetupStep(
+                title: "Read the project", state: held, meta: read,
+                detail: waiting ? paused : live == nil ? "Starting \(agent)…" : nil,
+                content: waiting ? .none : .live(live))
+        case .planReady, .writing:
+            return SetupStep(
+                title: "Read the project", state: .done, meta: read,
+                detail: reviewsPlan ? "Read what there is, and drafted a plan." : "Read the code, docs and history.")
         case .stopped:
-            return [
-                SetupStep(
-                    title: "Read the project", state: hasSession ? .stopped : .pending,
-                    detail: hasSession ? "The session ended before the notebook was written." : nil),
-                approve(.pending), write(.pending),
-            ]
+            return SetupStep(
+                title: "Read the project", state: hasSession ? .stopped : .pending,
+                detail: hasSession ? "The session ended before the notebook was written." : nil)
         }
     }
 
-    private func approve(_ state: SetupStep.State, plan: Bool = false) -> SetupStep {
-        SetupStep(
+    private var approveStep: SetupStep {
+        let (state, plan): (SetupStep.State, Bool) =
+            switch phase {
+            case .planReady: (.waiting, true)
+            case .writing: (.done, false)
+            case .reading, .stopped: (.pending, false)
+            }
+        return SetupStep(
             title: "Approve the plan", you: true, state: state,
             detail: plan
                 ? nil
@@ -205,16 +208,19 @@ package struct NotebookSetupCard: View {
             content: plan ? .plan(planTitle ?? "The plan") : .none, review: reviewPlan)
     }
 
-    private func write(
-        _ state: SetupStep.State, detail: String? = nil, content: SetupStep.Content = .none
-    ) -> SetupStep {
-        SetupStep(
-            title: "Write the notebook", state: state,
-            detail: detail
-                ?? (state == .pending
-                    ? "Roadmap, milestones and tasks, with what is already built marked done, and memory from the code."
-                    : nil),
-            content: content)
+    private var writeStep: SetupStep {
+        let title = reviewsPlan ? "Write the notebook" : "Write the roadmap"
+        guard phase == .writing else {
+            return SetupStep(
+                title: title, state: .pending,
+                detail: reviewsPlan
+                    ? "Roadmap, milestones, tasks and memory, as the plan you approve has them."
+                    : "The roadmap, from what the code says. Milestones and tasks come later, from Product.")
+        }
+        let latest = waiting ? nil : live
+        return SetupStep(
+            title: title, state: held, detail: waiting ? paused : nil,
+            content: reviewsPlan ? .counts(counts, latest) : .live(latest))
     }
 
     private var counts: [(String, Int)] {

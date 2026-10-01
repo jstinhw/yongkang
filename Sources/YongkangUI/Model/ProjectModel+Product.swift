@@ -60,15 +60,29 @@ extension ProjectModel {
         guard let session = runningSetup else {
             guard !hasNotebook, hasFiles else { return nil }
             return NotebookSetup(
-                phase: .stopped, waiting: false, session: sessions.last { $0.isNotebookSetup }, plan: nil)
+                phase: .stopped, waiting: false, reviewsPlan: false, session: sessions.last { $0.isNotebookSetup },
+                plan: nil)
         }
-        let plan = snapshot.blocks.first { $0.isProposal && $0.session == session.id }
+        let plan = plan(of: session)
         let phase: NotebookSetupCard.Phase =
             hasNotebook ? .writing : plan?.waiting == true ? .planReady : .reading
-        // Its turn over with no plan to read is a question in prose. With the plan open, the turn
-        // is over because the plan is the question; once it is done, the agent is only signing off.
-        let quiet = session.idle && phase != .planReady && plan?.waiting != false
-        return NotebookSetup(phase: phase, waiting: asking[session.id] != nil || quiet, session: session, plan: plan)
+        // Its turn over with nothing written is a question in prose. With the plan open, the turn
+        // is over because the plan is the question; once its work is on disk, it is signing off.
+        let quiet = session.idle && phase != .planReady && !wroteNotebook(plan: plan)
+        return NotebookSetup(
+            phase: phase, waiting: asking[session.id] != nil || quiet,
+            // An import reads code into a roadmap with nothing to approve; a described project,
+            // which an empty folder is, drafts a plan first.
+            reviewsPlan: plan != nil || !hasFiles, session: session, plan: plan)
+    }
+
+    private func plan(of session: CodeSession) -> UserBlock? {
+        snapshot.blocks.first { $0.isProposal && $0.session == session.id }
+    }
+
+    /// A setup's work is on disk: a described project's plan marked done, or an import's roadmap.
+    private func wroteNotebook(plan: UserBlock?) -> Bool {
+        plan.map { !$0.waiting } ?? hasNotebook
     }
 
     /// What the setup session last did, read off its transcript. Nil for a CLI that keeps none.
@@ -79,20 +93,19 @@ extension ProjectModel {
         return AgentActivity(lines: await reader.transcript(of: provider, at: url), in: directory)
     }
 
-    /// The setup sessions whose job is over: the plan each drafted is done, and the agent has
-    /// said what it wrote. Nothing is left for one to do — the board holds its work, and
-    /// Product takes the next plan — so an open one would only sit in the sidebar.
+    /// The setup sessions whose job is over: its work is on disk — a described project's plan
+    /// marked done, an import's roadmap written — and the agent has said what it wrote. Nothing
+    /// is left for one to do — the board holds its work, and Product takes the next plan — so an
+    /// open one would only sit in the sidebar.
     ///
-    /// The prompt has the draft marked done as the last write, so what the transcript adds is
-    /// only the wait for the closing summary.
-    /// ponytail: a CLI with no transcript to read (Agy) ends on the draft alone and may lose
+    /// Each prompt makes that the last write, so what the transcript adds is only the wait for
+    /// the closing summary.
+    /// ponytail: a CLI with no transcript to read (Agy) ends on the write alone and may lose
     /// that summary mid-line. Read its screen for an idle prompt if that one ever matters.
     func finishedSetups() async -> [CodeSession] {
         var finished: [CodeSession] = []
         for session in sessions where session.isNotebookSetup && !session.exited {
-            guard let provider = session.agent?.provider,
-                snapshot.blocks.contains(where: { $0.isProposal && $0.session == session.id && !$0.waiting })
-            else { continue }
+            guard let provider = session.agent?.provider, wroteNotebook(plan: plan(of: session)) else { continue }
             if let url = await provider.transcriptURL(session: session.id, project: directory) {
                 let lines = await reader.transcript(of: provider, at: url)
                 guard AgentState.of(lines: lines, exited: false) == .waiting else { continue }
@@ -119,6 +132,8 @@ struct NotebookSetup {
     let phase: NotebookSetupCard.Phase
     /// A question is up in its session, or it has stopped to ask one.
     let waiting: Bool
+    /// It drafts a plan for the user to approve before it writes: a described project, not an import.
+    let reviewsPlan: Bool
     /// The session running it, or for `stopped` the last one still listed, if any.
     let session: CodeSession?
     let plan: UserBlock?

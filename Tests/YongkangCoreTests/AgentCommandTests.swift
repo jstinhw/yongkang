@@ -94,11 +94,17 @@ import Testing
         #expect(try echo(AgentCommand.quoted("/a b'c")) == "/a b'c")
     }
 
-    @Test func aFolderWithCodeIsReadNotAskedAbout() {
+    @Test func aFolderWithCodeIsReadIntoARoadmapOnly() throws {
         let prompt = NotebookFormat.onboardingPrompt(description: nil, sessionID: Self.sid)
         #expect(prompt.contains("read the whole project"), "the code says what the project is for")
-        #expect(!prompt.contains("one question at a time"), "nothing is asked before the draft")
-        #expect(prompt.contains("stage: ready"), "it still drafts a plan the user approves")
+        #expect(!prompt.contains("one question at a time"), "nothing is asked")
+        #expect(!prompt.contains("blocks/plan.md"), "an import has no plan to approve: Product plans from the roadmap")
+        #expect(
+            prompt.contains("As your last write, one roadmap entry"),
+            "the roadmap appearing is what ends the session, so it comes after the run record")
+        #expect(prompt.contains("One run record"), "an import leaves a handoff like any setup")
+        #expect(prompt.contains("author's problem"), "the spec goes in verbatim")
+        #expect(try echo(AgentCommand.quoted(prompt)) == prompt, "prompt mangled by the shell")
     }
 
     @Test(arguments: lineCases)

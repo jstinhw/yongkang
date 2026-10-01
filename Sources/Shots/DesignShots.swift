@@ -144,7 +144,7 @@ enum DesignShots {
             console(result, section: .agents, summary: resultSummary, selection: .agents) {
                 ProjectAgentsPage(
                     project: result, rows: result.agentRows(summary: resultSummary), summary: resultSummary,
-                    open: { _ in }, openBoard: {}, newAgent: {})
+                    open: { _ in }, openBoard: {})
             }, "agents-project", into: directory)
 
         write(

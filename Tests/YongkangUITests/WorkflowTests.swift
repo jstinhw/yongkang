@@ -393,7 +393,7 @@ import Testing
         #expect(project.runningSetup == nil, "a dead setup is what the board offers to run again")
     }
 
-    @Test func theBoardFollowsSetupFromReadingToWriting() async throws {
+    @Test func anImportIsReadIntoARoadmapWithNothingToApprove() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let directory = tmp.appendingPathComponent("app")
@@ -401,24 +401,45 @@ import Testing
         try "print(1)\n".write(to: directory.appendingPathComponent("main.swift"), atomically: true, encoding: .utf8)
         let project = ProjectModel(directory: directory)
         await project.reloadNotebook(frontmatter: true, records: true)
-        let phase = { project.notebookSetup(asking: [:])?.phase }
-        #expect(phase() == .stopped, "code with no notebook and nothing writing one offers to run setup")
+        let setup = { project.notebookSetup(asking: [:]) }
+        #expect(setup()?.phase == .stopped, "code with no notebook and nothing writing one offers to run setup")
 
         _ = project.startNotebookSetup(nil, agent: .agy)
-        let setup = try #require(project.runningSetup)
-        #expect(phase() == .reading)
-        #expect(project.notebookSetup(asking: [setup.id: "Trust this folder?"])?.waiting == true)
+        let session = try #require(project.runningSetup)
+        #expect(setup()?.phase == .reading)
+        #expect(setup()?.reviewsPlan == false, "an import writes a roadmap; Product plans the rest")
+        #expect(project.notebookSetup(asking: [session.id: "Trust this folder?"])?.waiting == true)
+        #expect(await project.finishedSetups().isEmpty, "nothing is written yet")
+
+        _ = try NotebookFormat.create(.roadmap, title: "App", in: project.notebookRoot, project: nil)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(setup()?.phase == .writing)
+        // Agy keeps no transcript, so the roadmap alone says it is done.
+        #expect(await project.finishedSetups().map(\.id) == [session.id], "the roadmap is an import's last write")
+    }
+
+    @Test func aDescribedProjectsPlanIsReviewedBeforeItIsWritten() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = ProjectModel(directory: tmp.appendingPathComponent("app"))
+        _ = project.startNotebookSetup("a site", agent: .agy)
+        let session = try #require(project.runningSetup)
+        #expect(project.notebookSetup(asking: [:])?.reviewsPlan == true, "an empty folder's setup drafts a plan")
 
         _ = try block(
-            "plan", "---\nkind: proposal\ntitle: Plan for App\nstatus: open\nstage: ready\nsession: \(setup.id)\n---\n",
+            "plan",
+            "---\nkind: proposal\ntitle: Plan for App\nstatus: open\nstage: ready\nsession: \(session.id)\n---\n",
             in: project)
         await project.reloadNotebook(frontmatter: true, records: true)
-        #expect(phase() == .planReady, "its draft is the user's to read")
+        #expect(project.notebookSetup(asking: [:])?.phase == .planReady, "its draft is the user's to read")
         #expect(project.notebookSetup(asking: [:])?.plan?.title == "Plan for App")
 
         _ = try NotebookFormat.create(.task, title: "Cache responses", in: project.notebookRoot, project: nil)
         await project.reloadNotebook(frontmatter: true, records: true)
-        #expect(phase() == .writing, "the first entry on disk is the approved plan being written")
+        #expect(project.notebookSetup(asking: [:])?.phase == .writing, "the approved plan is being written")
+        #expect(
+            await project.finishedSetups().isEmpty,
+            "a described setup ends on its plan marked done, not its first entry")
     }
 
     @Test func aSetupSessionIsFinishedOnceItsPlanIsDone() async throws {

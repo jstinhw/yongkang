@@ -145,7 +145,7 @@ package struct NotebookBoard: View {
     // MARK: - The roadmap
 
     /// The goals the milestones below serve, still open ones only unless finished work is shown.
-    private var roadmaps: [NotebookCard] {
+    var roadmaps: [NotebookCard] {
         NotebookIndex.ordered(cards.filter { $0.kind == .roadmap && (showDone || $0.status != "done") })
     }
 

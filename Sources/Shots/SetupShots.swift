@@ -3,21 +3,24 @@ import YongkangCore
 import YongkangUI
 
 extension DesignShots {
-    /// The board while Notebook Setup writes the first notebook of an imported folder: reading,
-    /// stopped on a question, the plan ready, writing, stopped for good, and the board it leaves.
+    /// The board while Notebook Setup writes the first notebook: an imported folder reading,
+    /// stopped on a question, writing its roadmap and stopped for good; a described project's
+    /// plan ready and its notebook being written; and the board it leaves.
     @MainActor static func writeSetupShots(_ project: Project, agents: AgentChoice, into directory: URL) {
         let reading = AgentActivity(filesRead: 42, verb: "Read", target: "Sources/Forecast/Client.swift")
         let writing = AgentActivity(filesRead: 61, verb: "Write", target: ".notebook/tasks/expire-stale-entries.md")
-        let states: [(NotebookSetupCard.Phase, Bool, AgentActivity?, String)] = [
-            (.reading, false, reading, "setup-reading"),
-            (.reading, true, reading, "setup-waiting"),
-            (.planReady, false, reading, "setup-plan"),
-            (.writing, false, writing, "setup-writing"),
-            (.stopped, false, nil, "setup-stopped"),
+        let roadmap = AgentActivity(filesRead: 61, verb: "Write", target: ".notebook/roadmap/weather-cli.md")
+        let states: [(NotebookSetupCard.Phase, Bool, Bool, AgentActivity?, String)] = [
+            (.reading, false, false, reading, "setup-reading"),
+            (.reading, true, false, reading, "setup-waiting"),
+            (.writing, false, false, roadmap, "setup-roadmap"),
+            (.stopped, false, false, nil, "setup-stopped"),
+            (.planReady, false, true, nil, "setup-plan"),
+            (.writing, false, true, writing, "setup-writing"),
         ]
-        for (phase, waiting, activity, name) in states {
+        for (phase, waiting, reviewsPlan, activity, name) in states {
             let card = NotebookSetupCard(
-                phase: phase, waiting: waiting, agent: "Claude Code", project: "weather-cli",
+                phase: phase, waiting: waiting, reviewsPlan: reviewsPlan, agent: "Claude Code", project: "weather-cli",
                 planTitle: "Plan for Weather CLI", cards: phase == .writing ? project.cards : [],
                 hasSession: true, openSession: {}, reviewPlan: {}, rerun: {}, activity: { nil }, initial: activity)
             write(
