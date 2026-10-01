@@ -638,10 +638,20 @@ package struct NotebookBoard: View {
                     : "No tasks yet — Product writes them."
             )
             .font(Typography.body).foregroundStyle(Theme.tx3)
-            Button {
-                review()
-            } label: {
-                Label("Product review", systemImage: "sparkles")
+            // The bar's two ways to ask Product, again where an empty board puts your eye.
+            HStack(spacing: 8) {
+                Button {
+                    review()
+                } label: {
+                    Label("Product review", systemImage: "sparkles")
+                }
+                if let request {
+                    Button {
+                        request()
+                    } label: {
+                        Label("New request", systemImage: "text.bubble")
+                    }
+                }
             }
             .buttonStyle(.console)
         }

@@ -31,6 +31,16 @@ extension DesignShots {
                     board(project, agents: agents, fresh: Set(filed.map(\.id)))
                 }
             }, "board-filed", into: directory)
+
+        // A board with nothing on it yet, where the request is most of what there is to do.
+        let notebook = project.cards.filter { $0.kind != .task && $0.kind != .project }
+        write(
+            console(project, section: .board) {
+                NotebookBoard(
+                    cards: notebook, blocks: [], assigned: [], reviewing: [], showDone: false, agents: agents,
+                    assign: { _, _ in }, review: {}, openCard: { _ in }, openBlock: { _ in },
+                    openReview: { _ in }, remove: { _ in }, request: {})
+            }, "board-empty", into: directory)
     }
 
     @MainActor private static func board(
