@@ -166,6 +166,16 @@ import YongkangCore
     var name: String { value.name }
     var notebookRoot: URL { value.notebookRoot }
     var hasNotebook: Bool { value.hasNotebook }
+    /// The folder already holds something besides dotfiles: a project to read, not one to
+    /// describe. A bare `git init` still counts as empty.
+    var hasFiles: Bool {
+        let listed = try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+        return !(listed ?? []).isEmpty
+    }
+    /// A setup session was started here this run. Reading a folder starts on its own once;
+    /// after its session is closed unfinished, the board offers to run it again instead.
+    @ObservationIgnored var setupStarted = false
     var assignedTaskIDs: Set<String> { Project.assignedTaskIDs(in: sessions) }
 
     /// What the agents just finished, derived from the notebook, the sessions and git —

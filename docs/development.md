@@ -43,6 +43,11 @@ for.
      **window's title** reads **Board** with **yk-smoke** under it, and the work area asks
      **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
+   - A folder that already holds files is never asked about: opening one starts **Notebook
+     Setup** at once, told to read the project and draft its notebook from what is there.
+     While it runs, **Board** reads **Notebook Setup is writing this project’s notebook.**
+     with **Open Notebook Setup**; close the session before it finishes and Board offers
+     **Run Notebook Setup** instead.
 
 ### Intake
 

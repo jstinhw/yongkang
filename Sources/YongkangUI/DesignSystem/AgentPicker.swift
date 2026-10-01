@@ -286,7 +286,8 @@ struct AssignButton: View {
         .padding(2)
         .background(RoundedRectangle(cornerRadius: 10).fill(Theme.raised))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.controlLine, lineWidth: 1))
+        // No opacity of its own: the buttons inside dim themselves, and dimming the tray too
+        // took them to a quarter.
         .disabled(disabled)
-        .opacity(disabled ? 0.5 : 1)
     }
 }

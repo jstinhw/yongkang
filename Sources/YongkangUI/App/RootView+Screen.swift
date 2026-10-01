@@ -16,10 +16,14 @@ extension RootView {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.bg)
-        } else if let empty = needsIntake {
+        } else if let empty = needsIntake, empty.hasFiles, !empty.setupStarted {
+            // A folder that already holds a project has nothing to ask: its code says what it is for.
+            // Once per run, so closing that session lands on the board's rerun, not a new session.
+            Theme.bg.task { model.go(to: empty.startNotebookSetup(nil, agent: agent)) }
+        } else if let empty = needsIntake, !empty.hasFiles {
             // An empty project has nothing to click, so it asks what it is instead.
             ProjectIntake(project: empty.value) { description in
-                model.selection = empty.startNotebookSetup(description, agent: agent)
+                model.go(to: empty.startNotebookSetup(description, agent: agent))
             }
         } else if model.selection == .board {
             boardView(for: project)
@@ -250,8 +254,20 @@ extension RootView {
             remove: { card in model.remove(card, in: project) },
             fresh: Set(project.filed.map(\.id)),
             request: { project.requestOpen = true },
-            dock: project.requestOpen ? AnyView(requestDock(for: project)) : nil
+            dock: project.requestOpen ? AnyView(requestDock(for: project)) : nil,
+            setup: setup(of: project)
         )
+    }
+
+    /// What the empty board says about the notebook's first write. Running wins even once the
+    /// first files land, since the tasks are still on their way. Stopped only for a folder with
+    /// something to read: an empty one goes back to the intake once its sessions are gone.
+    private func setup(of project: ProjectModel) -> NotebookBoard.Setup? {
+        if let running = project.runningSetup {
+            return .running { model.go(to: Destination(section: .agents, route: .session(running.id))) }
+        }
+        guard !project.hasNotebook, project.hasFiles else { return nil }
+        return .stopped { model.go(to: project.startNotebookSetup(nil, agent: agent)) }
     }
 
     private func requestDock(for project: ProjectModel) -> some View {

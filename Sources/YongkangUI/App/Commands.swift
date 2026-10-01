@@ -142,7 +142,7 @@ struct YongkangCommands: Commands {
             guard let project else { return }
             model.go(to: project.startProductReview(agent: agent))
         }
-        .disabled(project == nil)
+        .disabled(project?.awaitingNotebook != false)
         // On the board, because what it files lands there: the box takes the bar's place.
         Button("New Request…") {
             guard let project else { return }
@@ -150,7 +150,7 @@ struct YongkangCommands: Commands {
             project.requestOpen = true
         }
         .keyboardShortcut("n", modifiers: [.command, .option])
-        .disabled(project?.hasNotebook != true)
+        .disabled(project?.awaitingNotebook != false)
         Divider()
         Button("New Team Member…") { model.addingMember = true }
             .disabled(project?.hasNotebook != true)

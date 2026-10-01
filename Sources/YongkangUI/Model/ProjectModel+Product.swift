@@ -28,14 +28,26 @@ extension ProjectModel {
                 title: "Product", reading: reading))
     }
 
-    /// The session an empty project starts with. It drafts its plan into Blocks under its
-    /// own id, so `Create project` on that draft comes back to this conversation.
-    func startNotebookSetup(_ description: String, agent: AgentKind) -> Route {
+    /// The session a project without a notebook starts with: from what the user typed, or, with
+    /// no description, from reading the folder. It drafts its plan into Blocks under its own
+    /// id, so `Create project` on that draft comes back to this conversation. It opens under
+    /// Agents, wherever it was started from, since that is the list its row sits in.
+    func startNotebookSetup(_ description: String?, agent: AgentKind) -> Destination {
+        setupStarted = true
         let id = UUID()
-        return addSession(
-            agent, id: id, prompt: NotebookFormat.onboardingPrompt(description: description, sessionID: id),
-            title: "Notebook Setup")
+        return Destination(
+            section: .agents,
+            route: addSession(
+                agent, id: id, prompt: NotebookFormat.onboardingPrompt(description: description, sessionID: id),
+                title: "Notebook Setup"))
     }
+
+    /// The Notebook Setup still writing this notebook, if one is.
+    var runningSetup: CodeSession? { sessions.first { $0.isNotebookSetup && !$0.exited } }
+
+    /// Product has nothing to review or file a request into until the notebook is written:
+    /// there is none yet, or Notebook Setup is still writing it.
+    var awaitingNotebook: Bool { !hasNotebook || runningSetup != nil }
 
     /// The setup sessions whose job is over: the plan each drafted is done, and the agent has
     /// said what it wrote. Nothing is left for one to do — the board holds its work, and

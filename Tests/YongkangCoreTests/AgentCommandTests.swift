@@ -94,6 +94,13 @@ import Testing
         #expect(try echo(AgentCommand.quoted("/a b'c")) == "/a b'c")
     }
 
+    @Test func aFolderWithCodeIsReadNotAskedAbout() {
+        let prompt = NotebookFormat.onboardingPrompt(description: nil, sessionID: Self.sid)
+        #expect(prompt.contains("read the whole project"), "the code says what the project is for")
+        #expect(!prompt.contains("one question at a time"), "nothing is asked before the draft")
+        #expect(prompt.contains("stage: ready"), "it still drafts a plan the user approves")
+    }
+
     @Test(arguments: lineCases)
     func line(_ c: LineCase) {
         #expect(

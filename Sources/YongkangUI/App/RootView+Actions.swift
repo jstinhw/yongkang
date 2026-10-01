@@ -75,8 +75,7 @@ extension RootView {
         persist()
         model.enter(project)
         guard let started = model.entered, !started.hasNotebook else { return }
-        model.section = .agents
-        model.selection = started.startNotebookSetup(prompt, agent: agent)
+        model.go(to: started.startNotebookSetup(prompt, agent: agent))
     }
 
     func close(_ project: ProjectModel) {

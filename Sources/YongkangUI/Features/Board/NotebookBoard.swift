@@ -48,6 +48,16 @@ package struct NotebookBoard: View {
     var request: (() -> Void)?
     /// The request box, drawn in the assign bar's place while it is open.
     var dock: AnyView?
+    /// Where the notebook's first write stands, while it has no tasks to draw. The empty board
+    /// says so, rather than sending the user to Product for a notebook that is not there yet.
+    var setup: Setup?
+
+    package enum Setup {
+        /// Notebook Setup is writing it; this opens that session.
+        case running(open: () -> Void)
+        /// Nothing is writing it — the session was closed or died first; this starts another.
+        case stopped(rerun: () -> Void)
+    }
 
     @State private var selected: Set<String> = []
 
@@ -67,7 +77,8 @@ package struct NotebookBoard: View {
         remove: @escaping (NotebookCard) -> Void,
         fresh: Set<String> = [],
         request: (() -> Void)? = nil,
-        dock: AnyView? = nil
+        dock: AnyView? = nil,
+        setup: Setup? = nil
     ) {
         self.cards = cards
         self.blocks = blocks
@@ -85,6 +96,7 @@ package struct NotebookBoard: View {
         self.fresh = fresh
         self.request = request
         self.dock = dock
+        self.setup = setup
     }
 
     package var body: some View {
@@ -569,14 +581,15 @@ package struct NotebookBoard: View {
     private var assignBar: some View {
         ActionBar {
             if picked.isEmpty {
-                // Never disabled: this one asks what should be on the board at all, which is
-                // the question an empty or stalled board most needs.
+                // Disabled only while there is no notebook for Product to read: otherwise this
+                // asks what should be on the board at all, which an empty or stalled board most needs.
                 Button {
                     review()
                 } label: {
                     Label("Product review", systemImage: "sparkles")
                 }
                 .buttonStyle(.consoleGhost)
+                .disabled(setup != nil)
                 if let request {
                     Button {
                         request()
@@ -585,6 +598,7 @@ package struct NotebookBoard: View {
                     }
                     .buttonStyle(.consoleGhost)
                     .help("Ask Product for something in your own words (⌥⌘N)")
+                    .disabled(setup != nil)
                 }
                 Spacer(minLength: 12)
                 Text("or pick tasks on the board").font(Typography.caption).foregroundStyle(Theme.tx3)
@@ -626,37 +640,6 @@ package struct NotebookBoard: View {
         .frame(height: 30)
         .background(Capsule().fill(Theme.accent.opacity(0.12)))
         .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1))
-    }
-
-    private var empty: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "square.stack.3d.up.slash").font(.system(size: 22))
-                .foregroundStyle(Theme.tx4)
-            Text(
-                cards.contains { $0.kind == .task }
-                    ? "Every task here is done."
-                    : "No tasks yet — Product writes them."
-            )
-            .font(Typography.body).foregroundStyle(Theme.tx3)
-            // The bar's two ways to ask Product, again where an empty board puts your eye.
-            HStack(spacing: 8) {
-                Button {
-                    review()
-                } label: {
-                    Label("Product review", systemImage: "sparkles")
-                }
-                if let request {
-                    Button {
-                        request()
-                    } label: {
-                        Label("New request", systemImage: "text.bubble")
-                    }
-                }
-            }
-            .buttonStyle(.console)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DotGrid())
     }
 }
 

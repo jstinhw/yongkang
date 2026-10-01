@@ -379,6 +379,20 @@ import Testing
         #expect(reopened == Destination(section: .agents, route: .session(product.id)))
     }
 
+    @Test func notebookSetupOpensUnderAgentsAndHoldsProductBack() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: [], in: tmp)
+        let opened = project.startNotebookSetup(nil, agent: .agy)
+        let setup = try #require(project.runningSetup)
+        #expect(
+            opened == Destination(section: .agents, route: .session(setup.id)),
+            "its row is under Agents, so the window goes there from the board too")
+        #expect(project.awaitingNotebook, "Product has nothing to read while setup is still writing")
+        _ = project.markExited(setup.id)
+        #expect(project.runningSetup == nil, "a dead setup is what the board offers to run again")
+    }
+
     @Test func aSetupSessionIsFinishedOnceItsPlanIsDone() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

@@ -47,10 +47,10 @@ extension NotebookFormat {
         """
     }
 
-    /// Opens the session an empty project starts with, seeded by what the user typed.
-    /// It carries the spec inline rather than pointing at NOTEBOOK.md, because the
-    /// point of an empty project is that nothing has been written to it yet — the
-    /// agent writes the first file.
+    /// Opens the session a project without a notebook starts with, seeded by what the user
+    /// typed or, with no description, by the folder's own contents. It carries the spec
+    /// inline rather than pointing at NOTEBOOK.md, because nothing has been written to the
+    /// notebook yet — the agent writes the first file.
     ///
     /// The plan is drafted as a ready proposal before any of it is written, so the user
     /// knows what they are getting while changing it is still cheap. The session id goes
@@ -58,16 +58,9 @@ extension NotebookFormat {
     ///
     /// The draft is marked done last because that is what ends the session (see
     /// `ProjectModel.finishedSetups`): once it flips, only the agent's summary is left.
-    package static func onboardingPrompt(description: String, sessionID: UUID) -> String {
+    package static func onboardingPrompt(description: String?, sessionID: UUID) -> String {
         """
-        This project has no notebook yet. Help me start one. What I want to build:
-
-        \(description)
-
-        First ask what is missing or ambiguous, one question at a time, each with two to
-        four numbered options and your recommendation first, so I can answer with one
-        character. Write nothing to this folder while we talk, and design nothing: how
-        something looks is settled later, by a design task in the plan.
+        \(description.map(describedStart) ?? existingStart)
 
         Then write the format below verbatim to `\(folderName)/\(specFile)`, and draft the
         plan as `\(folderName)/blocks/plan.md` with this frontmatter:
@@ -121,6 +114,38 @@ extension NotebookFormat {
         \(specText)
         """
     }
+
+    private static func describedStart(_ description: String) -> String {
+        """
+        This project has no notebook yet. Help me start one. What I want to build:
+
+        \(description)
+
+        First ask what is missing or ambiguous, one question at a time, each with two to
+        four numbered options and your recommendation first, so I can answer with one
+        character. Write nothing to this folder while we talk, and design nothing: how
+        something looks is settled later, by a design task in the plan.
+        """
+    }
+
+    /// A folder that already holds a project answers "what is it for" itself, so the agent
+    /// reads rather than asks. What is built goes in as done, so the board starts where the
+    /// code is and the tasks are only what is left.
+    private static let existingStart = """
+        This folder already holds a project, but it has no notebook yet. Write one for it.
+
+        First read the whole project: the README and docs, the code, its config and build
+        files, the tests and the git history. Work out what it is, who it is for, what it
+        already does and what is unfinished — TODOs, open issues, failing tests, half-built
+        features. Don't ask me what it is for; the project answers that. Where reading leaves
+        a choice open, make the call and list it in the draft. Write nothing to this folder
+        while you read, and design nothing: how something looks is settled later, by a
+        design task in the plan.
+
+        Record what is already built rather than planning it: a project with `status: done`
+        for each area the code already covers, and memory entries with `source: code` for
+        what an agent needs to know before changing it. The tasks are what is left.
+        """
 
     private static func taskList(_ tasks: [NotebookCard]) -> String {
         tasks.map { task in

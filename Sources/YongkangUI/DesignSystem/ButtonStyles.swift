@@ -5,6 +5,9 @@ import SwiftUI
 package struct ConsoleButtonStyle: ButtonStyle {
     var primary = false
     var ghost = false
+    /// A custom style draws nothing for disabled on its own, so a dead button read as live.
+    /// Half strength, like the agent picker's run button.
+    @Environment(\.isEnabled) private var isEnabled
 
     package func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -22,7 +25,7 @@ package struct ConsoleButtonStyle: ButtonStyle {
                         primary ? Theme.accent : (ghost ? .clear : Theme.controlLine),
                         lineWidth: 1)
             )
-            .opacity(configuration.isPressed ? 0.75 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.5)
     }
 }
 
