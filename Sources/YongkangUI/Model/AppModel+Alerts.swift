@@ -158,6 +158,19 @@ extension AppModel {
         }
     }
 
+    /// Approving what Product filed for a request: commits it, then closes the request and the
+    /// Product session it ran in. Like a task's approval it asks nothing first; only a refusal
+    /// from git is said.
+    func approveRequest(in project: ProjectModel) {
+        Task {
+            do throws(CommitFailure) {
+                if let session = try await project.approveRequest() { close(session, in: project) }
+            } catch {
+                alert = .message("The request was not committed", detail: error.reason)
+            }
+        }
+    }
+
     /// Asks before moving `card` to the Trash, and counts what goes with it from the board as it
     /// is now. The answer removes what was counted: the poll keeps running under the question,
     /// and a task an agent files meanwhile is left for the user to see.

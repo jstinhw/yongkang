@@ -27,7 +27,7 @@ extension DesignShots {
         write(
             console(project, section: .board) {
                 VStack(spacing: 0) {
-                    RequestBanner(filed: filed, openSession: {}, askForChanges: {}, dismiss: {})
+                    RequestBanner(filed: filed, openSession: {}, askForChanges: {}, approve: {}, dismiss: {})
                     board(project, agents: agents, fresh: Set(filed.map(\.id)))
                 }
             }, "board-filed", into: directory)

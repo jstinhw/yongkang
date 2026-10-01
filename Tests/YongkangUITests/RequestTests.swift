@@ -117,6 +117,39 @@ import Testing
         #expect(project.filed.count == 1, "and the first request's new cards stay new")
     }
 
+    @Test func approvingARequestCommitsOnlyWhatProductWroteAndClosesIt() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let root = NotebookFormat.root(in: tmp)
+        let held = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: nil)
+        try await repository(tmp)
+        #expect(await GitClient.commit(message: "Base", in: tmp) == nil)
+        let handEdited = try NotebookFormat.create(.task, title: "Hand edited", in: root, project: nil)
+        let project = ProjectModel(directory: tmp)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        await project.refreshRepo()
+        _ = project.addSession(.claude, title: "Wire auth", taskIDs: ["wire-auth"])
+
+        _ = project.sendRequest("Show the sync time", projects: [], agent: .claude)
+        let product = try #require(project.sessions.last)
+        let filed = try NotebookFormat.create(.task, title: "Read the sync time", in: root, project: nil)
+        try "status: active\n".write(to: held, atomically: true, encoding: .utf8)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(!project.requestFinished, "nothing to approve while Product is still working")
+        _ = project.markIdle(product.id, true)
+        #expect(project.requestFinished)
+
+        let closing = try await project.approveRequest()
+        #expect(closing?.id == product.id, "its session is handed back to be closed")
+        #expect(project.request == nil && project.filed.isEmpty, "the request is over")
+        #expect(project.repo.head?.hasSuffix("Plan Read the sync time") == true)
+        let left = Set(project.repo.changes.map { tmp.appendingPathComponent($0.path).standardizedFileURL })
+        #expect(!left.contains(filed.standardizedFileURL), "what Product filed is committed")
+        #expect(
+            left.isSuperset(of: [held, handEdited].map(\.standardizedFileURL)),
+            "a task an agent holds and a file changed before the request are not Product's")
+    }
+
     @Test(
         arguments: [
             ([], "Product is on your request."),

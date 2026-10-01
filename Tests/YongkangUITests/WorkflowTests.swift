@@ -571,19 +571,6 @@ import Testing
 
     // MARK: - Review
 
-    /// Makes `directory` a repository with a committer. With the app's git environment, so a
-    /// test run from a git hook never touches the checkout running it.
-    private func repository(_ directory: URL) async throws {
-        for arguments in [
-            ["init", "--quiet"], ["config", "user.email", "workflow@example.com"], ["config", "user.name", "Workflow"],
-        ] {
-            let git = try await AsyncProcess.run(
-                URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory,
-                environment: GitClient.environment)
-            try #require(git.status == 0, "git \(arguments.joined(separator: " ")) failed")
-        }
-    }
-
     @Test func approvingATaskCommitsOnlyItsFilesAndRoutesToTheNextOneWaiting() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

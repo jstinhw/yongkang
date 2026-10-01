@@ -1,4 +1,7 @@
 import Foundation
+import Testing
+
+@testable import YongkangCore
 
 /// A fresh directory under the temp dir. Pair with `defer { try? FileManager.default.removeItem(at: dir) }`.
 func makeTemporaryDirectory() throws -> URL {
@@ -32,4 +35,17 @@ func eventually(within seconds: Double = 15, _ condition: () -> Bool) async thro
         try await Task.sleep(for: .milliseconds(20))
     }
     return true
+}
+
+/// Makes `directory` a repository with a committer. With the app's git environment, so a test
+/// run from a git hook never touches the checkout running it.
+func repository(_ directory: URL) async throws {
+    for arguments in [
+        ["init", "--quiet"], ["config", "user.email", "workflow@example.com"], ["config", "user.name", "Workflow"],
+    ] {
+        let git = try await AsyncProcess.run(
+            URL(fileURLWithPath: "/usr/bin/env"), ["git"] + arguments, in: directory,
+            environment: GitClient.environment)
+        try #require(git.status == 0, "git \(arguments.joined(separator: " ")) failed")
+    }
 }

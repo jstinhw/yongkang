@@ -77,7 +77,7 @@ Sign-in works in any build with a Supabase project set, so it can be tried from 
 
 The events: `app_opened`, `$screen` (Board or Agents), `project_opened` (whether it has a
 notebook, how many projects are open), `session_started` (the agent's kind, how many tasks),
-`task_approved` (how many files), `changes_committed`, `update_ready` (the version) and
+`task_approved` (how many files), `request_approved` (how many files), `changes_committed`, `update_ready` (the version) and
 `$identify` (email and GitHub login, at sign-in).
 
 **Never a path, a project's or task's name, a prompt, a file's contents, or anything typed.**

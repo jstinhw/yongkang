@@ -3,20 +3,24 @@ import YongkangCore
 
 /// What came of the last request on this board: Product still on it, or what it filed, which
 /// the board marks "new" until this is dismissed. The outcome, not the transcript — that is one
-/// click away, under the session it ran in.
+/// click away, under the session it ran in. Once Product's turn is over, what it filed is the
+/// user's to approve, which commits it, or to send back with what to change.
 package struct RequestBanner: View {
     let filed: [NotebookCard]
     let openSession: () -> Void
     let askForChanges: () -> Void
+    /// Nil until Product has filed something and stopped.
+    let approve: (() -> Void)?
     let dismiss: () -> Void
 
     package init(
         filed: [NotebookCard], openSession: @escaping () -> Void, askForChanges: @escaping () -> Void,
-        dismiss: @escaping () -> Void
+        approve: (() -> Void)? = nil, dismiss: @escaping () -> Void
     ) {
         self.filed = filed
         self.openSession = openSession
         self.askForChanges = askForChanges
+        self.approve = approve
         self.dismiss = dismiss
     }
 
@@ -29,6 +33,10 @@ package struct RequestBanner: View {
             Button("Open session", action: openSession).buttonStyle(.consoleGhost)
             if !filed.isEmpty {
                 Button("Ask for changes", action: askForChanges).buttonStyle(.console)
+            }
+            if let approve {
+                Button(action: approve) { Label("Approve and commit", systemImage: "checkmark.seal") }
+                    .buttonStyle(.consolePrimary)
             }
             Button(action: dismiss) {
                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).frame(width: 18, height: 18)

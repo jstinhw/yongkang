@@ -217,6 +217,7 @@ extension RootView {
                     filed: project.filed,
                     openSession: { model.go(to: Destination(section: .agents, route: .session(request.session))) },
                     askForChanges: { project.requestOpen = true },
+                    approve: project.requestFinished ? { model.approveRequest(in: project) } : nil,
                     dismiss: { project.request = nil })
             }
             if project.notebookWritten {
