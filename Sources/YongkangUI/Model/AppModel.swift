@@ -605,6 +605,7 @@ import YongkangCore
         for session in await project.finishedSetups() {
             let watching = project === entered && selection?.pane(of: session.id) != nil
             close(session, in: project)
+            project.notebookWritten = true
             if watching {
                 section = .board
                 selection = .board

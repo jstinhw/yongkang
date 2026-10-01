@@ -80,4 +80,23 @@ import Testing
             TranscriptSteps.aside("[Request interrupted by user]") != nil,
             "anything unrecognised is shown rather than swallowed")
     }
+
+    // The setup card's one line of progress: the last call, aimed at a path inside the
+    // project, and every file read so far.
+    @Test func activityNamesTheLastCallFromTheProjectsFolder() {
+        let root = URL(fileURLWithPath: "/work/weather")
+        let lines = [
+            TranscriptLine(label: "Tool", text: "Read(file_path: /work/weather/README.md)"),
+            TranscriptLine(label: "Result", text: "# Weather"),
+            TranscriptLine(label: "Tool", text: "Grep(glob: *.swift, path: /work/weather, pattern: TODO)"),
+            TranscriptLine(label: "Tool", text: "Read(file_path: /work/weather/Sources/Client.swift, limit: 80)"),
+        ]
+        let activity = AgentActivity(lines: lines, in: root)
+        #expect(activity.filesRead == 2)
+        #expect(activity.verb == "Read" && activity.target == "Sources/Client.swift")
+        #expect(
+            AgentActivity(lines: Array(lines.prefix(3)), in: root).target == "TODO",
+            "a search is named by what it looks for, not where")
+        #expect(AgentActivity(lines: [], in: root) == AgentActivity(), "nothing yet is nothing, not a guess")
+    }
 }

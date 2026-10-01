@@ -124,7 +124,7 @@ package enum TranscriptSteps {
         "fetch", "spawn", "note", "other",
     ]
 
-    private static func verb(for tool: String) -> String {
+    static func verb(for tool: String) -> String {
         switch tool {
         case "Grep", "Glob", "WebSearch": return "search"
         case "Read", "NotebookRead": return "read"

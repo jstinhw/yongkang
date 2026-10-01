@@ -173,6 +173,9 @@ import YongkangCore
             at: directory, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
         return !(listed ?? []).isEmpty
     }
+    /// Notebook Setup finished here and the board has not been told to forget it: the banner
+    /// that says what it wrote, over the board it wrote.
+    var notebookWritten = false
     /// A setup session was started here this run. Reading a folder starts on its own once;
     /// after its session is closed unfinished, the board offers to run it again instead.
     @ObservationIgnored var setupStarted = false

@@ -42,18 +42,7 @@ extension DesignShots {
                     openReview: { _ in }, remove: { _ in }, request: {})
             }, "board-empty", into: directory)
 
-        // A board with no notebook yet: Notebook Setup still writing it, then stopped before it did.
-        for (setup, name) in [
-            (NotebookBoard.Setup.running(open: {}), "board-setup"), (.stopped(rerun: {}), "board-setup-stopped"),
-        ] {
-            write(
-                console(project, section: .board) {
-                    NotebookBoard(
-                        cards: [], blocks: [], assigned: [], reviewing: [], showDone: false, agents: agents,
-                        assign: { _, _ in }, review: {}, openCard: { _ in }, openBlock: { _ in },
-                        openReview: { _ in }, remove: { _ in }, request: {}, setup: setup)
-                }, name, into: directory)
-        }
+        writeSetupShots(project, agents: agents, into: directory)
     }
 
     @MainActor private static func board(

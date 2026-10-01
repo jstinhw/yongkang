@@ -19,7 +19,11 @@ extension RootView {
         } else if let empty = needsIntake, empty.hasFiles, !empty.setupStarted {
             // A folder that already holds a project has nothing to ask: its code says what it is for.
             // Once per run, so closing that session lands on the board's rerun, not a new session.
-            Theme.bg.task { model.go(to: empty.startNotebookSetup(nil, agent: agent)) }
+            // It is followed on the board, which says where it is; the terminal is one click away.
+            Theme.bg.task {
+                _ = empty.startNotebookSetup(nil, agent: agent)
+                model.go(to: Destination(section: .board, route: .board))
+            }
         } else if let empty = needsIntake, !empty.hasFiles {
             // An empty project has nothing to click, so it asks what it is instead.
             ProjectIntake(project: empty.value) { description in
@@ -216,6 +220,9 @@ extension RootView {
                     askForChanges: { project.requestOpen = true },
                     dismiss: { project.request = nil })
             }
+            if project.notebookWritten {
+                NotebookWrittenBanner(cards: project.cards) { project.notebookWritten = false }
+            }
             board(for: project)
         }
         // The board is where work is handed over, so it asks for the toolbar's agent to be let
@@ -255,19 +262,29 @@ extension RootView {
             fresh: Set(project.filed.map(\.id)),
             request: { project.requestOpen = true },
             dock: project.requestOpen ? AnyView(requestDock(for: project)) : nil,
-            setup: setup(of: project)
+            setup: setupCard(for: project)
         )
     }
 
-    /// What the empty board says about the notebook's first write. Running wins even once the
-    /// first files land, since the tasks are still on their way. Stopped only for a folder with
-    /// something to read: an empty one goes back to the intake once its sessions are gone.
-    private func setup(of project: ProjectModel) -> NotebookBoard.Setup? {
-        if let running = project.runningSetup {
-            return .running { model.go(to: Destination(section: .agents, route: .session(running.id))) }
-        }
-        guard !project.hasNotebook, project.hasFiles else { return nil }
-        return .stopped { model.go(to: project.startNotebookSetup(nil, agent: agent)) }
+    /// The board's place while the first notebook is written, or was not. Running again stays
+    /// here, as the import did: the card is where a setup is followed.
+    private func setupCard(for project: ProjectModel) -> AnyView? {
+        guard let setup = project.notebookSetup(asking: model.attention) else { return nil }
+        let session = setup.session
+        return AnyView(
+            NotebookSetupCard(
+                phase: setup.phase, waiting: setup.waiting, agent: (session?.agent ?? agent).displayName,
+                project: project.name, planTitle: setup.plan?.title, cards: project.cards,
+                hasSession: session != nil,
+                openSession: {
+                    if let session { model.go(to: Destination(section: .agents, route: .session(session.id))) }
+                },
+                reviewPlan: { if let plan = setup.plan { model.selection = .block(plan.id) } },
+                rerun: { _ = project.startNotebookSetup(nil, agent: agent) },
+                activity: { await project.activity(of: session) }
+            )
+            // A new session is a new card: what the last one read is not this one's.
+            .id(session?.id))
     }
 
     private func requestDock(for project: ProjectModel) -> some View {

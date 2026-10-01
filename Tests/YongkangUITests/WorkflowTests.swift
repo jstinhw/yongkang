@@ -393,6 +393,34 @@ import Testing
         #expect(project.runningSetup == nil, "a dead setup is what the board offers to run again")
     }
 
+    @Test func theBoardFollowsSetupFromReadingToWriting() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let directory = tmp.appendingPathComponent("app")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "print(1)\n".write(to: directory.appendingPathComponent("main.swift"), atomically: true, encoding: .utf8)
+        let project = ProjectModel(directory: directory)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        let phase = { project.notebookSetup(asking: [:])?.phase }
+        #expect(phase() == .stopped, "code with no notebook and nothing writing one offers to run setup")
+
+        _ = project.startNotebookSetup(nil, agent: .agy)
+        let setup = try #require(project.runningSetup)
+        #expect(phase() == .reading)
+        #expect(project.notebookSetup(asking: [setup.id: "Trust this folder?"])?.waiting == true)
+
+        _ = try block(
+            "plan", "---\nkind: proposal\ntitle: Plan for App\nstatus: open\nstage: ready\nsession: \(setup.id)\n---\n",
+            in: project)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(phase() == .planReady, "its draft is the user's to read")
+        #expect(project.notebookSetup(asking: [:])?.plan?.title == "Plan for App")
+
+        _ = try NotebookFormat.create(.task, title: "Cache responses", in: project.notebookRoot, project: nil)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        #expect(phase() == .writing, "the first entry on disk is the approved plan being written")
+    }
+
     @Test func aSetupSessionIsFinishedOnceItsPlanIsDone() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

@@ -44,10 +44,15 @@ for.
      **What is yk-smoke for?**
    - Nothing has been written to the folder yet: `ls -A ~/Projects/yk-smoke` is empty.
    - A folder that already holds files is never asked about: opening one starts **Notebook
-     Setup** at once, told to read the project and draft its notebook from what is there.
-     While it runs, **Board** reads **Notebook Setup is writing this project’s notebook.**
-     with **Open Notebook Setup**; close the session before it finishes and Board offers
-     **Run Notebook Setup** instead.
+     Setup** at once, told to read the project and draft its notebook from what is there, and
+     the window stays on **Board**. Board shows a **Setting up the notebook** card with three
+     steps — *Read the project* (with the agent's last step, e.g. `Read Sources/…`, and a files-read
+     count for Claude Code), *Approve the plan* (**Review plan** once the draft is under Blocks)
+     and *Write the notebook* (roadmap, milestone, task and memory counts as they land). A
+     question in its session turns the card amber with **Answer in session**. **Product review**
+     and **New request** stay disabled until it is done; then the session closes and the board
+     opens under **Notebook written: …**. Close the session before it finishes and the card
+     offers **Run Notebook Setup**, which runs it again without leaving Board.
 
 ### Intake
 

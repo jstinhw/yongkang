@@ -48,16 +48,10 @@ package struct NotebookBoard: View {
     var request: (() -> Void)?
     /// The request box, drawn in the assign bar's place while it is open.
     var dock: AnyView?
-    /// Where the notebook's first write stands, while it has no tasks to draw. The empty board
-    /// says so, rather than sending the user to Product for a notebook that is not there yet.
-    var setup: Setup?
-
-    package enum Setup {
-        /// Notebook Setup is writing it; this opens that session.
-        case running(open: () -> Void)
-        /// Nothing is writing it — the session was closed or died first; this starts another.
-        case stopped(rerun: () -> Void)
-    }
+    /// `NotebookSetupCard`, drawn in the chains' place while the first notebook is being written
+    /// or has not been: the tasks that land meanwhile are the setup's to finish, not yet yours to
+    /// pick. Product has nothing to read until it is done, so its buttons wait too.
+    var setup: AnyView?
 
     @State private var selected: Set<String> = []
 
@@ -78,7 +72,7 @@ package struct NotebookBoard: View {
         fresh: Set<String> = [],
         request: (() -> Void)? = nil,
         dock: AnyView? = nil,
-        setup: Setup? = nil
+        setup: AnyView? = nil
     ) {
         self.cards = cards
         self.blocks = blocks
@@ -107,12 +101,14 @@ package struct NotebookBoard: View {
             let narrow = geometry.size.width < 950
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    if chains.isEmpty {
+                    if let setup {
+                        setup
+                    } else if chains.isEmpty {
                         empty
                     } else {
                         board
                     }
-                    if !narrow, hasInspector {
+                    if !narrow, hasInspector, setup == nil {
                         BoardInspector(waiting: waiting, batch: batch, openBlock: openBlock)
                     }
                 }
@@ -601,7 +597,8 @@ package struct NotebookBoard: View {
                     .disabled(setup != nil)
                 }
                 Spacer(minLength: 12)
-                Text("or pick tasks on the board").font(Typography.caption).foregroundStyle(Theme.tx3)
+                Text(setup == nil ? "or pick tasks on the board" : "Product review opens once the notebook is written")
+                    .font(Typography.caption).foregroundStyle(Theme.tx3)
             } else {
                 pickedChip
                 Spacer(minLength: 12)

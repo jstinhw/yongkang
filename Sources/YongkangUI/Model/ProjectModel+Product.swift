@@ -49,6 +49,36 @@ extension ProjectModel {
     /// there is none yet, or Notebook Setup is still writing it.
     var awaitingNotebook: Bool { !hasNotebook || runningSetup != nil }
 
+    /// Where the notebook's first write stands, for the board to show in place of a board. Nil
+    /// when there is nothing to say: no setup is running and there is a notebook to draw, or a
+    /// folder with nothing in it, which has the intake instead.
+    ///
+    /// The phase is read off what is on disk — the plan draft, then the first entries — so it is
+    /// the same answer for any CLI. Waiting is separate because a question can come up in any
+    /// phase: a trust prompt while reading, a permission prompt while writing.
+    func notebookSetup(asking: [UUID: String]) -> NotebookSetup? {
+        guard let session = runningSetup else {
+            guard !hasNotebook, hasFiles else { return nil }
+            return NotebookSetup(
+                phase: .stopped, waiting: false, session: sessions.last { $0.isNotebookSetup }, plan: nil)
+        }
+        let plan = snapshot.blocks.first { $0.isProposal && $0.session == session.id }
+        let phase: NotebookSetupCard.Phase =
+            hasNotebook ? .writing : plan?.waiting == true ? .planReady : .reading
+        // Its turn over with no plan to read is a question in prose. With the plan open, the turn
+        // is over because the plan is the question; once it is done, the agent is only signing off.
+        let quiet = session.idle && phase != .planReady && plan?.waiting != false
+        return NotebookSetup(phase: phase, waiting: asking[session.id] != nil || quiet, session: session, plan: plan)
+    }
+
+    /// What the setup session last did, read off its transcript. Nil for a CLI that keeps none.
+    func activity(of session: CodeSession?) async -> AgentActivity? {
+        guard let session, !session.exited, let provider = session.agent?.provider,
+            let url = await provider.transcriptURL(session: session.id, project: directory)
+        else { return nil }
+        return AgentActivity(lines: await reader.transcript(of: provider, at: url), in: directory)
+    }
+
     /// The setup sessions whose job is over: the plan each drafted is done, and the agent has
     /// said what it wrote. Nothing is left for one to do — the board holds its work, and
     /// Product takes the next plan — so an open one would only sit in the sidebar.
@@ -82,6 +112,16 @@ extension ProjectModel {
             route: addSession(
                 agent, prompt: NotebookFormat.incubatePrompt(brief: brief, agent: agent), title: "New Agent"))
     }
+}
+
+/// See `ProjectModel.notebookSetup`.
+struct NotebookSetup {
+    let phase: NotebookSetupCard.Phase
+    /// A question is up in its session, or it has stopped to ask one.
+    let waiting: Bool
+    /// The session running it, or for `stopped` the last one still listed, if any.
+    let session: CodeSession?
+    let plan: UserBlock?
 }
 
 extension CodeSession {
