@@ -32,6 +32,25 @@ extension DesignShots {
                 }
             }, "board-filed", into: directory)
 
+        // Product's session once it has stopped, where the request is approved or sent back too.
+        var asked = project
+        let product = CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude, idle: true)
+        asked.sessions.append(product)
+        write(
+            console(asked, section: .agents, selection: .session(product.id)) {
+                AgentPage(
+                    session: product, project: asked,
+                    row: asked.agentRows(summary: ChangeSummary(), asking: [:]).first {
+                        $0.route == .session(product.id)
+                    },
+                    content: {
+                        VStack(spacing: 0) {
+                            RequestBanner(filed: filed, openSession: nil, askForChanges: {}, approve: {}, dismiss: {})
+                            Theme.bg
+                        }
+                    })
+            }, "session-request", into: directory)
+
         // A board with nothing on it yet, where the request is most of what there is to do.
         let notebook = project.cards.filter { $0.kind != .task && $0.kind != .project }
         write(

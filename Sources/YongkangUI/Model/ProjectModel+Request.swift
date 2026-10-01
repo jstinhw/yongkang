@@ -6,9 +6,6 @@ struct BoardRequest: Equatable {
     let session: UUID
     /// Every card on the board when it was sent. Whatever Product files is what is not in here.
     let before: Set<String>
-    /// Every file already changed when it was sent. Approving commits none of these: they were
-    /// someone else's before Product started.
-    let dirty: Set<String>
 }
 
 extension ProjectModel {
@@ -26,8 +23,7 @@ extension ProjectModel {
             followUp.map { Destination(section: .board, route: .session($0.id), input: prompt) }
             ?? startProduct("describe\n" + prompt, agent: agent, reading: folders)
         if case .session(let id, _)? = sent.route, followUp == nil {
-            request = BoardRequest(
-                session: id, before: Set(cards.map(\.id)), dirty: Set(repo.changes.map(\.path)))
+            request = BoardRequest(session: id, before: Set(cards.map(\.id)))
         }
         requestDraft = ""
         requestOpen = false
@@ -43,25 +39,31 @@ extension ProjectModel {
     /// The box answers a request Product is still on, rather than starting a new one.
     var requestFollowsUp: Bool { requestSession != nil }
 
-    /// Product has filed something and its turn is over — or its session is gone — so what it
-    /// filed is the user's to approve or send back.
-    var requestFinished: Bool { !filed.isEmpty && requestSession?.idle != false }
+    /// Product's turn is over — or its session is gone — with a plan on disk not yet committed,
+    /// which is the user's to approve or send back.
+    var requestFinished: Bool { request != nil && requestSession?.idle != false && !planChanges.isEmpty }
 
-    /// What approving the request commits: the plan files changed since it was sent, less the
-    /// task files a running agent holds, which are that agent's work for Review.
+    /// The plan as git has it uncommitted: roadmap, milestone, task and memory files, less what
+    /// a task handed to an agent commits from Review — its own file, and any memory it wrote.
+    /// Read off disk rather than remembered, so it is still there after a relaunch.
     ///
-    /// ponytail: a file already changed when the request went out is left out even if Product
-    /// edited it too, and stays for All changes. Snapshot its contents at send time if that bites.
-    var requestPaths: [String] {
-        guard let request else { return [] }
-        let held = Set(
-            cards.filter { card in sessions.contains { !$0.exited && $0.taskIDs.contains(card.id) } }
-                .map(\.url.standardizedFileURL.path))
+    /// ponytail: a plan edit made by hand goes in with Product's. Remember the tree at send time,
+    /// and keep it across launches, if those ever need to stay apart.
+    var planChanges: [String] {
+        let handed = Set(summary.tasks.flatMap(\.commitPaths))
         return repo.changes.map(\.path).filter { path in
-            ["roadmap", "projects", "tasks"].contains { path.hasPrefix(".notebook/\($0)/") }
-                && !request.dirty.contains(path)
-                && !held.contains(directory.appendingPathComponent(path).standardizedFileURL.path)
+            ["roadmap", "projects", "tasks"].contains { path.hasPrefix(".notebook/\($0)/") } && !handed.contains(path)
         }
+    }
+
+    /// After a relaunch, the request a Product session was on, back as it was: what its plan
+    /// holds that is not committed is what it filed, and the banner waits on the user again.
+    func resumeRequest(of session: CodeSession) {
+        let changed = Set(planChanges.map { directory.appendingPathComponent($0).standardizedFileURL.path })
+        guard request == nil, !changed.isEmpty else { return }
+        request = BoardRequest(
+            session: session.id,
+            before: Set(cards.filter { !changed.contains($0.url.standardizedFileURL.path) }.map(\.id)))
     }
 
     /// Approving a request commits what Product wrote for it and closes it: the banner and its
@@ -71,7 +73,7 @@ extension ProjectModel {
         guard let request else { return nil }
         // Product's last write may be newer than the last read of the tree.
         await refreshRepo()
-        let paths = requestPaths
+        let paths = planChanges
         if !paths.isEmpty {
             let title = filed.first { $0.kind == .project }?.title ?? filed.first?.title ?? "the request"
             let failure = await GitClient.commit(message: "Plan \(title)", paths: paths, in: directory)

@@ -117,37 +117,47 @@ import Testing
         #expect(project.filed.count == 1, "and the first request's new cards stay new")
     }
 
-    @Test func approvingARequestCommitsOnlyWhatProductWroteAndClosesIt() async throws {
+    @Test func approvingARequestCommitsThePlanEvenAfterARelaunch() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }
         let root = NotebookFormat.root(in: tmp)
         let held = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: nil)
         try await repository(tmp)
         #expect(await GitClient.commit(message: "Base", in: tmp) == nil)
-        let handEdited = try NotebookFormat.create(.task, title: "Hand edited", in: root, project: nil)
         let project = ProjectModel(directory: tmp)
         await project.reloadNotebook(frontmatter: true, records: true)
-        await project.refreshRepo()
         _ = project.addSession(.claude, title: "Wire auth", taskIDs: ["wire-auth"])
 
         _ = project.sendRequest("Show the sync time", projects: [], agent: .claude)
         let product = try #require(project.sessions.last)
-        let filed = try NotebookFormat.create(.task, title: "Read the sync time", in: root, project: nil)
-        try "status: active\n".write(to: held, atomically: true, encoding: .utf8)
+        _ = try NotebookFormat.create(.task, title: "Read the sync time", in: root, project: nil)
+        let active = try String(contentsOf: held, encoding: .utf8)
+            .replacingOccurrences(of: "status: todo", with: "status: active")
+        try active.write(to: held, atomically: true, encoding: .utf8)
         await project.reloadNotebook(frontmatter: true, records: true)
+        await project.refreshRepo()
         #expect(!project.requestFinished, "nothing to approve while Product is still working")
         _ = project.markIdle(product.id, true)
         #expect(project.requestFinished)
+
+        // A relaunch forgets the request, and the plan left on disk brings it back.
+        let relaunched = ProjectModel(directory: tmp)
+        await relaunched.reloadNotebook(frontmatter: true, records: true)
+        _ = relaunched.addSession(.claude, id: product.id, title: "Product")
+        _ = relaunched.addSession(.claude, title: "Wire auth", taskIDs: ["wire-auth"])
+        await relaunched.refreshRepo()
+        relaunched.resumeRequest(of: try #require(relaunched.sessions.first))
+        #expect(relaunched.filed.map(\.title) == ["Read the sync time"], "the task held by an agent is not new")
+        #expect(relaunched.request?.session == product.id)
 
         let closing = try await project.approveRequest()
         #expect(closing?.id == product.id, "its session is handed back to be closed")
         #expect(project.request == nil && project.filed.isEmpty, "the request is over")
         #expect(project.repo.head?.hasSuffix("Plan Read the sync time") == true)
-        let left = Set(project.repo.changes.map { tmp.appendingPathComponent($0.path).standardizedFileURL })
-        #expect(!left.contains(filed.standardizedFileURL), "what Product filed is committed")
         #expect(
-            left.isSuperset(of: [held, handEdited].map(\.standardizedFileURL)),
-            "a task an agent holds and a file changed before the request are not Product's")
+            project.repo.changes.map { tmp.appendingPathComponent($0.path).standardizedFileURL }
+                == [held.standardizedFileURL],
+            "a task an agent holds waits for its own review")
     }
 
     @Test(
@@ -165,5 +175,9 @@ import Testing
         }
         let cards = NotebookIndex.load(root: root)
         #expect(RequestBanner.summary(of: cards) == line)
+        if kinds.isEmpty {
+            #expect(
+                RequestBanner.summary(of: cards, finished: true) == "Product changed the board for your request.")
+        }
     }
 }

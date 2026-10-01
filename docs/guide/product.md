@@ -15,10 +15,12 @@ the request serves it, otherwise a new milestone, with what waits on what decide
 There is no proposal to approve first; the board stays on screen, and what Product filed is
 marked `new` under a line saying what landed. `Ask for changes` opens the box again and sends
 what you type to the same Product session; `Open session` shows its transcript. Once Product
-has stopped, `Approve and commit` commits the roadmap, milestone and task files it wrote for
-the request — not files that were already changed when you sent it, nor the task file of one
-an agent is working — then closes the request and the Product session. Nothing is assigned or
-run until you pick it.
+has stopped, the same line sits on top of its session too — its transcript and the plan on its
+Page — so you can decide where you read it. `Approve and commit` commits the uncommitted
+roadmap, milestone, task and memory files — never the file of a task handed to an agent,
+which goes in with that task's review — then closes the request and the Product session.
+What is uncommitted is read from git, so a relaunch brings an unapproved request back.
+Nothing is assigned or run until you pick it.
 
 `Product review` at the bottom left of the board — or `Agent ▸ Product Review`, which works from any screen —
 starts a session that reads the whole notebook — roadmap,

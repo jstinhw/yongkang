@@ -83,20 +83,31 @@ extension RootView {
                 row: project.value.agentRows(summary: project.summary, asking: model.attention)
                     .first { $0.route == .session(watched.id) },
                 content: {
-                    switch pane {
-                    case .session:
-                        // A session clearing a gate gets the page that gate names beside it, so
-                        // the instruction and the screen it is about are one glance apart.
-                        if let link = project.value.gate(of: watched)?.link {
-                            HSplitView {
-                                terminal(for: watched).frame(minWidth: 420)
-                                GuideBrowser(url: link).frame(minWidth: 360)
-                            }
-                        } else {
-                            terminal(for: watched)
+                    // One stack, or AgentPage would give the banner a flexible share of the height.
+                    VStack(spacing: 0) {
+                        // Product's session is where its finished request is looked at — its
+                        // transcript, the plan on its Page — so the decision is here as on the board.
+                        if project.request?.session == watched.id {
+                            requestBanner(for: project, onBoard: false)
                         }
-                    case .page:
-                        SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
+                        switch pane {
+                        case .session:
+                            // A session clearing a gate gets the page that gate names beside it, so
+                            // the instruction and the screen it is about are one glance apart.
+                            if let link = project.value.gate(of: watched)?.link {
+                                HSplitView {
+                                    terminal(for: watched).frame(minWidth: 420)
+                                    GuideBrowser(url: link).frame(minWidth: 360)
+                                }
+                            } else {
+                                terminal(for: watched)
+                            }
+                        case .page:
+                            SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
+                        }
+                        if project.requestOpen && project.request?.session == watched.id {
+                            requestDock(for: project)
+                        }
                     }
                 })
         } else if let found = model.selectedSubagent(in: project) {
@@ -212,14 +223,7 @@ extension RootView {
 
     private func boardView(for project: ProjectModel) -> some View {
         VStack(spacing: 0) {
-            if let request = project.request {
-                RequestBanner(
-                    filed: project.filed,
-                    openSession: { model.go(to: Destination(section: .agents, route: .session(request.session))) },
-                    askForChanges: { project.requestOpen = true },
-                    approve: project.requestFinished ? { model.approveRequest(in: project) } : nil,
-                    dismiss: { project.request = nil })
-            }
+            requestBanner(for: project, onBoard: true)
             if project.notebookWritten {
                 NotebookWrittenBanner(cards: project.cards) { project.notebookWritten = false }
             }
@@ -230,6 +234,20 @@ extension RootView {
         // explain itself.
         .task(id: project.untrusted.contains(agent) ? project.id : nil) {
             model.askToTrust(agent, in: project)
+        }
+    }
+
+    /// What came of the last request, if one is open. Off the board it leaves out Open session:
+    /// it is drawn on that session.
+    @ViewBuilder private func requestBanner(for project: ProjectModel, onBoard: Bool) -> some View {
+        if let request = project.request {
+            RequestBanner(
+                filed: project.filed,
+                openSession: onBoard
+                    ? { model.go(to: Destination(section: .agents, route: .session(request.session))) } : nil,
+                askForChanges: { project.requestOpen = true },
+                approve: project.requestFinished ? { model.approveRequest(in: project) } : nil,
+                dismiss: { project.request = nil })
         }
     }
 

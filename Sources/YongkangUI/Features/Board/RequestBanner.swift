@@ -7,14 +7,15 @@ import YongkangCore
 /// user's to approve, which commits it, or to send back with what to change.
 package struct RequestBanner: View {
     let filed: [NotebookCard]
-    let openSession: () -> Void
+    /// Nil where the banner is drawn on that session already.
+    let openSession: (() -> Void)?
     let askForChanges: () -> Void
     /// Nil until Product has filed something and stopped.
     let approve: (() -> Void)?
     let dismiss: () -> Void
 
     package init(
-        filed: [NotebookCard], openSession: @escaping () -> Void, askForChanges: @escaping () -> Void,
+        filed: [NotebookCard], openSession: (() -> Void)?, askForChanges: @escaping () -> Void,
         approve: (() -> Void)? = nil, dismiss: @escaping () -> Void
     ) {
         self.filed = filed
@@ -27,11 +28,13 @@ package struct RequestBanner: View {
     package var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "sparkles").foregroundStyle(Theme.accent)
-            Text(RequestBanner.summary(of: filed)).font(Typography.body).foregroundStyle(Theme.tx)
-                .lineLimit(1)
+            Text(RequestBanner.summary(of: filed, finished: approve != nil)).font(Typography.body)
+                .foregroundStyle(Theme.tx).lineLimit(1)
             Spacer(minLength: 12)
-            Button("Open session", action: openSession).buttonStyle(.consoleGhost)
-            if !filed.isEmpty {
+            if let openSession {
+                Button("Open session", action: openSession).buttonStyle(.consoleGhost)
+            }
+            if !filed.isEmpty || approve != nil {
                 Button("Ask for changes", action: askForChanges).buttonStyle(.console)
             }
             if let approve {
@@ -57,12 +60,15 @@ package struct RequestBanner: View {
     }
 
     /// "a milestone and 3 tasks", in the board's own words for them.
-    static func summary(of filed: [NotebookCard]) -> String {
+    /// `finished` with nothing new filed is a request Product answered by changing what was there.
+    static func summary(of filed: [NotebookCard], finished: Bool = false) -> String {
         let counted = [
             count(filed.filter { $0.kind == .project }.count, "milestone"),
             count(filed.filter { $0.kind == .task }.count, "task"),
         ].compactMap { $0 }
-        guard !counted.isEmpty else { return "Product is on your request." }
+        guard !counted.isEmpty else {
+            return finished ? "Product changed the board for your request." : "Product is on your request."
+        }
         return "Product filed your request as " + counted.joined(separator: " and ") + "."
     }
 
