@@ -346,7 +346,7 @@ package struct ProjectSidebar: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(isTask ? row.title : row.label).font(Typography.body).foregroundStyle(Theme.tx)
                         .lineLimit(1)
-                    Text(isTask ? row.byLine : row.line).font(Typography.caption)
+                    secondLine(row, isTask: isTask).font(Typography.caption)
                         .foregroundStyle(row.state == .working ? Theme.tx3 : row.state.color)
                         .lineLimit(1)
                 }
@@ -367,6 +367,15 @@ package struct ProjectSidebar: View {
                 Button("Close Session") { closeSession(item.id, session) }
             }
         }
+    }
+
+    /// What a row says under its name. The other project a session is talking to stands out from
+    /// the words around it, as it does in the session's header.
+    private func secondLine(_ row: AgentRow, isTask: Bool) -> Text {
+        if !isTask, let peer = row.talkingTo {
+            return Text("\(peer.verb) \(Text(peer.project).fontWeight(.medium).foregroundStyle(Theme.tx2))")
+        }
+        return Text(isTask ? row.byLine : row.line)
     }
 
     /// The page a session drew for you — its report, or Setup's and Product's plan — under it.

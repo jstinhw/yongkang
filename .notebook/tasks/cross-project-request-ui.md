@@ -2,13 +2,13 @@
 id: cross-project-request-ui
 kind: task
 title: "Show who is talking"
-status: todo
+status: done
 depends_on: [cross-project-request-design, deliver-project-messages]
 designer: ""
 project: cross-project-requests
 owner: ""
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-06
 external: {}
 ---
 
@@ -17,11 +17,11 @@ waiting on, as the approved demo shows.
 
 ## Done when
 
-- [ ] Every surface in the approved [[cross-project-request-design]] demo is built as it shows:
+- [x] Every surface in the approved [[cross-project-request-design]] demo is built as it shows:
       the waiting banner on the asking board, the session row and request banner on the other.
-- [ ] Shots rendered before and after; the handoff says what changed on screen.
-- [ ] The smoke script in `docs/development.md` gains the two-project request.
-- [ ] `make check` passes.
+- [x] Shots rendered before and after; the handoff says what changed on screen.
+- [x] The smoke script in `docs/development.md` gains the two-project request.
+- [x] `make check` passes.
 
 ## Context
 

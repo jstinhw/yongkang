@@ -104,8 +104,14 @@ message in its own notebook, `.notebook/messages/<slug>.md` (the shape is in
    the first read of a launch.
 
 `ProjectModel.waitingOn` is the sender's side: a session that wrote to another project and has
-had no answer typed in since, with that project's folder. It and `BoardRequest.from` are in
-memory only, so a relaunch forgets who asked and who is waiting until the next message.
+had no answer typed in since, with that project's folder. `BoardRequest.asked` is what the
+request's own Product asked, kept once the answer is in. `ProjectModel.peers` turns them into
+what the screens say — each session's `Peer`, `waitingOn` or `askedBy` a project's name — and
+hands it to `Project`, so every screen built on `AgentRow` reads the same one. Product writing
+back to the project that asked it is answering, not waiting, so its peer stays `askedBy`. A
+session waiting on an answer whose turn is over reads as working rather than your turn, and a
+request waiting on one has nothing to approve yet. All of it is in memory only, so a relaunch
+forgets who asked and who is waiting until the next message.
 `Tests/YongkangUITests/MessageDeliveryTests.swift` covers the round trip, the two boards'
 commits, and typing once across a relaunch, with `/bin/sh` standing in for the CLIs.
 

@@ -53,9 +53,16 @@ extension AgentRow {
         }
     }
 
+    /// The other project it is talking to, while it has nothing to ask you: then that is its line.
+    var talkingTo: Peer? { state == .working ? peer : nil }
+
     /// What it is doing, then the coding agent doing it: "working · Codex". A session on no task
-    /// is already named after itself, so it says only the first.
-    var line: String { task == nil ? doing : "\(doing) · \(agentName)" }
+    /// is already named after itself, so it says only the first. One talking to another project
+    /// says which instead: "waiting on notebook-sync".
+    var line: String {
+        if let peer = talkingTo { return "\(peer.verb) \(peer.project)" }
+        return task == nil ? doing : "\(doing) · \(agentName)"
+    }
 
     /// A task's line: what is happening on it, then who is on it: "working · Codex".
     var byLine: String { session.map { "\(doing) · \($0.title)" } ?? doing }

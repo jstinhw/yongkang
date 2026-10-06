@@ -8,15 +8,19 @@ package struct AgentPage<Content: View>: View {
     let project: Project
     /// How the sidebar lists it, for its state and what it is doing. Nil once it has exited.
     let row: AgentRow?
+    /// Opens the demo, block or proposal the row is waiting on you for.
+    let openBlock: (UserBlock) -> Void
     @ViewBuilder let content: Content
 
     package init(
         session: CodeSession, project: Project, row: AgentRow?,
+        openBlock: @escaping (UserBlock) -> Void,
         @ViewBuilder content: () -> Content
     ) {
         self.session = session
         self.project = project
         self.row = row
+        self.openBlock = openBlock
         self.content = content()
     }
 
@@ -44,6 +48,18 @@ package struct AgentPage<Content: View>: View {
                     .lineLimit(1)
                 HStack(spacing: 8) {
                     NotebookStyle.chip(project.name, mono: true)
+                    // Who it is talking to, beside whose it is: the conversation is in its terminal.
+                    if let peer = row?.peer {
+                        NotebookStyle.chip {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.turn.down.right").font(.system(size: 9, weight: .semibold))
+                                Text(
+                                    "\(peer.verb) \(Text(peer.project).fontWeight(.semibold).foregroundStyle(Theme.tx))"
+                                )
+                            }
+                            .font(Typography.caption)
+                        }
+                    }
                     if let task {
                         NotebookStyle.chip(task.id, mono: true)
                         Text(session.agent?.displayName ?? session.title)
@@ -52,6 +68,12 @@ package struct AgentPage<Content: View>: View {
                 }
             }
             Spacer(minLength: 12)
+            // The sidebar row says "demo ready" and opens here, on the terminal; without this
+            // the demo's approval was only reachable from the board.
+            if row?.state == .needsYou, let block = row?.block {
+                Button(BoardInspector.open(block)) { openBlock(block) }
+                    .buttonStyle(.consolePrimary)
+            }
         }
         .padding(.horizontal, 24)
         .padding(.top, 18)

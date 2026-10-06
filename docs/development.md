@@ -6,8 +6,9 @@ done are in that file.
 ## Manual smoke script
 
 This walks the core loop by hand: open folder → intake → assign → subagent Check → block →
-approve → relaunch. Run it after any change to navigation, sessions, blocks, review or the
-menu bar. It uses real agents and spends real tokens.
+approve → relaunch, then a request that needs a second project. Run it after any change to
+navigation, sessions, blocks, review, the menu bar or messages between projects. It uses real
+agents and spends real tokens.
 
 Every label below comes from the code. Steps marked *agent behaviour* depend on what a
 model does with its skill, so the app can't guarantee them. Steps marked *unverified*
@@ -252,8 +253,34 @@ for.
     - Delete the task's file while the app is closed, then relaunch: the window opens the
       board rather than an empty page.
 
-**Clean up:** right-click each agent's row and choose **Close Session**. Right-click the
-project in the sidebar and choose **Close Project**, then delete the folder.
+### A request across two projects
+
+18. Open a second project with a notebook beside **yk-smoke** — say `~/Projects/yk-other`, made
+    through intake as above. Neither is in a group, so each tags the other as `@/<name>/`. On
+    **yk-smoke**'s board click **New request**, type one that needs a change there, for example
+    "Show the other project's version on the About page. @/yk-other/ doesn't expose its version
+    yet — ask it to.", and click **Send to Product**.
+    - *(Agent behaviour: Product writes `.notebook/messages/<slug>.md` in yk-smoke, `to:
+      "../yk-other"`.)* A **Product** session opens under **yk-other**, its row reading **asked by
+      yk-smoke**. Its header has an **asked by yk-smoke** chip beside the project's, and its
+      terminal starts on `asked` and "A message from the project in `../yk-smoke`…". The window
+      does not move.
+    - yk-smoke's own **Product** row reads **waiting on yk-other** with a working ring, not an
+      amber dot, and yk-smoke's count leaves it out. Its board's banner reads **Product is waiting
+      on yk-other's answer · asked "<the message's title>"**, with only **Open session**.
+    - *(Agent behaviour: yk-other's Product files its part and answers.)* yk-other's board marks
+      what it filed **new**, under **Product filed yk-smoke's request as a task.** with **Open
+      session**, **Ask for changes** and **Approve and commit**. The answer is typed into
+      yk-smoke's Product terminal, and that row goes back to **working**.
+    - Once yk-smoke's Product has filed its own part and stopped, its banner reads **Product filed
+      your request as a task; yk-other filed its own part.** Approve on each board:
+      `git -C ~/Projects/yk-smoke log -1 --stat`, and the same in yk-other, each list only that
+      project's notebook files.
+    - Who is talking to whom is in memory only: after ⌘Q and `make run`, both rows read as any
+      Product's do until the next message.
+
+**Clean up:** right-click each agent's row and choose **Close Session**. Right-click each
+project in the sidebar and choose **Close Project**, then delete the folders.
 
 ## Capturing a CLI fixture
 

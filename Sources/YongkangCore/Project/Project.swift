@@ -22,6 +22,9 @@ package struct Project: Identifiable, Equatable, Sendable {
     /// Every assigned session's reports on disk, by session id — including sessions that are
     /// closed or ran before a relaunch, whose finished work may still be waiting for review.
     package var records: [UUID: LeadCoordination] = [:]
+    /// The other open project each session here is talking to, by session id. In memory only,
+    /// like `guided` — see `ProjectModel.peers`.
+    package var peers: [UUID: Peer] = [:]
 
     package init(
         id: UUID = UUID(),
@@ -32,7 +35,8 @@ package struct Project: Identifiable, Equatable, Sendable {
         team: [TeamMember] = Team.defaults,
         sessions: [CodeSession] = [],
         guided: Set<String> = [],
-        records: [UUID: LeadCoordination] = [:]
+        records: [UUID: LeadCoordination] = [:],
+        peers: [UUID: Peer] = [:]
     ) {
         self.id = id
         self.directory = directory
@@ -43,6 +47,7 @@ package struct Project: Identifiable, Equatable, Sendable {
         self.sessions = sessions
         self.guided = guided
         self.records = records
+        self.peers = peers
     }
 
     package var onlineAgentCount: Int {

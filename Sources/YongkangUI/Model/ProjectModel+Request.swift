@@ -9,6 +9,16 @@ struct BoardRequest: Equatable {
     /// The project that asked, by folder, when its agent's message started this request rather
     /// than the board's own box. See `ProjectModel.receive`. Not kept across a relaunch.
     var from: URL? = nil
+    /// What Product last asked another project for this request, kept once the answer is in so
+    /// the banner can say that project filed its part. Set by `ProjectModel.deliveries`; never on
+    /// a request another project asked, where what Product writes back is its answer.
+    var asked: Ask? = nil
+
+    /// One message this request's Product sent: the project it went to, by folder, and its title.
+    struct Ask: Equatable {
+        let project: URL
+        let title: String
+    }
 }
 
 extension ProjectModel {
@@ -44,7 +54,25 @@ extension ProjectModel {
 
     /// Product's turn is over — or its session is gone — with a plan on disk not yet committed,
     /// which is the user's to approve or send back.
-    var requestFinished: Bool { request != nil && requestSession?.idle != false && !planChanges.isEmpty }
+    var requestFinished: Bool {
+        request != nil && requestSession?.idle != false && !planChanges.isEmpty && requestWaitsOn == nil
+    }
+
+    /// The project the request's Product asked for its part and has not heard back from. Its plan
+    /// is not finished until the answer is in: the tasks it files then depend on it.
+    var requestWaitsOn: BoardRequest.Ask? {
+        guard let request, let asked = request.asked, waitingOn[request.session] != nil else { return nil }
+        return asked
+    }
+
+    /// The other project each session is talking to, as the sidebar and a session's header name
+    /// it. Product answering the project that asked it is asked by that project, not waiting on
+    /// it: what it wrote back was the answer.
+    var peers: [UUID: Peer] {
+        var peers = waitingOn.mapValues { Peer.waitingOn($0.lastPathComponent) }
+        if let request, let from = request.from { peers[request.session] = .askedBy(from.lastPathComponent) }
+        return peers
+    }
 
     /// The plan as git has it uncommitted: roadmap, milestone, task and memory files, less what
     /// a task handed to an agent commits from Review — its own file, and any memory it wrote.

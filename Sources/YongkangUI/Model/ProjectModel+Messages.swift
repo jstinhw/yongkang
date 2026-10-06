@@ -42,6 +42,9 @@ extension ProjectModel {
             }
             guard let (session, text) = receiver.receive(message, from: directory, agent: agent) else { continue }
             waitingOn[message.session] = receiver.directory
+            if let asking = request, asking.session == message.session, asking.from == nil {
+                request?.asked = BoardRequest.Ask(project: receiver.directory, title: message.title)
+            }
             routed.append(Delivery(key: message.deliveryKey, session: session, text: text))
         }
         return routed

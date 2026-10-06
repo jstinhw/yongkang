@@ -43,6 +43,7 @@ extension DesignShots {
                     row: asked.agentRows(summary: ChangeSummary(), asking: [:]).first {
                         $0.route == .session(product.id)
                     },
+                    openBlock: { _ in },
                     content: {
                         VStack(spacing: 0) {
                             RequestBanner(filed: filed, openSession: nil, askForChanges: {}, approve: {}, dismiss: {})
@@ -50,6 +51,8 @@ extension DesignShots {
                         }
                     })
             }, "session-request", into: directory)
+
+        writeCrossProjectShots(project, filed: filed, agents: agents, into: directory)
 
         // A board with nothing on it yet, where the request is most of what there is to do.
         let notebook = project.cards.filter { $0.kind != .task && $0.kind != .project }
@@ -62,6 +65,70 @@ extension DesignShots {
             }, "board-empty", into: directory)
 
         writeSetupShots(project, agents: agents, into: directory)
+    }
+
+    /// A request that needs a part from another open project, as each side shows it: the asking
+    /// board while it waits, the other project's Product asked by it, that project's board with
+    /// what it filed, and the asking board once the answer is in. The sample asks notebook-sync.
+    @MainActor private static func writeCrossProjectShots(
+        _ project: Project, filed: [NotebookCard], agents: AgentChoice, into directory: URL
+    ) {
+        let asked = (project: "notebook-sync", title: "Last sync time for the download page")
+        write(
+            console(project, section: .board) {
+                VStack(spacing: 0) {
+                    RequestBanner(
+                        filed: [], asked: asked, waiting: true, openSession: {}, askForChanges: {}, dismiss: {})
+                    board(project, agents: agents)
+                }
+            }, "board-waiting", into: directory)
+
+        // Its turn is over while it waits, which reads as at work rather than as your turn.
+        var asking = project
+        let waiting = CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude, idle: true)
+        asking.sessions.append(waiting)
+        asking.peers = [waiting.id: .waitingOn("notebook-sync")]
+        var sync = Project(directory: URL(fileURLWithPath: "/Users/you/sources/notebook-sync"), entries: [])
+        let product = CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude)
+        sync.sessions = [
+            CodeSession(title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["resume"]),
+            product,
+        ]
+        sync.peers = [product.id: .askedBy(project.name)]
+        let synced = ChangeSummary(tasks: [
+            SummaryTask(id: "resume", title: "Resume sync after sleep", status: "active")
+        ])
+        write(
+            console(
+                sync, section: .agents, summary: synced, selection: .session(product.id),
+                others: [SidebarProject(project: asking, summary: ChangeSummary())]
+            ) {
+                AgentPage(
+                    session: product, project: sync,
+                    row: sync.agentRows(summary: synced).first { $0.route == .session(product.id) },
+                    openBlock: { _ in }, content: { Theme.bg })
+            }, "session-asked", into: directory)
+
+        // The sample as the asked board here, with what its Product filed for yongkang-site.
+        write(
+            console(project, section: .board) {
+                VStack(spacing: 0) {
+                    RequestBanner(
+                        filed: filed, from: "yongkang-site", openSession: {}, askForChanges: {}, approve: {},
+                        dismiss: {})
+                    board(project, agents: agents, fresh: Set(filed.map(\.id)))
+                }
+            }, "board-asked", into: directory)
+
+        let own = filed.filter { $0.kind == .task }.prefix(1)
+        write(
+            console(project, section: .board) {
+                VStack(spacing: 0) {
+                    RequestBanner(
+                        filed: Array(own), asked: asked, openSession: {}, askForChanges: {}, approve: {}, dismiss: {})
+                    board(project, agents: agents, fresh: Set(own.map(\.id)))
+                }
+            }, "board-answered", into: directory)
     }
 
     @MainActor private static func board(

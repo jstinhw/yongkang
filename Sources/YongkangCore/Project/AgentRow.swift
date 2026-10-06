@@ -32,6 +32,8 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package let block: UserBlock?
     /// Where clicking it goes.
     package let route: Route
+    /// The other project its session is talking to, which its row and its header name.
+    package var peer: Peer? = nil
 
     /// Whether this is a running session's own row, which is all the Agents tab lists. The
     /// others — a proposal, a block or a review no running session stands behind — still count
@@ -39,6 +41,27 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package var isRunningSession: Bool {
         guard let session, !session.exited else { return false }
         return id == session.id.uuidString
+    }
+}
+
+/// Another open project a session is talking to, by its name: the one it wrote to and has not
+/// heard back from, or the one whose message started it.
+package enum Peer: Equatable, Sendable {
+    case waitingOn(String)
+    case askedBy(String)
+
+    package var project: String {
+        switch self {
+        case .waitingOn(let name), .askedBy(let name): return name
+        }
+    }
+
+    /// "waiting on", "asked by": what goes before the name.
+    package var verb: String {
+        switch self {
+        case .waitingOn: return "waiting on"
+        case .askedBy: return "asked by"
+        }
     }
 }
 
@@ -166,6 +189,9 @@ extension Project {
                 )
             } else if !waiting.isEmpty {
                 state = .review
+            } else if case .waitingOn? = peers[session.id], !session.exited {
+                // Its turn is over, but what comes next is the other project's answer, not yours.
+                state = .working
             } else if session.idle, !session.exited {
                 (state, reason) = (.needsYou, "It has finished and is waiting for your reply.")
             } else if !session.exited {
@@ -190,7 +216,7 @@ extension Project {
             rows.append(
                 AgentRow(
                     id: session.id.uuidString, state: state, title: title, reason: reason,
-                    session: session, task: task, block: block, route: route))
+                    session: session, task: task, block: block, route: route, peer: peers[session.id]))
         }
         // Everything else waiting on you gets a row of its own: a proposal no session wrote, a
         // second block from a session already listed for its first, and blocks whose session has

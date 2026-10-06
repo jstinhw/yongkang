@@ -23,6 +23,17 @@ What the model exposes for the UI:
 Map a folder to its name by finding the open `ProjectModel` at that `directory`, or use
 `lastPathComponent`.
 
+What [[cross-project-request-ui]] built on them:
+
+- **`BoardRequest.asked`:** what the request's own Product asked another project (its folder and
+  the message's title), kept after the answer so the banner can say that project filed its part.
+  Never set on a request another project asked.
+- **`ProjectModel.peers` → `Project.peers` → `AgentRow.peer`:** `.waitingOn(name)` or
+  `.askedBy(name)` per session. The asked Product stays `askedBy` after it answers, although
+  `waitingOn` holds it then: its answer is not a question it waits on.
+- A session waiting on another project whose turn is over is `.working`, not `.needsYou`, and
+  `requestFinished` is false while `requestWaitsOn` is set.
+
 ## Why
 
 Both are in memory only, set as `AppModel.deliverMessages` types each message in. After a

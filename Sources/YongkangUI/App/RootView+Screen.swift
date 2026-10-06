@@ -82,6 +82,7 @@ extension RootView {
                 session: watched, project: project.value,
                 row: project.value.agentRows(summary: project.summary, asking: model.attention)
                     .first { $0.route == .session(watched.id) },
+                openBlock: { model.selection = .block($0.id) },
                 content: {
                     // One stack, or AgentPage would give the banner a flexible share of the height.
                     VStack(spacing: 0) {
@@ -242,7 +243,9 @@ extension RootView {
     @ViewBuilder private func requestBanner(for project: ProjectModel, onBoard: Bool) -> some View {
         if let request = project.request {
             RequestBanner(
-                filed: project.filed,
+                filed: project.filed, from: request.from?.lastPathComponent,
+                asked: request.asked.map { ($0.project.lastPathComponent, $0.title) },
+                waiting: project.requestWaitsOn != nil,
                 openSession: onBoard
                     ? { model.go(to: Destination(section: .agents, route: .session(request.session))) } : nil,
                 askForChanges: { project.requestOpen = true },

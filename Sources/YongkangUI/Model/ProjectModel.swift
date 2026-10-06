@@ -154,7 +154,7 @@ import YongkangCore
         Project(
             id: id, directory: directory, entries: snapshot.entries, cards: cards,
             blocks: snapshot.blocks, team: snapshot.team, sessions: sessions, guided: guidedBlocks,
-            records: snapshot.records)
+            records: snapshot.records, peers: peers)
     }
 
     /// What the screens draw, rather than what the files say: the snapshot's cards with any

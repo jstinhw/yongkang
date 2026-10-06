@@ -36,8 +36,12 @@ package enum NotebookStyle {
 
     /// A chip for a fact rather than a state: an id, a role, a count.
     static func chip(_ text: String, mono: Bool = false) -> some View {
-        Text(text)
-            .font(mono ? Typography.mono : Typography.caption)
+        chip { Text(text).font(mono ? Typography.mono : Typography.caption) }
+    }
+
+    /// The same chip around a label of its own: a glyph beside the fact, or a word in it set apart.
+    static func chip<Label: View>(@ViewBuilder _ label: () -> Label) -> some View {
+        label()
             .foregroundStyle(Theme.tx2)
             .padding(.horizontal, 8)
             .frame(height: 22)

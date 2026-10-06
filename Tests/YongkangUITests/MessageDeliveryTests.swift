@@ -157,6 +157,66 @@ struct MessageDeliveryTests {
         #expect(site.waitingOn.isEmpty)
     }
 
+    /// What the sidebar, a session's header and the board's banner say about the other project:
+    /// the asking Product waits on it, the asked one was asked by it, and once the answer is in
+    /// the asking board says that project filed its part.
+    @Test func eachSideSaysWhoItIsTalkingTo() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let (siteFolder, syncFolder) = try await folders(in: tmp, git: true)
+        let (site, sync) = (await read(siteFolder), await read(syncFolder))
+        _ = site.sendRequest("Show the sync time", projects: [], agent: .claude)
+        let asking = try #require(site.sessions.first)
+        var delivered: Set<String> = []
+
+        // Product files what does not wait on the answer, asks, and its turn ends.
+        _ = try NotebookFormat.create(.task, title: "Show the sync time", in: site.notebookRoot, project: nil)
+        try await write("ask", to: "../sync", session: asking.id, in: site)
+        _ = deliver([site, sync], skipping: &delivered)
+        let product = try #require(sync.sessions.first)
+        _ = site.markIdle(asking.id, true)
+        await site.refreshRepo()
+        let waiting = try #require(site.value.agentRows(summary: ChangeSummary()).first)
+        #expect(waiting.state == .working && waiting.line == "waiting on sync", "the next move is sync's, not yours")
+        #expect(site.requestWaitsOn == BoardRequest.Ask(project: syncFolder, title: "Sync time: ask"))
+        #expect(!site.requestFinished, "its plan waits on the answer")
+        let asked = try #require(sync.value.agentRows(summary: ChangeSummary()).first)
+        #expect(asked.peer == .askedBy("site") && asked.line == "asked by site")
+
+        // sync files its part and answers; what its Product wrote back is not a question it waits on.
+        _ = try NotebookFormat.create(.task, title: "Record the sync time", in: sync.notebookRoot, project: nil)
+        try await write("answer", to: "../site", session: product.id, replyTo: asking.id, in: sync)
+        await site.reloadNotebook(frontmatter: true, records: true)
+        _ = deliver([site, sync], skipping: &delivered)
+        _ = sync.markIdle(product.id, true)
+        await sync.refreshRepo()
+        #expect(sync.peers == [product.id: .askedBy("site")] && sync.requestFinished)
+        #expect(
+            sync.value.agentRows(summary: ChangeSummary()).first?.state == .needsYou, "its plan is yours to approve")
+        #expect(site.requestWaitsOn == nil && site.request?.asked?.project == syncFolder, "who answered is kept")
+        #expect(site.peers.isEmpty && site.requestFinished)
+    }
+
+    @Test func theBannerNamesTheOtherProjectInBold() {
+        let task = NotebookCard(
+            id: "t", url: URL(fileURLWithPath: "/tmp/t.md"), kind: .task, title: "T", status: "todo", project: nil,
+            dependsOn: [])
+        let asked = (project: "sync", title: "Sync time")
+        let lines = [
+            RequestBanner.line(of: [], finished: false, asked: asked, waiting: true),
+            RequestBanner.line(of: [task], finished: true, from: "site"),
+            RequestBanner.line(of: [task], finished: true, asked: asked),
+        ]
+        #expect(
+            lines.map { String($0.characters) } == [
+                "Product is waiting on sync’s answer · asked “Sync time”",
+                "Product filed site’s request as a task.",
+                "Product filed your request as a task; sync filed its own part.",
+            ])
+        let bold = lines.map { line in line.runs.filter { $0.font != nil }.map { String(line[$0.range].characters) } }
+        #expect(bold == [["sync"], ["site"], ["sync"]])
+    }
+
     /// A CLI stand-in that appends every line typed into it to `log`.
     private func logger(_ log: URL) -> String {
         "while IFS= read -r line; do printf '%s\\n' \"$line\" >> '\(log.path)'; printf 'got it\\r\\n'; done"
