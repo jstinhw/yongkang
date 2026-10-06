@@ -94,6 +94,26 @@ extension ProjectModel {
         return sessions.first { $0.id == request.session && !$0.exited }
     }
 
+    /// The Product session with nothing left to do: its turn is over and its plan is committed
+    /// — by hand, since `Approve and commit` closes its own — which would leave it at "your
+    /// turn" with no banner to close it from. Its plan is what its request filed or, once a
+    /// relaunch has forgotten the request, its Page, which only a commit made by hand puts in
+    /// git: the app never commits one.
+    ///
+    /// Only right after a read of the tree: one older than the notebook would call a plan
+    /// Product has just written committed.
+    func spentProduct() async -> CodeSession? {
+        guard planChanges.isEmpty else { return nil }
+        for session in sessions where session.isProduct && session.idle && !session.exited {
+            if request?.session == session.id && !filed.isEmpty { return session }
+            let page = NotebookFormat.relativePath(NotebookFormat.page(of: session.id, in: notebookRoot))
+            if !repo.changes.contains(where: { $0.path == page }), await GitClient.committed(page, in: directory) {
+                return session
+            }
+        }
+        return nil
+    }
+
     /// The Product session the last request went to, while it is still running.
     private var requestSession: CodeSession? {
         request.flatMap { request in sessions.first { $0.id == request.session && !$0.exited } }

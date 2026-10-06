@@ -648,8 +648,21 @@ import YongkangCore
             var countingLines = false
             if inside, case .review? = selection { countingLines = true }
             if inside, case .reviewTask? = selection { countingLines = true }
-            Task { await project.refreshRepo(countingLines: countingLines) }
+            Task {
+                await project.refreshRepo(countingLines: countingLines)
+                await endSpentProduct(in: project)
+            }
         }
+    }
+
+    /// A Product whose plan was committed by hand goes the way `Approve and commit` would have
+    /// sent it, and its request with it.
+    private func endSpentProduct(in project: ProjectModel) async {
+        guard let product = await project.spentProduct(),
+            project.sessions.contains(where: { $0.id == product.id && $0.idle })
+        else { return }
+        if project.request?.session == product.id { project.request = nil }
+        end(product, in: project)
     }
 
     /// Finished work opens on the first task waiting for approval, as git sees the tree. The read
