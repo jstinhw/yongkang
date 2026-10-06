@@ -109,6 +109,12 @@ package enum GitClient {
         return text?.isEmpty == false ? text : nil
     }
 
+    /// Whether `HEAD` holds `path`, which a file's absence from `status` cannot say on its own:
+    /// it is that, or ignored.
+    package static func committed(_ path: String, in directory: URL) async -> Bool {
+        await git(["cat-file", "-e", "HEAD:\(path)"], in: directory)?.status == 0
+    }
+
     /// The unified diff of one file, already split into rows with their line numbers so the
     /// view only has to draw them.
     package static func diff(of change: FileChange, in directory: URL) async -> [DiffLine] {

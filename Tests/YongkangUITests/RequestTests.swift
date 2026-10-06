@@ -140,13 +140,19 @@ import Testing
         _ = project.markIdle(product.id, true)
         #expect(project.requestFinished)
 
+        // Dismissed, the banner comes back at the end of Product's next turn.
+        project.request = nil
+        await project.resumeRequest(of: try #require(project.sessions.first { $0.id != product.id }))
+        #expect(project.request == nil, "only Product's turn brings it back")
+        await project.resumeRequest(of: product)
+        #expect(project.requestFinished && project.filed.map(\.title) == ["Read the sync time"])
+
         // A relaunch forgets the request, and the plan left on disk brings it back.
         let relaunched = ProjectModel(directory: tmp)
         await relaunched.reloadNotebook(frontmatter: true, records: true)
         _ = relaunched.addSession(.claude, id: product.id, title: "Product")
         _ = relaunched.addSession(.claude, title: "Wire auth", taskIDs: ["wire-auth"])
-        await relaunched.refreshRepo()
-        relaunched.resumeRequest(of: try #require(relaunched.sessions.first))
+        await relaunched.resumeRequest(of: try #require(relaunched.sessions.first))
         #expect(relaunched.filed.map(\.title) == ["Read the sync time"], "the task held by an agent is not new")
         #expect(relaunched.request?.session == product.id)
 
@@ -158,6 +164,44 @@ import Testing
             project.repo.changes.map { tmp.appendingPathComponent($0.path).standardizedFileURL }
                 == [held.standardizedFileURL],
             "a task an agent holds waits for its own review")
+    }
+
+    @Test func aPlanCommittedByHandLeavesProductNothingToDo() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let root = NotebookFormat.root(in: tmp)
+        _ = try NotebookFormat.create(.task, title: "Wire auth", in: root, project: nil)
+        try await repository(tmp)
+        #expect(await GitClient.commit(message: "Base", in: tmp) == nil)
+        let project = ProjectModel(directory: tmp)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        _ = project.sendRequest("Show the sync time", projects: [], agent: .claude)
+        let product = try #require(project.sessions.first)
+        _ = try NotebookFormat.create(.task, title: "Read the sync time", in: root, project: nil)
+        await project.reloadNotebook(frontmatter: true, records: true)
+        _ = project.markIdle(product.id, true)
+        await project.refreshRepo()
+        #expect(await project.spentProduct() == nil, "its plan waits on Approve and commit")
+
+        #expect(await GitClient.commit(message: "Plan by hand", in: tmp) == nil)
+        await project.refreshRepo()
+        #expect(await project.spentProduct()?.id == product.id)
+
+        // A relaunch forgets the request: only a Page git holds says the plan went in.
+        let relaunched = ProjectModel(directory: tmp)
+        await relaunched.reloadNotebook(frontmatter: true, records: true)
+        _ = relaunched.addSession(.claude, id: product.id, title: "Product")
+        _ = relaunched.markIdle(product.id, true)
+        await relaunched.refreshRepo()
+        #expect(await relaunched.spentProduct() == nil, "no Page: a review still being talked through")
+        let page = NotebookFormat.page(of: product.id, in: root)
+        try FileManager.default.createDirectory(at: page.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "<p>The plan</p>".write(to: page, atomically: true, encoding: .utf8)
+        await relaunched.refreshRepo()
+        #expect(await relaunched.spentProduct() == nil, "a Page not committed is a plan still waiting")
+        #expect(await GitClient.commit(message: "Page by hand", in: tmp) == nil)
+        await relaunched.refreshRepo()
+        #expect(await relaunched.spentProduct()?.id == product.id)
     }
 
     @Test(

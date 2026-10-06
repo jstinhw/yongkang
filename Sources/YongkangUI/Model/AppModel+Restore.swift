@@ -38,8 +38,7 @@ extension AppModel {
             }
             // A request Product finished but nobody approved is on disk, not in the stored sessions.
             if let product = project.sessions.last(where: \.isProduct) {
-                await project.refreshRepo(countingLines: false)
-                project.resumeRequest(of: product)
+                await project.resumeRequest(of: product)
             }
         }
     }
