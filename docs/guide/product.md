@@ -30,7 +30,10 @@ roadmap, milestone, task and memory files — never the file of a task handed to
 which goes in with that task's review — then closes the request and the Product session.
 What is uncommitted is read from git, so a relaunch brings an unapproved request back, and so
 does the end of any Product turn that leaves a plan uncommitted — one asked for in its
-terminal, or after the line was dismissed.
+terminal, or after the line was dismissed. A plan you commit yourself instead closes the
+Product session once its turn is over, the way approving it would have: what its request
+filed is all committed, or, after a relaunch, its Page is — the app never commits a Page,
+so one in git went in with your commit.
 Nothing is assigned or run until you pick it.
 
 `Product review` at the bottom left of the board — or `Agent ▸ Product Review`, which works from any screen —
