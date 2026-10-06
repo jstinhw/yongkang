@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cross-project request demo</title>
+<style>
+  :root {
+    --bg: #ffffff; --tx: #1d1d1f; --mute: #6e6e73; --line: #d2d2d7; --ok: #1a7f37; --warn: #9a6700; --chip: #f5f5f7; --link: #0a64d8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; --link: #52a8ff; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; --link: #52a8ff; }
+  body { margin: 0; background: var(--bg); color: var(--tx);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 32px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--mute); margin: 0 0 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 20px 0 6px; }
+  section.task { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 16px; }
+  h3 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .status { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--chip); }
+  .waiting { color: var(--warn); }
+  .note { border-left: 3px solid var(--warn); padding: 4px 12px; margin: 8px 0; }
+  a { color: var(--link); }
+  ul, ol { margin: 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cross-project request demo</h1>
+  <p class="sub">Session fc421f89 · cross-project-requests · 2026-10-06</p>
+
+  <h2>What needs you</h2>
+  <div class="note">
+    <p style="margin: 0 0 6px"><strong>Approve the demo or tell me what's wrong with it.</strong>
+      It's a design canvas:
+      <a href="https://claude.ai/artifact/CUC1Ld7B2cxZc3nFTrhCi3">claude.ai/artifact/CUC1Ld7B2cxZc3nFTrhCi3</a>.
+      Nothing that depends on it, including <code>cross-project-request-ui</code>, starts until you approve.</p>
+    <p style="margin: 0">If the Demo screen shows a claude.ai sign-in instead of the canvas, open the link in
+      your browser. The canvas is private to your account.</p>
+  </div>
+
+  <section class="task">
+    <h3>Design a cross-project request <span class="status waiting">demo ready</span>
+      <code>cross-project-request-design</code></h3>
+
+    <h2>What the demo shows</h2>
+    <p style="margin: 0 0 6px">There are five 1440×900 frames in two lanes, yongkang-site (asking) on top and
+      notebook-sync (asked) below, in time order from left to right:</p>
+    <ol>
+      <li><strong>yongkang-site asks.</strong> Its board has the request box open, with a request that tags
+        <code>@/notebook-sync</code>.</li>
+      <li><strong>yongkang-site waits.</strong> The banner reads “Product is waiting on <strong>notebook-sync</strong>’s
+        answer · asked ‘Last sync time for the download page’”, with Open session.</li>
+      <li><strong>notebook-sync’s Product.</strong> In the Agents sidebar the row reads “asked by yongkang-site”,
+        and yongkang-site’s Product reads “waiting on notebook-sync”. The header has the same chip, and
+        the terminal shows the message the app typed in and the agent filing its part.</li>
+      <li><strong>notebook-sync files its part.</strong> <code>expose-last-sync</code> is marked new. The banner
+        reads “Product filed <strong>yongkang-site</strong>’s request as a task”, with Open session, Ask for
+        changes and Approve and commit.</li>
+      <li><strong>yongkang-site, answered.</strong> <code>download-last-sync</code> is marked new. The banner
+        reads “Product filed your request as a task; <strong>notebook-sync</strong> filed its own part”, with
+        the same three actions.</li>
+    </ol>
+    <p style="margin: 8px 0 0">The only new thing is the other project’s name, in the request banner, the session
+      row’s second line and the session header. There are no new screens, and each board still approves only
+      its own files.</p>
+
+    <h2>Not in the demo yet</h2>
+    <ul>
+      <li>The asking task’s card doesn’t say it needs notebook-sync’s task. That stays in its Context, per
+        the depends-on-stays-in-one-notebook decision.</li>
+      <li>The other project’s name in a banner isn’t a link to its session.</li>
+      <li>The Board sidebar doesn’t change. Who-is-talking shows under Agents.</li>
+    </ul>
+
+    <h2>How I checked it</h2>
+    <ul>
+      <li><code>swift run shots</code> rendered today’s screens into scratch space. The frames copy their colours,
+        type sizes, row padding, pills and buttons from those shots and from <code>Theme.swift</code>,
+        <code>Typography.swift</code>, <code>RequestBanner.swift</code> and <code>ProjectSidebar.swift</code>.</li>
+      <li>I rendered each frame with headless Chrome at 1440×900 and looked at it: nothing was clipped, and each
+        banner’s text fits beside its buttons.</li>
+      <li>No Swift changed, so I didn’t run <code>make check</code>.</li>
+    </ul>
+
+    <h2>Files</h2>
+    <ul>
+      <li><code>.notebook/blocks/cross-project-request-design-demo.md</code> (new, the demo file)</li>
+      <li><code>.notebook/tasks/cross-project-request-design.md</code> (<code>status: designing</code>, five of six Done when items ticked)</li>
+      <li><code>.notebook/runs/fc421f89-bacc-41c4-8c01-e71f5ffdddd8-work-cross-project-request-design-2.md</code></li>
+      <li><code>.notebook/pages/fc421f89-bacc-41c4-8c01-e71f5ffdddd8.html</code> (this page)</li>
+    </ul>
+    <p style="margin: 6px 0 0; color: var(--mute)">Leave everything else in the tree out of this task’s commit. The
+      Swift, docs and <code>deliver-project-messages</code> changes are from the parallel delivery session.</p>
+
+    <h2>Calls I made</h2>
+    <ul>
+      <li>Artifact: created one private Design canvas (“Cross-project request”) and published its six files to
+        it, one frame at a time. Nothing was shared.</li>
+      <li>Ran <code>swift run shots</code> once, and headless Chrome locally on the frames. No server, deploy, branch or
+        commit.</li>
+    </ul>
+
+    <h2>What is left</h2>
+    <ul>
+      <li>Your approval, which is the last Done when item. After that the task is <code>done</code> and
+        <code>cross-project-request-ui</code> can build it.</li>
+      <li>Session <code>3ba5f44c</code> started this task earlier and left its run at <code>running</code> with nothing
+        built. I left its file alone. This attempt is <code>-2</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

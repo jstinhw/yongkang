@@ -2,13 +2,13 @@
 id: cross-project-request-design
 kind: task
 title: "Design a cross-project request"
-status: todo
+status: done
 depends_on: []
 designer: Allen
 project: cross-project-requests
 owner: ""
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-06
 external: {}
 ---
 
@@ -17,16 +17,16 @@ before any SwiftUI is written.
 
 ## Done when
 
-- [ ] The demo shows two projects in the sidebar and a request typed on the first one's board
+- [x] The demo shows two projects in the sidebar and a request typed on the first one's board
       that tags the second.
-- [ ] The first board while its Product waits on the other project's answer: the request banner
+- [x] The first board while its Product waits on the other project's answer: the request banner
       says it is waiting on that project by name.
-- [ ] The second project's sidebar with the Product session the message opened, saying which
+- [x] The second project's sidebar with the Product session the message opened, saying which
       project asked.
-- [ ] The second board with what its Product filed marked new, and a banner that names the asking
+- [x] The second board with what its Product filed marked new, and a banner that names the asking
       project, with Open session, Ask for changes and Approve and commit.
-- [ ] The first board once the answer is back and its own part is filed.
-- [ ] The user approved the demo.
+- [x] The first board once the answer is back and its own part is filed.
+- [x] The user approved the demo.
 
 ## Context
 
