@@ -240,7 +240,14 @@ package struct DesignDemo: View {
             .padding(.horizontal, 12)
             .frame(height: 34)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.line2).frame(height: 1) }
-            if let url {
+            if let url, url.host() == "claude.ai" {
+                // A published artifact is private to the account that published it, and
+                // claude.ai cannot sign anyone in from inside an app — Google refuses an
+                // embedded web view — so it opens where the user is signed in already.
+                empty(
+                    "This design is a claude.ai artifact. It opens in your browser, where you are signed in.",
+                    opening: url)
+            } else if let url {
                 // Opening the demo shows the design as it is now, not as it was the first
                 // time this link was loaded in this run of the app.
                 WebPane(webView: DemoPages.view(for: url))
@@ -255,13 +262,18 @@ package struct DesignDemo: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private func empty(_ text: String) -> some View {
-        Text(text)
-            .font(Typography.body).foregroundStyle(Theme.tx3)
-            .multilineTextAlignment(.center)
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.bg)
+    private func empty(_ text: String, opening url: URL? = nil) -> some View {
+        VStack(spacing: 12) {
+            Text(text)
+                .font(Typography.body).foregroundStyle(Theme.tx3)
+                .multilineTextAlignment(.center)
+            if let url {
+                Button("Open in your browser") { NSWorkspace.shared.open(url) }.buttonStyle(.console)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg)
     }
 
     // MARK: - Inspector
