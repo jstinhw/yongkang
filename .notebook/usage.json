@@ -3,6 +3,38 @@
     {
       "hours" : [
         {
+          "at" : "2026-10-01T14:00:00Z",
+          "cacheRead" : 4724108,
+          "cacheWrite" : 189961,
+          "input" : 106,
+          "model" : "claude-opus-5-5",
+          "output" : 73276
+        }
+      ],
+      "id" : "32CDC303-84E9-487F-B31C-51A5351AEAED",
+      "name" : "Product",
+      "provider" : "claude",
+      "role" : "product"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-06T11:00:00Z",
+          "cacheRead" : 378132,
+          "cacheWrite" : 84360,
+          "input" : 16,
+          "model" : "claude-opus-5-5",
+          "output" : 2990
+        }
+      ],
+      "id" : "3BA5F44C-5CF9-4773-BCAA-997B0EB7A5ED",
+      "name" : "Claude Code 2",
+      "provider" : "claude",
+      "role" : "work"
+    },
+    {
+      "hours" : [
+        {
           "at" : "2026-10-01T13:00:00Z",
           "cacheRead" : 4355186,
           "cacheWrite" : 242799,
@@ -15,6 +47,94 @@
       "name" : "Notebook Setup",
       "provider" : "claude",
       "role" : "notebook"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-06T11:00:00Z",
+          "cacheRead" : 442370,
+          "cacheWrite" : 64571,
+          "input" : 18,
+          "model" : "claude-opus-5-5",
+          "output" : 2179
+        }
+      ],
+      "id" : "5ECD3F5D-DA6A-4601-ACA5-F5997D38DF0B",
+      "name" : "Claude Code",
+      "provider" : "claude",
+      "role" : "work"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-06T11:00:00Z",
+          "cacheRead" : 511125,
+          "cacheWrite" : 80358,
+          "input" : 20,
+          "model" : "claude-opus-5-5",
+          "output" : 2511
+        }
+      ],
+      "id" : "A01A2F61-34C4-4C7C-995A-E4AE2368A4D1",
+      "name" : "Claude Code 3",
+      "provider" : "claude",
+      "role" : "work"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-01T14:00:00Z",
+          "cacheRead" : 6257606,
+          "cacheWrite" : 244536,
+          "input" : 132,
+          "model" : "claude-opus-5-5",
+          "output" : 107451
+        }
+      ],
+      "id" : "C3F19FA2-9A5C-4906-8FF0-6E8B667CE74B",
+      "name" : "Product",
+      "provider" : "claude",
+      "role" : "product"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-01T14:00:00Z",
+          "cacheRead" : 2735000,
+          "cacheWrite" : 191495,
+          "input" : 66,
+          "model" : "claude-opus-5-5",
+          "output" : 57653
+        },
+        {
+          "at" : "2026-10-06T11:00:00Z",
+          "cacheRead" : 290274,
+          "cacheWrite" : 191164,
+          "input" : 8,
+          "model" : "claude-opus-5-5",
+          "output" : 1544
+        }
+      ],
+      "id" : "DDF14609-43DD-4496-A465-8D908EBE3E5A",
+      "name" : "Product",
+      "provider" : "claude",
+      "role" : "product"
+    },
+    {
+      "hours" : [
+        {
+          "at" : "2026-10-01T13:00:00Z",
+          "cacheRead" : 13570585,
+          "cacheWrite" : 368988,
+          "input" : 214,
+          "model" : "claude-opus-5-5",
+          "output" : 216959
+        }
+      ],
+      "id" : "E50BDD42-ACBF-499C-A1E5-72842A187C8D",
+      "name" : "Product",
+      "provider" : "claude",
+      "role" : "product"
     }
   ],
   "version" : 1
