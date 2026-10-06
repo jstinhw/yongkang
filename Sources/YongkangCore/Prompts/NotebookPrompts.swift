@@ -230,6 +230,13 @@ extension NotebookFormat {
         """
     }
 
+    /// What the session that wrote `file` is told when its `to` names no project open here: one
+    /// line, so it can say so to the user and carry on.
+    package static func undeliveredMessage(to folder: String, file: String) -> String {
+        "Not delivered: no project open in Yongkang is at `\(folder)`, so nobody read \(file). "
+            + "Ask the user to open that project, or carry on without its answer."
+    }
+
     /// What an assigned session is told: its chain of tasks, and the few things the app reads
     /// back — status, a report per task, blocks, no commits. How to do the work is left to the
     /// agent. Work that could run beside this chain is another session's, not this one's.

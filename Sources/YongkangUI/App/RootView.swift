@@ -15,6 +15,8 @@ struct RootView: View {
     /// the project list exactly as it always did.
     @AppStorage("projectGroups") private var projectGroups = "{}"
     @AppStorage("openSessions") private var openSessions = "{}"
+    /// The messages between projects already typed in, as a JSON list of `deliveryKey`s.
+    @AppStorage("deliveredMessages") private var deliveredMessages = "[]"
     /// Whether the list column is shut, and how wide it is when it is not. Both persist: a
     /// window you have shaped once should come back that way. `listWidth` is the key the old
     /// bundle's defaults are migrated under, from when the list last remembered its width.
@@ -269,6 +271,9 @@ struct RootView: View {
         await model.resumeSessions(openSessions)
         model.sessionsChanged = { openSessions = model.storedSessions }
         model.sessionsChanged()
+        // Before the first read, which would otherwise type every message in again.
+        model.deliveredMessages = Set(OpenProjects.decode(deliveredMessages))
+        model.messagesDelivered = { deliveredMessages = OpenProjects.encode(model.deliveredMessages.sorted()) }
         model.start()
         model.lookUpAgents()
         await model.reloadNow()
