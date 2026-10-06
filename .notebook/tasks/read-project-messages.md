@@ -2,13 +2,13 @@
 id: read-project-messages
 kind: task
 title: "Read project messages"
-status: todo
+status: done
 depends_on: []
 designer: ""
 project: cross-project-requests
 owner: ""
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-06
 external: {}
 ---
 
@@ -16,13 +16,13 @@ Core reads the messages an agent writes to another project, so the app can deliv
 
 ## Done when
 
-- [ ] A `ProjectMessage` type and `Messages.load(root:)` in `Sources/YongkangCore/Notebook/Messages.swift`
+- [x] A `ProjectMessage` type and `Messages.load(root:)` in `Sources/YongkangCore/Notebook/Messages.swift`
       read every `.notebook/messages/*.md` in the shape the project's memory fixes.
-- [ ] `NotebookSnapshot` carries them as `messages`, read on the same pass as `blocks`, and a
+- [x] `NotebookSnapshot` carries them as `messages`, read on the same pass as `blocks`, and a
       write to `messages/` reaches the snapshot like a write to `blocks/` does.
-- [ ] A message missing `to` or `session`, or with a `session`/`reply_to` that is not a UUID, is
+- [x] A message missing `to` or `session`, or with a `session`/`reply_to` that is not a UUID, is
       skipped, not a crash; a quoted title with a colon reads whole.
-- [ ] Tests in `Tests/YongkangCoreTests/MessagesTests.swift` cover a first message, a reply and
+- [x] Tests in `Tests/YongkangCoreTests/MessagesTests.swift` cover a first message, a reply and
       each malformed case; `make check` passes.
 
 ## Context

@@ -9,6 +9,8 @@ package struct NotebookSnapshot: Equatable, Sendable {
     package let cards: [NotebookCard]
     /// What the agents need from the user before they can go on, read the same way.
     package let blocks: [UserBlock]
+    /// What this project's agents have written to other projects, read the same way.
+    package let messages: [ProjectMessage]
     /// The project's named agents, from `.notebook/team/` (shipped defaults until that
     /// folder exists).
     package let team: [TeamMember]
@@ -20,28 +22,32 @@ package struct NotebookSnapshot: Equatable, Sendable {
         entries: [NotebookEntry] = [],
         cards: [NotebookCard] = [],
         blocks: [UserBlock] = [],
+        messages: [ProjectMessage] = [],
         team: [TeamMember] = Team.defaults,
         records: [UUID: LeadCoordination] = [:]
     ) {
         self.entries = entries
         self.cards = cards
         self.blocks = blocks
+        self.messages = messages
         self.team = team
         self.records = records
     }
 
     /// The notebook under `root` read again. The file list is always read; `frontmatter`
-    /// adds the cards, blocks and team, and `records` the run records. What a read skips
+    /// adds the cards, blocks, messages and team, and `records` the run records. What a read skips
     /// is carried over from this snapshot, so a cheap read never blanks the board.
     package func reread(root: URL, frontmatter: Bool, records readRecords: Bool) -> NotebookSnapshot {
         let entries = NotebookLoader.load(root: root)
         guard frontmatter else {
-            return NotebookSnapshot(entries: entries, cards: cards, blocks: blocks, team: team, records: records)
+            return NotebookSnapshot(
+                entries: entries, cards: cards, blocks: blocks, messages: messages, team: team, records: records)
         }
         return NotebookSnapshot(
             entries: entries,
             cards: NotebookIndex.load(root: root),
             blocks: Blocks.load(root: root),
+            messages: Messages.load(root: root),
             team: Team.load(root: root),
             records: readRecords ? LeadCoordination.all(root: root) : records)
     }
