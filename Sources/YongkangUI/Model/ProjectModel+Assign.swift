@@ -31,7 +31,8 @@ extension ProjectModel {
             let id = UUID()
             return addSession(
                 agent, id: id,
-                prompt: NotebookFormat.workPrompt(tasks: chain, sessionID: id, reading: reading.map(\.path)),
+                prompt: NotebookFormat.workPrompt(
+                    tasks: chain, sessionID: id, reading: reading.map { Mention.relative($0, from: directory) }),
                 taskIDs: chain.map(\.id), reading: reading)
         }
         return routes.count == 1

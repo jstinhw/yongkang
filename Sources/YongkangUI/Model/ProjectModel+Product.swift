@@ -12,19 +12,22 @@ extension ProjectModel {
     /// One product voice per project. A second session would propose against a board the
     /// first one is already rewriting, so a running one is talked to instead. `reading` lets a
     /// new one into other projects' folders; a running one keeps the folders it started with.
+    /// Either way it is told to ask those projects for a change there, never to make it.
     func startProduct(_ arguments: String, agent: AgentKind, reading: [URL] = []) -> Destination {
+        let others = reading.map { Mention.relative($0, from: directory) }
         if let running = sessions.first(where: { $0.isProduct && !$0.exited }) {
             return Destination(
                 section: .agents, route: .session(running.id),
                 input: NotebookFormat.productPrompt(
-                    arguments: arguments, sessionID: running.id, agent: running.agent ?? .claude))
+                    arguments: arguments, sessionID: running.id, agent: running.agent ?? .claude, reading: others))
         }
         let id = UUID()
         return Destination(
             section: .agents,
             route: addSession(
                 agent, id: id,
-                prompt: NotebookFormat.productPrompt(arguments: arguments, sessionID: id, agent: agent),
+                prompt: NotebookFormat.productPrompt(
+                    arguments: arguments, sessionID: id, agent: agent, reading: others),
                 title: "Product", reading: reading))
     }
 

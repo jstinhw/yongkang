@@ -146,8 +146,35 @@ import Testing
             id: "wire-auth", url: URL(fileURLWithPath: "/a/.notebook/tasks/wire-auth.md"), kind: .task,
             title: "Wire auth", status: "todo", project: nil, dependsOn: [])
         #expect(!NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid).contains("You may also read"))
-        let prompt = NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid, reading: ["/b"])
-        #expect(prompt.contains("You may also read `/b`") && prompt.contains("Change nothing there"))
+        let prompt = NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid, reading: ["../b"])
+        #expect(prompt.contains("You may also read `../b`") && prompt.contains("Change nothing there"))
+        #expect(prompt.contains(NotebookFormat.readingNote(["../b"], sessionID: Self.sid)))
+    }
+
+    @Test func anAgentHandedAnotherProjectAsksItForAChange() {
+        #expect(NotebookFormat.readingNote([], sessionID: Self.sid).isEmpty)
+        let note = NotebookFormat.readingNote(["../site"], sessionID: Self.sid)
+        #expect(note.contains("Change nothing there"), "Review only commits this project")
+        #expect(note.contains("`.notebook/messages/<slug>.md` in this project"), "the message is written here")
+        #expect(
+            note.contains("kind: message") && note.contains("reply_to: \"\""), "a first message, in the memory's shape")
+        #expect(note.contains("session: \(Self.sid.uuidString.lowercased())"), "the answer finds its way back")
+        #expect(note.contains("Carry on with what does not need the answer"))
+        let product = NotebookFormat.productPrompt(
+            arguments: "describe", sessionID: Self.sid, agent: .claude, reading: ["../site"])
+        #expect(product.contains(note), "Product asks the way an assigned session does")
+        let review = NotebookFormat.productPrompt(arguments: "review", sessionID: Self.sid, agent: .claude)
+        #expect(!review.contains("kind: message"), "nothing tagged, nobody to ask")
+    }
+
+    @Test func anIncomingMessageSaysHowToAnswerIt() {
+        let asker = UUID().uuidString.lowercased()
+        let typed = NotebookFormat.incomingMessage(
+            from: "../app", session: asker, title: "Expose: the feed", body: "  We need a JSON feed.\n")
+        #expect(typed.contains("`../app`, session \(asker): \"Expose: the feed\""))
+        #expect(typed.contains("\n\nWe need a JSON feed.\n\n"), "the body, trimmed")
+        #expect(typed.contains("to: \"../app\"") && typed.contains("reply_to: \(asker)"), "the reply comes filled in")
+        #expect(typed.contains("Change nothing in `../app`"))
     }
 
     @Test func productPromptCarriesItsSessionID() {

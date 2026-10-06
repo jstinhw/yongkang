@@ -64,7 +64,8 @@ Tick any other open project, or any folder, for it to read as well. Claude Code,
 are handed each one with `--add-dir`, and the prompt tells the agent to change nothing there:
 Review only sees, and only commits, the project it works in. Grok takes no folder beside its own,
 so the list is off for it, and Codex makes such a folder writable rather than read-only — the
-prompt is what keeps it to reading.
+prompt is what keeps it to reading. When one of those projects needs a change, the agent asks
+its Product for it, as a request does — see [Product review](product.md).
 
 ## The Agent switch
 

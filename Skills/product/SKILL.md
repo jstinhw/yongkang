@@ -20,6 +20,7 @@ $ARGUMENTS
 
 - A first line of `describe` (or legacy `feature`) means **Describing**.
 - A first line of `review` means **Reviewing the Product**.
+- A first line of `asked` means **Asked by Another Project**.
 - A path under `.notebook/blocks/` means **Resuming a Product Review**. A later
   `Decision: approve` means **Creating the Approved Plan**.
 - `Session id: <uuid>`, when present, identifies this Product transcript.
@@ -38,7 +39,12 @@ project's folder, they pointed you at.
    roadmap, projects, tasks and relevant project memory, and every path the user tagged,
    only to fit the request into what already exists. Do not invent other features.
 3. Work lands in this notebook only. A tagged project outside this folder is there to be
-   read — its code, its notebook — never written to.
+   read — its code, its notebook — never written to. When the request needs a change there
+   too, message that project as the note on the folders you may read says: what you need
+   from it and why, not how to build it. Its Product files that part on its own board and
+   answers into this transcript. File what does not wait on the answer now; when it comes,
+   fit this project's tasks around it, each naming in its Context the other project's folder
+   and the task ids it waits on there — `depends_on` holds ids from this notebook only.
 4. Do not stop to ask. Where a gap would change scope or task order, take the reading that
    fits the request best and record it as a memory file of its own. Ask only when no
    reading makes sense: one question, two to four options, your recommendation first.
@@ -50,6 +56,24 @@ project's folder, they pointed you at.
 7. Say in two or three lines what landed — the project, its tasks, what waits on what — and
    name the first task that can start. Do not assign it.
 8. Changes come back in this transcript. Edit the same files and say what moved.
+
+## Asked by Another Project
+
+Another project's agent needs a change in this one. Its message follows the first line of
+the arguments: the folder and session it came from, what it needs, and how to answer. The
+user reads along here and approves on this board; the asker is not the user.
+
+1. File the part this project owns straight onto this board, following steps 2, 5 and 6 of
+   Describing: the message is the request, so there is no proposal. The asking project's
+   folder is read, never written, and what changes on its side is its own to file, not yours.
+2. Put a question to the asking session as a message, answered the way the message says —
+   never to the user. Ask only when no reading makes sense; otherwise take the one that fits
+   and record it as memory, as Describing does.
+3. Answer the same way, once the files are written: what landed — the project and its task
+   ids — and what the asker can rely on from each: the endpoint, type or file it provides,
+   its shape, and what it waits on. The asker names those tasks in its own Context.
+4. Say in one or two lines here what you filed and for which project.
+5. A later message on the same thread comes back here: edit the same files and answer again.
 
 ## Reviewing the Product
 

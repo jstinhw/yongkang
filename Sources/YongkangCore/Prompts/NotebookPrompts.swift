@@ -168,11 +168,66 @@ extension NotebookFormat {
     }
 
     /// What an agent handed other folders is told about them: read, never change — Review only
-    /// sees, and only commits, the project it works in. Empty when it was handed none.
-    package static func readingNote(_ reading: [String]) -> String {
+    /// sees, and only commits, the project it works in. A change one of them needs is asked
+    /// of it instead, as a message in this notebook that the app types into that project's
+    /// Product, so the change lands through that project's own board and Review. Empty when
+    /// it was handed none.
+    ///
+    /// `reading` is each folder relative to this project's, which is what `to` names.
+    package static func readingNote(_ reading: [String], sessionID: UUID) -> String {
         guard !reading.isEmpty else { return "" }
-        return "\nYou may also read " + reading.map { "`\($0)`" }.joined(separator: ", ")
-            + " for reference. Change nothing there: only this project's changes are reviewed and committed.\n"
+        return """
+
+            You may also read \(reading.map { "`\($0)`" }.joined(separator: ", ")) for reference. \
+            Change nothing there: only this project's changes are reviewed and committed. When one \
+            of them needs a change, ask it: write `\(folderName)/messages/<slug>.md` in this \
+            project, never in theirs:
+
+                ---
+                kind: message
+                to: "<that folder, as written above>"
+                session: \(sessionID.uuidString.lowercased())
+                reply_to: ""
+                title: "<a few words>"
+                created: <RFC-3339>
+                ---
+
+                What you need from it and why, in plain words.
+
+            The app types it into that project's Product, which files the change on its own board \
+            and answers into this session. Carry on with what does not need the answer.
+
+            """
+    }
+
+    /// A message from another project's agent, as the app types it into the session it goes
+    /// to: the receiving project's Product for a first message, as `asked` — "asked\n" followed
+    /// by this — or, for a reply, the session its `reply_to` names, as it is. The answer comes
+    /// filled in, so the receiver looks nothing up to reach the session that asked.
+    ///
+    /// `folder` is the sender's folder relative to the receiver's; `session`, the sender's id.
+    package static func incomingMessage(from folder: String, session: String, title: String, body: String) -> String {
+        """
+        A message from the project in `\(folder)`, session \(session): "\(title)"
+
+        \(body.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        Change nothing in `\(folder)`. Answer by writing `\(folderName)/messages/<slug>.md` in \
+        this project, never in theirs:
+
+            ---
+            kind: message
+            to: "\(folder)"
+            session: <your session id>
+            reply_to: \(session)
+            title: "<a few words>"
+            created: <RFC-3339>
+            ---
+
+            Your answer, in plain words.
+
+        The app types it into the session that asked.
+        """
     }
 
     /// What an assigned session is told: its chain of tasks, and the few things the app reads
@@ -183,8 +238,9 @@ extension NotebookFormat {
     /// is filed under the session that wrote it. The report's shape is what Review reads:
     /// `paths` is what lets approving one task commit only its files.
     ///
-    /// `reading` is the other folders the session was given, which it may read and must not change:
-    /// Review only sees, and only commits, this project's changes.
+    /// `reading` is the other folders the session was given, relative to this project's, which
+    /// it may read and must not change: Review only sees, and only commits, this project's
+    /// changes. A change there it asks for — see `readingNote`.
     package static func workPrompt(
         tasks: [NotebookCard], sessionID: UUID, message: String = "", reading: [String] = []
     ) -> String {
@@ -197,7 +253,7 @@ extension NotebookFormat {
                 + "nothing that depends on it until I approve its demo.\n"
             : ""
         let asked = message.isEmpty ? "" : "\n\(message)\n"
-        let others = readingNote(reading)
+        let others = readingNote(reading, sessionID: sessionID)
         // One task has no order to keep and nothing to run beside it, and every line an
         // agent is handed is one it tries to act on.
         let chain =
@@ -272,8 +328,16 @@ extension NotebookFormat {
     /// back to the transcript where the proposal is discussed. Every way into Product — a
     /// review, a described feature, a proposal reopened from Blocks — comes through here, so
     /// each shows its plan as the same graph setup does.
-    package static func productPrompt(arguments: String, sessionID: UUID, agent: AgentKind) -> String {
-        agent.skill("product", arguments: arguments + "\nSession id: \(sessionID.uuidString.lowercased())")
+    ///
+    /// `reading` is the other projects a request tagged, relative to this one: Product reads
+    /// them and asks them, as an assigned session does.
+    package static func productPrompt(
+        arguments: String, sessionID: UUID, agent: AgentKind, reading: [String] = []
+    ) -> String {
+        agent.skill(
+            "product",
+            arguments: arguments + "\nSession id: \(sessionID.uuidString.lowercased())"
+                + readingNote(reading, sessionID: sessionID))
             + "\n\n" + planGraph(sessionID)
     }
 

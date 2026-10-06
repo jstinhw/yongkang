@@ -61,8 +61,11 @@ struct RootView: View {
                     guard let project = model.project(id) else { return }
                     model.startingAgent = false
                     model.section = .agents
-                    let note = NotebookFormat.readingNote(reading.map(\.path))
-                    model.enter(project, at: project.addSession(kind, prompt: prompt + note, reading: reading))
+                    // The id is minted here so a message the session writes says who sent it.
+                    let id = UUID()
+                    let note = NotebookFormat.readingNote(
+                        reading.map { Mention.relative($0, from: project.directory) }, sessionID: id)
+                    model.enter(project, at: project.addSession(kind, id: id, prompt: prompt + note, reading: reading))
                 },
                 cancel: { model.startingAgent = false })
         }

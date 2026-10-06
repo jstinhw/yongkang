@@ -10,6 +10,15 @@ for a project in no group). A project's tag is a folder, so Tab walks into its f
 `@/notebook-sync/Sources/Sync.swift`. Product reads what you tagged, but files the work in
 this project's notebook only.
 
+When the request needs a change in a tagged project as well, Product does not make it there.
+It writes that project a message, and a Product session opens under that project in the
+sidebar — or the one already running there gets it — with the message typed into its
+terminal. That Product files its part on its own board, marked `new` with its own `Approve
+and commit`, and answers; the answer is typed into this Product's session, which fits this
+project's tasks around it and names the other project's tasks in their Context. Each board
+commits only its own files. A session you hand other folders to read from `New Agent` asks
+the same way.
+
 Product files the request straight onto the board: tasks under an existing milestone when
 the request serves it, otherwise a new milestone, with what waits on what decided for you.
 There is no proposal to approve first; the board stays on screen, and what Product filed is
