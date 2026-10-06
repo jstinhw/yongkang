@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tell agents to ask</title>
+<style>
+  :root {
+    --bg: #ffffff; --tx: #1d1d1f; --mute: #6e6e73; --line: #d2d2d7; --ok: #1a7f37; --warn: #9a6700; --chip: #f5f5f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  body { margin: 0; background: var(--bg); color: var(--tx);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 32px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--mute); margin: 0 0 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 20px 0 6px; }
+  section.task { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 16px; }
+  h3 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .status { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--chip); }
+  .done { color: var(--ok); }
+  .note { border-left: 3px solid var(--warn); padding: 4px 12px; margin: 8px 0; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  pre { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip);
+        padding: 8px 10px; border-radius: 6px; overflow-x: auto; margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tell agents to ask</h1>
+  <p class="sub">Session 5ecd3f5d · cross-project-requests · 2026-10-06</p>
+
+  <h2>What needs you</h2>
+  <ul>
+    <li>Nothing is blocked. The task is ready for you to review and commit.</li>
+    <li>Commit only the files listed below. <code>Messages.swift</code>, <code>MessagesTests.swift</code>,
+      <code>NotebookSnapshot.swift</code> and <code>read-project-messages.md</code> in the tree belong to the
+      parallel read-messages session.</li>
+    <li>Agents are now told to write messages, but nothing delivers them until
+      <code>deliver-project-messages</code> lands. Until then a message just sits in <code>.notebook/messages/</code>.</li>
+  </ul>
+
+  <section class="task">
+    <h3>ask-other-projects-prompts <span class="status done">done</span></h3>
+
+    <h2>What changed</h2>
+    <ul>
+      <li><code>readingNote(_:sessionID:)</code> still says to change nothing in the other folders. It now also says
+        how to ask for a change: write <code>.notebook/messages/&lt;slug&gt;.md</code> here in the memory's shape,
+        with <code>session</code> filled in, then carry on. The folders are now listed relative to the project,
+        which is what <code>to</code> names.</li>
+      <li>Product gets the note too. It goes to a new Product and to one already running when a request tags
+        other projects. Assigned sessions get it through <code>workPrompt</code>. A free-prompt New Agent session
+        now gets its id up front so its note can include it.</li>
+      <li>New function: <code>NotebookFormat.incomingMessage(from:session:title:body:)</code>. It returns the text
+        typed into the receiving session, ending with the answer's frontmatter with <code>to</code> and
+        <code>reply_to</code> filled in.</li>
+      <li>Product skill: Describing step 3 now messages a tagged project that needs a change and names that
+        project's tasks in Context. There is a new <code>asked</code> mode for a message from another project. It files
+        that project's part on its own board, puts questions to the asking session rather than to you, and answers
+        with what landed and what the asker can rely on. The other modes are unchanged.</li>
+      <li>Guide: <code>product.md</code> says what happens when a request tags a project whose part has to change.
+        <code>projects.md</code> says New Agent sessions ask the same way.</li>
+    </ul>
+
+    <h2>What crosses to deliver-project-messages</h2>
+    <pre>// first message → that project's Product, in the asked mode
+startProduct("asked\n" + NotebookFormat.incomingMessage(
+    from: senderFolderRelativeToReceiver, session: senderSessionID,
+    title: message.title, body: message.body), agent: …, reading: [senderFolder])
+// reply → typed into the reply_to session as it is, with no mode line</pre>
+    <p>This is also recorded as memory <code>incoming-message-prompt</code>, so the deliver agent can find it.</p>
+
+    <h2>How I checked it</h2>
+    <pre>$ swift test --filter AgentCommandTests
+✔ anIncomingMessageSaysHowToAnswerIt
+✔ anAgentHandedAnotherProjectAsksItForAChange
+✔ aWorkPromptSaysWhatElseItMayReadAndNotChange
+✔ Suite AgentCommandTests passed (14 tests)
+
+$ make check; echo $?
+━ Test run with 405 tests in 60 suites passed with 12 known issues.
+0</pre>
+    <p>The 12 known issues were already recorded and none comes from this change. I printed the note and the message
+      once from a throwaway test and read them through. No shots: no screen changed, since this is prompt text, a skill
+      and docs.</p>
+
+    <h2>Calls I made</h2>
+    <ul>
+      <li><code>to</code> is copied, not computed. The note lists folders relative to the project, so the agent copies
+        the path instead of working it out.</li>
+      <li><code>readingNote</code> now takes the session id, so every message carries its sender. That includes a
+        free-prompt session, which has no "Session id:" line.</li>
+      <li>The <code>asked</code> mode line is left to the caller, not built into <code>incomingMessage</code>, because
+        a reply goes to a session that is not Product.</li>
+      <li>A follow-up typed into a request already running does not get the note again. It only gets the note if it
+        tags a new project. Left as is.</li>
+    </ul>
+
+    <h2>Files</h2>
+    <ul>
+      <li><code>Sources/YongkangCore/Prompts/NotebookPrompts.swift</code></li>
+      <li><code>Sources/YongkangUI/Model/ProjectModel+Product.swift</code></li>
+      <li><code>Sources/YongkangUI/Model/ProjectModel+Assign.swift</code></li>
+      <li><code>Sources/YongkangUI/App/RootView.swift</code></li>
+      <li><code>Tests/YongkangCoreTests/AgentCommandTests.swift</code></li>
+      <li><code>Skills/product/SKILL.md</code></li>
+      <li><code>docs/guide/product.md</code>, <code>docs/guide/projects.md</code></li>
+      <li><code>.notebook/tasks/ask-other-projects-prompts.md</code></li>
+      <li><code>.notebook/projects/cross-project-requests/memory/2026-10-06-incoming-message-prompt.md</code></li>
+    </ul>
+
+    <h2>What is left</h2>
+    <ul>
+      <li>Delivering messages, the Product session in the other project, and the banner there are
+        <code>deliver-project-messages</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deliver project messages</title>
+<style>
+  :root {
+    --bg: #ffffff; --tx: #1d1d1f; --mute: #6e6e73; --line: #d2d2d7; --ok: #1a7f37; --warn: #9a6700; --chip: #f5f5f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  body { margin: 0; background: var(--bg); color: var(--tx);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 32px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--mute); margin: 0 0 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 20px 0 6px; }
+  section.task { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 16px; }
+  h3 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .status { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--chip); }
+  .done { color: var(--ok); }
+  .note { border-left: 3px solid var(--warn); padding: 4px 12px; margin: 8px 0; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  pre { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip);
+        padding: 8px 10px; border-radius: 6px; overflow-x: auto; margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Deliver project messages</h1>
+  <p class="sub">Session f5c98211 · cross-project-requests · 2026-10-06</p>
+
+  <h2>What needs you</h2>
+  <ul>
+    <li>Nothing is blocked. The task is done and ready for you to review and commit.</li>
+    <li class="note">Another session changed request code in the same tree while I worked:
+      <code>resumeRequest</code> became <code>async</code> in <code>ProjectModel+Request.swift</code>, plus
+      <code>AppModel+Restore.swift</code>, one line in <code>AppModel.checkTurn</code>,
+      <code>Tests/YongkangUITests/RequestTests.swift</code>, <code>docs/guide/product.md</code> and a new
+      <code>.notebook/blocks/</code>. None of those are mine. In <code>ProjectModel+Request.swift</code> I added only <code>BoardRequest.from</code>. Commit both
+      together, or split that file by hunk.</li>
+    <li>Who asked a request, and who is waiting on an answer, are kept in memory only. After a relaunch the
+      next message fills them in again. Memory <code>who-asked-and-who-waits</code> says so, for the UI task.</li>
+  </ul>
+
+  <section class="task">
+    <h3>Deliver project messages <span class="status done">done</span></h3>
+    <p class="sub">deliver-project-messages · all 8 Done when items checked</p>
+
+    <h2>What changed</h2>
+    <ul>
+      <li>On every read, the app types each message into the right session in the other project:
+        <ul>
+          <li>A message whose <code>reply_to</code> names a session running there goes into that session, as it is.</li>
+          <li>Any other message goes to that project's Product as <code>asked</code>, either typed into the
+            running Product or as the prompt of a new one. That board then shows it as a request:
+            what Product files is marked new, and its Approve and commit commits only its own files.</li>
+          <li>A <code>to</code> that names no open project gets a one-line "Not delivered" answer in the
+            sender's session.</li>
+        </ul></li>
+      <li>Each message is typed in once. The app remembers what it delivered by file path plus a hash of the
+        content, in <code>@AppStorage("deliveredMessages")</code>, which is restored before the first read
+        after a relaunch. The message files are never written. Nothing logs a message's title or body.</li>
+      <li>The window never moves: delivery only types into terminals.</li>
+      <li>For the UI task: <code>BoardRequest.from</code> holds the folder of the project that asked, and
+        <code>ProjectModel.waitingOn[session]</code> holds the folder of the project a session is waiting on.</li>
+      <li><code>docs/architecture.md</code> has a new section, "How a message travels between projects", and
+        <code>AGENTS.md</code> lists it.</li>
+    </ul>
+
+    <h2>How I checked it</h2>
+    <pre>$ swift test --filter MessageDeliveryTests
+✔ aFirstMessageOpensProductThereAndEachBoardCommitsOnlyItsOwnPart   (two git repos)
+✔ aMessageToARunningProductIsTypedIntoItAndKeepsItsRequest
+✔ aMessageToNoOpenProjectIsAnsweredInTheSessionThatWroteIt
+✔ eachMessageIsTypedInOnceWithoutMovingTheWindowEvenAfterARelaunch  (real /bin/sh PTYs)
+
+$ make check
+━ Test run with 409 tests in 61 suites passed with 12 known issues.   (exit 0)</pre>
+    <ul>
+      <li>Mutation check: with the stored set not restored, the relaunch test fails. With it restored, it passes.</li>
+      <li>The 12 known issues were already recorded. I added none.</li>
+      <li>Shots: I rendered HEAD from a <code>git archive</code> copy and then my tree. 31 of 35 are byte-identical.
+        <code>review</code>, <code>handover</code> and <code>usage</code> read live git or the clock.
+        <code>agents-blocked</code> differed once, but a second render matched HEAD exactly, so that was render
+        noise. <strong>Nothing changed on screen.</strong></li>
+    </ul>
+
+    <h2>Files</h2>
+    <ul>
+      <li><code>Sources/YongkangUI/Model/ProjectModel+Messages.swift</code> (new)</li>
+      <li><code>Tests/YongkangUITests/MessageDeliveryTests.swift</code> (new)</li>
+      <li><code>Sources/YongkangUI/Model/AppModel.swift</code>: <code>deliveredMessages</code> and <code>deliverMessages()</code></li>
+      <li><code>Sources/YongkangUI/Model/ProjectModel.swift</code>: <code>waitingOn</code></li>
+      <li><code>Sources/YongkangUI/Model/ProjectModel+Request.swift</code>: <code>BoardRequest.from</code> only</li>
+      <li><code>Sources/YongkangUI/App/RootView.swift</code>: the stored set</li>
+      <li><code>Sources/YongkangCore/Prompts/NotebookPrompts.swift</code>: <code>undeliveredMessage(to:file:)</code></li>
+      <li><code>docs/architecture.md</code>, <code>AGENTS.md</code></li>
+      <li><code>.notebook/tasks/deliver-project-messages.md</code>,
+        <code>.notebook/projects/cross-project-requests/memory/2026-10-06-who-asked-and-who-waits.md</code>,
+        and this run's report</li>
+    </ul>
+
+    <h2>Calls I made</h2>
+    <ul>
+      <li>Routing returns pairs of (session, text), and <code>AppModel</code> only types them in. That keeps the
+        routing testable without a terminal, and it is why the window cannot move.</li>
+      <li>The delivered key includes a content hash, so if an agent reuses a slug like <code>answer.md</code>,
+        the new message still gets through.</li>
+      <li>If the asked project's Product is already on a request, that request stays. Whatever it filed is
+        still marked new, and nothing records who asked.</li>
+      <li>A message with nobody to tell (its project is not open and its sender has gone) is not marked
+        delivered. A later read delivers it once that project is open.</li>
+      <li>The delivered set is never pruned (<code>ponytail:</code> note). It is one short key per message.</li>
+    </ul>
+
+    <h2>What is left</h2>
+    <ul>
+      <li><code>cross-project-request-ui</code> draws <code>from</code> and <code>waitingOn</code>. It is still
+        waiting on Allen's design, which is not approved yet.</li>
+      <li>Not checked in the running app: the shots have no PTYs. The smoke script gains the two-project request
+        in the UI task.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

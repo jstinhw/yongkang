@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Read project messages</title>
+<style>
+  :root {
+    --bg: #ffffff; --tx: #1d1d1f; --mute: #6e6e73; --line: #d2d2d7; --ok: #1a7f37; --warn: #9a6700; --chip: #f5f5f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1c1e; --tx: #f2f2f7; --mute: #a1a1a6; --line: #3a3a3c; --ok: #3fb950; --warn: #d29922; --chip: #2c2c2e; }
+  body { margin: 0; background: var(--bg); color: var(--tx);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 32px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--mute); margin: 0 0 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 20px 0 6px; }
+  section.task { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 16px; }
+  h3 { font-size: 16px; margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .status { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--chip); }
+  .done { color: var(--ok); }
+  .note { border-left: 3px solid var(--warn); padding: 4px 12px; margin: 8px 0; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  pre { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip);
+        padding: 8px 10px; border-radius: 6px; overflow-x: auto; margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Read project messages</h1>
+  <p class="sub">Session a01a2f61 · cross-project-requests · 2026-10-06</p>
+
+  <h2>What needs you</h2>
+  <ul>
+    <li>Nothing is blocked. The task is ready for you to review and commit.</li>
+    <li>Commit only the files listed below. The other modified files in the tree (<code>NotebookPrompts.swift</code>,
+      <code>ProjectModel+Product.swift</code>, <code>ProjectModel+Assign.swift</code>, <code>RootView.swift</code>,
+      <code>Skills/product/SKILL.md</code>, <code>docs/guide/product.md</code>) belong to the parallel prompts session.</li>
+  </ul>
+  <div class="note"><code>make check</code> currently fails on <code>ProjectModel+Product.swift:29</code> (line too long). That file
+    belongs to the parallel session's work in progress. <code>make check</code> passed twice with this change in place, before
+    that edit landed.</div>
+
+  <section class="task">
+    <h3><code>read-project-messages</code> <span class="status done">done</span></h3>
+
+    <h2>What changed</h2>
+    <ul>
+      <li><code>ProjectMessage</code> and <code>Messages.load(root:)</code> read every <code>.notebook/messages/*.md</code>,
+        the same way <code>Blocks.load</code> reads <code>blocks/</code>.</li>
+      <li><code>NotebookSnapshot.messages</code> is read on the same pass as <code>blocks</code>, and a cheap read carries
+        it over. The watcher already covers the whole project tree, so a write to <code>messages/</code> reaches the
+        snapshot on the next tick.</li>
+      <li>A message is skipped when it has no <code>to</code>, no <code>session</code>, a non-UUID <code>session</code>, or a
+        non-empty <code>reply_to</code> that is not a UUID. An empty <code>reply_to</code> means a first message. A quoted title
+        with a colon reads whole.</li>
+      <li>The <code>.notebook/</code> format contract is unchanged. <code>messages/</code> is a channel to the app and is not listed in the sidebar.</li>
+    </ul>
+
+    <h2>Handed to deliver-project-messages</h2>
+    <ul>
+      <li><code>to</code> is the raw string the agent wrote (for example <code>../site</code>). Delivery resolves it to an open project.</li>
+      <li><code>id</code> is the resolved file path. Remember it as delivered, the way <code>deliveredBlocks</code> does.</li>
+    </ul>
+
+    <h2>How I checked</h2>
+    <pre>swift test --filter MessagesTests
+✔ Test run with 8 tests in 1 suite passed
+
+make check                         # 11:13Z and 11:14Z
+exit 0 · 403 tests in 60 suites passed with 12 known issues (none new)
+
+make check                         # 11:15Z
+error: ProjectModel+Product.swift:29: [LineLength]   ← other session's file
+
+swift format lint --strict &lt;my 3 files&gt;   → clean
+swift build                                → Build complete
+swift test                                 → exit 0 · 403 tests passed</pre>
+    <p>Shots: not rendered. No screen reads the new field yet, so nothing on screen changed.</p>
+
+    <h2>Files</h2>
+    <ul>
+      <li><code>Sources/YongkangCore/Notebook/Messages.swift</code> (new)</li>
+      <li><code>Sources/YongkangCore/Notebook/NotebookSnapshot.swift</code></li>
+      <li><code>Tests/YongkangCoreTests/MessagesTests.swift</code> (new)</li>
+      <li><code>.notebook/tasks/read-project-messages.md</code> (status, Done when ticked)</li>
+      <li><code>.notebook/runs/a01a2f61-34c4-4c7c-995a-e4ae2368a4d1-work-read-project-messages.md</code></li>
+    </ul>
+
+    <h2>Calls made</h2>
+    <ul>
+      <li>Local only: <code>swift test</code>, <code>swift build</code>, <code>swift format</code>, <code>make format</code>, <code>make check</code>.
+        No network calls, no git writes.</li>
+    </ul>
+
+    <h2>What is left</h2>
+    <ul>
+      <li>Nothing for this task. Delivery is <code>deliver-project-messages</code>, which waits on this task and on <code>ask-other-projects-prompts</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
