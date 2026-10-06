@@ -6,6 +6,9 @@ struct BoardRequest: Equatable {
     let session: UUID
     /// Every card on the board when it was sent. Whatever Product files is what is not in here.
     let before: Set<String>
+    /// The project that asked, by folder, when its agent's message started this request rather
+    /// than the board's own box. See `ProjectModel.receive`. Not kept across a relaunch.
+    var from: URL? = nil
 }
 
 extension ProjectModel {
@@ -56,9 +59,15 @@ extension ProjectModel {
         }
     }
 
-    /// After a relaunch, the request a Product session was on, back as it was: what its plan
-    /// holds that is not committed is what it filed, and the banner waits on the user again.
-    func resumeRequest(of session: CodeSession) {
+    /// The request a Product session is on, read back off disk: what its plan holds that is not
+    /// committed is what it filed, and the banner waits on the user again. Run after a relaunch,
+    /// and whenever Product's turn ends with no request open — one typed into its terminal, a
+    /// review it wrote out, or a banner dismissed before it was approved — since Product points
+    /// the user at `Approve and commit` however its turn began.
+    func resumeRequest(of session: CodeSession) async {
+        guard session.isProduct, request == nil else { return }
+        // Product's last write may be newer than the last read of the tree.
+        await refreshRepo(countingLines: false)
         let changed = Set(planChanges.map { directory.appendingPathComponent($0).standardizedFileURL.path })
         guard request == nil, !changed.isEmpty else { return }
         request = BoardRequest(

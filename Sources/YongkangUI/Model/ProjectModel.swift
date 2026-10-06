@@ -47,6 +47,12 @@ import YongkangCore
     /// relaunch restores the guide itself (`OpenSessions`), and a gate whose guide is gone is
     /// one worth another try. See `startGuide`.
     var guidedBlocks: Set<String> = []
+    /// The sessions here that wrote to another project and have not had an answer typed in
+    /// since, each with that project's folder. Set and cleared as messages are delivered (see
+    /// `ProjectModel+Messages`): whoever spoke last decides.
+    /// ponytail: in memory only, so a relaunch forgets who is waiting until the next message
+    /// either way. Keep it beside `AppModel.deliveredMessages` if the sidebar must say so sooner.
+    var waitingOn: [UUID: URL] = [:]
     /// The agents whose CLI's own record doesn't allow it in this folder yet: a session of one
     /// would ask before anything else. Written only by `ProjectModel+Trust`, like the rest here.
     var untrusted: Set<AgentKind> = []

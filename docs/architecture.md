@@ -75,6 +75,40 @@ folder that is missing or deleted while watched is not a crash. `ProjectWatchTes
 two halves together: a page written into a notebook reaches the board with nothing on a clock,
 and the safety beat still reads when the watch is taken away.
 
+## How a message travels between projects
+
+An agent never writes in another project's folder. When it needs a change there it writes a
+message in its own notebook, `.notebook/messages/<slug>.md` (the shape is in
+`Sources/YongkangCore/Notebook/Messages.swift`), and the app types it into a session there:
+
+1. **Read.** `Messages.load` reads the folder on the same pass as `blocks/`, so a message reaches
+   `NotebookSnapshot.messages` the way a block does: the watcher sees the write, the read picks
+   it up. A file with no `to`, or a `session`/`reply_to` that is not a session id, is skipped.
+2. **Routed** (`ProjectModel.deliveries`, `ProjectModel+Messages.swift`). `to` is resolved against
+   the sender's folder and matched to an open project. A `reply_to` naming a session running
+   there is typed into that session as `NotebookFormat.incomingMessage`, which ends with the
+   answer's frontmatter filled in. Anything else goes to that project's Product as
+   `asked\n` + the same text: typed into the one running, or the prompt of one `startProduct`
+   opens, let into the sender's folder to read it. Its board then shows a `BoardRequest` whose
+   `from` is the asking folder, so what Product files there is marked new and its own Approve
+   and commit lands only its own files. A `to` naming no open project is answered in the
+   sender's session in one line (`NotebookFormat.undeliveredMessage`); with the sender gone
+   too, the message waits for a read that finds the project open.
+3. **Typed** (`AppModel.deliverMessages`), after every project has been read, by
+   `TerminalRegistry.send`. The window never moves, in either project: the conversation is two
+   agents', each in its own terminal, and the sidebar shows the session that opened or woke.
+4. **Once.** The app never writes a message file, so it remembers what it delivered itself:
+   `AppModel.deliveredMessages`, by `ProjectMessage.deliveryKey` — the file plus a hash of what
+   is in it, so a slug reused for a new message is delivered again and a message read again is
+   not. `RootView` keeps the set in `@AppStorage("deliveredMessages")` and restores it before
+   the first read of a launch.
+
+`ProjectModel.waitingOn` is the sender's side: a session that wrote to another project and has
+had no answer typed in since, with that project's folder. It and `BoardRequest.from` are in
+memory only, so a relaunch forgets who asked and who is waiting until the next message.
+`Tests/YongkangUITests/MessageDeliveryTests.swift` covers the round trip, the two boards'
+commits, and typing once across a relaunch, with `/bin/sh` standing in for the CLIs.
+
 ## Diagnostics
 
 `Log` (`Sources/YongkangCore/Diagnostics/`) is `os.Logger` under the subsystem

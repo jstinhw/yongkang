@@ -46,6 +46,14 @@ import YongkangCore
     let terminals: TerminalRegistry
     /// Stores `storedSessions` wherever the window keeps it, whenever a project's sessions change.
     @ObservationIgnored var sessionsChanged: () -> Void = {}
+    /// Every message already typed into a session, by `ProjectMessage.deliveryKey`. The app never
+    /// writes a message file, so this is how it knows not to type one in twice — on the next
+    /// read, and after a relaunch: `@AppStorage("deliveredMessages")` keeps it through
+    /// `messagesDelivered`.
+    /// ponytail: never pruned, a key per message ever delivered. Drop the keys whose file is gone
+    /// if the list ever grows long.
+    @ObservationIgnored var deliveredMessages: Set<String> = [] { didSet { messagesDelivered() } }
+    @ObservationIgnored var messagesDelivered: () -> Void = {}
     /// The safety poll behind the watchers, until `stop()`. See `start(polling:)`.
     @ObservationIgnored private var poll: Task<Void, Never>?
     /// The done tasks the window has already seen in this project. nil until the first
@@ -350,6 +358,7 @@ import YongkangCore
         let lines = await found.project.reader.transcript(of: provider, at: url)
         let finished = AgentState.of(lines: lines, exited: false) == .waiting
         guard found.project.markIdle(id, finished) else { return }
+        if finished { await found.project.resumeRequest(of: found.session) }
         // Going quiet is the last thing a spent agent does, so this is where it is noticed
         // rather than on the beat behind it. Closed, it has no banner to post.
         endSpentSessions(in: found.project)
@@ -524,6 +533,7 @@ import YongkangCore
             if project.trustReadIsDue() { await project.readTrust(foundAgents ?? Set(AgentKind.allCases)) }
             project.reloadSessions()
         }
+        deliverMessages()
         refreshChanges()
     }
 
@@ -577,6 +587,19 @@ import YongkangCore
                 go(to: Destination(section: .agents, route: .session(session.id), input: message))
             } else {
                 terminals.send(message, to: session.id)
+            }
+        }
+    }
+
+    /// What every open project's agents wrote to another one, typed into the session it is for
+    /// (`ProjectModel.deliveries`). After every project has been read, so a Product a message
+    /// starts counts its board as it is now. The window never moves for it, in either project:
+    /// the conversation is two agents', and the sidebar shows the session it opened or woke.
+    private func deliverMessages() {
+        for project in projects where !project.missing {
+            for delivery in project.deliveries(among: projects, skipping: deliveredMessages, agent: agent) {
+                deliveredMessages.insert(delivery.key)
+                if let text = delivery.text { terminals.send(text, to: delivery.session) }
             }
         }
     }

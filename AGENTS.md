@@ -119,9 +119,9 @@ A handoff needs all of these:
 
 ## More
 
-- `docs/architecture.md`: how a project is read, what the diagnostics log, how the window is
-  composed, the menu tree, what a relaunch restores, and the rules a terminal's lifetime obeys.
-  Read it before changing any of those.
+- `docs/architecture.md`: how a project is read, how a message travels between projects, what
+  the diagnostics log, how the window is composed, the menu tree, what a relaunch restores, and
+  the rules a terminal's lifetime obeys. Read it before changing any of those.
 - `docs/development.md`: the manual smoke script, capturing CLI fixtures, the app icon, and the
   local signing identity.
 - `docs/release.md`: versions, cutting a release, the update feed, what goes online, and the
