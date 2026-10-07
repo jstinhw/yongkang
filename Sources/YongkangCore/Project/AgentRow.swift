@@ -34,6 +34,9 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package let route: Route
     /// The other project its session is talking to, which its row and its header name.
     package var peer: Peer? = nil
+    /// The request a Product session is on, by name: its row is called that, and says it is
+    /// Product under it. Rows all called "Product" said nothing about which request was whose.
+    package var request: String? = nil
 
     /// Whether this is a running session's own row, which is all the Agents tab lists. The
     /// others — a proposal, a block or a review no running session stands behind — still count
@@ -216,7 +219,8 @@ extension Project {
             rows.append(
                 AgentRow(
                     id: session.id.uuidString, state: state, title: title, reason: reason,
-                    session: session, task: task, block: block, route: route, peer: peers[session.id]))
+                    session: session, task: task, block: block, route: route, peer: peers[session.id],
+                    request: requests[session.id]))
         }
         // Everything else waiting on you gets a row of its own: a proposal no session wrote, a
         // second block from a session already listed for its first, and blocks whose session has

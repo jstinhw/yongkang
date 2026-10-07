@@ -183,11 +183,21 @@ struct MessageDeliveryTests {
         _ = site.markIdle(asking.id, true)
         await site.refreshRepo()
         let waiting = try #require(site.value.agentRows(summary: ChangeSummary()).first)
-        #expect(waiting.state == .working && waiting.line == "waiting on sync", "the next move is sync's, not yours")
+        #expect(
+            waiting.state == .working && waiting.line == "Product · waiting on sync",
+            "the next move is sync's, not yours")
+        #expect(waiting.label == "Show the sync time", "named after what was asked, until it files a milestone")
+        #expect(waiting.requestDoing == "waiting on sync")
         #expect(site.requestWaitsOn == BoardRequest.Ask(project: syncFolder, title: "Sync time: ask"))
         #expect(!site.requestFinished, "its plan waits on the answer")
         let asked = try #require(sync.value.agentRows(summary: ChangeSummary()).first)
-        #expect(asked.peer == .askedBy("site") && asked.line == "asked by site")
+        #expect(asked.peer == .askedBy("site") && asked.line == "Product · asked by site")
+        #expect(asked.label == "Sync time: ask", "the asked Product after the message that started it")
+        // Either board's card lists the same two agents: the one that asked, then the one it asked.
+        for side in [site, sync] {
+            let agents = side.requestAgents(among: [site, sync], asking: [:])
+            #expect(agents.map(\.row.session?.id) == [asking.id, product.id] && agents.map(\.asked) == [false, true])
+        }
 
         // sync files its part and answers; what its Product wrote back is not a question it waits on.
         _ = try NotebookFormat.create(.task, title: "Record the sync time", in: sync.notebookRoot, project: nil)

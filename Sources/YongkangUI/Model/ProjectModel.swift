@@ -154,7 +154,8 @@ import YongkangCore
         Project(
             id: id, directory: directory, entries: snapshot.entries, cards: cards,
             blocks: snapshot.blocks, team: snapshot.team, sessions: sessions, guided: guidedBlocks,
-            records: snapshot.records, peers: peers)
+            records: snapshot.records, peers: peers,
+            requests: request.flatMap { request in requestName.map { [request.session: $0] } } ?? [:])
     }
 
     /// What the screens draw, rather than what the files say: the snapshot's cards with any

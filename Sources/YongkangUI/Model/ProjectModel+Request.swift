@@ -1,6 +1,28 @@
 import Foundation
 import YongkangCore
 
+/// One agent on a request, in whichever open project it runs, read as its sidebar row reads.
+struct RequestAgent: Identifiable {
+    let project: ProjectModel
+    let row: AgentRow
+    /// The Product of the project the request asked for its part: listed under the one that asked.
+    let asked: Bool
+
+    var id: String { row.id }
+
+    /// Nil once the session has closed.
+    @MainActor init?(on project: ProjectModel, session: UUID, asked: Bool, asking: [UUID: String]) {
+        guard
+            let row = project.value.agentRows(summary: project.summary, asking: asking).first(where: {
+                $0.isRunningSession && $0.session?.id == session
+            })
+        else { return nil }
+        self.project = project
+        self.row = row
+        self.asked = asked
+    }
+}
+
 /// A request typed on the board, as it went to Product.
 struct BoardRequest: Equatable {
     let session: UUID
@@ -13,6 +35,9 @@ struct BoardRequest: Equatable {
     /// the banner can say that project filed its part. Set by `ProjectModel.deliveries`; never on
     /// a request another project asked, where what Product writes back is its answer.
     var asked: Ask? = nil
+    /// What was asked: the box's text, or the title of the message that started it. Names the
+    /// request until Product has filed a milestone for it. Not kept across a relaunch.
+    var prompt: String? = nil
 
     /// One message this request's Product sent: the project it went to, by folder, and its title.
     struct Ask: Equatable {
@@ -36,7 +61,7 @@ extension ProjectModel {
             followUp.map { Destination(section: .board, route: .session($0.id), input: prompt) }
             ?? startProduct("describe\n" + prompt, agent: agent, reading: folders)
         if case .session(let id, _)? = sent.route, followUp == nil {
-            request = BoardRequest(session: id, before: Set(cards.map(\.id)))
+            request = BoardRequest(session: id, before: Set(cards.map(\.id)), prompt: text)
         }
         requestDraft = ""
         requestOpen = false
@@ -48,6 +73,38 @@ extension ProjectModel {
         guard let request else { return [] }
         return cards.filter { ($0.kind == .project || $0.kind == .task) && !request.before.contains($0.id) }
     }
+
+    /// What the request is called, wherever it is shown: the milestone Product filed for it, or
+    /// until there is one, the first line of what was asked.
+    var requestName: String? {
+        guard let request else { return nil }
+        let asked = request.prompt?.split(separator: "\n").first.map(String.init)
+        return filed.first { $0.kind == .project }?.title ?? asked
+    }
+
+    /// Every agent on this project's request among the open projects, as its card lists them:
+    /// the Product that asked, then the Product of the project it asked — the same two from
+    /// either board. Only running sessions: one that has closed has left its part on its board.
+    func requestAgents(among projects: [ProjectModel], asking: [UUID: String]) -> [RequestAgent] {
+        guard let request else { return [] }
+        // The request open in the project at `folder`, when it is the other half of this one.
+        func half(in folder: URL?, asked: Bool, _ matches: (BoardRequest) -> Bool) -> RequestAgent? {
+            guard let folder, let other = projects.first(where: { $0.isAt(folder) }), let theirs = other.request,
+                matches(theirs)
+            else { return nil }
+            return RequestAgent(on: other, session: theirs.session, asked: asked, asking: asking)
+        }
+        let here = RequestAgent(on: self, session: request.session, asked: request.from != nil, asking: asking)
+        if request.from != nil {
+            let asker = half(in: request.from, asked: false) { $0.asked.map { self.isAt($0.project) } == true }
+            return [asker, here].compactMap { $0 }
+        }
+        let asked = half(in: request.asked?.project, asked: true) { $0.from.map(self.isAt) == true }
+        return [here, asked].compactMap { $0 }
+    }
+
+    /// Whether this project is the one in `folder`.
+    func isAt(_ folder: URL) -> Bool { directory.standardizedFileURL.path == folder.standardizedFileURL.path }
 
     /// The box answers a request Product is still on, rather than starting a new one.
     var requestFollowsUp: Bool { requestSession != nil }

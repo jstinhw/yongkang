@@ -26,9 +26,9 @@ extension AgentRow {
     /// Who it is: the session's own name, "Claude Code 2" or "Product".
     var name: String { session?.title ?? title }
 
-    /// What the sidebar calls it: the task it is on, "Astro project scaffold", or its own name
-    /// when it is on none.
-    var label: String { task == nil ? name : title }
+    /// What the sidebar calls it: the task it is on, "Astro project scaffold", the request a
+    /// Product is on, "Open source and release", or its own name when it is on neither.
+    var label: String { request ?? (task == nil ? name : title) }
 
     /// The coding agent it runs, "Codex", or its own name for a service runner.
     var agentName: String { session?.agent?.displayName ?? name }
@@ -58,10 +58,19 @@ extension AgentRow {
 
     /// What it is doing, then the coding agent doing it: "working · Codex". A session on no task
     /// is already named after itself, so it says only the first. One talking to another project
-    /// says which instead: "waiting on notebook-sync".
+    /// says which instead: "waiting on notebook-sync". One named after its request says it is
+    /// Product first: "Product · your turn".
     var line: String {
-        if let peer = talkingTo { return "\(peer.verb) \(peer.project)" }
-        return task == nil ? doing : "\(doing) · \(agentName)"
+        let line =
+            talkingTo.map { "\($0.verb) \($0.project)" } ?? (task == nil ? doing : "\(doing) · \(agentName)")
+        return request == nil ? line : "\(name) · \(line)"
+    }
+
+    /// What it is doing, as a request's card says it: who it is waiting on, rather than that
+    /// it is working, while the answer is what it is waiting for.
+    var requestDoing: String {
+        if state == .working, case .waitingOn(let project)? = peer { return "waiting on \(project)" }
+        return doing
     }
 
     /// A task's line: what is happening on it, then who is on it: "working · Codex".

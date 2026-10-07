@@ -238,11 +238,25 @@ extension RootView {
         }
     }
 
-    /// What came of the last request, if one is open. Off the board it leaves out Open session:
-    /// it is drawn on that session.
+    /// What came of the last request, if one is open, with every agent on it in any project. Off
+    /// the board it leaves out Open session for the session it is drawn on.
     @ViewBuilder private func requestBanner(for project: ProjectModel, onBoard: Bool) -> some View {
         if let request = project.request {
             RequestBanner(
+                name: project.requestName,
+                agents: project.requestAgents(among: model.projects, asking: model.attention).map { agent in
+                    let here = !onBoard && agent.row.session?.id == request.session
+                    return RequestBanner.Agent(
+                        id: agent.id, name: agent.row.name, project: agent.project.name, state: agent.row.state,
+                        doing: agent.row.requestDoing,
+                        filed: RequestBanner.counted(agent.project.filed) ?? "nothing filed yet", asked: agent.asked,
+                        open: here
+                            ? nil
+                            : {
+                                model.section = .agents
+                                model.enter(agent.project, at: agent.row.route)
+                            })
+                },
                 filed: project.filed, from: request.from?.lastPathComponent,
                 asked: request.asked.map { ($0.project.lastPathComponent, $0.title) },
                 waiting: project.requestWaitsOn != nil,

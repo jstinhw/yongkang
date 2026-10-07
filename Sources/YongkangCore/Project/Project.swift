@@ -25,6 +25,9 @@ package struct Project: Identifiable, Equatable, Sendable {
     /// The other open project each session here is talking to, by session id. In memory only,
     /// like `guided` — see `ProjectModel.peers`.
     package var peers: [UUID: Peer] = [:]
+    /// The name of the request each Product session here is on, by session id. In memory only,
+    /// like `peers` — see `ProjectModel.requestName`.
+    package var requests: [UUID: String] = [:]
 
     package init(
         id: UUID = UUID(),
@@ -36,7 +39,8 @@ package struct Project: Identifiable, Equatable, Sendable {
         sessions: [CodeSession] = [],
         guided: Set<String> = [],
         records: [UUID: LeadCoordination] = [:],
-        peers: [UUID: Peer] = [:]
+        peers: [UUID: Peer] = [:],
+        requests: [UUID: String] = [:]
     ) {
         self.id = id
         self.directory = directory
@@ -48,6 +52,7 @@ package struct Project: Identifiable, Equatable, Sendable {
         self.guided = guided
         self.records = records
         self.peers = peers
+        self.requests = requests
     }
 
     package var onlineAgentCount: Int {

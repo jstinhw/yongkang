@@ -74,11 +74,28 @@ extension DesignShots {
         _ project: Project, filed: [NotebookCard], agents: AgentChoice, into directory: URL
     ) {
         let asked = (project: "notebook-sync", title: "Last sync time for the download page")
+        let name = "Show the last sync on the download page"
+        // The request's two agents, one in each project, as either board's card lists them.
+        func onRequest(
+            _ asking: AgentRow.State, _ answering: AgentRow.State, here: Bool = false
+        ) -> [RequestBanner.Agent] {
+            let doing = { (state: AgentRow.State, working: String) in state == .working ? working : "your turn" }
+            return [
+                RequestBanner.Agent(
+                    id: "asking", name: "Product", project: project.name, state: asking,
+                    doing: doing(asking, "waiting on notebook-sync"), filed: "a task", asked: false, open: {}),
+                RequestBanner.Agent(
+                    id: "asked", name: "Product", project: "notebook-sync", state: answering,
+                    doing: doing(answering, "working"), filed: answering == .working ? "nothing filed yet" : "2 tasks",
+                    asked: true, open: here ? nil : {}),
+            ]
+        }
         write(
             console(project, section: .board) {
                 VStack(spacing: 0) {
                     RequestBanner(
-                        filed: [], asked: asked, waiting: true, openSession: {}, askForChanges: {}, dismiss: {})
+                        name: name, agents: onRequest(.working, .working), filed: [], asked: asked, waiting: true,
+                        openSession: {}, askForChanges: {}, dismiss: {})
                     board(project, agents: agents)
                 }
             }, "board-waiting", into: directory)
@@ -88,6 +105,7 @@ extension DesignShots {
         let waiting = CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude, idle: true)
         asking.sessions.append(waiting)
         asking.peers = [waiting.id: .waitingOn("notebook-sync")]
+        asking.requests = [waiting.id: name]
         var sync = Project(directory: URL(fileURLWithPath: "/Users/you/sources/notebook-sync"), entries: [])
         let product = CodeSession(title: "Product", icon: "sparkles", line: "claude", agent: .claude)
         sync.sessions = [
@@ -95,18 +113,31 @@ extension DesignShots {
             product,
         ]
         sync.peers = [product.id: .askedBy(project.name)]
+        sync.requests = [product.id: asked.title]
         let synced = ChangeSummary(tasks: [
             SummaryTask(id: "resume", title: "Resume sync after sleep", status: "active")
         ])
+        let row = sync.agentRows(summary: synced).first { $0.route == .session(product.id) }
         write(
             console(
                 sync, section: .agents, summary: synced, selection: .session(product.id),
-                others: [SidebarProject(project: asking, summary: ChangeSummary())]
+                others: [
+                    SidebarProject(
+                        project: asking, summary: ChangeSummary(),
+                        asked: row.map { [waiting.id: AskedSession(project: sync.id, projectName: sync.name, row: $0)] }
+                            ?? [:])
+                ]
             ) {
                 AgentPage(
-                    session: product, project: sync,
-                    row: sync.agentRows(summary: synced).first { $0.route == .session(product.id) },
-                    openBlock: { _ in }, content: { Theme.bg })
+                    session: product, project: sync, row: row, openBlock: { _ in },
+                    content: {
+                        VStack(spacing: 0) {
+                            RequestBanner(
+                                name: asked.title, agents: onRequest(.working, .working, here: true), filed: [],
+                                from: project.name, openSession: nil, askForChanges: {}, dismiss: {})
+                            Theme.bg
+                        }
+                    })
             }, "session-asked", into: directory)
 
         // The sample as the asked board here, with what its Product filed for yongkang-site.
@@ -125,7 +156,8 @@ extension DesignShots {
             console(project, section: .board) {
                 VStack(spacing: 0) {
                     RequestBanner(
-                        filed: Array(own), asked: asked, openSession: {}, askForChanges: {}, approve: {}, dismiss: {})
+                        name: name, agents: onRequest(.needsYou, .needsYou), filed: Array(own), asked: asked,
+                        openSession: {}, askForChanges: {}, approve: {}, dismiss: {})
                     board(project, agents: agents, fresh: Set(own.map(\.id)))
                 }
             }, "board-answered", into: directory)

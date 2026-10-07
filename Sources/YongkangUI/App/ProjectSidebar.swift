@@ -2,6 +2,20 @@ import AppKit
 import SwiftUI
 import YongkangCore
 
+/// The Product another open project runs for what a session here asked it, listed under that
+/// session so the request's two halves are one glance apart.
+package struct AskedSession {
+    let project: Project.ID
+    let projectName: String
+    let row: AgentRow
+
+    package init(project: Project.ID, projectName: String, row: AgentRow) {
+        self.project = project
+        self.projectName = projectName
+        self.row = row
+    }
+}
+
 /// One project as the sidebar draws it: the folder, and under it its running sessions (Agents)
 /// or its tasks that are not idle (Board), in the order they want you.
 package struct SidebarProject: Identifiable {
@@ -22,15 +36,18 @@ package struct SidebarProject: Identifiable {
     /// The group it sits in, nil for a loose project. Neighbours naming the same group are that
     /// group: the sidebar draws a header over each such run. See `ProjectGroups`.
     let group: String?
+    /// What each session here asked of another project, by session id, listed under it.
+    let asked: [UUID: AskedSession]
 
     /// `asking` is each session's terminal question, which only the window can see.
     package init(
         project: Project, summary: ChangeSummary, asking: [UUID: String] = [:], missing: Bool = false,
-        group: String? = nil
+        group: String? = nil, asked: [UUID: AskedSession] = [:]
     ) {
         self.project = project
         self.missing = missing
         self.group = group
+        self.asked = asked
         rows = project.agentRows(summary: summary, asking: asking)
         tasks = project.taskRows(summary: summary)
         memory = project.cards.filter { $0.kind == .memory }.count
@@ -148,6 +165,7 @@ package struct ProjectSidebar: View {
                                 ForEach(section == .board ? item.tasks : item.sessions) { row in
                                     agentRow(row, in: item)
                                     if section == .agents, let session = row.session {
+                                        if let asked = item.asked[session.id] { askedRow(asked, in: item) }
                                         if item.pages.contains(session.id) { sessionPageRow(session, in: item) }
                                         ForEach(item.reviews[session.id] ?? []) { reviewRow($0, in: item) }
                                     }
@@ -373,9 +391,38 @@ package struct ProjectSidebar: View {
     /// the words around it, as it does in the session's header.
     private func secondLine(_ row: AgentRow, isTask: Bool) -> Text {
         if !isTask, let peer = row.talkingTo {
-            return Text("\(peer.verb) \(Text(peer.project).fontWeight(.medium).foregroundStyle(Theme.tx2))")
+            let product = row.request == nil ? "" : "\(row.name) · "
+            return Text(
+                "\(product)\(peer.verb) \(Text(peer.project).fontWeight(.medium).foregroundStyle(Theme.tx2))")
         }
         return Text(isTask ? row.byLine : row.line)
+    }
+
+    /// The other project's Product a session here asked for its part, under it: one click to that
+    /// conversation, in whichever project it runs.
+    private func askedRow(_ asked: AskedSession, in item: SidebarProject) -> some View {
+        Button {
+            open(asked.project, asked.row.route, .agents)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.turn.down.right").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Theme.tx3)
+                AgentStateGlyph(state: asked.row.state, size: 10)
+                Text("\(asked.projectName) · \(asked.row.doing)")
+                    .font(Typography.caption).foregroundStyle(Theme.tx2).lineLimit(1)
+                Spacer(minLength: 4)
+            }
+            .padding(.leading, 44)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }
+        .buttonStyle(.plain)
+        // Never selected itself: the session it opens is that project's own row, which is.
+        .groupIndented(item, top: 1)
+        .help("\(asked.projectName)’s \(asked.row.name), which this request asked for its part")
     }
 
     /// The page a session drew for you — its report, or Setup's and Product's plan — under it.
