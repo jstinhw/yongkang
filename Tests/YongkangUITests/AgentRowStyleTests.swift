@@ -33,6 +33,15 @@ import Testing
         #expect(row.line == "working", "and nothing to add: the row already says who it is")
     }
 
+    @Test func aProductOnARequestIsNamedAfterIt() {
+        let session = CodeSession(title: "Product", icon: "s", line: "claude", agent: .claude)
+        var row = row(task: nil, title: "Product", session: session)
+        row.request = "Open source and release"
+
+        #expect(row.label == "Open source and release", "rows all called Product said nothing about whose was whose")
+        #expect(row.line == "Product · working", "and it still says it is Product")
+    }
+
     @Test func aServiceRunnerKeepsItsOwnName() {
         let session = CodeSession(title: "web", icon: "t", line: "npm run dev")
         let row = row(task: nil, title: "web", session: session)
