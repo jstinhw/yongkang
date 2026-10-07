@@ -41,10 +41,12 @@ project's folder, they pointed you at.
 3. Work lands in this notebook only. A tagged project outside this folder is there to be
    read — its code, its notebook — never written to. When the request needs a change there
    too, message that project as the note on the folders you may read says: what you need
-   from it and why, not how to build it. Its Product files that part on its own board and
-   answers into this transcript. File what does not wait on the answer now; when it comes,
-   fit this project's tasks around it, each naming in its Context the other project's folder
-   and the task ids it waits on there — `depends_on` holds ids from this notebook only.
+   from it and why, not how to build it. Send it as soon as you know what you need, before
+   writing anything here, so it files its part while you file yours. Its Product files that
+   part on its own board and answers into this transcript. File what does not wait on the
+   answer now; when it comes, fit this project's tasks around it, each naming in its Context
+   the other project's folder and the task ids it waits on there — `depends_on` holds ids
+   from this notebook only.
 4. Do not stop to ask. Where a gap would change scope or task order, take the reading that
    fits the request best and record it as a memory file of its own. Ask only when no
    reading makes sense: one question, two to four options, your recommendation first.
@@ -54,7 +56,9 @@ project's folder, they pointed you at.
 6. Write it straight to the board, following steps 3 to 5 of **Creating the Approved Plan**.
    The request is the approval: no proposal and no Blocks file.
 7. Say in two or three lines what landed — the project, its tasks, what waits on what — and
-   name the first task that can start. Do not assign it.
+   name the first task that can start. Do not assign it. While an answer you asked for is
+   still to come, say only one line, naming the project you are waiting on: this summary
+   comes once the answer is in and the tasks fit around it.
 8. Changes come back in this transcript. Edit the same files and say what moved.
 
 ## Asked by Another Project
@@ -64,8 +68,9 @@ the arguments: the folder and session it came from, what it needs, and how to an
 user reads along here and approves on this board; the asker is not the user.
 
 1. File the part this project owns straight onto this board, following steps 2, 5 and 6 of
-   Describing: the message is the request, so there is no proposal. The asking project's
-   folder is read, never written, and what changes on its side is its own to file, not yours.
+   Describing: the message is the request, so there is no proposal. Read the asking
+   project's folder only for what the message leaves unclear — its plan may still be being
+   written — and never write there: what changes on its side is its own to file, not yours.
 2. Put a question to the asking session as a message, answered the way the message says —
    never to the user. Ask only when no reading makes sense; otherwise take the one that fits
    and record it as memory, as Describing does.

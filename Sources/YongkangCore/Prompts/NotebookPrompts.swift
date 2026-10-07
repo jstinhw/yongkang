@@ -173,6 +173,10 @@ extension NotebookFormat {
     /// Product, so the change lands through that project's own board and Review. Empty when
     /// it was handed none.
     ///
+    /// The message goes first and whole so the two projects plan at once, the other never
+    /// reading a plan here that is half written. The turn that ends before the answer ends in
+    /// one line: a summary then is one the answer would change, and reads as the user's move.
+    ///
     /// `reading` is each folder relative to this project's, which is what `to` names.
     package static func readingNote(_ reading: [String], sessionID: UUID) -> String {
         guard !reading.isEmpty else { return "" }
@@ -195,7 +199,11 @@ extension NotebookFormat {
                 What you need from it and why, in plain words.
 
             The app types it into that project's Product, which files the change on its own board \
-            and answers into this session. Carry on with what does not need the answer.
+            and answers into this session. Write it as soon as you know what you need, before the \
+            rest of your work, so that project works while you do, and put in it everything it \
+            needs to answer without reading this project. Carry on with what does not need the \
+            answer, then end your turn in one line naming what you are waiting on: your summary \
+            waits for the answer, which is typed in here.
 
             """
     }

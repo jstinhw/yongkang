@@ -15,6 +15,7 @@ import Testing
         var sessionID: UUID? = nil
         var noCommit = false
         var reading: [String] = []
+        var effort: String? = nil
         let expected: String
         var why: Comment? = nil
 
@@ -59,6 +60,13 @@ import Testing
         LineCase(
             agent: .grok, prompt: "hi", reading: ["/b"], expected: "cd '/a' && exec grok 'hi'",
             why: "grok takes no folder beside its own, so it is handed none"),
+        LineCase(
+            agent: .claude, prompt: "hi", reading: ["/b"], effort: "high",
+            expected: "cd '/a' && exec claude --effort 'high' --add-dir '/b' 'hi'",
+            why: "Product thinks hard rather than at the user's xhigh"),
+        LineCase(
+            agent: .codex, prompt: "hi", effort: "high", expected: "cd '/a' && exec codex \(Self.noUpdate) 'hi'",
+            why: "a CLI with no effort flag runs at its own default"),
     ]
 
     /// What zsh actually passes to the agent for a given quoted argument.
@@ -112,7 +120,7 @@ import Testing
         #expect(
             AgentCommand.line(
                 directory: c.directory, agent: c.agent, prompt: c.prompt, sessionID: c.sessionID,
-                noCommit: c.noCommit, reading: c.reading) == c.expected, c.why)
+                noCommit: c.noCommit, reading: c.reading, effort: c.effort) == c.expected, c.why)
     }
 
     @Test func codexCarriesTheSessionIDInItsPrompt() {
@@ -160,6 +168,8 @@ import Testing
             note.contains("kind: message") && note.contains("reply_to: \"\""), "a first message, in the memory's shape")
         #expect(note.contains("session: \(Self.sid.uuidString.lowercased())"), "the answer finds its way back")
         #expect(note.contains("Carry on with what does not need the answer"))
+        #expect(note.contains("as soon as you know what you need"), "the other project plans while this one does")
+        #expect(note.contains("your summary waits for the answer"), "the turn is not the user's until it is in")
         let product = NotebookFormat.productPrompt(
             arguments: "describe", sessionID: Self.sid, agent: .claude, reading: ["../site"])
         #expect(product.contains(note), "Product asks the way an assigned session does")

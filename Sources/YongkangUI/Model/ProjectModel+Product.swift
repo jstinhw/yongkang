@@ -28,8 +28,15 @@ extension ProjectModel {
                 agent, id: id,
                 prompt: NotebookFormat.productPrompt(
                     arguments: arguments, sessionID: id, agent: agent, reading: others),
-                title: "Product", reading: reading))
+                title: "Product", reading: reading, effort: Self.productEffort))
     }
+
+    /// Product is what the user sits and waits on after a request, so it thinks hard rather than
+    /// hardest: at `xhigh` three quarters of a plan's output was thinking, twelve minutes for
+    /// one request across two projects.
+    /// ponytail: a relaunch resumes it at the user's own default. Keep the level on the session
+    /// if a resumed Product turns out slow too.
+    static let productEffort = "high"
 
     /// The session a project without a notebook starts with: from what the user typed, or, with
     /// no description, from reading the folder. It drafts its plan into Blocks under its own
