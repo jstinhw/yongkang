@@ -159,15 +159,27 @@ extension AppModel {
     }
 
     /// Approving what Product filed for a request: commits it, then closes the request and the
-    /// Product session it ran in. Like a task's approval it asks nothing first; only a refusal
-    /// from git is said.
+    /// Product session it ran in — and the same on every project it asked for a part, each
+    /// committing its own. Like a task's approval it asks nothing first; only a refusal from
+    /// git is said, and a part whose Product is still working, which is left on its own board.
     func approveRequest(in project: ProjectModel) {
+        let asked = project.askedRequests(among: projects)
+        let working = asked.filter { !$0.requestSettled }
         Task {
-            do throws(CommitFailure) {
-                if let session = try await project.approveRequest() { close(session, in: project) }
-            } catch {
-                alert = .message("The request was not committed", detail: error.reason)
+            for each in [project] + asked.filter(\.requestSettled) {
+                do throws(CommitFailure) {
+                    if let session = try await each.approveRequest() { close(session, in: each) }
+                } catch {
+                    let title = each === project ? "The request" : "\(each.name)\u{2019}s part"
+                    alert = .message("\(title) was not committed", detail: error.reason)
+                    return
+                }
             }
+            guard !working.isEmpty else { return }
+            let names = working.map(\.name).joined(separator: ", ")
+            alert = .message(
+                "Not every part was approved",
+                detail: "Product is still working in \(names). Approve its part on its own board once it stops.")
         }
     }
 

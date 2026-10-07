@@ -91,8 +91,10 @@ message in its own notebook, `.notebook/messages/<slug>.md` (the shape is in
    in; one naming any other session never reaches it. Anything else goes to that project's
    Product as `asked\n` + the same text: typed into the one running, or the prompt of one
    `startProduct` opens, let into the sender's folder to read it. Its board then shows a
-   `BoardRequest` whose `from` is the asking folder, so what Product files there is marked new
-   and its own Approve and commit lands only its own files. A `to` naming no open project is
+   `BoardRequest` whose `from` is the asking folder and whose `asker` is the session that asked,
+   so what Product files there is marked new and its own Approve and commit lands only its own
+   files. Approving the asking request approves it too (`askedRequests`), each board in its own
+   commit, unless its Product is still working. A `to` naming no open project is
    answered in the sender's session in one line (`NotebookFormat.undeliveredMessage`); with the
    sender gone too, the message waits for a read that finds the project open.
 3. **Typed** (`AppModel.deliverMessages`), after every project has been read, by

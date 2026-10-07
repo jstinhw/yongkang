@@ -15,8 +15,10 @@ It writes that project a message, and a Product session opens under that project
 sidebar — or the one already running there gets it — with the message typed into its
 terminal. That Product files its part on its own board, marked `new` with its own `Approve
 and commit`, and answers; the answer is typed into this Product's session, which fits this
-project's tasks around it and names the other project's tasks in their Context. Each board
-commits only its own files. A session you hand other folders to read from `New Agent` asks
+project's tasks around it and names the other project's tasks in their Context. Approving
+here approves the other board's part too, and any part it asked for in turn; each board
+commits only its own files. A part whose Product is still working is left on its board, and
+you are told. A session you hand other folders to read from `New Agent` asks
 the same way.
 
 Product files the request straight onto the board: tasks under an existing milestone when

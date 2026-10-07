@@ -66,7 +66,8 @@ extension ProjectModel {
         guard case .session(let product, _)? = sent.route else { return nil }
         if request?.session != product {
             request = BoardRequest(
-                session: product, before: Set(cards.map(\.id)), from: sender, prompt: message.title)
+                session: product, before: Set(cards.map(\.id)), from: sender, asker: message.session,
+                prompt: message.title)
         }
         return (product, sent.input)
     }

@@ -273,9 +273,9 @@ for.
       session**, **Ask for changes** and **Approve and commit**. The answer is typed into
       yk-smoke's Product terminal, and that row goes back to **working**.
     - Once yk-smoke's Product has filed its own part and stopped, its banner reads **Product filed
-      your request as a task; yk-other filed its own part.** Approve on each board:
-      `git -C ~/Projects/yk-smoke log -1 --stat`, and the same in yk-other, each list only that
-      project's notebook files.
+      your request as a task; yk-other filed its own part.** Approve on yk-smoke's board: both
+      banners go and both Product sessions close. `git -C ~/Projects/yk-smoke log -1 --stat`, and
+      the same in yk-other, each list only that project's notebook files.
     - Who is talking to whom is in memory only: after ⌘Q and `make run`, both rows read as any
       Product's do until the next message.
 

@@ -116,6 +116,43 @@ struct MessageDeliveryTests {
         #expect(sync.repo.head?.hasSuffix("Plan Record the sync time") == true, "and commits nothing of sync's")
     }
 
+    /// Approving the request that asked takes every part it asked for, down the chain: site asks
+    /// sync, and sync asks api. A request an earlier session left open is not one of them, and a
+    /// part whose Product is still working is not ready to go with it.
+    @Test func approvingTheAskingRequestTakesEveryPartItAsked() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let (siteFolder, syncFolder) = try await folders(in: tmp)
+        let (apiFolder, blogFolder) = (tmp.appendingPathComponent("api"), tmp.appendingPathComponent("blog"))
+        for folder in [apiFolder, blogFolder] {
+            _ = try NotebookFormat.create(.task, title: "Base", in: NotebookFormat.root(in: folder), project: nil)
+        }
+        let (site, sync, api, blog) = (
+            await read(siteFolder), await read(syncFolder), await read(apiFolder), await read(blogFolder)
+        )
+        let projects = [site, sync, api, blog]
+        _ = site.sendRequest("Show the sync time", projects: [], agent: .claude)
+        let asking = try #require(site.sessions.first)
+        var delivered: Set<String> = []
+
+        try await write("ask", to: "../sync", session: asking.id, in: site)
+        _ = deliver(projects, skipping: &delivered)
+        let middle = try #require(sync.sessions.first)
+        #expect(sync.request?.asker == asking.id, "the asked request knows the session that asked")
+        try await write("ask-api", to: "../api", session: middle.id, in: sync)
+        _ = deliver(projects, skipping: &delivered)
+        let last = try #require(api.sessions.first)
+        blog.request = BoardRequest(session: UUID(), before: [], from: siteFolder, asker: UUID())
+
+        #expect(site.askedRequests(among: projects).map(\.directory) == [syncFolder, apiFolder])
+        #expect(sync.askedRequests(among: projects).map(\.directory) == [apiFolder], "only what it asked")
+        #expect(api.askedRequests(among: projects).isEmpty)
+
+        #expect(!api.requestSettled, "a Product still working is not approved with the rest")
+        _ = api.markIdle(last.id, true)
+        #expect(api.requestSettled, "settled with nothing filed: approving it only closes it")
+    }
+
     @Test func aMessageToARunningProductIsTypedIntoItAndKeepsItsRequest() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

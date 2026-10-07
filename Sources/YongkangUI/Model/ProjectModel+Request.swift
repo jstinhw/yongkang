@@ -31,6 +31,9 @@ struct BoardRequest: Equatable {
     /// The project that asked, by folder, when its agent's message started this request rather
     /// than the board's own box. See `ProjectModel.receive`. Not kept across a relaunch.
     var from: URL? = nil
+    /// The session there that asked: approving its request approves this one too. See
+    /// `ProjectModel.askedRequests`. Not kept across a relaunch.
+    var asker: UUID? = nil
     /// What Product last asked another project for this request, kept once the answer is in so
     /// the banner can say that project filed its part. Set by `ProjectModel.deliveries`; never on
     /// a request another project asked, where what Product writes back is its answer.
@@ -111,8 +114,26 @@ extension ProjectModel {
 
     /// Product's turn is over — or its session is gone — with a plan on disk not yet committed,
     /// which is the user's to approve or send back.
-    var requestFinished: Bool {
-        request != nil && requestSession?.idle != false && !planChanges.isEmpty && requestWaitsOn == nil
+    var requestFinished: Bool { requestSettled && !planChanges.isEmpty }
+
+    /// Product's turn is over — or its session is gone — and nothing it asked is still to come:
+    /// a request another project's approval can take with it, even one that filed nothing.
+    var requestSettled: Bool { request != nil && requestSession?.idle != false && requestWaitsOn == nil }
+
+    /// The open requests this one asked other projects for, and those they asked in turn: what
+    /// approving it approves too, so one click takes the whole plan. Found by the session that
+    /// asked rather than by folder, so a request an earlier one left open there stays out of it.
+    func askedRequests(among projects: [ProjectModel]) -> [ProjectModel] {
+        var found: [ProjectModel] = []
+        var askers = request.map { [$0.session] } ?? []
+        while let asker = askers.popLast() {
+            for other in projects where other !== self && !found.contains(where: { $0 === other }) {
+                guard let theirs = other.request, theirs.asker == asker else { continue }
+                found.append(other)
+                askers.append(theirs.session)
+            }
+        }
+        return found
     }
 
     /// The project the request's Product asked for its part and has not heard back from. Its plan
