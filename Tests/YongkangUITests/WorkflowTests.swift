@@ -588,6 +588,14 @@ import Testing
         _ = running("Engineering Lead", in: project, taskIDs: ["wire-auth", "ship-it"])
         project.sessions[0].coordination = LeadCoordination(
             workers: ["wire-auth", "ship-it"].map { LeadWork(id: $0, taskID: $0, paths: ["\($0).txt"], state: "done") })
+        // Each task's report, as its agent writes one: what says it has not been approved yet.
+        let runs = project.notebookRoot.appendingPathComponent("runs")
+        try FileManager.default.createDirectory(at: runs, withIntermediateDirectories: true)
+        for task in ["wire-auth", "ship-it"] {
+            try "---\nkind: run\n---\n".write(
+                to: runs.appendingPathComponent("\(project.sessions[0].id.uuidString.lowercased())-work-\(task).md"),
+                atomically: true, encoding: .utf8)
+        }
         await project.refreshRepo()
         try #require(project.summary.waiting.count == 2, "both tasks are done and waiting on the user")
         let (first, next) = (project.summary.waiting[0], project.summary.waiting[1])

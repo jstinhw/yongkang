@@ -10,8 +10,20 @@ import Testing
     /// `ChangeSummary` never reads the disk: the project folder is only a URL on its cards.
     private static let directory = URL(fileURLWithPath: "/nonexistent/handover-project")
 
-    private static let tree = ["Sources/Loader.swift", "Tests/Loader.swift", "Sources/Untouched.swift"]
+    private static let leadID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+
+    /// `read-blockers` finished and not yet approved: its code changed, and its two reports with it.
+    private static let tree =
+        ["Sources/Loader.swift", "Tests/Loader.swift", "Sources/Untouched.swift"]
         .map { FileChange(path: $0, added: $0.hasPrefix("Tests") ? 4 : 20, removed: 1, untracked: false) }
+        + ["a", "b"].map {
+            FileChange(
+                path: ".notebook/runs/\(leadID.uuidString.lowercased())-work-\($0).md", added: 9, removed: 0,
+                untracked: true)
+        }
+
+    /// The tree with only the code in it: the reports were committed, so the task was approved.
+    private static let codeOnly = tree.filter { !$0.path.hasPrefix(".notebook/") }
 
     private static func card(
         _ id: String, _ title: String, _ status: String,
@@ -26,7 +38,7 @@ import Testing
     /// still has an endpoint running.
     private static func leadProject(wireAuth: String = "active") -> (project: Project, lead: CodeSession) {
         var lead = CodeSession(
-            title: "Launch", icon: "", line: "", agent: .claude,
+            id: leadID, title: "Launch", icon: "", line: "", agent: .claude,
             taskIDs: ["wire-auth", "read-blockers"])
         lead.coordination = LeadCoordination(
             strategy: "Both tasks in parallel.",
@@ -126,9 +138,19 @@ import Testing
             "only a finished task with uncommitted work waits on the user")
         let first = try #require(summary.tasks.first)
         #expect(
-            first.commitPaths == ["Sources/Loader.swift", "Tests/Loader.swift"],
-            "approving a task commits its own files, never the whole tree")
+            first.commitPaths == ["Sources/Loader.swift", "Tests/Loader.swift"] + first.records,
+            "approving a task commits its own files and reports, never the whole tree")
+        #expect(first.records.count == 2, "both attempts' reports")
         #expect(summary.sharing("Sources/Loader.swift", besides: first) == nil)
+    }
+
+    /// Once its reports are committed, a task's paths changing again is later work: Review
+    /// listed the approved task again, and approving it again committed those edits as its own.
+    @Test func anApprovedTaskIsNotUpForReviewWhenItsFilesChangeAgain() {
+        let summary = ChangeSummary.of(Self.leadProject().project, changes: Self.codeOnly)
+        #expect(summary.waiting.isEmpty, "approving it once is enough")
+        #expect(summary.tasks.first?.files.isEmpty == true, "and the later edits are not its to commit")
+        #expect(summary.unclaimed == Self.codeOnly, "they are nobody's, and Review says so")
     }
 
     @Test func discardLeavesTheTaskFile() {

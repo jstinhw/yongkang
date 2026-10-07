@@ -68,14 +68,6 @@ package struct ChangeSummary: Equatable, Sendable {
             .filter { $0.kind == .task && handed.contains($0.id) }
             .map { card -> SummaryTask in
                 let workers = work[card.id] ?? []
-                // A file reported by two workers on the same task is one file, listed once
-                // and counted once, in the order the workers named it.
-                var files: [FileChange] = []
-                for path in workers.flatMap(\.paths) where !files.contains(where: { $0.path == path }) {
-                    guard let file = byPath[path] else { continue }
-                    files.append(file)
-                    claimed.insert(path)
-                }
                 // The task file and the records this task's workers wrote go in with its code,
                 // so the commit carries the reason for itself. A path git does not list is left out.
                 let records = plans(of: project).flatMap { session, plan in
@@ -84,6 +76,21 @@ package struct ChangeSummary: Equatable, Sendable {
                             .appendingPathComponent("\(session.uuidString.lowercased())-work-\($0.id).md")
                     }
                 }.compactMap { relative($0, in: project.directory) }.filter { byPath[$0] != nil }
+                claimed.formUnion(records)
+                // Approved: finished, with every report it wrote committed — approving is what
+                // commits them, and only its own agent writes them. What its paths show changed
+                // now is later work, a hand edit's or another task's, never carried in under its
+                // name: a task approved once came back for review, and approving it again
+                // committed someone else's edits as its own.
+                let approved = card.status == "done" && records.isEmpty
+                // A file reported by two workers on the same task is one file, listed once
+                // and counted once, in the order the workers named it.
+                var files: [FileChange] = []
+                for path in workers.flatMap(\.paths) where !approved && !files.contains(where: { $0.path == path }) {
+                    guard let file = byPath[path] else { continue }
+                    files.append(file)
+                    claimed.insert(path)
+                }
                 return SummaryTask(
                     id: card.id, title: card.title, status: card.status, url: card.url,
                     body: card.body, work: workers, files: files,
