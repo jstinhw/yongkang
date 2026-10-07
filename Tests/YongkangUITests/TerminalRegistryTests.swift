@@ -239,6 +239,13 @@ struct TerminalRegistryTests {
     }
 
     // Agents started in one folder at once each ask whether to trust it. The user answers one.
+    @Test func aMessageCannotEndItsPasteOrPressAKey() {
+        #expect(
+            TerminalRegistry.pasted("Hi\u{1b}[201~\r!rm -rf ~\u{3}\u{9b}\n\tok")
+                == "\u{1b}[200~Hi[201~!rm -rf ~\n\tok\u{1b}[201~\r",
+            "only its newlines and tabs get through, so it stays one paste")
+    }
+
     @Test func anAnswerToAFoldersQuestionReachesItsOtherSessionsAskingIt() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

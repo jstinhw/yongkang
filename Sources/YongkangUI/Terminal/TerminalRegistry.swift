@@ -125,12 +125,22 @@ import YongkangCore
             return
         }
         guard !entry.showsChild, !view.hasDraft, view.attentionReason == nil else { return }
-        // ponytail: bracketed paste so embedded newlines land as one message instead of
-        // submitting early, then a real Enter to send it — exactly what a paste followed
-        // by Return looks like to the process. Untested against Claude Code's own reader;
-        // if it does not honor bracketed paste this degrades to that same early-submit.
-        for text in entry.queued { type("\u{1b}[200~" + text + "\u{1b}[201~\r", into: view) }
+        for text in entry.queued { type(Self.pasted(text), into: view) }
         entry.queued = []
+    }
+
+    /// `text` as a paste followed by Enter. Its newlines and tabs stay; every other control
+    /// character goes, ESC first: what another project's agent wrote is typed here, and one
+    /// could otherwise end the paste early and press keys — answer a permission question, or
+    /// run a `!` command.
+    ///
+    /// ponytail: bracketed paste so embedded newlines land as one message instead of
+    /// submitting early, then a real Enter to send it — exactly what a paste followed
+    /// by Return looks like to the process. Untested against Claude Code's own reader;
+    /// if it does not honor bracketed paste this degrades to that same early-submit.
+    nonisolated static func pasted(_ text: String) -> String {
+        let kept = text.unicodeScalars.filter { $0 == "\n" || $0 == "\t" || $0.properties.generalCategory != .control }
+        return "\u{1b}[200~" + String(String.UnicodeScalarView(kept)) + "\u{1b}[201~\r"
     }
 
     private func type(_ text: String, into view: AttentionTerminalView) {
@@ -215,7 +225,7 @@ import YongkangCore
             guard view.process.running else { break }
             guard view.attentionReason == nil else { continue }
             guard typedCommand else {
-                type("\u{1b}[200~" + childView.command + "\u{1b}[201~\r", into: view)
+                type(Self.pasted(childView.command), into: view)
                 typedCommand = true
                 continue
             }
