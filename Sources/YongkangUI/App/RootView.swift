@@ -220,8 +220,19 @@ struct RootView: View {
         model.projects.map { project in
             SidebarProject(
                 project: project.value, summary: project.summary, asking: model.attention,
-                missing: project.missing, group: project.group)
+                missing: project.missing, group: project.group, asked: asked(by: project))
         }
+    }
+
+    /// The other project's Product this project's request asked, under the session that asked it.
+    private func asked(by project: ProjectModel) -> [UUID: AskedSession] {
+        guard let request = project.request,
+            let theirs = project.requestAgents(among: model.projects, asking: model.attention).first(where: \.asked),
+            theirs.project !== project
+        else { return [:] }
+        return [
+            request.session: AskedSession(project: theirs.project.id, projectName: theirs.project.name, row: theirs.row)
+        ]
     }
 
     /// Usage, which is every project's; the selected project's screen; or the empty one.
