@@ -197,12 +197,18 @@ import Testing
             "Product needs its session id so Blocks can return to its transcript")
     }
 
-    @Test func setupAndProductShowThePlanAsTheSameGraph() {
+    @Test func setupAndProductHandOverThePlanForTheAppToDraw() {
+        let plan = ".notebook/pages/\(Self.sid.uuidString.lowercased()).json"
         let setup = NotebookFormat.onboardingPrompt(description: "a site", sessionID: Self.sid)
         let product = NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex)
         for prompt in [setup, product] {
-            #expect(prompt.contains("`flowchart LR`"), "the dependencies are drawn, not listed")
+            #expect(prompt.contains(plan), "the app draws the plan it knows the path of")
+            #expect(prompt.contains(#""depends_on""#), "the dependencies are drawn, not listed")
+            #expect(!prompt.contains("Mermaid"), "an agent that draws its own page picks its own colours")
         }
+        #expect(
+            NotebookFormat.plan(of: Self.sid, in: URL(fileURLWithPath: "/p/.notebook")).path == "/p/" + plan,
+            "the tab reads the file the prompt named")
     }
 
     @Test func everyPageGoesOnTheSessionsTabNotABrowser() {
@@ -210,12 +216,13 @@ import Testing
         let task = NotebookCard(
             id: "wire-auth", url: URL(fileURLWithPath: "/p/.notebook/tasks/wire-auth.md"), kind: .task,
             title: "Wire auth", status: "todo", project: nil, dependsOn: [])
+        let work = NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid)
+        #expect(work.contains(page), "the app shows the page it knows the path of")
         for prompt in [
             NotebookFormat.onboardingPrompt(description: "a site", sessionID: Self.sid),
             NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex),
-            NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid),
+            work,
         ] {
-            #expect(prompt.contains(page), "the app shows the page it knows the path of")
             #expect(!prompt.contains("temp directory"), "a page the agent opens itself lands in a browser")
         }
         #expect(

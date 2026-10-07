@@ -57,8 +57,10 @@ then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a 
 reads and what approving a task commits beside its code. When it stops, done or waiting
 on you, it shows the same report as a page: one HTML file at
 `.notebook/pages/<session-id>.html`, which opens from the **Page** row under the session in
-the sidebar. Nothing opens a browser. Setup and Product draw their plan graph on
-the same page.
+the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
+`.notebook/pages/<session-id>.json` instead, and the app draws it on the same tab: what you
+get, what needs you, and the tasks as a graph you drag, zoom, and click to trace what a task
+waits on and what waits on it.
 
 The sidebar lists every running session under its project, by its own name, with what it is
 doing and the task it is on, for every open project at once: needs you first, then ready for

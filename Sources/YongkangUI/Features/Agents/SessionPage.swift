@@ -1,20 +1,23 @@
 import AppKit
 import SwiftUI
 import WebKit
+import YongkangCore
 
-/// What a session drew for the user — its plan graph, or the report it left when it stopped —
-/// read from `.notebook/pages/<session>.html`. It is shown here, beside the terminal, because an
+/// What a session drew for the user — its plan, or the report it left when it stopped — read
+/// from `.notebook/pages/<session>`: a plan as `.json`, which the app draws (`PlanPage`), a
+/// report as the `.html` the agent wrote. It is shown here, beside the terminal, because an
 /// artifact or a file the agent opened itself put a browser tab in front of the window every time.
 ///
 /// The agent rewrites the file in place as the plan changes, and a web view does not watch
 /// files, so the file's date is looked at every two seconds and a newer one reloads the page.
 struct SessionPage: View {
-    let url: URL
+    let session: UUID
+    let notebookRoot: URL
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 2)) { _ in
-            if let date = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date {
-                PageFile(url: url, date: date).id(url)
+            if let drawn = NotebookFormat.drawnPage(of: session, in: notebookRoot) {
+                PageFile(url: drawn.url, date: drawn.modified).id(drawn.url)
             } else {
                 Text("This session has not drawn a page yet.")
                     .font(Typography.body)
@@ -40,7 +43,11 @@ private struct PageFile: NSViewRepresentable {
     func updateNSView(_ view: WKWebView, context: Context) {
         guard context.coordinator.loaded != date else { return }
         context.coordinator.loaded = date
-        view.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        if url.pathExtension == "json" {
+            view.loadHTMLString(PlanPage.html(contentsOf: url), baseURL: nil)
+        } else {
+            view.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

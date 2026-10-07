@@ -71,6 +71,8 @@ make help                                   # every target
   window title and subtitle, and the menu bar do not appear in one. Those are checked by running
   the app, which is what the smoke script in
   [`docs/development.md`](docs/development.md#manual-smoke-script) is for.
+- **A web view photographs as an empty frame**, so the one page the app draws in HTML, a plan
+  (`PlanPage`), comes out as `plan.html` beside the PNGs. Open it in a browser.
 - `make icon` redraws `App/Yongkang/Assets.xcassets/AppIcon.appiconset/icon-1024.png` from
   `DesignSystem/AppIcon.swift`, through the same shots binary. The PNG is a build artefact,
   not artwork: change the view, run the command, commit both. See

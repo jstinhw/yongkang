@@ -191,7 +191,8 @@ extension ProjectModel {
         guard planChanges.isEmpty else { return nil }
         for session in sessions where session.isProduct && session.idle && !session.exited {
             if request?.session == session.id && !filed.isEmpty { return session }
-            let page = NotebookFormat.relativePath(NotebookFormat.page(of: session.id, in: notebookRoot))
+            guard let drawn = NotebookFormat.drawnPage(of: session.id, in: notebookRoot) else { continue }
+            let page = NotebookFormat.relativePath(drawn.url)
             if !repo.changes.contains(where: { $0.path == page }), await GitClient.committed(page, in: directory) {
                 return session
             }

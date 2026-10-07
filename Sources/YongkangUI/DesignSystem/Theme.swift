@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The console's whole visual vocabulary in one place: a cool near-black ground, one blue
@@ -102,6 +103,15 @@ package enum Theme {
 }
 
 extension Color {
+    /// How CSS writes this colour, for the one page the app draws in HTML (`PlanPage`), so a
+    /// plan is painted from these tokens rather than from hex the page spells out again.
+    var css: String {
+        let rgb = NSColor(self).usingColorSpace(.sRGB) ?? .black
+        let byte = { (component: CGFloat) in Int((component * 255).rounded()) }
+        return String(
+            format: "#%02X%02X%02X", byte(rgb.redComponent), byte(rgb.greenComponent), byte(rgb.blueComponent))
+    }
+
     init(hex: UInt32) {
         self.init(
             .sRGB,

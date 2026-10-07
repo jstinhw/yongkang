@@ -14,7 +14,7 @@ package struct BlockDetail: View {
     let cards: [NotebookCard]
     /// The session that is waiting on this, if it is still running.
     let waiting: CodeSession?
-    /// Where `pages/<session>.html` is looked for. Nil in the shots, which draw the body.
+    /// Where the session's page is looked for. Nil in the shots, which draw the body.
     let notebookRoot: URL?
     let start: () -> Void
     let revise: () -> Void
@@ -43,10 +43,11 @@ package struct BlockDetail: View {
     /// The page its session drew, when a proposal has one. A proposal outlives the session
     /// that wrote it — setup closes as soon as the draft is done — so this is the only place
     /// the graph is still reachable.
-    private var page: URL? {
-        guard block.isProposal, let session = block.session, let notebookRoot else { return nil }
-        let url = NotebookFormat.page(of: session, in: notebookRoot)
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    private var page: (session: UUID, notebookRoot: URL)? {
+        guard block.isProposal, let session = block.session, let notebookRoot,
+            NotebookFormat.drawnPage(of: session, in: notebookRoot) != nil
+        else { return nil }
+        return (session, notebookRoot)
     }
 
     private var parent: NotebookCard? {
@@ -61,7 +62,7 @@ package struct BlockDetail: View {
                 VStack(alignment: .leading, spacing: 0) {
                     header.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 20)
                     if let page {
-                        SessionPage(url: page)
+                        SessionPage(session: page.session, notebookRoot: page.notebookRoot)
                     } else if !content.isEmpty {
                         ScrollView {
                             NotebookContentView(sections: content, cards: cards)

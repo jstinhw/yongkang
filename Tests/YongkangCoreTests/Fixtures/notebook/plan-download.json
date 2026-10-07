@@ -1,0 +1,33 @@
+{
+  "title": "Download replaces waitlist",
+  "outcomes": [
+    "Download button serves the notarized DMG",
+    "Version and date beside the button",
+    "Source on GitHub, one click away",
+    "Waitlist and its API gone"
+  ],
+  "needs_you": [
+    {"task": "download-design", "action": "Approve the hero demo"},
+    {"task": "download-live-check", "action": "Merge the PR once v0.1.0 is out"}
+  ],
+  "tasks": [
+    {"id": "download-design", "title": "Download hero on the demo", "project": "open-source-download",
+     "depends_on": ["waitlist-form-states"], "design": true,
+     "detail": "Allen settles the download hero and bottom panel on the demo."},
+    {"id": "release-repo-switch", "title": "Read the public repo", "project": "open-source-download",
+     "depends_on": ["release-info"],
+     "detail": "Version and date come from jstinhw/yongkang. Safe before v0.1.0."},
+    {"id": "download-buttons", "title": "Waitlist out, Download in", "project": "open-source-download",
+     "depends_on": ["vercel-deploy", "download-design", "release-repo-switch"],
+     "detail": "Both calls to action download the DMG, on a PR preview."},
+    {"id": "download-live-check", "title": "Merge and check the site", "project": "open-source-download",
+     "depends_on": ["download-buttons", "first-public-release"],
+     "detail": "Merged once v0.1.0 exists, then checked on yongkang.ai."}
+  ],
+  "outside": [
+    {"id": "waitlist-form-states", "title": "Waitlist on the demo", "where": "waitlist-signup"},
+    {"id": "release-info", "title": "Release version module", "where": "landing-site"},
+    {"id": "vercel-deploy", "title": "Vercel PR previews", "where": "site-hosting"},
+    {"id": "first-public-release", "title": "v0.1.0 goes public", "where": "yongkang · not released yet", "done": false}
+  ]
+}

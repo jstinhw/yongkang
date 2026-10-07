@@ -29,7 +29,8 @@ package struct SidebarProject: Identifiable {
     let memory: Int
     /// Each session's finished tasks waiting for your review, listed under its row.
     let reviews: [UUID: [SummaryTask]]
-    /// The sessions that have drawn a page (`NotebookFormat.page(of:in:)`), listed under their row.
+    /// The sessions that have drawn a page or a plan (`NotebookFormat.drawnPage(of:in:)`),
+    /// listed under their row.
     let pages: Set<UUID>
     /// Its folder was renamed, moved or deleted since it was opened. See `ProjectModel.missing`.
     let missing: Bool
@@ -54,9 +55,7 @@ package struct SidebarProject: Identifiable {
         reviews = Dictionary(
             uniqueKeysWithValues: project.sessions.map { ($0.id, summary.waiting(for: $0)) }.filter { !$0.1.isEmpty })
         pages = Set(
-            project.sessions.map(\.id).filter {
-                FileManager.default.fileExists(atPath: NotebookFormat.page(of: $0, in: project.notebookRoot).path)
-            })
+            project.sessions.map(\.id).filter { NotebookFormat.drawnPage(of: $0, in: project.notebookRoot) != nil })
     }
 
     package var id: Project.ID { project.id }

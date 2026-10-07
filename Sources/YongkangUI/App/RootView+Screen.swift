@@ -104,7 +104,7 @@ extension RootView {
                                 terminal(for: watched)
                             }
                         case .page:
-                            SessionPage(url: NotebookFormat.page(of: watched.id, in: project.notebookRoot))
+                            SessionPage(session: watched.id, notebookRoot: project.notebookRoot)
                         }
                         if project.requestOpen && project.request?.session == watched.id {
                             requestDock(for: project)

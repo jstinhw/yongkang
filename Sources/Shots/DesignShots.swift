@@ -292,6 +292,7 @@ enum DesignShots {
                 UsageBoard(projects: [real], open: { _, _ in }, range: .hour)
             }, "usage", into: directory)
 
+        writePlanPage(into: directory)
         print("shots written to \(directory.path)")
     }
 

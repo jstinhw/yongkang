@@ -10,6 +10,26 @@ extension NotebookFormat {
 
     private static func pagePath(_ sessionID: UUID) -> String { "pages/\(sessionID.uuidString.lowercased()).html" }
 
+    /// Where a session's plan lives: the data setup and Product hand over, which the app draws
+    /// on the same Page tab (`PlanDrawing`). Beside the page rather than inside it, so a
+    /// session that drew one never has to know about the other.
+    package static func plan(of sessionID: UUID, in notebookRoot: URL) -> URL {
+        notebookRoot.appendingPathComponent(planPath(sessionID))
+    }
+
+    private static func planPath(_ sessionID: UUID) -> String { "pages/\(sessionID.uuidString.lowercased()).json" }
+
+    /// What the session's Page tab shows: whichever of its plan and its page it wrote last,
+    /// with that file's date, or nil before it has written either.
+    package static func drawnPage(of sessionID: UUID, in notebookRoot: URL) -> (url: URL, modified: Date)? {
+        [plan(of: sessionID, in: notebookRoot), page(of: sessionID, in: notebookRoot)]
+            .compactMap { url in
+                ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date)
+                    .map { (url: url, modified: $0) }
+            }
+            .max { $0.modified < $1.modified }
+    }
+
     /// Where anything the user has to look at goes: one file per session, in the app. An
     /// artifact or a file the agent opened put a browser tab in front of the window every
     /// time, and a file path in a terminal is something the user has to go and open.
@@ -19,31 +39,40 @@ extension NotebookFormat {
     }
 
     /// How every plan reaches the user's eyes — a new notebook, a described feature, a
-    /// review's next move — so setup and Product draw the same map. A graph, not the draft's
-    /// lists, because the dependencies are what the user reviews; Mermaid, because any agent
-    /// writes it and it lays the arrows out itself.
+    /// review's next move — so setup and Product show the same page. A graph, not the draft's
+    /// lists, because the dependencies are what the user reviews.
     ///
-    /// The graph says what blocks what, and nothing else. The two lists above it carry what a
-    /// graph cannot: why the plan is worth approving, and the moments it stops without the
-    /// user. Without them the only place those live is the draft, which is the wall of text
-    /// the page exists to replace.
+    /// The agent hands over the plan as data and the app draws it (`PlanDrawing`). When each
+    /// agent drew its own page, each picked its own colours, a faded box could come out grey on
+    /// grey, and a plan was only as readable as the agent that drew it.
+    ///
+    /// The two lists carry what a graph cannot: why the plan is worth approving, and the
+    /// moments it stops without the user. The word limits are the point — the page is read in
+    /// seconds, and the detail stays in the draft, the wall of text it exists to replace.
     private static func planGraph(_ sessionID: UUID) -> String {
         """
         Whenever a plan with projects and tasks is ready for me under Blocks, and each time it
-        changes, show it to me as a page: \(page(sessionID)). Never ask me to open files.
+        changes, show it to me: write it as JSON to `\(folderName)/\(planPath(sessionID))`, which
+        the app draws on this session's Page tab. Rewrite that file each time. Never draw a page
+        for it yourself, publish an artifact, open a browser or ask me to open files.
 
-        Open with two short lists, five lines at most each: what I will have once every task
-        lands, in terms of what someone can do; and every moment the plan waits on me — an
-        approval, an account, a secret, a DNS change — each naming the task it belongs to and
-        what I actually do. Then the graph. Nothing else: the detail stays in the draft.
+            {
+              "title": "<the plan, in two to four words>",
+              "outcomes": ["<what someone can do once it lands, seven words at most>"],
+              "needs_you": [{"task": "<task id>", "action": "<what I do, six words at most>"}],
+              "tasks": [{"id": "<task id>", "title": "<what it changes, five words at most>",
+                         "project": "<its project id>", "depends_on": ["<id>"],
+                         "design": <true for design work>, "detail": "<twelve words at most>"}],
+              "outside": [{"id": "<id>", "title": "<five words at most>",
+                           "where": "<its project, or the other project's folder>",
+                           "done": <false while it does not exist yet>}]
+            }
 
-        Draw the graph with Mermaid from cdn.jsdelivr.net/npm as a `flowchart LR`: a subgraph per
-        roadmap entry holding its projects, a subgraph per project holding its tasks, each task
-        a node with its id and a few words on what it changes, and an arrow from every
-        `depends_on` to what waits on it, between projects as well as tasks. Style design tasks
-        apart, mark the ones that wait on me, outline the tasks that can start at once, fade what
-        already exists that the plan only builds on, and add a one-line legend. It maps the plan,
-        not the product: no mockups.
+        Four outcomes at most. `needs_you` is every moment the plan waits on me — an approval, an
+        account, a secret, a DNS change. `tasks` is every task the plan builds; `outside` is
+        everything they depend on that it does not: what already exists, and what another
+        project's board delivers. `depends_on` names ids from either list. Plain words, no
+        Markdown. The app works out the layout and what can start at once.
         """
     }
 
