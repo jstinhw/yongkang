@@ -6,7 +6,7 @@ status: active
 depends_on: []
 owner: ""
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-07
 external: {}
 ---
 
@@ -24,9 +24,11 @@ plain files any agent or human can read.
 
 ## Success
 
-- A tester on a clean Mac downloads the DMG from the public releases repo, opens it with no
-  Gatekeeper prompt, and later takes an update through **Restart to Update** without
-  reinstalling.
+- A tester on a clean Mac downloads the DMG from the website, which serves the latest release
+  of the public `jstinhw/yongkang` repo, opens it with no Gatekeeper prompt, and later takes an
+  update through **Restart to Update** without reinstalling.
+- The code is open source under MIT: anyone can read, build and contribute to it, and check
+  that a release's DMG is the one the repo's workflow built.
 - From an empty folder or an existing repo, a tester gets a notebook and a board without editing
   a file by hand, and can assign its tasks to whichever supported CLI they have installed; a CLI
   that is missing or not signed in is said, never a silent nothing.
@@ -75,7 +77,8 @@ and Claude's and Codex's plan limits; sessions resume after a relaunch.
 
 **Where it stands.** The refactor in `docs/refactor-plan.md` (Phases 0–5) has shipped. Phase 6
 is built — `make release`, `.github/workflows/release.yml`, Sparkle with its public key in
-`App/Config/Info.plist`, `jstinhw/yongkang-releases` as the public host — but no `v*` tag
+`App/Config/Info.plist`, `jstinhw/yongkang-releases` as the public host, which [[open-source-release]] replaces with
+the code's own repo once it is public — but no `v*` tag
 exists and `CHANGELOG.md` has only Unreleased. The Developer ID certificate and notarization
 key are the user's to create (`docs/release.md`, One-time setup). The Supabase and PostHog keys
 in `Info.plist` are empty, so sign-in and analytics are off.
@@ -106,8 +109,6 @@ that brings it back.
 
 ## Not doing
 
-- Open-sourcing the code — no license, community files or public CI. The repo stays private;
-  only the binaries and the update feed are public.
 - A Mac App Store build: the sandbox forbids spawning the user's CLIs and reading `~/.claude`,
   `~/.codex` and `~/.grok`.
 - Runtime plugins or dynamically loaded providers: a CLI is one compile-time `AgentProvider`
