@@ -24,6 +24,9 @@ package protocol AgentProvider: Sendable {
     /// record it. `noCommit` denies `AgentCommand.commitRules`,
     /// where the CLI has a flag for it.
     func launch(prompt: String?, sessionID: UUID?, noCommit: Bool, reading: [String]) -> [String]
+    /// What goes ahead of `launch` to set how hard the CLI thinks in this one session, over the
+    /// user's own default. Empty, by default, for a CLI with no such flag.
+    func effort(_ level: String) -> [String]
     /// What follows the executable to reopen a session an earlier run of the app started, with
     /// its conversation, after the app was quit or crashed. Nil when the CLI kept nothing to
     /// reopen it from, which is a session that never got going: it is started over instead.
@@ -69,6 +72,8 @@ extension AgentProvider {
     }
 
     package func trusts(_ folder: URL) async -> Bool? { true }
+
+    package func effort(_ level: String) -> [String] { [] }
 }
 
 /// The folders a CLI reads `<name>/SKILL.md` from, in the order it prefers them: some under the

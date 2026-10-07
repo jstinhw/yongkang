@@ -18,6 +18,7 @@ value is the executable's name on PATH, which `AgentKind.installed` looks for.
 | `skillPrefix` | What starts a skill in a prompt: `$` for Codex, `/` for the rest | `AgentKind.skillInvocation` |
 | `skillFolders` | The folders the CLI reads `<name>/SKILL.md` from, under the project and under `$HOME` | `Skills.shared`, `Skills.loaded(by:project:)`, for the Skills page |
 | `launch(prompt:sessionID:noCommit:)` | The words after the executable: the session id strategy, the deny-commit flags, the quoted prompt | `AgentCommand.line`, which wraps them in `cd … && exec` for `zsh -ilc` |
+| `effort(_:)` | The words ahead of `launch`'s that set how hard the CLI thinks in one session: `--effort` for Claude Code, nothing by default | `AgentCommand.line`, for Product (`ProjectModel.productEffort`) |
 | `ask(prompt:)` | The words that make the CLI answer one prompt on stdout and exit: `-p`, or `exec --skip-git-repo-check` for Codex | `ProjectNaming.ask`, which names a described project's folder before its session starts |
 | `transcriptURL(session:project:) async` | The session's own transcript, or nil | `AppModel.reloadAgentTranscript`, `AgentUsage.spends` (through `usageURL`) |
 | `usageURL(session:project:) async` | Where token usage is written. Defaults to the transcript; Grok overrides it | `AgentUsage.spends`, `UsageBoard` |

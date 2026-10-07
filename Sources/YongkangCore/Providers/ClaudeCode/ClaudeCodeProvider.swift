@@ -35,6 +35,8 @@ package struct ClaudeCodeProvider: AgentProvider {
         return words.compactMap { $0 }
     }
 
+    package func effort(_ level: String) -> [String] { ["--effort \(AgentCommand.quoted(level))"] }
+
     /// `--resume` takes the id `--session-id` gave it, and refuses one with no transcript yet.
     package func resume(sessionID: UUID, project: URL, noCommit: Bool, reading: [String]) async -> [String]? {
         let transcript = ClaudeTranscripts.transcriptURL(sessionID: sessionID, projectDirectory: project)

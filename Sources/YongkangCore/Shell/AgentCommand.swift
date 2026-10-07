@@ -12,12 +12,15 @@ package enum AgentCommand {
     /// provider's `launch`.
     ///
     /// `reading` is the folders beyond `directory` the agent may read, for a CLI that takes any.
+    /// `effort`, when given, is how hard it thinks, for a CLI that can be told.
     package static func line(
         directory: String, agent: AgentKind, prompt: String?, sessionID: UUID? = nil, noCommit: Bool = false,
-        reading: [String] = []
+        reading: [String] = [], effort: String? = nil
     ) -> String {
         let folders = agent.provider.readsOtherFolders ? reading : []
-        let words = agent.provider.launch(prompt: prompt, sessionID: sessionID, noCommit: noCommit, reading: folders)
+        let words =
+            (effort.map(agent.provider.effort) ?? [])
+            + agent.provider.launch(prompt: prompt, sessionID: sessionID, noCommit: noCommit, reading: folders)
         return "cd \(quoted(directory)) && exec \(([agent.command] + words).joined(separator: " "))"
     }
 
