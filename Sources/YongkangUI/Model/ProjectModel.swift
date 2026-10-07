@@ -323,14 +323,15 @@ import YongkangCore
     /// `reading` is the folders beyond this one the agent is handed, for a CLI that takes any.
     func addSession(
         _ agent: AgentKind, id: UUID = UUID(), prompt: String? = nil, title: String? = nil, taskIDs: [String] = [],
-        reading: [URL] = []
+        reading: [URL] = [], effort: String? = nil
     ) -> Route {
         let reading = agent.provider.readsOtherFolders ? reading : []
         addSession(
             id: id, title: title ?? agent.displayName, icon: agent.systemImage,
             line: AgentCommand.line(
                 directory: directory.path,
-                agent: agent, prompt: prompt, sessionID: id, noCommit: !taskIDs.isEmpty, reading: reading.map(\.path)),
+                agent: agent, prompt: prompt, sessionID: id, noCommit: !taskIDs.isEmpty, reading: reading.map(\.path),
+                effort: effort),
             agent: agent, taskIDs: taskIDs, reading: reading)
         return .session(id)
     }

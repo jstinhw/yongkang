@@ -112,8 +112,9 @@ request's own Product asked, kept once the answer is in. `ProjectModel.peers` tu
 what the screens say — each session's `Peer`, `waitingOn` or `askedBy` a project's name — and
 hands it to `Project`, so every screen built on `AgentRow` reads the same one. Product writing
 back to the project that asked it is answering, not waiting, so its peer stays `askedBy`. A
-session waiting on an answer whose turn is over reads as working rather than your turn, and a
-request waiting on one has nothing to approve yet. All of it is in memory only, so a relaunch
+session waiting on an answer whose turn is over reads as working rather than your turn, posts
+no "finished" banner (`AppModel.checkTurn`), and a request waiting on one has nothing to
+approve yet. All of it is in memory only, so a relaunch
 forgets who asked and who is waiting until the next message.
 `Tests/YongkangUITests/MessageDeliveryTests.swift` covers the round trip, the two boards'
 commits, and typing once across a relaunch, with `/bin/sh` standing in for the CLIs.

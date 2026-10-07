@@ -367,6 +367,9 @@ import YongkangCore
         guard attention[id] == nil else { return }
         let title = "\(found.project.name) · \(found.session.title)"
         guard finished else { return notify(id, title, nil) }
+        // What comes next is another project's answer, not yours: the row reads as working, so
+        // the banner must not say otherwise. The turn after the answer is the one that is yours.
+        if case .waitingOn? = found.project.peers[id] { return }
         let watching = entered === found.project && selection?.pane(of: id) != nil
         guard !(watching && AgentNotifications.appIsActive) else { return }
         notify(id, title, "It has finished and is waiting for your reply.")
