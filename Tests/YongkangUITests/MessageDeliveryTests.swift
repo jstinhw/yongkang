@@ -132,6 +132,12 @@ struct MessageDeliveryTests {
         #expect(typed.map(\.session) == [product.id] && sync.sessions.count == 1, "one Product per project")
         #expect(typed.first?.text?.contains("asked\nA message from the project in `../site`") == true)
         #expect(sync.request == request, "what it filed for the board's own request is still new")
+
+        // A reply naming a session that never wrote to site goes to Product, not into it.
+        _ = sync.addSession(.claude, title: "Wire auth")
+        let other = try #require(sync.sessions.first { !$0.isProduct }).id
+        try await write("reply", to: "../sync/", session: UUID(), replyTo: other, in: site)
+        #expect(deliver([site, sync], skipping: &delivered).map(\.session) == [product.id])
     }
 
     @Test func aMessageToNoOpenProjectIsAnsweredInTheSessionThatWroteIt() async throws {

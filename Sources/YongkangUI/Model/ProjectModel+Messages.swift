@@ -25,10 +25,8 @@ extension ProjectModel {
     /// gone — is left for a later read, which may find that project open.
     func deliveries(among projects: [ProjectModel], skipping delivered: Set<String>, agent: AgentKind) -> [Delivery] {
         var routed: [Delivery] = []
-        // As a folder: resolved against a base with no trailing slash, `../sync` would go one up too far.
-        let here = URL(fileURLWithPath: directory.path, isDirectory: true)
         for message in snapshot.messages where !delivered.contains(message.deliveryKey) {
-            let folder = URL(fileURLWithPath: message.to, relativeTo: here).standardizedFileURL.path
+            let folder = destination(of: message)
             guard
                 let receiver = projects.first(where: { !$0.missing && $0.directory.standardizedFileURL.path == folder })
             else {
@@ -51,14 +49,16 @@ extension ProjectModel {
     }
 
     /// A message from the project in `sender`: into the session its `reply_to` names while that
-    /// runs here, or else to Product as `asked`, which files its part on this board. The board
+    /// runs here and wrote to `sender`, or else to Product as `asked`, which files its part on
+    /// this board. Only a session that asked is answered: a `reply_to` naming any other would
+    /// type another project's words into a session that never asked for them. The board
     /// then shows it as a request, unless Product is already on one — what it filed for that is
     /// still new. Returns the session it went to and what is left to type into it.
     func receive(_ message: ProjectMessage, from sender: URL, agent: AgentKind) -> (UUID, String?)? {
         let text = NotebookFormat.incomingMessage(
             from: Mention.relative(sender, from: directory), session: message.session.uuidString.lowercased(),
             title: message.title, body: message.body)
-        if let reply = message.replyTo, isRunning(reply) {
+        if let reply = message.replyTo, isRunning(reply), wrote(to: sender, from: reply) {
             waitingOn[reply] = nil
             return (reply, text)
         }
@@ -71,6 +71,20 @@ extension ProjectModel {
     }
 
     private func isRunning(_ id: UUID) -> Bool { sessions.contains { $0.id == id && !$0.exited } }
+
+    /// Whether `session` here wrote to the project in `folder`, read off the messages on disk so
+    /// it still holds after a relaunch.
+    private func wrote(to folder: URL, from session: UUID) -> Bool {
+        let folder = folder.standardizedFileURL.path
+        return snapshot.messages.contains { $0.session == session && destination(of: $0) == folder }
+    }
+
+    /// The folder a message is for, as a path.
+    private func destination(of message: ProjectMessage) -> String {
+        // As a folder: resolved against a base with no trailing slash, `../sync` would go one up too far.
+        let here = URL(fileURLWithPath: directory.path, isDirectory: true)
+        return URL(fileURLWithPath: message.to, relativeTo: here).standardizedFileURL.path
+    }
 }
 
 extension ProjectMessage {

@@ -86,17 +86,20 @@ message in its own notebook, `.notebook/messages/<slug>.md` (the shape is in
    it up. A file with no `to`, or a `session`/`reply_to` that is not a session id, is skipped.
 2. **Routed** (`ProjectModel.deliveries`, `ProjectModel+Messages.swift`). `to` is resolved against
    the sender's folder and matched to an open project. A `reply_to` naming a session running
-   there is typed into that session as `NotebookFormat.incomingMessage`, which ends with the
-   answer's frontmatter filled in. Anything else goes to that project's Product as
-   `asked\n` + the same text: typed into the one running, or the prompt of one `startProduct`
-   opens, let into the sender's folder to read it. Its board then shows a `BoardRequest` whose
-   `from` is the asking folder, so what Product files there is marked new and its own Approve
-   and commit lands only its own files. A `to` naming no open project is answered in the
-   sender's session in one line (`NotebookFormat.undeliveredMessage`); with the sender gone
-   too, the message waits for a read that finds the project open.
+   there that wrote to the sender — a message of its own on disk says so — is typed into that
+   session as `NotebookFormat.incomingMessage`, which ends with the answer's frontmatter filled
+   in; one naming any other session never reaches it. Anything else goes to that project's
+   Product as `asked\n` + the same text: typed into the one running, or the prompt of one
+   `startProduct` opens, let into the sender's folder to read it. Its board then shows a
+   `BoardRequest` whose `from` is the asking folder, so what Product files there is marked new
+   and its own Approve and commit lands only its own files. A `to` naming no open project is
+   answered in the sender's session in one line (`NotebookFormat.undeliveredMessage`); with the
+   sender gone too, the message waits for a read that finds the project open.
 3. **Typed** (`AppModel.deliverMessages`), after every project has been read, by
-   `TerminalRegistry.send`. The window never moves, in either project: the conversation is two
-   agents', each in its own terminal, and the sidebar shows the session that opened or woke.
+   `TerminalRegistry.send`, as a paste stripped of every control character but newlines and
+   tabs, so a message cannot end its paste early and press keys there. The window never moves,
+   in either project: the conversation is two agents', each in its own terminal, and the
+   sidebar shows the session that opened or woke.
 4. **Once.** The app never writes a message file, so it remembers what it delivered itself:
    `AppModel.deliveredMessages`, by `ProjectMessage.deliveryKey` — the file plus a hash of what
    is in it, so a slug reused for a new message is delivered again and a message read again is
