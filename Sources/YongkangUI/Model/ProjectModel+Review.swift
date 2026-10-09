@@ -23,9 +23,33 @@ extension ProjectModel {
     ///
     /// Nil when there is nothing written to send, or the task is no longer in the notebook.
     func requestChanges(on task: SummaryTask, agent: AgentKind) -> Destination? {
-        guard let draft = reviewDrafts[task.id], !draft.isEmpty else { return nil }
-        return send(draft.message(taskID: task.id, title: task.title), about: task, agent: agent)
+        guard let draft = reviewDrafts[task.id], !draft.isEmpty,
+            let sent = send(draft.message(taskID: task.id, title: task.title), about: task, agent: agent)
+        else { return nil }
+        reviewDrafts[task.id] = nil
+        return sent
     }
+
+    /// One of the agent's review questions, answered: sent where a change request goes, and
+    /// remembered so the review says what was sent until the agent rewrites its record. What the
+    /// user has drafted for the task stays — an answer is not the review's end.
+    func answer(_ question: String, with answer: String, on task: SummaryTask, agent: AgentKind) -> Destination? {
+        let message = """
+            On \(task.id) — "\(task.title)" — you asked: \(question)
+            My answer: \(answer)
+            Act on it, rewrite the task's run record and its Review, and do not commit.
+            """
+        guard let sent = send(message, about: task, agent: agent) else { return nil }
+        answers[Self.answerKey(question, on: task.id)] = answer
+        return sent
+    }
+
+    /// What was sent for one question, or nil before anything was.
+    func answered(_ question: String, on taskID: String) -> String? {
+        answers[Self.answerKey(question, on: taskID)]
+    }
+
+    private static func answerKey(_ question: String, on taskID: String) -> String { taskID + "\n" + question }
 
     /// A task the user can throw away from the board: finished and waiting for review, or
     /// stopped on a demo or a gate. Nil when there is neither work nor a block to discard.
@@ -69,11 +93,9 @@ extension ProjectModel {
 
     private func send(_ message: String, about task: SummaryTask, agent: AgentKind) -> Destination? {
         if let holder = sessions.first(where: { $0.taskIDs.contains(task.id) && !$0.exited }) {
-            reviewDrafts[task.id] = nil
             return Destination(section: .agents, route: .session(holder.id), input: message)
         }
         guard let card = snapshot.cards.first(where: { $0.id == task.id }) else { return nil }
-        reviewDrafts[task.id] = nil
         let id = UUID()
         return Destination(
             section: .agents,

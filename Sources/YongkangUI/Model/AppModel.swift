@@ -130,6 +130,20 @@ import YongkangCore
         if let input = sent.input, case .session(let id, _)? = sent.route { terminals.send(input, to: id) }
     }
 
+    /// An agent's review question, answered. A session still on the task is typed into where it
+    /// is, and the review stays on screen for the rest; with none left, one starts with the
+    /// answer and the window goes to it, as a change request does.
+    func answer(
+        _ question: String, with answer: String, on task: SummaryTask, in project: ProjectModel, agent: AgentKind
+    ) {
+        guard let sent = project.answer(question, with: answer, on: task, agent: agent) else { return }
+        if let input = sent.input, case .session(let id, _)? = sent.route {
+            terminals.send(input, to: id)
+        } else {
+            go(to: sent)
+        }
+    }
+
     /// Every other open project, by the tag it has from `project`'s group.
     func taggable(from project: ProjectModel) -> [Mention.Project] {
         Mention.projects(

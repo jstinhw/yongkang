@@ -106,8 +106,10 @@ Changed and Learned sections as applicable. A session assigned tasks keeps one
 `<session-id>-work-<work-id>.md` report per attempt at a task, `kind: run`, where
 the work id is the task id with `-2`, `-3` for a later attempt. Its flat frontmatter
 names the `session`, `task`, `work_id`, `title`, `status`, the `paths` it changed,
-a one-line `report`, `started_at` and `finished_at`; its body is `## Result` and
-`## Verification`, and `## Change request` quotes what the user sent back. Work
+a one-line `report`, `started_at` and `finished_at`; its body is `## Result`,
+`## Verification` and `## Review` — a JSON block the review page is drawn from: a
+one-sentence summary, a confidence, the checks run, the places a person should read,
+questions and concerns — and `## Change request` quotes what the user sent back. Work
 states running/blocked/done/failed are separate from task states. These records
 stay out of notebook navigation and appear on the session's result and in Review.
 Keep raw transcripts outside the notebook. Never store secrets, environment

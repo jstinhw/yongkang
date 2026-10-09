@@ -48,16 +48,16 @@ flowchart TD
     F -->|you approve| E
     C -->|only you can do it| G[Block]
     G -->|resolved| C
-    E --> H[Report page for you, work waits in Review]
+    E --> H[Review drawn from the report, work waits in Review]
 ```
 
 For every task it writes `.notebook/runs/<session-id>-work-<work-id>.md` — the task id,
 then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a one-line
-`report`, and `## Result` and `## Verification` in the body. That record is what Review
-reads and what approving a task commits beside its code. When it stops, done or waiting
-on you, it shows the same report as a page: one HTML file at
-`.notebook/pages/<session-id>.html`, which opens from the **Page** row under the session in
-the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
+`report`, and `## Result`, `## Verification` and `## Review` in the body. That record is what
+Review reads and what approving a task commits beside its code. `## Review` is JSON — a
+one-sentence summary, a confidence, the checks it ran, the spots a person should read, its
+questions and concerns — and the app draws the task's review from it, which also opens from
+the **Page** row under the session in the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
 `.notebook/pages/<session-id>.json` instead, and the app draws it on the same tab: what you
 get, what needs you, and the tasks as a graph you drag, zoom, and click to trace what a task
 waits on and what waits on it.

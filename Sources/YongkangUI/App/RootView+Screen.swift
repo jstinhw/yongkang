@@ -104,7 +104,16 @@ extension RootView {
                                 terminal(for: watched)
                             }
                         case .page:
-                            SessionPage(session: watched.id, notebookRoot: project.notebookRoot)
+                            // A work session's report is its tasks' reviews; a plan, or a page
+                            // from before reviews, is drawn as the session wrote it.
+                            let reviewed = project.summary.tasks.filter {
+                                watched.taskIDs.contains($0.id) && $0.review != nil
+                            }
+                            if reviewed.isEmpty {
+                                SessionPage(session: watched.id, notebookRoot: project.notebookRoot)
+                            } else {
+                                SessionReviews(tasks: reviewed) { taskReview($0, in: project) }
+                            }
                         }
                         if project.requestOpen && project.request?.session == watched.id {
                             requestDock(for: project)
@@ -349,7 +358,9 @@ extension RootView {
             startBlock: { model.go(to: project.startUnblock($0, agent: agent)) },
             approve: { await approve(task, message: $0, in: project) },
             requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) },
-            discard: { model.discard(task, in: project, rerunningWith: agent) }
+            discard: { model.discard(task, in: project, rerunningWith: agent) },
+            answered: { project.answered($0, on: task.id) },
+            answer: { model.answer($0, with: $1, on: task, in: project, agent: agent) }
         )
     }
 

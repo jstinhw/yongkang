@@ -175,7 +175,7 @@ for.
 ### Approve
 
 12. Wait for the session to finish the task: it checks the `Done when`, sets `status: done`
-    in the task file, writes its report and opens a report page for you.
+    in the task file, and writes its run record with a `## Review` for the app to draw.
     - The Agents rail icon lights green.
     - If no terminal is on screen at that moment, the window opens the task's review by
       itself. If a terminal is up, the window stays where it is, because the terminal has
@@ -187,13 +187,24 @@ for.
       only reachable through the working tree's own page, whose one button is
       **Commit all changes**.
 13. Open the task.
-    - The header pill reads **Ready for your review**.
-    - The cards, in order: **The task**, **What changed**, **Self-review**,
-      **Code changes**, **Feedback**. Every file under **Code changes** is folded.
+    - The header pill reads **Ready for your review**, with the agent's one-sentence summary
+      above it.
+    - Four tiles under it: **Agent's confidence**, **Checks it ran**, **What it touches**,
+      **Needs you**.
+    - The cards, in order: **Needs you** (the agent's questions and the spots it wants read,
+      when it has any), **What changed**, **Why it's safe**, **Concerns it raised** (when it
+      raised any), **Code changes**, **Feedback**. Every spot and every file is folded.
+    - The session's **Page** row under it in the sidebar opens the same page.
+    - A run record without a `## Review` shows the older cards instead: **The task**,
+      **What changed**, **Self-review**. *(Agent behaviour: a session started before this
+      change writes none.)*
     - The session's page lists the task under **Waiting for your review**; clicking it there, or
       **Review** on its card on the project's Agents page, opens this same page.
-    - The inspector shows **Verdict** ("Checked by the agent") and **This commit** ("Only this task's
-      files and its run records. Nothing is pushed.").
+    - The inspector shows **The task**, **Outside the repo**, **Unblocks next** and **This
+      commit** ("Only this task's files and its run records. Nothing is pushed."), or
+      **Verdict** in place of the first three when there is no review.
+    - Optional: click an answer under a question. The page says **Sent: "…"** and stays
+      put; the answer is typed into the session still holding the task.
 14. Optional: click a file under **Code changes**, click a line of the diff it unfolds, type
     a comment and click **Add comment**.
     - The diff unfolds in place, under the file's row.

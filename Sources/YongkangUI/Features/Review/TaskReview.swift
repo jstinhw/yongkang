@@ -1,12 +1,16 @@
 import SwiftUI
 import YongkangCore
 
-/// One finished task, read the way a person decides whether to accept it: anything only the
-/// user can do first, then what it was for, what changed and how the agent checked it. The
-/// code is folded under Code changes, each file unfolding its own diff, because the verdict
-/// and the reports are what most reviews need, and the diff is there for the ones that do not.
+/// One finished task, read the way a person decides whether to accept it — in ten seconds when
+/// the agent wrote a `## Review`: one sentence of what changed, how sure the agent is, what it
+/// checked, what it reaches and what it left for you, then the questions and the few places it
+/// says a person should read, then the evidence. The code is folded under Code changes, each
+/// file unfolding its own diff, for the reviews that need more.
 ///
-/// The same page on Review's list and on a session's result, so the two cannot drift apart.
+/// Without a review — a record from before them, or one the agent got wrong — the page falls
+/// back to the task, the agents' reports and their Verification, which is all there is to show.
+///
+/// The same page on a task's row and on its session's Page, so the two cannot drift apart.
 package struct TaskReview: View {
     let task: SummaryTask
     let summary: ChangeSummary
@@ -25,6 +29,9 @@ package struct TaskReview: View {
     let approve: (String) async -> String?
     let requestChanges: () -> Void
     let discard: () -> Void
+    /// What was sent for one of the review's questions, or nil before anything was.
+    let answered: (String) -> String?
+    let answer: (_ question: String, _ answer: String) -> Void
 
     @State private var content: [NotebookContent.Section] = []
     /// Worked out from each file's diff once the page opens, so a data layer with SQL in
@@ -49,7 +56,9 @@ package struct TaskReview: View {
         startBlock: @escaping (UserBlock) -> Void,
         approve: @escaping (String) async -> String?,
         requestChanges: @escaping () -> Void,
-        discard: @escaping () -> Void
+        discard: @escaping () -> Void,
+        answered: @escaping (String) -> String? = { _ in nil },
+        answer: @escaping (String, String) -> Void = { _, _ in }
     ) {
         self.task = task
         self.summary = summary
@@ -66,6 +75,8 @@ package struct TaskReview: View {
         self.approve = approve
         self.requestChanges = requestChanges
         self.discard = discard
+        self.answered = answered
+        self.answer = answer
     }
 
     private var checklist: [NotebookContent.ChecklistItem] {
@@ -88,10 +99,20 @@ package struct TaskReview: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         header
+                        if let review = task.review {
+                            ReviewGlance(
+                                review: review, task: task, areas: grouped.map(\.area), blocks: blocks.count,
+                                questions: (review.questions ?? []).filter { answered($0.ask) == nil }.count)
+                        }
                         ForEach(blocks) { NeedsYouCard(block: $0, cards: cards, open: openBlock, start: startBlock) }
-                        taskCard
-                        agentsCard
-                        checkedCard
+                        if let review = task.review {
+                            reviewed(review)
+                        } else {
+                            if let problem = task.reviewProblem { unreadable(problem) }
+                            taskCard
+                            agentsCard
+                            checkedCard
+                        }
                         changesCard
                         FeedbackCard(
                             draft: $draft, history: task.work.filter { !$0.changeRequest.isEmpty },
@@ -104,7 +125,8 @@ package struct TaskReview: View {
                 inspector
             }
             TaskReviewBar(
-                task: task, draft: draft, approve: approve, requestChanges: requestChanges, discard: discard)
+                task: task, draft: draft, cautioned: task.review?.cautions == true, approve: approve,
+                requestChanges: requestChanges, discard: discard)
         }
         .task(id: task.body) { content = NotebookContent.sections(task.body) }
         .task(id: task.files) { await load() }
@@ -118,8 +140,14 @@ package struct TaskReview: View {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 20)
                 Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
             }
+            if let summary = task.review?.summary {
+                Text(summary).font(Typography.headline.weight(.regular)).foregroundStyle(Theme.prose)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 9) {
-                if task.done {
+                if task.done && !task.commitPaths.isEmpty && task.review?.cautions == true {
+                    NotebookStyle.pill("Done, with a caution", Theme.red)
+                } else if task.done {
                     NotebookStyle.pill(task.commitPaths.isEmpty ? "Committed" : "Ready for your review", Theme.green)
                 } else {
                     NotebookStyle.pill(
@@ -131,12 +159,45 @@ package struct TaskReview: View {
                 Text("+\(task.added)").font(Typography.code).foregroundStyle(Theme.green)
                 Text("−\(task.removed)").font(Typography.code).foregroundStyle(Theme.red)
             }
-            if !grouped.isEmpty {
+            // The glance says what the work reaches when there is a review.
+            if !grouped.isEmpty && task.review == nil {
                 HStack(spacing: 8) {
                     ForEach(grouped, id: \.area) { group in areaTag(group.area, count: group.files.count) }
                 }
             }
         }
+    }
+
+    // MARK: - The review
+
+    /// The agent's review, most urgent first: what it asks of you, what changed, the evidence,
+    /// and what it is still worried about.
+    @ViewBuilder private func reviewed(_ review: WorkReview) -> some View {
+        if !(review.questions ?? []).isEmpty || !(review.spots ?? []).isEmpty {
+            ReviewAsks(
+                review: review, diffs: diffs, loading: diffs.isEmpty && !task.files.isEmpty, draft: $draft,
+                answered: answered, answer: answer, openFile: openFile)
+        }
+        ReviewChanged(changed: review.changed ?? []) {
+            ForEach(Array(task.work.enumerated()), id: \.offset) { _, work in
+                WorkReport(work: work, name: name(of: work), cards: cards, openFile: openFile)
+            }
+        }
+        ReviewSafety(checks: review.checks ?? [], holds: review.holds ?? [])
+        if let concerns = review.concerns, !concerns.isEmpty { ReviewConcerns(concerns: concerns) }
+    }
+
+    /// The agent wrote a review the page could not read: said, with the field, so the reviewer
+    /// can send it back, and the page carries on with the reports it can read.
+    private func unreadable(_ problem: String) -> some View {
+        Label {
+            Text("The agent’s review could not be read: \(problem)").font(Typography.body).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Theme.amber)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(padding: 12, border: Theme.amber.opacity(0.26), fill: Theme.amber.opacity(0.06))
     }
 
     private func areaTag(_ area: ReviewArea, count: Int) -> some View {
@@ -284,6 +345,9 @@ package struct TaskReview: View {
                     .font(.system(size: 11)).foregroundStyle(file.untracked ? Theme.green : Theme.tx3)
                 Text(file.path).font(Typography.mono).foregroundStyle(Theme.tx2)
                     .lineLimit(1).truncationMode(.head)
+                if let why = task.review?.files?.first(where: { $0.path == file.path })?.why {
+                    Text(why).font(Typography.caption).foregroundStyle(Theme.tx3).lineLimit(1)
+                }
                 if !owner.isEmpty { RoleTile(role: owner, size: 16) }
                 if summary.sharing(file.path, besides: task) != nil { NotebookStyle.pill("shared", Theme.amber) }
                 Spacer(minLength: 8)
@@ -309,17 +373,22 @@ package struct TaskReview: View {
 
     private var inspector: some View {
         Inspector(width: 336) {
-            VStack(alignment: .leading, spacing: 9) {
-                SectionLabel("Verdict")
-                verdictLine
-                if !checklist.isEmpty {
-                    fact("Done when", "\(checklist.filter(\.done).count) / \(checklist.count)")
+            if let review = task.review {
+                taskCard
+                ReviewReach(outside: review.outside ?? [], next: review.next)
+            } else {
+                VStack(alignment: .leading, spacing: 9) {
+                    SectionLabel("Verdict")
+                    verdictLine
+                    if !checklist.isEmpty {
+                        fact("Done when", "\(checklist.filter(\.done).count) / \(checklist.count)")
+                    }
+                    if !blocks.isEmpty { fact("Needs you", "\(blocks.count)") }
+                    fact("Your comments", "\(draft.comments.count)")
                 }
-                if !blocks.isEmpty { fact("Needs you", "\(blocks.count)") }
-                fact("Your comments", "\(draft.comments.count)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardSurface(padding: 15)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface(padding: 15)
 
             if !grouped.isEmpty {
                 VStack(alignment: .leading, spacing: 9) {

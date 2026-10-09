@@ -14,16 +14,31 @@ without a repository. Nothing is staged or committed by that.
 The whole working tree, including edits no task claims, is one page of its own, reached
 from **All changes** on a task's review.
 
-A task opens on what most reviews need, not on code:
+A task opens on what most reviews need, not on code, and is meant to be understood in ten
+seconds. Under the title, one sentence of what changed, then four tiles:
 
-- **Needs you** — only while a block or demo holds the task: its title, what is needed and
-  the steps, with **Walk me through it** (or **Open the demo**) and **Open the block**.
-- **The task** — its brief and `Done when`, read from the task file.
-- **What changed** — each attempt in the agent's own words (`## Result`, or its report),
-  with time and the files it changed.
-- **Self-review** — the `## Verification` the agent wrote on its latest attempt: the
-  commands it ran and what they printed. A done task with none says nobody but you has
-  checked it.
+- **Agent's confidence** — high, medium or low, and why, in the agent's words.
+- **Checks it ran** — how many passed, one dot per check, and how many failed or could not
+  run here.
+- **What it touches** — the agent's few words for it, over git's count of files and lines and
+  their areas, so the one tile it could get wrong has the numbers beside it.
+- **Needs you** — open blocks, unanswered questions and the spots it wants read.
+
+Then the cards, most urgent first:
+
+- **Needs you** — a block or demo holding the task: its title, what is needed and the steps,
+  with **Walk me through it** (or **Open the demo**) and **Open the block**. Under it, the
+  agent's questions, each answered with one click on an option (the one it would pick is
+  filled) or in your own words; the answer is typed into the session holding the task, with
+  none running a new one starts with it, and the card says **Sent**. Then the spots: the few
+  places the agent says a person should read because no check covers them, each with why,
+  unfolding its own lines of the diff, where a line can be commented on.
+- **What changed** — outcomes you can see or check, with the agent's full report
+  (`## Result`) one click below.
+- **Why it's safe** — every check it ran, what it proved and, one click away, the command and
+  what it printed; one it could not run is listed in amber rather than left out. Then what
+  keeps the work safe whatever the code does.
+- **Concerns it raised** — each saying whether it should be settled before approving.
 - **Code changes** — the task's files grouped as Database, API & services, Frontend,
   Tests, Config, Docs & other, and Notebook records, each with the lines it added and removed.
   The area is worked out by the app from the path, SQL in the diff, and the owning agent's
@@ -35,8 +50,17 @@ A task opens on what most reviews need, not on code:
 Click any line of an unfolded diff to leave a comment on it; comments and a note for
 anything that is not about one line collect under **Feedback** until you send them. The same
 page opens from the agent's row in the sidebar and from its page's **Waiting for your review** — see
-[Shipping tasks](engineering-lead.md). The inspector carries the verdict, the areas, what the commit will hold, and a
-warning when a file is also changed by another task still waiting.
+[Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector carries the task's brief and
+`Done when`, what the agent did outside the repo (network reads, downloads, writes — or
+nothing), what landing it unblocks, the areas, what the commit will hold, and a warning when a
+file is also changed by another task still waiting.
+
+All of this is drawn from the `## Review` the agent writes into its run record, as JSON, so
+every review reads the same whichever agent wrote it. A record without one — from a session
+started before reviews — opens on **The task**, **What changed** in the agent's words and
+**Self-review**, its `## Verification`; one the app cannot read says which field was wrong. A
+failed check, a low confidence or a concern that blocks makes the button **Approve anyway**,
+and no longer the primary.
 
 The bar at the bottom is the decision, on the task page and on its diffs alike:
 

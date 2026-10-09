@@ -102,7 +102,7 @@ package struct LeadCoordination: Equatable, Sendable {
         }
         // What this worker owned, as it reported it. Anything that could point outside
         // the project is dropped rather than shown against the wrong file.
-        return LeadWork(
+        var work = LeadWork(
             id: id, taskID: taskID, title: nonempty(fields["title"]) ?? id,
             skill: fields["skill"] ?? "", model: fields["model"] ?? "",
             reason: fields["reason"] ?? "", dependsOn: dependencies,
@@ -122,6 +122,8 @@ package struct LeadCoordination: Equatable, Sendable {
             result: section("Result", of: text),
             verification: section("Verification", of: text),
             changeRequest: section("Change request", of: text))
+        work.review = WorkReview.read(section("Review", of: text))
+        return work
     }
 
     /// What the live session adds to a record: whether its subagent is still running, and
@@ -230,6 +232,9 @@ package struct LeadWork: Identifiable, Equatable, Sendable {
     package var verification = ""
     /// The body's `## Change request`: the user's comments quoted for this attempt.
     package var changeRequest = ""
+    /// The body's `## Review`: what the review page is drawn from, or why it could not be read.
+    /// Nil when the agent wrote none, which leaves the page on the Result and Verification.
+    package var review: Result<WorkReview, WorkReview.Problem>? = nil
     /// Observations stay separate from the reported values and lifecycle state.
     var measuredTokens: Int? = nil
     package var measuredModel: String? = nil

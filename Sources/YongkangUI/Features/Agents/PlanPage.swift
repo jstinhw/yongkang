@@ -16,26 +16,12 @@ package enum PlanPage {
             // `<` escaped, so no title can close the script it sits in.
             return page(json.replacingOccurrences(of: "<", with: "\\u003c"))
         } catch {
-            let said = describe(error).replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(
+            let said = decodingProblem(error).replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(
                 of: "<", with: "&lt;")
             return """
                 <!doctype html><meta charset="utf-8"><body style="margin:0;padding:32px;background:\(Theme.bg.css);\
                 color:\(Theme.tx2.css);font:13px/18px -apple-system,sans-serif">This plan could not be read: \(said)</body>
                 """
-        }
-    }
-
-    /// Which field was wrong, which is what the agent needs to be told to fix it.
-    private static func describe(_ error: any Error) -> String {
-        let path = { (keys: [any CodingKey]) in
-            keys.map { $0.intValue.map(String.init) ?? $0.stringValue }.joined(separator: ".")
-        }
-        switch error {
-        case DecodingError.keyNotFound(let key, let context): return "\(path(context.codingPath + [key])) is missing."
-        case DecodingError.typeMismatch(_, let context), DecodingError.valueNotFound(_, let context):
-            return "\(path(context.codingPath)): \(context.debugDescription)"
-        case DecodingError.dataCorrupted(let context): return context.debugDescription
-        default: return error.localizedDescription
         }
     }
 

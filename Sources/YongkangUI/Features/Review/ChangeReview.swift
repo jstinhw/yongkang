@@ -87,8 +87,8 @@ package struct ChangeReview: View {
             }
             if let task {
                 TaskReviewBar(
-                    task: task, draft: draft.wrappedValue, approve: approve, requestChanges: requestChanges,
-                    discard: discard)
+                    task: task, draft: draft.wrappedValue, cautioned: task.review?.cautions == true, approve: approve,
+                    requestChanges: requestChanges, discard: discard)
             } else {
                 commitBar
             }

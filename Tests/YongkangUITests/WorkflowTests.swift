@@ -615,6 +615,22 @@ import Testing
             "only the approved task's files went in, as the repo read after the commit shows")
     }
 
+    @Test func answeringAReviewQuestionKeepsWhatTheReviewerWrote() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let project = try await project(tasks: ["Wire auth"], in: tmp)
+        let task = SummaryTask(id: "wire-auth", title: "Wire auth", status: "done")
+        let holder = running("Wire auth", in: project, taskIDs: ["wire-auth"])
+        let draft = ReviewDraft(note: "Handle an expired token")
+        project.reviewDrafts[task.id] = draft
+
+        let sent = try #require(project.answer("Keep the old route?", with: "Drop it", on: task, agent: .claude))
+        #expect(sent.route == .session(holder), "the answer goes to the session holding the task")
+        #expect(sent.input?.contains("Keep the old route?") == true && sent.input?.contains("Drop it") == true)
+        #expect(project.answered("Keep the old route?", on: task.id) == "Drop it", "the review says what was sent")
+        #expect(project.reviewDrafts[task.id] == draft, "an answer is not the review's end")
+    }
+
     @Test func sendingATaskBackGoesToTheSessionThatHoldsItOrStartsOne() async throws {
         let tmp = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: tmp) }

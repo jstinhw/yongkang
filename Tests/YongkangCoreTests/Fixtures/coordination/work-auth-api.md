@@ -28,3 +28,14 @@ Durable details.
 ## Verification
 
 `swift test` passed.
+
+## Review
+
+```json
+{
+  "summary": "Sign-in goes through the new API.",
+  "confidence": "medium",
+  "checks": [{"claim": "Tests pass", "status": "passed", "result": "42 passed"}],
+  "spots": [{"path": "Sources/API.swift", "lines": [10, 14], "why": "The token check."}]
+}
+```

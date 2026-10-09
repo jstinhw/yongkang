@@ -217,7 +217,9 @@ import Testing
             id: "wire-auth", url: URL(fileURLWithPath: "/p/.notebook/tasks/wire-auth.md"), kind: .task,
             title: "Wire auth", status: "todo", project: nil, dependsOn: [])
         let work = NotebookFormat.workPrompt(tasks: [task], sessionID: Self.sid)
-        #expect(work.contains(page), "the app shows the page it knows the path of")
+        #expect(
+            work.contains("## Review") && work.contains(#""confidence""#) && !work.contains(page),
+            "a work session hands its report over as data for the app to draw, not as a page of its own")
         for prompt in [
             NotebookFormat.onboardingPrompt(description: "a site", sessionID: Self.sid),
             NotebookFormat.productPrompt(arguments: "describe", sessionID: Self.sid, agent: .codex),

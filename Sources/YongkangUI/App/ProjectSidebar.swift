@@ -54,8 +54,12 @@ package struct SidebarProject: Identifiable {
         memory = project.cards.filter { $0.kind == .memory }.count
         reviews = Dictionary(
             uniqueKeysWithValues: project.sessions.map { ($0.id, summary.waiting(for: $0)) }.filter { !$0.1.isEmpty })
+        // A work session's Page is its tasks' reviews, so one that wrote a review has a Page too.
         pages = Set(
-            project.sessions.map(\.id).filter { NotebookFormat.drawnPage(of: $0, in: project.notebookRoot) != nil })
+            project.sessions.filter { session in
+                NotebookFormat.drawnPage(of: session.id, in: project.notebookRoot) != nil
+                    || summary.tasks.contains { session.taskIDs.contains($0.id) && $0.review != nil }
+            }.map(\.id))
     }
 
     package var id: Project.ID { project.id }

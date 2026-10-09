@@ -33,6 +33,10 @@ import YongkangCore
     /// What the user has written about each task under review, by task id, until they send
     /// it or approve. Lives here rather than in the page so leaving for a diff keeps it.
     var reviewDrafts: [String: ReviewDraft] = [:]
+    /// The answers sent to agents' review questions, by task and question. In memory only: the
+    /// agent's rewritten record is what lasts, and a question it still asks after a relaunch
+    /// is one it still needs answered.
+    var answers: [String: String] = [:]
     /// The board's request box, open or shut, and what is typed in it — here for the same
     /// reason. See `ProjectModel+Request`.
     var requestOpen = false

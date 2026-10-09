@@ -184,10 +184,13 @@ struct FeedbackCard: View {
 
 /// The two ways a review ends, on the task page and on each of its diffs alike. Only one of
 /// them is the primary: approving, until the user has written something for the agents —
-/// then sending it, because approving would drop what they wrote.
+/// then sending it, because approving would drop what they wrote. A review that argues against
+/// itself — a failed check, a low confidence, a concern it says blocks — makes approving
+/// "anyway", and never the primary.
 struct TaskReviewBar: View {
     let task: SummaryTask
     let draft: ReviewDraft
+    var cautioned = false
     let approve: (String) async -> String?
     let requestChanges: () -> Void
     /// Asks, then reverts this task's work and hands the task back to be done again.
@@ -222,7 +225,7 @@ struct TaskReviewBar: View {
                     .buttonStyle(.console)
                     .disabled(true)
                     .help("Comment on a line or write a note first")
-                approveButton.buttonStyle(.consolePrimary)
+                if cautioned { approveButton.buttonStyle(.console) } else { approveButton.buttonStyle(.consolePrimary) }
             } else {
                 approveButton.buttonStyle(.console)
                     .help("Commits without sending your feedback, which is then discarded")
@@ -248,7 +251,7 @@ struct TaskReviewBar: View {
                 committing = false
             }
         } label: {
-            Label("Approve and commit", systemImage: "checkmark.seal")
+            Label(cautioned ? "Approve anyway" : "Approve and commit", systemImage: "checkmark.seal")
         }
         .disabled(
             committing || !task.done || task.commitPaths.isEmpty

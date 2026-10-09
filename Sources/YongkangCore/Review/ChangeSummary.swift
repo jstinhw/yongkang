@@ -177,6 +177,13 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     /// How the latest attempt says it checked the work: what the reviewer reads before
     /// running anything themselves. Empty when nobody but the reviewer has checked it.
     package var verification: String { work.last?.verification ?? "" }
+    /// The latest attempt's review, which the review page opens on. Nil before an agent wrote
+    /// one, and when what it wrote could not be read: `reviewProblem` says why.
+    package var review: WorkReview? { try? work.last?.review?.get() }
+    package var reviewProblem: String? {
+        guard case .failure(let problem)? = work.last?.review else { return nil }
+        return problem.reason
+    }
 }
 
 extension SummaryTask {

@@ -1,9 +1,10 @@
 import Foundation
 
 extension NotebookFormat {
-    /// Where a session's page lives: what it drew for the user, shown on its Page tab. Like
-    /// `blocks/`, `pages/` is a channel to the app rather than notebook content, so the spec
-    /// does not list it; the prompts that ask for a page say where it goes.
+    /// Where a session's HTML page lives, shown on its Page tab. No prompt asks for one now —
+    /// a work session's report is its run records' `## Review`, which the app draws — but a
+    /// session that wrote one before keeps it. Like `blocks/`, `pages/` is a channel to the app
+    /// rather than notebook content, so the spec does not list it.
     package static func page(of sessionID: UUID, in notebookRoot: URL) -> URL {
         notebookRoot.appendingPathComponent(pagePath(sessionID))
     }
@@ -28,14 +29,6 @@ extension NotebookFormat {
                     .map { (url: url, modified: $0) }
             }
             .max { $0.modified < $1.modified }
-    }
-
-    /// Where anything the user has to look at goes: one file per session, in the app. An
-    /// artifact or a file the agent opened put a browser tab in front of the window every
-    /// time, and a file path in a terminal is something the user has to go and open.
-    private static func page(_ sessionID: UUID) -> String {
-        "one HTML file at `\(folderName)/\(pagePath(sessionID))`, which I see on this session's Page tab "
-            + "in the app. Rewrite that file each time, and never publish an artifact or open a browser for it"
     }
 
     /// How every plan reaches the user's eyes — a new notebook, a described feature, a
@@ -345,9 +338,40 @@ extension NotebookFormat {
                 ## Verification
                 The commands you ran and what they printed.
 
-            When you stop — all done, or waiting on me — show me the report as a page: \(page(sessionID)).
-            One section per task: its status, what changed, how you checked it, the files, the
-            calls you made, and what is left. Put what needs me first.
+                ## Review
+                ```json
+                {
+                  "summary": "<what changed, one sentence of 25 words at most>",
+                  "confidence": "high | medium | low",
+                  "confidence_why": "<why, 15 words at most>",
+                  "touches": "<what it touches, four words at most>",
+                  "changed": ["<an outcome I can see or check, 15 words at most>"],
+                  "checks": [{"claim": "<what it proves, five words at most>",
+                              "status": "passed | failed | not_run",
+                              "result": "<what it printed, ten words at most>",
+                              "command": "<the command and its output>"}],
+                  "holds": ["<what keeps it safe whatever the code does, 20 words at most>"],
+                  "spots": [{"path": "<repo-relative file>", "lines": [<first>, <last>],
+                             "label": "<where, two words>", "why": "<why I read it, 25 words at most>"}],
+                  "questions": [{"ask": "<what only I can decide>", "context": "<20 words at most>",
+                                 "options": ["<three words at most>"], "recommend": <its index>}],
+                  "concerns": [{"title": "<six words at most>", "detail": "<25 words at most>",
+                                "blocks": <true if I should not approve until it is settled>}],
+                  "outside": [{"kind": "read | local | write", "what": "<what you did outside this repo>"}],
+                  "files": [{"path": "<a file in paths>", "why": "<eight words at most>"}],
+                  "next": "<what landing this unblocks, 12 words at most>"
+                }
+                ```
+
+            The Review is what the app shows me when you stop, and I read it in seconds: keep to the
+            word limits, plain words, and leave the detail to Result and Verification. Every check
+            you ran goes in `checks`, and one you could not run is `not_run`, never left out.
+            `spots` are the few places a person should read because no check covers them, with
+            line numbers in the file as it is now. `outside` is every call that left this repo — a
+            network read, a download, a write anywhere — and empty when there was none. Ask in
+            `questions` only what you cannot decide; my answer comes back to you here. Rewrite the
+            record whenever any of it changes. Never draw a page, publish an artifact or open a
+            browser for it.
             """
     }
 

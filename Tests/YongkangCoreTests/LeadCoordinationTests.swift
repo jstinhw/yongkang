@@ -86,6 +86,10 @@ import Testing
         #expect(
             plan.workers.first?.verification == "`swift test` passed.",
             "how the agent checked it is its own section, which Review reads")
+        let review = try #require(try plan.workers.first?.review?.get())
+        #expect(review.summary == "Sign-in goes through the new API." && review.confidence == .medium)
+        #expect(review.spots?.first?.range == 10...14, "the review page is drawn from the fenced JSON")
+        #expect(plan.workers.last?.review == nil, "a record without a Review leaves the page on its report")
     }
 
     @Test func returnedWorkerIsMeasuredAndScoped() async throws {

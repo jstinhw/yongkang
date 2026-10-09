@@ -262,7 +262,7 @@ enum DesignShots {
 
         // The screen the console lands on when a task finishes: the task, how the agent
         // checked it and what it did, over a real diff of this repo claimed by the fixture batch.
-        let reviewed = finished(here, task: "pull-blockers", in: directory)
+        let reviewed = finished(here, task: "pull-blockers", in: directory, reviewed: false)
         let reviewedSummary = ChangeSummary.of(reviewed, changes: changes)
         if let task = reviewedSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
             var draft = ReviewDraft()
@@ -498,7 +498,11 @@ enum DesignShots {
 
     /// The fixture with one task finished: its card done, a real task file to read, and its
     /// report filed with the verification a reviewer would read.
-    private static func finished(_ project: Project, task id: String, in directory: URL) -> Project {
+    /// `reviewed` files the task with `sampleReview`; without it the page shows the reports alone,
+    /// as it does for a record from before reviews.
+    private static func finished(
+        _ project: Project, task id: String, in directory: URL, reviewed: Bool = true
+    ) -> Project {
         var project = project
         let url = directory.appendingPathComponent("\(id).md")
         let body = """
@@ -531,6 +535,7 @@ enum DesignShots {
                 work.verification =
                     "`make check` green; 281 tests, 12 known issues.\n\n"
                     + "Assigned a task with two open blockers: both joined the batch in dependency order."
+                work.review = reviewed ? sampleReview : nil
                 return work
             }
             project.sessions[index].coordination = plan
