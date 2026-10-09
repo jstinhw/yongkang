@@ -174,6 +174,9 @@ extension Project {
             // The task it is on now: the first of its chain not yet done. None left means its
             // chain is spent, and the row keeps the last one's name rather than going anonymous.
             let unfinished = session.taskIDs.first { id in summary.tasks.first { $0.id == id }?.done != true }
+            // Busy with its whole chain done, it is reworking what it finished — an answer or a
+            // change request it was sent — so that work is not ready for review until it stops.
+            let reworking = unfinished == nil && !session.idle && !session.exited
             // Held up on one task, the row is about that task, not whichever is first in its chain.
             let task = block?.task ?? guiding?.task ?? unfinished ?? session.taskIDs.last
             let title =
@@ -190,7 +193,7 @@ extension Project {
                     .needsYou,
                     block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready to approve" : block.title
                 )
-            } else if !waiting.isEmpty {
+            } else if !waiting.isEmpty, !reworking {
                 state = .review
             } else if case .waitingOn? = peers[session.id], !session.exited {
                 // Its turn is over, but what comes next is the other project's answer, not yours.
@@ -214,7 +217,8 @@ extension Project {
             if let guiding { claimedBlocks.insert(guiding.id) }
             // A session waiting on you for one thing may have finished another: its row says the
             // first, so the finished work gets a review row of its own below rather than hiding.
-            let reviewed = state == .review ? [] : Set(waiting.map(\.id))
+            // What it is reworking is its own row's, not a review row beside it.
+            let reviewed = state == .review || reworking ? [] : Set(waiting.map(\.id))
             claimedTasks.formUnion(session.taskIDs.filter { !reviewed.contains($0) })
             rows.append(
                 AgentRow(

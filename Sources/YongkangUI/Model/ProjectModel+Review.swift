@@ -37,7 +37,8 @@ extension ProjectModel {
         let message = """
             On \(task.id) — "\(task.title)" — you asked: \(question)
             My answer: \(answer)
-            Act on it, rewrite the task's run record and its Review, and do not commit.
+            Act on it: set the task active while you do, and done again once its Done when holds.
+            Rewrite the task's run record and its Review, and do not commit.
             """
         guard let sent = send(message, about: task, agent: agent) else { return nil }
         answers[Self.answerKey(question, on: task.id)] = answer

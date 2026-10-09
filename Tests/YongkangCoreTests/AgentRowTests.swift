@@ -23,7 +23,7 @@ import Testing
 
     @Test func aQuestionOutranksReviewAndReviewOutranksWork() {
         let working = CodeSession(title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["a"])
-        let finished = CodeSession(title: "Codex", icon: "", line: "", agent: .codex, taskIDs: ["b"])
+        let finished = CodeSession(title: "Codex", icon: "", line: "", agent: .codex, taskIDs: ["b"], idle: true)
         let asking = CodeSession(title: "Grok", icon: "", line: "", agent: .grok, taskIDs: ["c"])
         let project = Project(directory: directory, sessions: [working, finished, asking])
         let summary = ChangeSummary(tasks: [SummaryTask(id: "a", title: "Task a", status: "active"), done("b")])
@@ -34,6 +34,16 @@ import Testing
         #expect(rows[0].reason == "Run swift test?", "the question is what the row says")
         #expect(rows[1].title == "Task b", "a row's title is the task it is on")
         #expect(rows.allSatisfy { $0.route == .session($0.session!.id) }, "a live agent opens on itself")
+    }
+
+    @Test func aSessionReworkingWhatItFinishedIsWorking() {
+        let session = CodeSession(title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["b"])
+        let project = Project(directory: directory, sessions: [session])
+
+        let rows = project.agentRows(summary: ChangeSummary(tasks: [done("b")]))
+
+        #expect(rows.map(\.state) == [.working], "sent an answer, it is back at work, not ready for review")
+        #expect(rows.count == 1, "the task it is reworking is its row's, not a review row beside it")
     }
 
     @Test func aBlockOnASessionsTaskIsThatSessionWaitingOnYou() {

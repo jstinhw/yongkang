@@ -386,7 +386,8 @@ enum DesignShots {
         var sync = Project(directory: URL(fileURLWithPath: "/Users/you/sources/notebook-sync"), entries: [])
         sync.sessions = [
             CodeSession(title: "Claude Code", icon: "sparkles", line: "claude", agent: .claude, taskIDs: ["resume"]),
-            CodeSession(title: "Codex", icon: "sparkles", line: "codex", agent: .codex, taskIDs: ["merge-runs"]),
+            CodeSession(
+                title: "Codex", icon: "sparkles", line: "codex", agent: .codex, taskIDs: ["merge-runs"], idle: true),
             // A plain shell beside the agents, which the sidebar marks with its icon, not a state.
             CodeSession(title: "notebook-sync", icon: CodeSession.terminalIcon, line: "zsh", agent: nil),
         ]
