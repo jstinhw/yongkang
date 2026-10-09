@@ -630,7 +630,7 @@ accounts and keys are the user's to create, and `docs/release.md` lists them.
 |---|---|---|
 | 6.1 | Apple Developer Program; Developer ID certificate and notarytool API key. | Waiting on the user |
 | 6.2 | `make release`: archive, export for Developer ID, notarize, staple, DMG. | Built |
-| 6.3 | Sparkle 2, an EdDSA-signed appcast, and `jstinhw/yongkang-releases` as the public host. | Built |
+| 6.3 | Sparkle 2, an EdDSA-signed appcast, and `jstinhw/yongkang-releases` as the public host. Releases later moved to `jstinhw/yongkang` itself, with the code public. | Built |
 | 6.4 | Optional GitHub sign-in (Supabase) and usage analytics (PostHog), in `Online/`. | Built |
 
 **Exit:** on a clean Mac, the DMG opens with no Gatekeeper prompt.

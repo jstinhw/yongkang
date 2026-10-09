@@ -1,30 +1,31 @@
 name: Release
 
 # A vX.Y.Z tag is a release: checked, built with Developer ID, notarized, and published with its
-# Sparkle appcast to the public releases repo, which the website and every installed copy
+# Sparkle appcast and dSYMs as a release of this repo, which the website and every installed copy
 # download from. docs/release.md has the one-time setup and each secret.
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
-  contents: write # the dSYMs, kept on a release in this repo
+  contents: read
 
 # Two tags at once would race for "latest", which is what the feed and the download link follow.
 concurrency: release
-
-env:
-  # Also in App/Config/Info.plist's SUFeedURL, which every installed copy reads.
-  RELEASES_REPO: jstinhw/yongkang-releases
 
 jobs:
   release:
     runs-on: macos-26
     timeout-minutes: 60
+    permissions:
+      contents: write # the release itself, and nothing else
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # the build number is the commit count
+          # Off disk, so `make check` and the build never hold a token that can write here:
+          # only Publish is handed it.
+          persist-credentials: false
 
       # First, so a tag with nothing to say fails in seconds rather than after notarizing.
       - name: Notes from CHANGELOG.md
@@ -52,6 +53,8 @@ jobs:
           security import "$RUNNER_TEMP/id.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
           rm "$RUNNER_TEMP/id.p12"
           security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" > /dev/null
+          # Split on purpose: each keychain already in the search list is its own argument.
+          # shellcheck disable=SC2046
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
           identity=$(security find-identity -v -p codesigning "$keychain" \
             | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
@@ -97,7 +100,7 @@ jobs:
                 <description sparkle:format="markdown"><![CDATA[
           $(cat "$RUNNER_TEMP/notes.md")
                 ]]></description>
-                <enclosure url="https://github.com/$RELEASES_REPO/releases/download/$GITHUB_REF_NAME/Yongkang.dmg"
+                <enclosure url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Yongkang.dmg"
                   type="application/octet-stream" $signature/>
               </item>
             </channel>
@@ -105,19 +108,18 @@ jobs:
           XML
           xmllint --noout .build/release/appcast.xml
 
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" .build/release/Yongkang.dmg .build/release/appcast.xml \
-            --repo "$RELEASES_REPO" --title "Yongkang ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
-
       # What turns a crash report's addresses back into function names.
-      - name: Keep the dSYMs
+      - name: dSYMs
+        run: |
+          ditto -c -k --keepParent .build/xcode/Yongkang.xcarchive/dSYMs \
+            ".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip"
+
+      # One release, published at once: never a draft or a prerelease, because `latest` skips
+      # those, and `latest` is what SUFeedURL and the website's download link read.
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dsyms=".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip"
-          ditto -c -k --keepParent .build/xcode/Yongkang.xcarchive/dSYMs "$dsyms"
-          gh release create "$GITHUB_REF_NAME" "$dsyms" --title "Yongkang ${GITHUB_REF_NAME#v}" \
-            --notes-file "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            .build/release/Yongkang.dmg .build/release/appcast.xml ".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip" \
+            --title "Yongkang ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"

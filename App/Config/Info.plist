@@ -15,7 +15,7 @@
 
 	<!-- Sparkle. The feed lives in the public releases repo, since this one is private. -->
 	<key>SUFeedURL</key>
-	<string>https://github.com/jstinhw/yongkang-releases/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/jstinhw/yongkang/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>7EgqQ1OMAQfkD+MlcqZVNggc+dfVXlLiOWnjFLpOj9k=</string>
 	<!-- Check daily and download in the background; install on "Restart to Update" or on quit. -->

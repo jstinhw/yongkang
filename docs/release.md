@@ -1,8 +1,8 @@
 # Releasing
 
-How a version reaches people: a tag, a workflow, a notarized DMG in a public repo, and the
-update feed every installed copy checks. The one-time setup is at the end; everything before it
-is the routine.
+How a version reaches people: a tag, a workflow, a notarized DMG on a release of
+`jstinhw/yongkang`, and the update feed every installed copy checks. The one-time setup is at
+the end; everything before it is the routine.
 
 ## Versions
 
@@ -35,8 +35,9 @@ git tag v1.4.0 && git push origin v1.4.0  # the release workflow takes it from h
 4. Runs `make release`: archive, export for Developer ID, notarize and staple the app, put it in
    a DMG, sign the DMG, then notarize and staple that too.
 5. Signs the DMG for Sparkle (EdDSA) and writes `appcast.xml` with one item: this release.
-6. Publishes the DMG and the appcast as a release of **`jstinhw/yongkang-releases`**, and keeps
-   the dSYMs on a release of this repo, for symbolicating crash reports.
+6. Publishes the DMG, the appcast and the dSYMs (for symbolicating crash reports) as one release
+   of **`jstinhw/yongkang`**, with the workflow's own `GITHUB_TOKEN`. It is never a draft or a
+   prerelease: `latest`, which the feed and the download link follow, skips those.
 
 A run that fails before the Publish step publishes nothing. Fix it, delete the tag
 (`git push --delete origin v1.4.0`, `git tag -d v1.4.0`), and tag again. A notarization that comes back Invalid prints a submission
@@ -49,8 +50,8 @@ waiting for a runner.
 ## What users get
 
 - **The website's download button** links to
-  `https://github.com/jstinhw/yongkang-releases/releases/latest/download/Yongkang.dmg`, which
-  always serves the newest release.
+  `https://github.com/jstinhw/yongkang/releases/latest/download/Yongkang.dmg`, which always
+  serves the newest release.
 - **Updates, VS Code style.** A Release build checks the feed once a day
   (`SUEnableAutomaticChecks`) and downloads a new version in the background
   (`SUAutomaticallyUpdate`). Once it is downloaded, the app menu's **Check for Updates…** becomes
@@ -58,9 +59,9 @@ waiting for a runner.
   window when the user asks, or for an update it can't install silently.
   `Online/Updates.swift` holds the ready version in `Updates.shared.ready`, which the
   in-window notice will read too, once `/design` has drawn it.
-- **The feed** is `…/releases/latest/download/appcast.xml`, set as `SUFeedURL` in
-  `App/Config/Info.plist`. Every shipped copy keeps polling that URL, so moving the feed means
-  one release that still lives at the old URL but names the new one.
+- **The feed** is `https://github.com/jstinhw/yongkang/releases/latest/download/appcast.xml`,
+  set as `SUFeedURL` in `App/Config/Info.plist`. Every shipped copy keeps polling that URL, so
+  moving the feed means one release that still lives at the old URL but names the new one.
 
 ## What goes online
 
@@ -88,7 +89,8 @@ section.
 ## One-time setup
 
 Each step names the secret it produces. They all go in this repo's **Settings → Secrets and
-variables → Actions**.
+variables → Actions**. Publishing needs none: the release workflow's `GITHUB_TOKEN` creates the
+release in this repo.
 
 ### Apple: Developer ID and notarization
 
@@ -117,13 +119,6 @@ swift build   # fetches Sparkle, tools included
 - `sparkle.key`'s contents → **`SPARKLE_PRIVATE_KEY`**, then delete the file. **Losing this
   key strands every installed copy:** they reject any update not signed with it. Keep the
   keychain copy backed up.
-
-### The public releases repo
-
-1. Create **`jstinhw/yongkang-releases`**, public, with only a README (a release needs a commit to
-   tag).
-2. Create a fine-grained token with access to that repo only, and **Contents: Read and write** →
-   **`RELEASES_TOKEN`**.
 
 ### Supabase: who signed in
 
