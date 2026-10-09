@@ -143,7 +143,11 @@ struct MessageDeliveryTests {
         _ = deliver(projects, skipping: &delivered)
         let last = try #require(api.sessions.first)
         blog.request = BoardRequest(session: UUID(), before: [], from: siteFolder, asker: UUID())
+        #expect(site.askedRequests(among: projects).map(\.directory) == [syncFolder, apiFolder])
 
+        // A session id is only what a message's frontmatter says: another project's agent naming
+        // site's session does not get its plan approved with site's.
+        blog.request = BoardRequest(session: UUID(), before: [], from: apiFolder, asker: asking.id)
         #expect(site.askedRequests(among: projects).map(\.directory) == [syncFolder, apiFolder])
         #expect(sync.askedRequests(among: projects).map(\.directory) == [apiFolder], "only what it asked")
         #expect(api.askedRequests(among: projects).isEmpty)

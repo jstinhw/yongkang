@@ -122,15 +122,19 @@ extension ProjectModel {
 
     /// The open requests this one asked other projects for, and those they asked in turn: what
     /// approving it approves too, so one click takes the whole plan. Found by the session that
-    /// asked rather than by folder, so a request an earlier one left open there stays out of it.
+    /// asked, so a request an earlier one left open there stays out of it — and by the folder it
+    /// asked from, because the session is only what the message's frontmatter says, which any
+    /// project's agent can write, while the folder is where the app read the message.
     func askedRequests(among projects: [ProjectModel]) -> [ProjectModel] {
         var found: [ProjectModel] = []
-        var askers = request.map { [$0.session] } ?? []
+        var askers = request.map { [(session: $0.session, project: self)] } ?? []
         while let asker = askers.popLast() {
             for other in projects where other !== self && !found.contains(where: { $0 === other }) {
-                guard let theirs = other.request, theirs.asker == asker else { continue }
+                guard let theirs = other.request, theirs.asker == asker.session,
+                    let from = theirs.from, asker.project.isAt(from)
+                else { continue }
                 found.append(other)
-                askers.append(theirs.session)
+                askers.append((theirs.session, other))
             }
         }
         return found
