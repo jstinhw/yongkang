@@ -413,6 +413,8 @@ extension NotebookFormat {
     /// the steps; the way back is setting `status: done` in it, which the app reads and
     /// types into the session waiting behind it. A proposal never comes here: it goes back to
     /// its Product transcript, or to a new Product session once that has exited.
+    /// A step the agent can check is polled rather than confirmed by the user. The poll is
+    /// bounded because whatever the user types while it runs queues behind it.
     package static func unblockPrompt(block: UserBlock) -> String {
         """
         Clear the block in `\(relativePath(block.url))`. Work through it yourself first: check \
@@ -422,8 +424,12 @@ extension NotebookFormat {
 
         Only when something is genuinely mine — a credential, a consent screen, an account — \
         come back to me. Say in two or three lines what is being set up and what it unblocks, \
-        then take it one step at a time: one instruction, one or two lines, then wait for my \
-        answer before the next. Never paste, summarise or list the steps from the block file — \
+        then take it one step at a time: one instruction, one or two lines. When a step leaves \
+        something you can check from here — a repo gone, a secret set, a CLI signed in — do \
+        not ask me to say it is done: poll for it every few seconds, for a few minutes at most, \
+        and go on to the next step the moment it shows. Check for the outcome itself, so an \
+        error does not read as done. Wait for my answer only when there is nothing to check, or \
+        the polling runs out. Never paste, summarise or list the steps from the block file — \
         they are written for you, not for me.
 
         Signing in, consenting and choosing are mine. Fetching is not. The moment I have \

@@ -99,6 +99,9 @@ import Testing
         #expect(
             guide.contains("go and read what you need yourself"),
             "and told that my half ends at signing in — a value on a page is its to fetch")
+        #expect(
+            guide.contains("do not ask me to say it is done: poll for it"),
+            "a step it can check from the shell, it watches for instead of waiting on me")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }
