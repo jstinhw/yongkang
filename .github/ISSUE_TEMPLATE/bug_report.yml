@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in Yongkang doesn't work the way it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a project with…
+        2. Click…
+  - type: input
+    id: app-version
+    attributes:
+      label: Yongkang version
+      description: Yongkang → About Yongkang, or the commit if you built it yourself.
+      placeholder: 0.1.0 (123)
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: macOS 26.0
+    validations:
+      required: true
+  - type: dropdown
+    id: cli
+    attributes:
+      label: Which CLI
+      description: The agent the bug happened with. Pick every one it happens with.
+      multiple: true
+      options:
+        - Claude Code (claude)
+        - Codex (codex)
+        - Grok (grok)
+        - Agy (agy)
+        - None, it isn't about an agent
+    validations:
+      required: true
+  - type: input
+    id: cli-version
+    attributes:
+      label: CLI version
+      description: For example the output of `claude --version`.
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >
+        Optional. `log show --last 10m --predicate 'subsystem == "ai.yongkang.Yongkang"'` prints
+        the app's log. It holds file paths: remove any you'd rather not share.
+      render: shell

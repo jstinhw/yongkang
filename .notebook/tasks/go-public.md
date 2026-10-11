@@ -8,7 +8,7 @@ designer: ""
 project: open-source-release
 owner: ""
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-09
 external: {}
 ---
 
@@ -25,14 +25,18 @@ protected, vulnerabilities reported privately, CI as the gate.
 - [ ] Forked pull requests need approval before their workflows run, and no workflow a fork
       triggers can read the release secrets.
 - [ ] The comment in `.github/workflows/ci.yml` about private-repo macOS minutes is gone.
+- [ ] `CODE_OF_CONDUCT.md` is the Contributor Covenant 2.1 with a contact the user chose, and
+      the conduct line in `CONTRIBUTING.md` links it.
 - [ ] GitHub's community profile for the repo shows every item green.
 
 ## Context
 
 From [[history-audit]]: a clean history and tree. From [[license-and-community]]: LICENSE,
-README, CONTRIBUTING, SECURITY and the templates the community profile checks. Area: the
-repo's GitHub settings, and `.github/workflows/ci.yml`. The settings are the user's to change:
-file each as one short step in a block, the way `sre-dev` does.
+README, CONTRIBUTING, SECURITY and the templates the community profile checks; the code of
+conduct is left to this task (the project memory `code-of-conduct-at-go-public`). Area: the
+repo's GitHub settings, `.github/workflows/ci.yml`, `CODE_OF_CONDUCT.md` and its line in
+`CONTRIBUTING.md`. The settings are the user's to change: file each as one short step in a
+block, the way `sre-dev` does.
 
 ## Constraints
 
