@@ -63,6 +63,9 @@ import Testing
         await app.reloadNow()
 
         app.close(project)
+        // FSEvents can still deliver the notebook's own setup writes, and the reload that starts
+        // is not ended by the close. Joined here, so its read lands before Ship it exists.
+        await project.reloadNotebook(frontmatter: true, records: true)
         _ = try NotebookFormat.create(.task, title: "Ship it", in: project.notebookRoot, project: nil)
         try await Task.sleep(for: .milliseconds(500))
         #expect(

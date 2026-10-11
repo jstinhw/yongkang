@@ -2,13 +2,13 @@
 id: go-public
 kind: task
 title: "Make the repo public"
-status: todo
+status: done
 depends_on: [history-audit, license-and-community]
 designer: ""
 project: open-source-release
 owner: ""
 created: 2026-10-07
-updated: 2026-10-09
+updated: 2026-10-11
 external: {}
 ---
 
@@ -17,17 +17,17 @@ protected, vulnerabilities reported privately, CI as the gate.
 
 ## Done when
 
-- [ ] The repo is public, with a description, the website as its homepage, and topics.
-- [ ] `main` has a ruleset: pull request required, the CI `check` job must pass, no force push,
+- [x] The repo is public, with a description, the website as its homepage, and topics.
+- [x] `main` has a ruleset: pull request required, the CI `check` job must pass, no force push,
       no deletion.
-- [ ] Private vulnerability reporting, Dependabot alerts and secret scanning with push
+- [x] Private vulnerability reporting, Dependabot alerts and secret scanning with push
       protection are on.
-- [ ] Forked pull requests need approval before their workflows run, and no workflow a fork
+- [x] Forked pull requests need approval before their workflows run, and no workflow a fork
       triggers can read the release secrets.
-- [ ] The comment in `.github/workflows/ci.yml` about private-repo macOS minutes is gone.
-- [ ] `CODE_OF_CONDUCT.md` is the Contributor Covenant 2.1 with a contact the user chose, and
+- [x] The comment in `.github/workflows/ci.yml` about private-repo macOS minutes is gone.
+- [x] `CODE_OF_CONDUCT.md` is the Contributor Covenant 2.1 with a contact the user chose, and
       the conduct line in `CONTRIBUTING.md` links it.
-- [ ] GitHub's community profile for the repo shows every item green.
+- [x] GitHub's community profile for the repo shows every item green.
 
 ## Context
 
