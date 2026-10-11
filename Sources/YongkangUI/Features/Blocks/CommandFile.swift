@@ -7,6 +7,8 @@ struct CommandFile: View {
     let file: BlockCommand.File
     /// The line numbers a flag points at, marked in the gutter.
     let flagged: Set<Int>
+    /// Rewritten since it first appeared in the pane: what was read is not what runs now.
+    var changed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,6 +37,11 @@ struct CommandFile: View {
             }
             Text(file.url.path).font(Typography.monoCaption).foregroundStyle(Theme.tx3)
                 .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            if changed {
+                Text("Changed while it was on screen. Read it again before you run the command.")
+                    .font(Typography.caption(.semibold)).foregroundStyle(Theme.amber)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
     }
@@ -92,7 +99,7 @@ struct CommandFile: View {
         return HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("\(number)").font(Typography.mono).foregroundStyle(marked ? Theme.amber : Theme.tx4)
                 .frame(width: 30, alignment: .trailing)
-            Text(line.isEmpty ? " " : line).font(Typography.mono)
+            Text(line.isEmpty ? " " : BlockCommand.visible(line)).font(Typography.mono)
                 .foregroundStyle(comment ? Theme.tx3 : Theme.prose)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)

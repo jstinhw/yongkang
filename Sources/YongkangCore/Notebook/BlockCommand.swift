@@ -15,6 +15,9 @@ package struct BlockCommand: Equatable, Sendable {
     /// Lines worth reading twice, grouped by what they do. A pattern match, never a verdict:
     /// a line spelt differently is missed, and nothing flagged is not the same as safe.
     package let flags: [Flag]
+    /// More files were named than `fileLimit` lets the pane show. Never quietly: the ones past
+    /// the limit run all the same.
+    package let truncated: Bool
 
     package struct File: Equatable, Sendable, Identifiable {
         package var id: String { url.path }
@@ -31,7 +34,8 @@ package struct BlockCommand: Equatable, Sendable {
         case missing
         case binary(bytes: Int)
         case tooLarge(bytes: Int)
-        /// Named like a key or a token. A secret on screen is a secret in the next screenshot.
+        /// Data named like a key or a token. A secret on screen is a secret in the next
+        /// screenshot. A script is never this, whatever its name: it is what runs.
         case secret
     }
 
@@ -48,10 +52,11 @@ package struct BlockCommand: Equatable, Sendable {
     }
 
     package enum Kind: CaseIterable, Sendable {
-        case network, history, remote, discards, deletes, admin, path, fetchedCode, secrets, settings
+        case hidden, network, history, remote, discards, deletes, admin, path, fetchedCode, secrets, settings
 
         package var label: String {
             switch self {
+            case .hidden: "Has characters that show differently than they run"
             case .network: "Talks to a server"
             case .history: "Rewrites git history or branches"
             case .remote: "Changes a git remote"
@@ -69,6 +74,7 @@ package struct BlockCommand: Equatable, Sendable {
         // if agents keep writing what this misses.
         var pattern: String {
             switch self {
+            case .hidden: Self.hiddenCharacters
             case .network: #"\bgit\s+push\b|\b(curl|wget|scp|rsync|ssh|gh)\s|\bnpm\s+publish\b"#
             case .history:
                 #"filter-repo|filter-branch|\bupdate-ref\b|\brebase\b|\bbranch\s+-D\b|\bpush\b.*\s(--force|-f)\b"#
@@ -83,20 +89,48 @@ package struct BlockCommand: Equatable, Sendable {
             case .settings: #"\bdefaults\s+write\b|\bconfig\s+--global\b|\blaunchctl\b|\bchmod\b|\bchown\b|>>?\s*~/\."#
             }
         }
+
+        /// What a terminal would not show as itself: bidi overrides that reorder a line, zero-width
+        /// and other format characters, line separators a shell does not break on, and control
+        /// characters other than a tab. The shell runs them; the pane has to show they are there.
+        static let hiddenCharacters = #"[\p{Cf}\p{Zl}\p{Zp}\x{0}-\x{8}\x{B}-\x{1F}\x{7F}-\x{9F}]"#
     }
 
     /// What `line` runs, read from disk now. Relative paths are the project folder's, where the
     /// session the command is pasted into runs.
-    package static func read(_ line: String, in directory: URL) -> BlockCommand {
-        let files = discover(line, in: directory)
-        return BlockCommand(line: line, files: files, flags: flags(line, files))
+    ///
+    /// Every call finds and reads the files again — a date says nothing about a file that did
+    /// not exist last time, or one rewritten with its old date put back. Only the line matching
+    /// is skipped, when `previous` read exactly these files with exactly this text.
+    package static func read(_ line: String, in directory: URL, reusing previous: BlockCommand? = nil) -> BlockCommand {
+        let (files, truncated) = discover(line, in: directory)
+        if let previous, previous.line == line, previous.files == files, previous.truncated == truncated {
+            return previous
+        }
+        return BlockCommand(line: line, files: files, flags: flags(line, files), truncated: truncated)
+    }
+
+    /// `text` with every character `hiddenCharacters` matches written out as `⟨U+202E⟩`, so the
+    /// pane draws a line the way it runs rather than the way a bidi override reorders it.
+    package static func visible(_ text: String) -> String {
+        guard let pattern = try? NSRegularExpression(pattern: Kind.hiddenCharacters),
+            pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+        else { return text }
+        return text.unicodeScalars.map { scalar in
+            let one = String(scalar)
+            guard scalar != "\t",
+                pattern.firstMatch(in: one, range: NSRange(one.startIndex..., in: one)) != nil
+            else { return one }
+            return "⟨U+" + String(format: "%04X", scalar.value) + "⟩"
+        }
+        .joined()
     }
 
     // MARK: - Finding the files
 
     // ponytail: a dozen files, half a megabyte each. Past that the pane says so rather than
     // drawing it; raise these if a real command needs more.
-    static let fileLimit = 12
+    package static let fileLimit = 12
     static let byteLimit = 512 * 1024
 
     private static let scriptExtensions: Set<String> = [
@@ -105,7 +139,7 @@ package struct BlockCommand: Equatable, Sendable {
 
     /// The command's own files first, in the order it names them, then each script that a shown
     /// script names beside itself, breadth first.
-    private static func discover(_ line: String, in directory: URL) -> [File] {
+    private static func discover(_ line: String, in directory: URL) -> (files: [File], truncated: Bool) {
         var found: [File] = []
         var seen: Set<String> = []
         var queue: [(url: URL, namedBy: String?)] = named(byCommand: line, in: directory).map { ($0, nil) }
@@ -118,7 +152,7 @@ package struct BlockCommand: Equatable, Sendable {
                 queue += named(in: text, beside: next.url).map { ($0, next.url.lastPathComponent) }
             }
         }
-        return found
+        return (found, queue.contains { !seen.contains($0.url.path) })
     }
 
     /// Each word of the command that is a file, or that is a script's name with nothing there.
@@ -185,7 +219,7 @@ package struct BlockCommand: Equatable, Sendable {
         }
         let size = (attributes[.size] as? Int) ?? 0
         let modified = attributes[.modificationDate] as? Date
-        if looksSecret(url) { return (.secret, modified) }
+        if looksSecret(url), !isScript(url) { return (.secret, modified) }
         if size > byteLimit { return (.tooLarge(bytes: size), modified) }
         guard let data = try? Data(contentsOf: url), !data.contains(0),
             let text = String(data: data, encoding: .utf8)
@@ -210,24 +244,15 @@ package struct BlockCommand: Equatable, Sendable {
             lines += text.components(separatedBy: "\n").enumerated()
                 .map { (Place(file: file.url, line: $0.offset + 1), $0.element) }
         }
-        // A comment says what a line is for; only what runs is matched.
+        // A comment says what a line is for; only what runs is matched. A hidden character is
+        // looked for everywhere, since what it hides may be that a line is not a comment at all.
         let code = lines.filter { !$0.1.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
         return Kind.allCases.compactMap { kind in
             guard let pattern = try? NSRegularExpression(pattern: kind.pattern) else { return nil }
-            let places = code.filter { _, text in
+            let places = (kind == .hidden ? lines : code).filter { _, text in
                 pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
             }.map(\.0)
             return places.isEmpty ? nil : Flag(kind: kind, places: places)
-        }
-    }
-
-    /// Whether every file is still the one read — a poll that finds nothing newer keeps what it
-    /// has rather than reading half a megabyte again. A script that was missing and now exists
-    /// has a date where it had none, so it counts as changed.
-    package var isCurrent: Bool {
-        files.allSatisfy { file in
-            let attributes = try? FileManager.default.attributesOfItem(atPath: file.url.path)
-            return attributes?[.modificationDate] as? Date == file.modified
         }
     }
 

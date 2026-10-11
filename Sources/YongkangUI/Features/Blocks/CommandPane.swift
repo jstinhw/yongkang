@@ -12,6 +12,9 @@ struct CommandPane: View {
     let directory: URL
 
     @State private var command: BlockCommand?
+    /// Each file as it first appeared here, so one rewritten while the user was reading it says
+    /// so instead of changing quietly under them.
+    @State private var firstSeen: [String: BlockCommand.Content] = [:]
     @State private var copied = false
 
     var body: some View {
@@ -40,13 +43,15 @@ struct CommandPane: View {
     private func watch() async {
         let line = line
         let directory = directory
+        firstSeen = [:]
         while !Task.isCancelled {
             let held = command?.line == line ? command : nil
-            let next = await Task.detached {
-                if let held, held.isCurrent { return held }
-                return BlockCommand.read(line, in: directory)
-            }.value
-            if next != command { command = next }
+            let next = await Task.detached { BlockCommand.read(line, in: directory, reusing: held) }.value
+            if next != command {
+                command = next
+                let seen = Dictionary(next.files.map { ($0.id, $0.content) }) { first, _ in first }
+                firstSeen = firstSeen.merging(seen) { first, _ in first }
+            }
             try? await Task.sleep(for: .seconds(2))
         }
     }
@@ -71,7 +76,7 @@ struct CommandPane: View {
                 Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc", action: copy)
                     .buttonStyle(.consolePrimary)
             }
-            Text(line).font(Typography.code).foregroundStyle(Theme.tx)
+            Text(BlockCommand.visible(line)).font(Typography.code).foregroundStyle(Theme.tx)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -153,7 +158,17 @@ struct CommandPane: View {
                     .font(Typography.body).foregroundStyle(Theme.tx2)
             }
             ForEach(command.files) { file in
-                CommandFile(file: file, flagged: command.flagged(file.url))
+                CommandFile(
+                    file: file, flagged: command.flagged(file.url),
+                    changed: firstSeen[file.id].map { $0 != file.content } ?? false)
+            }
+            if command.truncated {
+                Text(
+                    "It runs more than the \(BlockCommand.fileLimit) files shown here. Ask the agent to make it "
+                        + "one script before you run it."
+                )
+                .font(Typography.body).foregroundStyle(Theme.amber)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -166,6 +181,7 @@ struct CommandPane: View {
 extension BlockCommand.Kind {
     var symbol: String {
         switch self {
+        case .hidden: "eye.slash"
         case .network: "arrow.up.arrow.down"
         case .history: "arrow.triangle.branch"
         case .remote: "link"

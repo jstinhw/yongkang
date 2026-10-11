@@ -38,9 +38,13 @@ script puts on `PATH`. Lines that talk to a server, delete files, rewrite histor
 remote or run as administrator are marked, and listed at the top under **What it touches**.
 That list is a pattern match, not a review, and the pane says Yongkang has not checked that the
 command is safe; the agent's reply says in plain words what it changes and what cannot be
-undone, so you can hold one against the other. A file named like a key is listed but not drawn,
-and a program that is not text is named with its size and a note to ask what it is. The page is
-one click away under **Page**; once the command has run, the agent clears `run:`.
+undone, so you can hold one against the other. Characters that show differently than they run
+— a bidi override, a zero-width space — are written out as `⟨U+202E⟩` and flagged. The files are
+read again every two seconds, whatever their dates say, and one rewritten while it is on screen
+says so. Data named like a key is listed but not drawn (a script never is: it is what runs), a
+program that is not text is named with its size and a note to ask what it is, and a command that
+runs more files than the pane shows says that too. The page is one click away under **Page**;
+once the command has run, the agent clears `run:`.
 
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark resolved` if you did it yourself. The app sees it on the
