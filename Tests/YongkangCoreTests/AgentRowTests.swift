@@ -197,4 +197,30 @@ import Testing
         #expect(rows[0].title == "Deploy", "the blocked row is about the task the block holds up")
         #expect(rows[1].route == .reviewTask("built") && rows[1].session?.id == session.id)
     }
+
+    /// The history audit marked itself done with a flaky test it called failed, and every list
+    /// still said "ready for review".
+    @Test func workItsOwnCheckFailedIsNotReadyForReview() throws {
+        let review = try #require(
+            WorkReview.read(
+                #"{"summary": "s", "confidence": "high", "checks": [{"claim": "Tests pass", "status": "failed"}]}"#))
+        var failed = done("audit")
+        var work = LeadWork(id: "audit", taskID: "audit")
+        work.review = review
+        failed.work = [work]
+        let finished = CodeSession(title: "Codex", icon: "", line: "", agent: .codex, taskIDs: ["audit"], idle: true)
+        let card = NotebookCard(
+            id: "audit", url: directory, kind: .task, title: "Task audit", status: "done", project: nil, dependsOn: [])
+        let summary = ChangeSummary(tasks: [failed])
+
+        let session = Project(directory: directory, sessions: [finished]).agentRows(summary: summary)
+        let gone = Project(directory: directory).agentRows(summary: summary)
+        let task = Project(directory: directory, cards: [card]).taskRows(summary: summary)
+
+        for rows in [session, gone, task] {
+            #expect(rows.map(\.state) == [.needsYou])
+            #expect(rows.first?.reason == "Check failed: Tests pass")
+        }
+        #expect(summary.waitingIDs == ["audit"], "still the user's move, so the board keeps it")
+    }
 }

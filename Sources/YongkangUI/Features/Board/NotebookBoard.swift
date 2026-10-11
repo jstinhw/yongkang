@@ -30,6 +30,8 @@ package struct NotebookBoard: View {
     /// Tasks an agent has finished whose work nobody has committed. `done` in the notebook,
     /// but still the user's move, so `Completed` off does not take them off the board.
     let reviewing: Set<String>
+    /// Of those, the ones whose agent's own report argues against approving them, with why.
+    var cautions: [String: String] = [:]
     let showDone: Bool
     let agents: AgentChoice
     let assign: ([NotebookCard], AgentKind) -> Void
@@ -61,6 +63,7 @@ package struct NotebookBoard: View {
         guided: Set<String> = [],
         assigned: Set<String>,
         reviewing: Set<String>,
+        cautions: [String: String] = [:],
         showDone: Bool,
         agents: AgentChoice,
         assign: @escaping ([NotebookCard], AgentKind) -> Void,
@@ -79,6 +82,7 @@ package struct NotebookBoard: View {
         self.guided = guided
         self.assigned = assigned
         self.reviewing = reviewing
+        self.cautions = cautions
         self.showDone = showDone
         self.agents = agents
         self.assign = assign
@@ -233,7 +237,7 @@ package struct NotebookBoard: View {
         // left work only the user can finish.
         if let block = block(for: card) { return block.isDemo ? .demo : .blocked }
         // Done, but nobody has accepted the work: the last state that is the user's move.
-        if reviewing.contains(card.id) { return .review }
+        if reviewing.contains(card.id) { return cautions[card.id] == nil ? .review : .caution }
         if card.status == "done" { return .done }
         if card.status == "designing" { return .designing }
         // Blocked keeps its card wherever it sits in the chain: it is the one state that
@@ -374,7 +378,7 @@ package struct NotebookBoard: View {
         default:
             // Already out with a session, or already built — not pickable into a batch that
             // would just hand it out again.
-            if assigned.contains(row.card.id) || row.lane == .review {
+            if assigned.contains(row.card.id) || row.lane == .review || row.lane == .caution {
                 card(row, inBatch: inBatch)
                     .opacity(assigned.contains(row.card.id) ? 0.6 : 1)
                     .contextMenu { menu }
@@ -475,7 +479,7 @@ package struct NotebookBoard: View {
             if let waits = alsoWaits(row) { waits.font(Typography.mono).padding(.top, 9) }
             if let block = row.block {
                 footer(block)
-            } else if row.lane == .review {
+            } else if row.lane == .review || row.lane == .caution {
                 reviewFooter(card)
             } else if row.lane == .designing {
                 designing
@@ -534,9 +538,12 @@ package struct NotebookBoard: View {
     /// The same move the task's row under its session offers, on the board where the work
     /// sits: the card says its changes are uncommitted, the button opens the review.
     private func reviewFooter(_ card: NotebookCard) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let note =
+            cautions[card.id].map { "\($0). Its own report argues against approving it: send it back from the review." }
+            ?? "Built, and nothing is committed. Approving it in the review is what lands it."
+        return VStack(alignment: .leading, spacing: 10) {
             Divider().overlay(Theme.line2)
-            Text("Built, and nothing is committed. Approving it in the review is what lands it.")
+            Text(note)
                 .font(Typography.body).foregroundStyle(Theme.tx2)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Open review") { openReview(card) }
@@ -677,7 +684,7 @@ extension NotebookBoard {
     /// How much of a card is worth drawing, and what it says. The order is the order work
     /// moves through: design, your approval, an agent, the queue.
     enum Lane {
-        case done, review, designing, demo, blocked, active, ready, later
+        case done, review, caution, designing, demo, blocked, active, ready, later
 
         /// The notebook's own status word this lane draws as, so one palette covers both.
         var status: String {
@@ -685,6 +692,8 @@ extension NotebookBoard {
             // Green for both: the agent has finished either way, and the Agents list already
             // marks a task waiting for review in green.
             case .done, .review: return "done"
+            // Red, as the review page draws it: finished, but not ready for review.
+            case .caution: return "failed"
             case .designing: return "designing"
             case .demo, .blocked: return "blocked"
             case .active: return "active"
@@ -696,6 +705,7 @@ extension NotebookBoard {
             switch self {
             case .done: return "done"
             case .review: return "ready for review"
+            case .caution: return "caution"
             case .designing: return "designing"
             case .demo: return "demo ready"
             case .blocked: return "blocked"

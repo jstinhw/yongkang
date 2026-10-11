@@ -284,6 +284,7 @@ extension RootView {
             guided: project.guidedBlockIDs,
             assigned: project.assignedTaskIDs,
             reviewing: project.summary.waitingIDs,
+            cautions: project.summary.cautions,
             showDone: model.showDone,
             agents: agentChoice,
             assign: { tasks, agent in model.assign(tasks, in: project, agent: agent) },

@@ -307,7 +307,9 @@ extension NotebookFormat {
             \(asked)\(others)
             Read each task file, what it depends on and its project's memory; the Done when list
             is the contract.\(chain) Set a task `status: active` when you start it and `done` once
-            you have checked every item of its Done when.
+            you have checked every item of its Done when. A check that fails is yours to fix
+            before `done`, even one your change did not cause, like a flaky test: work it shows
+            failing is not ready for my review.
             \(design)
             When only I can unblock something — an account, a secret, a payment — write
             `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`, `session: \(id)`,

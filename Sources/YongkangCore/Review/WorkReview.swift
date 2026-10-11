@@ -105,12 +105,15 @@ package struct WorkReview: Decodable, Equatable, Sendable {
     /// What landing this unblocks.
     package let next: String?
 
-    /// A review whose own report argues against approving it as it stands: a check that
-    /// failed, a low confidence, or a concern it says blocks.
-    package var cautions: Bool {
-        confidence == .low || (checks ?? []).contains { $0.status == .failed }
-            || (concerns ?? []).contains { $0.blocks == true }
+    /// What in its own report argues against approving it as it stands, in a few words: a check
+    /// that failed, then a concern it says blocks, then a low confidence. Nil when nothing does.
+    package var caution: String? {
+        if let check = checks?.first(where: { $0.status == .failed }) { return "Check failed: \(check.claim)" }
+        if let concern = concerns?.first(where: { $0.blocks == true }) { return concern.title }
+        return confidence == .low ? "Low confidence" : nil
     }
+
+    package var cautions: Bool { caution != nil }
 
     /// The review in a run record's `## Review` section: nil when there is none, and otherwise
     /// the review or which field kept it from being read — what the agent needs to be told.

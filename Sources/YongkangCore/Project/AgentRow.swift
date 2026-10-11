@@ -184,6 +184,8 @@ extension Project {
                 ?? session.title
             let state: AgentRow.State
             var reason: String?
+            // Whether this row is about the work it finished, which then gets no row of its own.
+            var standsForWaiting = false
             if let question {
                 (state, reason) = (.needsYou, question)
             } else if guiding != nil {
@@ -194,7 +196,10 @@ extension Project {
                     block.isProposal ? "wants your opinion" : block.isDemo ? "demo ready to approve" : block.title
                 )
             } else if !waiting.isEmpty, !reworking {
-                state = .review
+                // Work its own report argues against approving — a check that failed — is not
+                // ready for review: sending it back or approving over it is the user's call.
+                (state, reason) = waiting.lazy.compactMap(\.caution).first.map { (.needsYou, $0) } ?? (.review, nil)
+                standsForWaiting = true
             } else if case .waitingOn? = peers[session.id], !session.exited {
                 // Its turn is over, but what comes next is the other project's answer, not yours.
                 state = .working
@@ -218,7 +223,7 @@ extension Project {
             // A session waiting on you for one thing may have finished another: its row says the
             // first, so the finished work gets a review row of its own below rather than hiding.
             // What it is reworking is its own row's, not a review row beside it.
-            let reviewed = state == .review || reworking ? [] : Set(waiting.map(\.id))
+            let reviewed = standsForWaiting || reworking ? [] : Set(waiting.map(\.id))
             claimedTasks.formUnion(session.taskIDs.filter { !reviewed.contains($0) })
             rows.append(
                 AgentRow(
@@ -242,7 +247,8 @@ extension Project {
         for task in summary.waiting where !claimedTasks.contains(task.id) {
             rows.append(
                 AgentRow(
-                    id: "task:\(task.id)", state: .review, title: task.title, reason: nil,
+                    id: "task:\(task.id)", state: task.caution == nil ? .review : .needsYou, title: task.title,
+                    reason: task.caution,
                     session: sessions.first { !$0.exited && $0.taskIDs.contains(task.id) }, task: task.id,
                     block: nil, route: .reviewTask(task.id)))
         }
@@ -256,6 +262,7 @@ extension Project {
     /// within each. A task that could start, or is waiting its turn, has no row.
     package func taskRows(summary: ChangeSummary) -> [AgentRow] {
         let waiting = summary.waitingIDs
+        let cautions = summary.cautions
         let assigned = assignedTaskIDs
         let rows = NotebookIndex.ordered(cards.filter { $0.kind == .task }).compactMap { task -> AgentRow? in
             let block = blocksForUser.waiting(on: task.id)
@@ -268,6 +275,8 @@ extension Project {
                 (state, route) = (.needsYou, .block(block.id))
             } else if let guided {
                 (state, route) = (.working, .block(guided.id))
+            } else if cautions[task.id] != nil {
+                (state, route) = (.needsYou, .reviewTask(task.id))
             } else if waiting.contains(task.id) {
                 (state, route) = (.review, .reviewTask(task.id))
             } else if assigned.contains(task.id), task.status != "done" {
@@ -276,7 +285,7 @@ extension Project {
                 return nil
             }
             return AgentRow(
-                id: "task:\(task.id)", state: state, title: task.title, reason: block?.title,
+                id: "task:\(task.id)", state: state, title: task.title, reason: block?.title ?? cautions[task.id],
                 session: sessions.first { !$0.exited && $0.taskIDs.contains(task.id) }, task: task.id,
                 block: block ?? guided, route: route)
         }

@@ -111,6 +111,13 @@ package struct ChangeSummary: Equatable, Sendable {
     /// board, which would otherwise call a task with uncommitted work finished and hide it.
     package var waitingIDs: Set<String> { Set(waiting.map(\.id)) }
 
+    /// Of those, the ones whose own report argues against approving them, with why, by id. Not
+    /// ready for review — the agent says so itself — but still the user's move: send it back,
+    /// or approve over it.
+    package var cautions: [String: String] {
+        Dictionary(uniqueKeysWithValues: waiting.compactMap { task in task.caution.map { (task.id, $0) } })
+    }
+
     /// The part of that one session holds: what turns its row in the Agents list green.
     package func waiting(for session: CodeSession) -> [SummaryTask] {
         waiting.filter { session.taskIDs.contains($0.id) }
@@ -180,6 +187,8 @@ package struct SummaryTask: Identifiable, Equatable, Sendable {
     /// The latest attempt's review, which the review page opens on. Nil before an agent wrote
     /// one, and when what it wrote could not be read: `reviewProblem` says why.
     package var review: WorkReview? { try? work.last?.review?.get() }
+    /// What in that review argues against approving it: `WorkReview.caution`.
+    package var caution: String? { review?.caution }
     package var reviewProblem: String? {
         guard case .failure(let problem)? = work.last?.review else { return nil }
         return problem.reason

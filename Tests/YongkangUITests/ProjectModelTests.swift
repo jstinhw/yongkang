@@ -59,6 +59,10 @@ import Testing
         let second = app.open(try notebook("second", in: tmp))
         // The fleet screen, where the poll reads every project in full.
         await app.reloadNow()
+        // Its git reads run on after it returns, and a new folder's first one — `git init`,
+        // then the untracked notebook — always writes. Landing late, inside the poll below,
+        // it read as that poll writing to the first project whenever the full suite was busy.
+        try #require(try await eventually { !first.repo.changes.isEmpty })
 
         var secondChanged = false
         let firstChanged = try await invalidates(

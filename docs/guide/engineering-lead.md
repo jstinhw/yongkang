@@ -75,7 +75,10 @@ Clicking a session opens its live terminal, under what it is doing and the task 
 approval, the session's row turns green — "ready for review" — and the task gets a row of its
 own under the session in the sidebar, which opens the task and its review — see [Review](review.md). A session blocked on one
 task while another waits for review gets a second, green row for the finished one, so the work
-is never hidden behind the block. Approving from the review stays on the task.
+is never hidden behind the block. Approving from the review stays on the task. Work whose own
+report argues against approving it — a check that failed, a concern it says blocks, a low
+confidence — is not ready for review: its row is amber and says why, and its board card reads
+**caution**, until you send it back or approve over it.
 
 A subagent is linked to its task by its own name, which the prompt asks to be the task id;
 Claude keeps that as the subagent's description and Codex slugs it into the spawned thread's
