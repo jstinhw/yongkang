@@ -2,7 +2,7 @@ import SwiftUI
 import YongkangCore
 
 /// One agent: what it is on and where it has got to, over its terminal or the page it drew.
-/// Its page and what waits for your review are rows under it in the sidebar.
+/// Its Result, its plan and its demo are rows under it in the sidebar.
 package struct AgentPage<Content: View>: View {
     let session: CodeSession
     let project: Project
@@ -68,9 +68,9 @@ package struct AgentPage<Content: View>: View {
                 }
             }
             Spacer(minLength: 12)
-            // The sidebar row says "demo ready" and opens here, on the terminal; without this
-            // the demo's approval was only reachable from the board.
-            if row?.state == .needsYou, let block = row?.block {
+            // The sidebar row says "blocked" and opens here, on the terminal; without this the
+            // block was only reachable from the board. A demo has its own row under the session.
+            if row?.state == .needsYou, let block = row?.block, !block.isDemo {
                 Button(BoardInspector.open(block)) { openBlock(block) }
                     .buttonStyle(.consolePrimary)
             }

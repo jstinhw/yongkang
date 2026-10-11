@@ -52,8 +52,8 @@ anything that is not about one line collect under **Feedback** until you send th
 agent wrote can be selected and copied anywhere on the page, and a list — what changed, what
 holds, the bullets of a report — as one piece, as many lines as the drag covers. A diff line or
 a file path, where a click opens something, copies from its right-click menu. The same
-page opens from the agent's row in the sidebar and from its page's **Waiting for your review** — see
-[Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector opens
+page opens from the **Result** row under the session in the sidebar and from its project page's
+**Waiting for your review** — see [Shipping tasks](engineering-lead.md). The inspector opens
 on the branch the commit goes to, what it sits on top of and what it takes; then the task's
 brief and `Done when`, folded to how many are met and one click from the whole text; what the
 agent did outside the repo (network reads, downloads, writes — or nothing), what landing it

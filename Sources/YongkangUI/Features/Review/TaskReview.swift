@@ -32,6 +32,8 @@ package struct TaskReview: View {
     /// What was sent for one of the review's questions, or nil before anything was.
     let answered: (String) -> String?
     let answer: (_ question: String, _ answer: String) -> Void
+    /// False on a session's Result tab, where the session's header above already names the task.
+    let titled: Bool
 
     @State private var content: [NotebookContent.Section] = []
     /// Worked out from each file's diff once the page opens, so a data layer with SQL in
@@ -64,7 +66,8 @@ package struct TaskReview: View {
         requestChanges: @escaping () -> Void,
         discard: @escaping () -> Void,
         answered: @escaping (String) -> String? = { _ in nil },
-        answer: @escaping (String, String) -> Void = { _, _ in }
+        answer: @escaping (String, String) -> Void = { _, _ in },
+        titled: Bool = true
     ) {
         self.task = task
         self.summary = summary
@@ -83,6 +86,7 @@ package struct TaskReview: View {
         self.discard = discard
         self.answered = answered
         self.answer = answer
+        self.titled = titled
     }
 
     private var checklist: [NotebookContent.ChecklistItem] {
@@ -142,12 +146,14 @@ package struct TaskReview: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                NotebookStyle.statusRing(task.status, progress: 0, size: 20)
-                Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-                Spacer(minLength: 12)
-                inspectorToggle
+            if titled {
+                HStack(spacing: 10) {
+                    NotebookStyle.statusRing(task.status, progress: 0, size: 20)
+                    Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                    Spacer(minLength: 12)
+                    inspectorToggle
+                }
             }
             if let summary = task.review?.summary {
                 Text(summary).font(Typography.headline.weight(.regular)).foregroundStyle(Theme.prose)
@@ -168,6 +174,10 @@ package struct TaskReview: View {
                     .font(Typography.code).foregroundStyle(Theme.tx3)
                 Text("+\(task.added)").font(Typography.code).foregroundStyle(Theme.green)
                 Text("−\(task.removed)").font(Typography.code).foregroundStyle(Theme.red)
+                if !titled {
+                    Spacer(minLength: 12)
+                    inspectorToggle
+                }
             }
             // The glance says what the work reaches when there is a review.
             if !grouped.isEmpty && task.review == nil {

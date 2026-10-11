@@ -13,8 +13,8 @@ stack, uncommitted on the branch the session is on, and writes one `kind: demo` 
 built again; only a product that does not run in a browser gets a canvas instead. The rest of the session's tasks carry on
 meanwhile — one demo does not idle the others.
 
-The board shows that task as `demo ready` with `See demo`, which opens the two pages side
-by side: the screen as it stands, and the screen this task would give you. `Before` is
+The board shows that task as `demo ready` with `See demo`, and the sidebar lists a **Demo**
+row under the designer's session; either opens the two pages side by side: the screen as it stands, and the screen this task would give you. `Before` is
 empty and says so when the task adds a surface that does not exist yet. Every pass the
 designer made is a chip on the `Revisions` strip, so you can follow how the change got
 there rather than being handed one finished thing; a pass they kept serving opens again.

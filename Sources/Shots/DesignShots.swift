@@ -113,8 +113,8 @@ enum DesignShots {
                 }, name, into: directory)
         }
 
-        // A task under its session in Agents, as a click on its green row opens it: its review,
-        // with the session's other tasks beside it in the list. Fixture files rather than this
+        // A session's Result, as its row under the session in Agents opens it: the review of the
+        // task it finished, under the session's header. Fixture files rather than this
         // repo's, so the docs' copy of this shot changes only when the screen does.
         let result = finished(project, task: "pull-blockers", in: directory)
         let resultSummary = ChangeSummary.of(
@@ -125,25 +125,32 @@ enum DesignShots {
                     untracked: false),
                 FileChange(path: "Sources/YongkangCore/Git/GitClient.swift", added: 12, removed: 3, untracked: false),
             ])
-        func review(_ task: SummaryTask) -> TaskReview {
+        func review(_ task: SummaryTask, titled: Bool = true) -> TaskReview {
             TaskReview(
                 task: task, summary: resultSummary, directory: result.directory, cards: result.cards,
                 team: Team.defaults, branch: "feature/agent-tree", head: "51b0740 Show all agents",
                 draft: .constant(ReviewDraft()),
                 blocks: result.blocks.filter { $0.waiting && !$0.isProposal && $0.task == task.id },
                 openFile: { _ in }, openBlock: { _ in }, startBlock: { _ in },
-                approve: { _ in nil }, requestChanges: {}, discard: {})
+                approve: { _ in nil }, requestChanges: {}, discard: {}, titled: titled)
         }
         // The narrow one also hovers a rail item, whose label draws over the list column.
-        if let waiting = resultSummary.tasks.first(where: { $0.id == "pull-blockers" }) {
+        if let waiting = resultSummary.tasks.first(where: { $0.id == "pull-blockers" }),
+            let lead = result.sessions.first(where: { $0.taskIDs.contains(waiting.id) })
+        {
+            let row = result.agentRows(summary: resultSummary).first { $0.session?.id == lead.id }
             for (name, width, hovering) in [
                 ("agents", CGFloat(1440), nil), ("agents-narrow", 1180, ConsoleSection.board),
             ] {
                 write(
                     console(
                         result, section: .agents, summary: resultSummary, hovering: hovering,
-                        selection: .reviewTask(waiting.id)
-                    ) { review(waiting) }, name, into: directory, width: width)
+                        selection: .session(lead.id, pane: .page)
+                    ) {
+                        AgentPage(
+                            session: lead, project: result, row: row, openBlock: { _ in }
+                        ) { review(waiting, titled: waiting.id != (row?.task ?? lead.taskIDs.first)) }
+                    }, name, into: directory, width: width)
             }
         }
 

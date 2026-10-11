@@ -78,10 +78,12 @@ extension RootView {
             .id(card.id)
         } else if let watched = model.selectedAgent(in: project) {
             let pane = model.selection?.pane(of: watched.id) ?? .session
+            // What it left for you, its Result row's page: its tasks' reviews, or else what it drew.
+            let results = project.summary.results(of: watched)
+            let row = project.value.agentRows(summary: project.summary, asking: model.attention)
+                .first { $0.session?.id == watched.id && $0.isRunningSession }
             AgentPage(
-                session: watched, project: project.value,
-                row: project.value.agentRows(summary: project.summary, asking: model.attention)
-                    .first { $0.route == .session(watched.id) },
+                session: watched, project: project.value, row: row,
                 openBlock: { model.selection = .block($0.id) },
                 content: {
                     // One stack, or AgentPage would give the banner a flexible share of the height.
@@ -105,15 +107,14 @@ extension RootView {
                                 terminal(for: watched)
                             }
                         case .page:
-                            // A work session's report is its tasks' reviews; a plan, or a page
-                            // from before reviews, is drawn as the session wrote it.
-                            let reviewed = project.summary.tasks.filter {
-                                watched.taskIDs.contains($0.id) && $0.review != nil
-                            }
-                            if reviewed.isEmpty {
+                            if results.isEmpty {
                                 SessionPage(session: watched.id, notebookRoot: project.notebookRoot)
                             } else {
-                                SessionReviews(tasks: reviewed) { taskReview($0, in: project) }
+                                // Untitled under the header that names it; a session's other
+                                // task, finished while it is on this one, says which it is.
+                                SessionReviews(tasks: results) {
+                                    taskReview($0, in: project, titled: $0.id != (row?.task ?? watched.taskIDs.first))
+                                }
                             }
                         }
                         if project.requestOpen && project.request?.session == watched.id {
@@ -349,7 +350,7 @@ extension RootView {
     }
 
     /// One task's review, opened from the task's row under its session.
-    private func taskReview(_ task: SummaryTask, in project: ProjectModel) -> some View {
+    private func taskReview(_ task: SummaryTask, in project: ProjectModel, titled: Bool = true) -> some View {
         TaskReview(
             task: task, summary: project.summary,
             directory: project.directory, cards: project.cards, team: project.snapshot.team,
@@ -362,7 +363,8 @@ extension RootView {
             requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) },
             discard: { model.discard(task, in: project) },
             answered: { project.answered($0, on: task.id) },
-            answer: { model.answer($0, with: $1, on: task, in: project, agent: agent) }
+            answer: { model.answer($0, with: $1, on: task, in: project, agent: agent) },
+            titled: titled
         )
     }
 

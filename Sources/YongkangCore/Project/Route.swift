@@ -86,10 +86,12 @@ package enum Route: Hashable, Sendable, Codable {
     }
 }
 
-/// The available agent panes. A session shows its terminal; the page it drew and its tasks'
-/// reviews are each a row under it in the sidebar.
+/// The available agent panes. Clicking a session shows its terminal; what it left you — its
+/// Result, or the plan it drew — is a row of its own under it in the sidebar.
 package enum AgentPane: String, Sendable, Codable {
     case session = "Session"
-    /// What the session drew for the user, from `NotebookFormat.page(of:in:)`.
+    /// What the session left for the user: its Result (`ChangeSummary.results(of:)`), or else
+    /// the plan or page it drew (`NotebookFormat.drawnPage(of:in:)`). The raw value is stored
+    /// in a restored route, so it keeps its old name.
     case page = "Page"
 }

@@ -1,11 +1,11 @@
 import SwiftUI
 import YongkangCore
 
-/// A work session's Page: the review of each task it did — the same page the task's own row
-/// opens, so the two cannot drift apart. A session that did several picks between them along
+/// A work session's Result: the review of each task it did — the same page a task's review
+/// opens on everywhere else, so the two cannot drift apart. A session that did several picks between them along
 /// the top, in the order it was handed them.
 struct SessionReviews<Review: View>: View {
-    /// Never empty: a session with nothing reviewed shows the page it drew instead.
+    /// Never empty: a session with no result shows the page it drew instead.
     let tasks: [SummaryTask]
     @ViewBuilder let review: (SummaryTask) -> Review
 

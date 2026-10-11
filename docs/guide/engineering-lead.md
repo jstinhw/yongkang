@@ -1,6 +1,6 @@
 # Shipping tasks
 
-![A task's review, opened from its row under its session in Agents](../images/agents.png)
+![A session's Result: the review of the task it finished, opened from its row under the session in Agents](../images/agents.png)
 
 Every Assign button has an agent picker beside it — Claude Code, Codex, Grok or Agy —
 starting on the toolbar's agent. Picking one there is for that assignment only; the
@@ -57,8 +57,8 @@ then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a 
 Review reads and what approving a task commits beside its code. `## Review` is JSON — a
 one-sentence summary, a confidence, the checks it ran, the spots a person should read, its
 questions and concerns — and the app draws the task's review from it, which also opens from
-the **Page** row under the session in the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
-`.notebook/pages/<session-id>.json` instead, and the app draws it on the same tab: what you
+the **Result** row under the session in the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
+`.notebook/pages/<session-id>.json` instead, and the app draws it on the **Plan** row under theirs: what you
 get, what needs you, and the tasks as a graph you drag, zoom, and click to trace what a task
 waits on and what waits on it.
 
@@ -72,10 +72,12 @@ its subagents are on, and the button that acts on it. Work is started from the b
 on it**: the session it was assigned to, and any subagent working it.
 
 Clicking a session opens its live terminal, under what it is doing and the task it is on. Once a task is done and its files wait for your
-approval, the session's row turns green — "ready for review" — and the task gets a row of its
-own under the session in the sidebar, which opens the task and its review — see [Review](review.md). A session blocked on one
-task while another waits for review gets a second, green row for the finished one, so the work
-is never hidden behind the block. Approving from the review stays on the task. Work whose own
+approval, the session's row turns green — "ready for review" — and the **Result** row under it
+turns green too, counting the lines, and opens the task's review — see [Review](review.md). The
+session's own row still opens its terminal. A session blocked on one task while another waits
+for review keeps its row for the block and its green **Result** row for the finished one, so the
+work is never hidden behind the block. A designer's demo waiting for your approval is a
+**Demo** row under its session. Approving from the review stays on the task. Work whose own
 report argues against approving it — a check that failed, a concern it says blocks, a low
 confidence — is not ready for review: its row is amber and says why, and its board card reads
 **caution**, until you send it back or approve over it.

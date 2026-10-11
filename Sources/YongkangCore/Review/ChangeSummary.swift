@@ -125,6 +125,13 @@ package struct ChangeSummary: Equatable, Sendable {
         waiting.filter { session.taskIDs.contains($0.id) }
     }
 
+    /// What one session has to show for its tasks — finished and waiting, or reviewed: its
+    /// Result, a row under it in the sidebar that opens on their reviews.
+    package func results(of session: CodeSession) -> [SummaryTask] {
+        let waiting = waitingIDs
+        return tasks.filter { session.taskIDs.contains($0.id) && ($0.review != nil || waiting.contains($0.id)) }
+    }
+
     /// Another task that changed the same file, which approving this one would carry along.
     package func sharing(_ path: String, besides task: SummaryTask) -> SummaryTask? {
         tasks.first { $0.id != task.id && !$0.commitPaths.isEmpty && $0.files.contains { $0.path == path } }

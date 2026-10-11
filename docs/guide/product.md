@@ -26,9 +26,9 @@ the request serves it, otherwise a new milestone, with what waits on what decide
 There is no proposal to approve first; the board stays on screen, and what Product filed is
 marked `new` under a line saying what landed. `Ask for changes` opens the box again and sends
 what you type to the same Product session; `Open session` shows its transcript. Once Product
-has stopped, the same line sits on top of its session too — its transcript and the plan on its
-Page — so you can decide where you read it. `Approve and commit` commits the uncommitted
-roadmap, milestone, task and memory files, and the session's own Page and the messages it
+has stopped, the same line sits on top of its session too — its transcript and the plan on
+the **Plan** row under it — so you can decide where you read it. `Approve and commit` commits the uncommitted
+roadmap, milestone, task and memory files, and the session's own plan and the messages it
 sent other projects — never the file of a task handed to an agent, which goes in with that
 task's review — then closes the request and the Product session.
 What is uncommitted is read from git, so a relaunch brings an unapproved request back, and so

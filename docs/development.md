@@ -194,7 +194,8 @@ for.
     - The cards, in order: **Needs you** (the agent's questions and the spots it wants read,
       when it has any), **What changed**, **Why it's safe**, **Concerns it raised** (when it
       raised any), **Code changes**, **Feedback**. Every spot and every file is folded.
-    - The session's **Page** row under it in the sidebar opens the same page.
+    - The green **Result** row under the session in the sidebar opens the same page; the
+      session's own row still opens its terminal.
     - A run record without a `## Review` shows the older cards instead: **The task**,
       **What changed**, **Self-review**. *(Agent behaviour: a session started before this
       change writes none.)*
