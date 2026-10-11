@@ -32,10 +32,10 @@ Then the cards, most urgent first:
   filled) or in your own words; the answer is typed into the session holding the task, with
   none running a new one starts with it, and the card says **Sent**. Then the spots: the few
   places the agent says a person should read because no check covers them, each with why,
-  unfolding its own lines of the diff, where a line can be commented on.
+  and an arrow unfolding its own lines of the diff, where a line can be commented on.
 - **What changed** — outcomes you can see or check, with the agent's full report
   (`## Result`) one click below.
-- **Why it's safe** — every check it ran, what it proved and, one click away, the command and
+- **Why it's safe** — every check it ran, what it proved and, behind its arrow, the command and
   what it printed; one it could not run is listed in amber rather than left out. Then what
   keeps the work safe whatever the code does.
 - **Concerns it raised** — each saying whether it should be settled before approving.
@@ -49,8 +49,9 @@ Then the cards, most urgent first:
 
 Click any line of an unfolded diff to leave a comment on it; comments and a note for
 anything that is not about one line collect under **Feedback** until you send them. What the
-agent wrote can be selected and copied anywhere on the page; a diff line, a file path, a check
-or a spot — where a click already does something — copies from its right-click menu. The same
+agent wrote can be selected and copied anywhere on the page, and a list — what changed, what
+holds, the bullets of a report — as one piece, as many lines as the drag covers. A diff line or
+a file path, where a click opens something, copies from its right-click menu. The same
 page opens from the agent's row in the sidebar and from its page's **Waiting for your review** — see
 [Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector opens
 on the branch the commit goes to, what it sits on top of and what it takes; then the task's

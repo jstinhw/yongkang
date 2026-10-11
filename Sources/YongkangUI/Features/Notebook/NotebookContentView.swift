@@ -49,6 +49,7 @@ struct NotebookContentView: View {
         switch block {
         case .paragraph(let text):
             resolved(text).font(Typography.body).lineSpacing(3).foregroundStyle(Theme.prose)
+                .textSelection(.enabled)
         case .checklist(let items):
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
@@ -58,32 +59,15 @@ struct NotebookContentView: View {
                             .foregroundStyle(item.done ? Theme.green : Theme.tx4)
                         resolved(item.text)
                             .foregroundStyle(item.done ? Theme.tx2 : Theme.prose)
+                            .textSelection(.enabled)
                     }
                     .font(Typography.body)
                 }
             }
         case .list(let items):
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    HStack(alignment: .top, spacing: 6) {
-                        Text("•").foregroundStyle(Theme.tx3)
-                        resolved(item).foregroundStyle(Theme.prose)
-                    }
-                    .font(Typography.body)
-                }
-            }
+            lines(items) { _ in Text("•  ").foregroundStyle(Theme.tx3) }
         case .numberedList(let items):
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                    HStack(alignment: .top, spacing: 6) {
-                        Text("\(index + 1).")
-                            .font(Typography.code)
-                            .foregroundStyle(Theme.tx3)
-                        resolved(item).foregroundStyle(Theme.prose)
-                    }
-                    .font(Typography.body)
-                }
-            }
+            lines(items) { Text("\($0 + 1).  ").font(Typography.code).foregroundStyle(Theme.tx3) }
         case .code(let code):
             ScrollView(.horizontal) {
                 Text(code)
@@ -95,6 +79,19 @@ struct NotebookContentView: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panel))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.wellLine, lineWidth: 1))
         }
+    }
+
+    /// A list as one text, its marker leading each item. SwiftUI selects within a single `Text`
+    /// only, so a list drawn a row per item could be copied an item at a time; as one, a drag
+    /// takes as many items as it covers. A wrapped item no longer hangs under its own first line.
+    private func lines(_ items: [String], marker: (Int) -> Text) -> some View {
+        items.enumerated().reduce(Text("")) { text, item in
+            text + Text(item.offset == 0 ? "" : "\n") + marker(item.offset)
+                + resolved(item.element).foregroundStyle(Theme.prose)
+        }
+        .font(Typography.body).lineSpacing(5)
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// `text` with every `[[id]]` swapped for the linked card's title, and inline

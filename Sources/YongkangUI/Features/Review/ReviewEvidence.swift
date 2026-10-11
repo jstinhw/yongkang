@@ -12,15 +12,15 @@ struct ReviewChanged<Report: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("What changed")
-            ForEach(changed, id: \.self) { outcome in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Circle().fill(Theme.accent).frame(width: 6, height: 6).alignmentGuide(.firstTextBaseline) {
-                        $0[.bottom]
-                    }
-                    Text(outcome).font(Typography.body).foregroundStyle(Theme.tx)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+            // One text, so a drag copies as many outcomes as it covers, not one at a time.
+            if !changed.isEmpty {
+                changed.enumerated().reduce(Text("")) { text, outcome in
+                    text + Text(outcome.offset == 0 ? "" : "\n") + Text("•  ").foregroundStyle(Theme.accent)
+                        + Text(outcome.element).foregroundStyle(Theme.tx)
                 }
+                .font(Typography.body).lineSpacing(7)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             }
             Button(showing ? "Hide the agent’s report" : "Read the agent’s full report") { showing.toggle() }
                 .buttonStyle(.plain).font(Typography.body).foregroundStyle(Theme.accent)
@@ -42,7 +42,7 @@ struct ReviewSafety: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionLabel("Why it’s safe", trailing: checks.isEmpty ? nil : "click a check for its output")
+            SectionLabel("Why it’s safe", trailing: checks.isEmpty ? nil : "open a check for its output")
             if checks.isEmpty {
                 Text("The agent ran no checks — nobody but you has checked this.")
                     .font(Typography.body).foregroundStyle(Theme.amber)
@@ -60,15 +60,13 @@ struct ReviewSafety: View {
             if !holds.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Holds by construction").font(Typography.body(.semibold)).foregroundStyle(Theme.tx2)
-                    ForEach(holds, id: \.self) { held in
-                        Label {
-                            Text(held).font(Typography.body).foregroundStyle(Theme.prose)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(.enabled)
-                        } icon: {
-                            Image(systemName: "checkmark.shield").foregroundStyle(Theme.green)
-                        }
+                    holds.enumerated().reduce(Text("")) { text, held in
+                        text + Text(held.offset == 0 ? "" : "\n") + Text("✓  ").foregroundStyle(Theme.green)
+                            + Text(held.element).foregroundStyle(Theme.prose)
                     }
+                    .font(Typography.body).lineSpacing(5)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
                 }
             }
         }
@@ -76,37 +74,43 @@ struct ReviewSafety: View {
         .cardSurface(padding: 15)
     }
 
+    /// The claim and its result are text to select, so only the chevron unfolds the output: a
+    /// row that was one button could not have its words copied.
     private func checkRow(_ check: WorkReview.Check, _ index: Int) -> some View {
         let open = unfolded.contains(index)
         return VStack(alignment: .leading, spacing: 0) {
-            Button {
-                if open { unfolded.remove(index) } else { unfolded.insert(index) }
-            } label: {
-                HStack(spacing: 11) {
-                    Image(systemName: check.status.symbol)
-                        .font(Typography.caption(.bold)).foregroundStyle(check.status.tint)
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(check.status.tint.opacity(0.12)))
-                    Text(check.claim).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
-                    if let result = check.result {
-                        Text(result).font(Typography.body)
-                            .foregroundStyle(check.status == .passed ? Theme.tx2 : check.status.tint)
-                            .lineLimit(open ? nil : 1)
-                    }
-                    Spacer(minLength: 8)
-                    if check.command != nil {
+            HStack(spacing: 11) {
+                Image(systemName: check.status.symbol)
+                    .font(Typography.caption(.bold)).foregroundStyle(check.status.tint)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(check.status.tint.opacity(0.12)))
+                    .accessibilityLabel(check.status.spoken)
+                Text(check.claim).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                    .textSelection(.enabled)
+                if let result = check.result {
+                    Text(result).font(Typography.body)
+                        .foregroundStyle(check.status == .passed ? Theme.tx2 : check.status.tint)
+                        .lineLimit(open ? nil : 1)
+                        .textSelection(.enabled)
+                }
+                Spacer(minLength: 8)
+                if check.command != nil {
+                    Button {
+                        if open { unfolded.remove(index) } else { unfolded.insert(index) }
+                    } label: {
                         Image(systemName: open ? "chevron.down" : "chevron.right")
                             .font(Typography.caption(.semibold)).foregroundStyle(Theme.tx3)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .help(open ? "Hide the output" : "Show what it ran and printed")
+                    .accessibilityLabel(
+                        open ? "Hide the output of \(check.claim)" : "Show the output of \(check.claim)")
                 }
-                .padding(.horizontal, 12)
-                .frame(minHeight: 36)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .disabled(check.command == nil)
-            .copyable([check.claim, check.result, check.command].compactMap { $0 }.joined(separator: "\n"))
-            .accessibilityLabel("\(check.claim), \(check.status.spoken). \(check.result ?? "")")
+            .padding(.horizontal, 12)
+            .frame(minHeight: 36)
             if open, let command = check.command {
                 Text(command).font(Typography.code).foregroundStyle(Theme.prose)
                     .textSelection(.enabled)

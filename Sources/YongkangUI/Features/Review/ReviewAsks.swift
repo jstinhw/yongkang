@@ -105,35 +105,40 @@ struct ReviewAsks: View {
 
     // MARK: - Spots
 
+    /// The path and the reason are text to select, so only the chevron unfolds the excerpt.
     private func spotRow(_ spot: WorkReview.Spot, _ index: Int) -> some View {
         let unfolded = open == index
         return VStack(alignment: .leading, spacing: 0) {
-            Button {
-                open = unfolded ? nil : index
-            } label: {
-                HStack(alignment: .top, spacing: 11) {
-                    Text("\(index + 1)").font(Typography.caption(.bold)).foregroundStyle(Theme.amber)
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(Theme.amber.opacity(0.12)))
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(spot.path).font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
-                                .lineLimit(1).truncationMode(.head)
-                            Text(place(spot)).font(Typography.mono).foregroundStyle(Theme.tx2)
-                        }
-                        Text(spot.why).font(Typography.body).foregroundStyle(Theme.prose)
-                            .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 11) {
+                Text("\(index + 1)").font(Typography.caption(.bold)).foregroundStyle(Theme.amber)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(Theme.amber.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(spot.path).font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
+                            .lineLimit(1).truncationMode(.head)
+                            .textSelection(.enabled)
+                        Text(place(spot)).font(Typography.mono).foregroundStyle(Theme.tx2)
+                            .textSelection(.enabled)
                     }
-                    Spacer(minLength: 8)
-                    Image(systemName: unfolded ? "chevron.down" : "chevron.right")
-                        .font(Typography.caption(.semibold)).foregroundStyle(Theme.tx3).padding(.top, 3)
+                    Text(spot.why).font(Typography.body).foregroundStyle(Theme.prose)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
-                .padding(12)
-                .contentShape(Rectangle())
+                Spacer(minLength: 8)
+                Button {
+                    open = unfolded ? nil : index
+                } label: {
+                    Image(systemName: unfolded ? "chevron.down" : "chevron.right")
+                        .font(Typography.caption(.semibold)).foregroundStyle(Theme.tx3)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(unfolded ? "Hide the lines" : "Show the lines")
+                .accessibilityLabel("Spot \(index + 1), \(spot.path), \(unfolded ? "unfolded" : "folded")")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Spot \(index + 1), \(spot.path), \(unfolded ? "unfolded" : "folded")")
-            .copyable("\(spot.path) \(place(spot))\n\(spot.why)")
+            .padding(12)
             if unfolded { excerpt(spot) }
         }
         .background(Theme.well)
