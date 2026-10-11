@@ -118,29 +118,44 @@ import YongkangCore
     // MARK: - Typing
 
     private func typeQueued(_ id: UUID) {
-        guard let entry = entries[id], !entry.queued.isEmpty else { return }
+        guard let entry = entries[id], !entry.queued.isEmpty, !entry.typing else { return }
         let view = entry.view
         guard view.process.running else {
             entry.queued = []  // Nobody is left to read it.
             return
         }
         guard !entry.showsChild, !view.hasDraft, view.attentionReason == nil else { return }
-        for text in entry.queued { type(Self.pasted(text), into: view) }
+        let texts = entry.queued
         entry.queued = []
+        // One message at a time, so a second paste cannot land between the first and its Enter.
+        entry.typing = true
+        Task {
+            for text in texts { await submit(text, into: view) }
+            entry.typing = false
+            typeQueued(id)
+        }
     }
 
-    /// `text` as a paste followed by Enter. Its newlines and tabs stay; every other control
-    /// character goes, ESC first: what another project's agent wrote is typed here, and one
-    /// could otherwise end the paste early and press keys — answer a permission question, or
-    /// run a `!` command.
+    /// Types `text` as a paste, then presses Enter in a write of its own a moment later.
     ///
-    /// ponytail: bracketed paste so embedded newlines land as one message instead of
-    /// submitting early, then a real Enter to send it — exactly what a paste followed
-    /// by Return looks like to the process. Untested against Claude Code's own reader;
-    /// if it does not honor bracketed paste this degrades to that same early-submit.
+    /// Claude Code keeps gathering a paste for a moment after it ends, and an Enter that
+    /// arrives inside that moment becomes part of it: the message sat in its prompt, unsent.
+    /// ponytail: 250 ms clears Claude Code's paste window with room to spare. A CLI that still
+    /// shows a typed message unsent needs a longer pause here.
+    private func submit(_ text: String, into view: AttentionTerminalView) async {
+        type(Self.pasted(text), into: view)
+        try? await Task.sleep(for: .milliseconds(250))
+        guard view.process.running else { return }
+        type("\r", into: view)
+    }
+
+    /// `text` as a bracketed paste, so its newlines land as one message instead of submitting
+    /// early. Its newlines and tabs stay; every other control character goes, ESC first: what
+    /// another project's agent wrote is typed here, and one could otherwise end the paste early
+    /// and press keys — answer a permission question, or run a `!` command.
     nonisolated static func pasted(_ text: String) -> String {
         let kept = text.unicodeScalars.filter { $0 == "\n" || $0 == "\t" || $0.properties.generalCategory != .control }
-        return "\u{1b}[200~" + String(String.UnicodeScalarView(kept)) + "\u{1b}[201~\r"
+        return "\u{1b}[200~" + String(String.UnicodeScalarView(kept)) + "\u{1b}[201~"
     }
 
     private func type(_ text: String, into view: AttentionTerminalView) {
@@ -225,7 +240,7 @@ import YongkangCore
             guard view.process.running else { break }
             guard view.attentionReason == nil else { continue }
             guard typedCommand else {
-                type(Self.pasted(childView.command), into: view)
+                await submit(childView.command, into: view)
                 typedCommand = true
                 continue
             }
@@ -286,6 +301,8 @@ import YongkangCore
     var child: String?
     /// While a child's view may be up, a message would reach the child instead, so it waits.
     var showsChild = false
+    /// A message is between its paste and its Enter.
+    var typing = false
 
     init(view: AttentionTerminalView, label: String, agent: AgentKind?, folder: URL?) {
         self.view = view

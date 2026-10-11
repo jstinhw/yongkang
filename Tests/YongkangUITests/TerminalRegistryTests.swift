@@ -238,11 +238,29 @@ struct TerminalRegistryTests {
         #expect(lines(in: log) == ["ask", "1", paste("hello"), paste("bye")], "each message reaches the child once")
     }
 
-    // Agents started in one folder at once each ask whether to trust it. The user answers one.
+    // Claude Code takes an Enter that arrives with the paste as part of it, and sends nothing.
+    @Test func aMessagesEnterArrivesInAReadOfItsOwn() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let log = tmp.appendingPathComponent("reads")
+        let terminals = registry()
+        // Raw, so each read returns whatever has arrived: one line of hex per read.
+        let agent = session(
+            "stty raw -echo; while :; do dd bs=65536 count=1 2>/dev/null | od -An -tx1 | tr -d ' \\n' >> '\(log.path)'; echo >> '\(log.path)'; done"
+        )
+        terminals.start(agent)
+        defer { terminals.terminate(agent.id) }
+        try await Task.sleep(for: .milliseconds(300))  // Past `stty`, or the PTY is still cooked.
+
+        terminals.send("hi", to: agent.id)
+        #expect(try await eventually { lines(in: log).count == 2 })
+        #expect(lines(in: log) == ["1b5b3230307e68691b5b3230317e", "0d"], "the paste, then Enter alone")
+    }
+
     @Test func aMessageCannotEndItsPasteOrPressAKey() {
         #expect(
             TerminalRegistry.pasted("Hi\u{1b}[201~\r!rm -rf ~\u{3}\u{9b}\n\tok")
-                == "\u{1b}[200~Hi[201~!rm -rf ~\n\tok\u{1b}[201~\r",
+                == "\u{1b}[200~Hi[201~!rm -rf ~\n\tok\u{1b}[201~",
             "only its newlines and tabs get through, so it stays one paste")
     }
 
