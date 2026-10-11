@@ -2,13 +2,13 @@
 id: history-audit
 kind: task
 title: "Audit history before public"
-status: todo
+status: done
 depends_on: []
 designer: ""
 project: open-source-release
 owner: ""
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-11
 external: {}
 ---
 
@@ -17,15 +17,15 @@ every tracked file for what should not be public, and clear it before [[go-publi
 
 ## Done when
 
-- [ ] A secret scanner (gitleaks or trufflehog) has run over the full history of every branch
+- [x] A secret scanner (gitleaks or trufflehog) has run over the full history of every branch
       and tag, and its findings are each resolved or explained as false positives in the run
       report.
-- [ ] Tracked files hold no machine-local path (`/Users/…`), no email but the commit
+- [x] Tracked files hold no machine-local path (`/Users/…`), no email but the commit
       authors', and nothing from a real user's transcript: checked across `.notebook/`
       (runs, pages, `usage.json`, team), `Tests/**/Fixtures/`, `docs/` and `Skills/`.
-- [ ] Whatever was found is removed or rewritten in a commit on the working tree, and the run
+- [x] Whatever was found is removed or rewritten in a commit on the working tree, and the run
       report lists each finding and what was done.
-- [ ] `make check` passes.
+- [x] `make check` passes.
 
 ## Context
 
