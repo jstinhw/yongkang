@@ -2,13 +2,13 @@
 id: release-provenance
 kind: task
 title: "Checksum and provenance"
-status: todo
+status: done
 depends_on: [releases-in-main-repo]
 designer: ""
 project: open-source-release
 owner: ""
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-11
 external: {}
 ---
 
@@ -17,13 +17,13 @@ checksum beside it, and a GitHub build-provenance attestation.
 
 ## Done when
 
-- [ ] Each release carries `Yongkang.dmg.sha256` (`shasum -a 256` format) beside the DMG.
-- [ ] The workflow attests the DMG with `actions/attest-build-provenance`, pinned by commit
+- [x] Each release carries `Yongkang.dmg.sha256` (`shasum -a 256` format) beside the DMG.
+- [x] The workflow attests the DMG with `actions/attest-build-provenance`, pinned by commit
       like the other actions, with only the `id-token` and `attestations` permissions it needs.
-- [ ] The release notes end with how to verify: `shasum -a 256 -c Yongkang.dmg.sha256`, and
+- [x] The release notes end with how to verify: `shasum -a 256 -c Yongkang.dmg.sha256`, and
       `gh attestation verify Yongkang.dmg --repo jstinhw/yongkang`.
-- [ ] `docs/release.md` says what is attested and how a user checks it.
-- [ ] The workflow passes `actionlint`, and `make check` passes.
+- [x] `docs/release.md` says what is attested and how a user checks it.
+- [x] The workflow passes `actionlint`, and `make check` passes.
 
 ## Context
 

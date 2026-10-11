@@ -13,27 +13,29 @@ permissions:
 # Two tags at once would race for "latest", which is what the feed and the download link follow.
 concurrency: release
 
+# Three jobs, so each token exists only where it is used. `build` runs `make check`, the build
+# and every package's code, with the read-only token above. `attest` alone can mint the OIDC
+# token Sigstore signs with, and runs nothing but GitHub's own pinned actions. `publish` alone
+# can write a release. The files go from one to the next as this run's artifact.
 jobs:
-  release:
+  build:
     runs-on: macos-26
     timeout-minutes: 60
-    permissions:
-      contents: write # the release itself, and nothing else
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # the build number is the commit count
-          # Off disk, so `make check` and the build never hold a token that can write here:
-          # only Publish is handed it.
+          # Off disk, so nothing `make check` or the build runs finds even this read-only token.
           persist-credentials: false
 
       # First, so a tag with nothing to say fails in seconds rather than after notarizing.
       - name: Notes from CHANGELOG.md
         run: |
           version=${GITHUB_REF_NAME#v}
+          mkdir -p .build/release
           awk -v v="$version" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## / { on = 0 } on' \
-            CHANGELOG.md > "$RUNNER_TEMP/notes.md"
-          grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" \
+            CHANGELOG.md > .build/release/notes.md
+          grep -q '[^[:space:]]' .build/release/notes.md \
             || { echo "::error::CHANGELOG.md has no notes under ## [$version]"; exit 1; }
 
       - run: make check
@@ -98,7 +100,7 @@ jobs:
                 <sparkle:shortVersionString>$(read_plist CFBundleShortVersionString)</sparkle:shortVersionString>
                 <sparkle:minimumSystemVersion>$(read_plist LSMinimumSystemVersion)</sparkle:minimumSystemVersion>
                 <description sparkle:format="markdown"><![CDATA[
-          $(cat "$RUNNER_TEMP/notes.md")
+          $(cat .build/release/notes.md)
                 ]]></description>
                 <enclosure url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Yongkang.dmg"
                   type="application/octet-stream" $signature/>
@@ -114,12 +116,67 @@ jobs:
           ditto -c -k --keepParent .build/xcode/Yongkang.xcarchive/dSYMs \
             ".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip"
 
+      # What lets anyone check a download is the DMG this run built: its SHA-256 beside it, and a
+      # build-provenance attestation of the same bytes (the attest job). Both come after the DMG
+      # is notarized and stapled, so they cover the file users get. The website's download check
+      # reads `Yongkang.dmg.sha256` by that name.
+      - name: Checksum
+        working-directory: .build/release
+        run: shasum -a 256 Yongkang.dmg > Yongkang.dmg.sha256
+
+      # The DMG, its checksum, the appcast, the dSYMs and the notes. An artifact can't be
+      # replaced once uploaded, and download-artifact refuses one whose digest has changed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: .build/release
+          if-no-files-found: error
+
+  attest:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # the OIDC token Sigstore signs the attestation with
+      attestations: write # where GitHub keeps the attestation
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: Yongkang.dmg
+
+  # After attest, so a release never goes out without its attestation.
+  publish:
+    needs: attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release itself
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+
       # One release, published at once: never a draft or a prerelease, because `latest` skips
-      # those, and `latest` is what SUFeedURL and the website's download link read.
+      # those, and `latest` is what SUFeedURL and the website's download link read. How to verify
+      # goes on the release's notes only: the update window's are the appcast's, and Sparkle
+      # checks its own signature.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat notes.md - > "$RUNNER_TEMP/release-notes.md" <<MD
+
+          ### Verify the download
+
+          With \`Yongkang.dmg.sha256\` in the same folder as the DMG:
+
+              shasum -a 256 -c Yongkang.dmg.sha256
+              gh attestation verify Yongkang.dmg --repo $GITHUB_REPOSITORY
+          MD
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-            .build/release/Yongkang.dmg .build/release/appcast.xml ".build/release/Yongkang-$GITHUB_REF_NAME-dSYMs.zip" \
-            --title "Yongkang ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md"
+            Yongkang.dmg Yongkang.dmg.sha256 appcast.xml "Yongkang-$GITHUB_REF_NAME-dSYMs.zip" \
+            --title "Yongkang ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/release-notes.md"

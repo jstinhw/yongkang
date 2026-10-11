@@ -35,11 +35,21 @@ git tag v1.4.0 && git push origin v1.4.0  # the release workflow takes it from h
 4. Runs `make release`: archive, export for Developer ID, notarize and staple the app, put it in
    a DMG, sign the DMG, then notarize and staple that too.
 5. Signs the DMG for Sparkle (EdDSA) and writes `appcast.xml` with one item: this release.
-6. Publishes the DMG, the appcast and the dSYMs (for symbolicating crash reports) as one release
-   of **`jstinhw/yongkang`**, with the workflow's own `GITHUB_TOKEN`. It is never a draft or a
+6. Writes `Yongkang.dmg.sha256` and attests the DMG's build provenance (see
+   [Checking a download](#checking-a-download)), both of the final, stapled DMG.
+7. Publishes the DMG, its checksum, the appcast and the dSYMs (for symbolicating crash reports)
+   as one release of **`jstinhw/yongkang`**, with the workflow's own `GITHUB_TOKEN`. Its notes
+   are the changelog's, ending with how to verify the download. It is never a draft or a
    prerelease: `latest`, which the feed and the download link follow, skips those.
 
-A run that fails before the Publish step publishes nothing. Fix it, delete the tag
+That is three jobs, so each token exists only where it is used. `build` runs steps 1 to 5 and the
+checksum with a read-only token: no code it runs, whether `make check`, a package or a build
+plugin, can write to the repo or get an OIDC token in its name. `attest` is the only job that
+can mint that token, and it runs nothing but GitHub's own pinned actions on the built DMG.
+`publish` alone can write a release, and starts only once the attestation exists. The files pass
+between them as the run's artifact, which can't be replaced once uploaded.
+
+A run that fails before the publish job publishes nothing. Fix it, delete the tag
 (`git push --delete origin v1.4.0`, `git tag -d v1.4.0`), and tag again. A notarization that comes back Invalid prints a submission
 id; `xcrun notarytool log <id> --keychain-profile yongkang` says which file failed and why.
 
@@ -62,6 +72,30 @@ waiting for a runner.
 - **The feed** is `https://github.com/jstinhw/yongkang/releases/latest/download/appcast.xml`,
   set as `SUFeedURL` in `App/Config/Info.plist`. Every shipped copy keeps polling that URL, so
   moving the feed means one release that still lives at the old URL but names the new one.
+
+### Checking a download
+
+Two things say a `Yongkang.dmg` is the one this repo's release workflow built, both made from
+the DMG after it is signed, notarized and stapled, the exact bytes the release serves:
+
+- **`Yongkang.dmg.sha256`**, beside the DMG on every release, in `shasum -a 256` format. It
+  catches a damaged or swapped download, though only as far as you trust the release page it
+  came from. The website's download check reads it by this name.
+- **A build-provenance attestation** (`actions/attest-build-provenance`): a statement signed
+  through Sigstore with the run's GitHub identity, saying this DMG's SHA-256 came out of
+  `.github/workflows/release.yml` in `jstinhw/yongkang`, at the tag's commit. GitHub keeps it
+  on the repo's **Attestations** page. Only the DMG is attested: the appcast and the dSYMs are
+  not what anyone installs, and Sparkle checks every update against `SUPublicEDKey` anyway.
+
+Every release's notes end with the two commands, run in the folder holding both files:
+
+```sh
+shasum -a 256 -c Yongkang.dmg.sha256                         # Yongkang.dmg: OK
+gh attestation verify Yongkang.dmg --repo jstinhw/yongkang   # needs the GitHub CLI
+```
+
+The second fails for any file not built by this repo's workflow, whatever its checksum file
+says. Gatekeeper's own check, that Apple notarized it, happens anyway when the app first opens.
 
 ## What goes online
 
@@ -140,8 +174,11 @@ can only send events, not read them.
 
 - `git config core.hooksPath .githooks`, once per clone, so `make check` runs before a push, as
   CI will.
-- On a private repo, each macOS minute counts as ten against the plan's allowance. `ci.yml` runs
-  only `make check`.
+- `ci.yml` runs `make check` on every pull request and on `main`. `main`'s ruleset takes a
+  change only through a pull request whose `check` job passed, and refuses a force push or a
+  deletion. A fork's pull request runs CI only once a maintainer approves it, and never with the
+  release secrets: GitHub passes no secret to a `pull_request` run from a fork, and no workflow
+  here runs on `pull_request_target` or `workflow_run`.
 - Dependabot opens weekly pull requests for Sparkle, SwiftTerm and the pinned actions.
 
 ## Not here yet
