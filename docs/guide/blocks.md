@@ -15,19 +15,19 @@ into the block under `## Steps` and carries on with whatever does not need it. T
 is addressed to the engineer who will work through it, not to you, so you are never shown it:
 the block screen has the brief and `## Needed from you`, and nothing else.
 
-You do not press anything to start. As soon as the file lands the app hands it straight back to
-the agent that wrote it — the same session, still on the same task, so there is one thread and
-one row rather than two agents with the same name. One gate at a time. It does every step that
-does not need you first, and a good many gates turn out not to need you at all: a CLI already
-logged in, a repo that already exists. Those clear themselves and you never hear about them. If
-that agent has since gone, a session is opened for the gate alone, named after the gate.
+Nothing starts until you press `Do it now`. Then the app hands the gate back to the agent that
+wrote it — the same session, still on the same task, so there is one thread and one row rather
+than two agents with the same name. It does every step that does not need you first, and a
+good many gates turn out not to need you at all: a CLI already logged in, a repo that already
+exists. Those clear themselves without asking you anything. If that agent has since gone, a
+session is opened for the gate alone, named after the gate.
 
 When one genuinely needs you, that session finishes its turn and says so the way any agent
 does, with a banner and an amber row. It explains in two or three lines what is being set up,
 then takes it one step at a time — one instruction, verified before the next, and never a
 secret echoed back or written down. The page each step needs is beside the session, inside the
 window: the agent keeps the block's `url:` pointed at it rather than opening a browser behind
-the app. `Do it now` on the block screen goes to that session; it does not start a second one.
+the app. Pressing `Do it now` again goes to that session; it does not start a second one.
 
 Sometimes the step is a command only you can run — one the agent's sandbox refused, like moving
 your branches onto rewritten history. The agent never asks for it in its reply alone. It puts

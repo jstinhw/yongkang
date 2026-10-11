@@ -72,16 +72,23 @@ import Testing
         return gate
     }
 
-    /// The handover half of a poll tick. Typing the prompt into a live session is the window's
-    /// half (`AppModel.startGuide`), which needs a terminal these tests do not run.
-    @discardableResult
-    private func handOver(in project: ProjectModel) -> (block: UserBlock, session: CodeSession?)? {
-        guard let next = project.nextGate() else { return nil }
-        _ = project.takeGate(next.block, agent: .claude)
-        return next
-    }
-
     // MARK: - Gates
+
+    @Test func aGateWaitsForTheUsersClick() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let directory = tmp.appendingPathComponent("app")
+        _ = try NotebookFormat.create(.task, title: "Ship it", in: NotebookFormat.root(in: directory), project: nil)
+        let app = AppModel(terminals: TerminalRegistry(shell: ["/bin/sh", "-c"]), notify: { _, _, _ in })
+        let project = app.open(directory)
+        defer { app.close(project) }
+        let gate = try await gate("needs-a-key", in: project)
+
+        await app.reloadNow()
+        await app.reloadNow()
+        #expect(project.sessions.isEmpty, "no poll starts an agent the user did not ask for")
+        #expect(project.value.blocksForUser.map(\.id) == [gate.id], "the gate is on their desk")
+    }
 
     @Test func aGateGoesBackToTheAgentThatFiledIt() async throws {
         let tmp = try makeTemporaryDirectory()
@@ -90,12 +97,17 @@ import Testing
         let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
         let gate = try await gate("needs-a-key", session: worker, in: project)
 
-        let handed = try #require(handOver(in: project))
-        #expect(handed.session?.id == worker, "the agent that hit the gate takes it, in its own session")
+        #expect(
+            project.startUnblock(gate, agent: .claude)
+                == Destination(
+                    section: .agents, route: .session(worker), input: NotebookFormat.unblockPrompt(block: gate)),
+            "the agent that hit the gate is told to clear it, in its own session")
         #expect(project.sessions.count == 1, "and no second row on the same task, with the same name")
         #expect(project.value.guide(of: gate)?.id == worker)
         #expect(project.value.blocksForUser.isEmpty, "so the gate is not also waiting on you")
-        #expect(handOver(in: project) == nil, "however often the poll comes round")
+        #expect(
+            project.startUnblock(gate, agent: .claude) == Destination(section: .agents, route: .session(worker)),
+            "a second click goes to it without telling it again")
     }
 
     @Test func aGateWithNoAgentLeftGetsASessionOfItsOwn() async throws {
@@ -104,8 +116,7 @@ import Testing
         let project = try await project(tasks: ["Ship it"], in: tmp)
         let gate = try await gate("needs-a-key", in: project)
 
-        let handed = try #require(handOver(in: project))
-        #expect(handed.session == nil)
+        _ = project.startUnblock(gate, agent: .claude)
         let opened = try #require(project.sessions.first)
         #expect(opened.title == gate.guideTitle, "named after the gate, not after the task")
         #expect(project.value.guide(of: gate)?.id == opened.id)
@@ -121,47 +132,10 @@ import Testing
         // nothing in `guidedBlocks`, because this run has handed nothing over yet.
         let restored = running(gate.guideTitle, in: project)
 
-        #expect(handOver(in: project) == nil, "the gate has its agent already, launch after launch")
-        #expect(project.sessions.count == 1, "and not a second row of the same name beside it")
         #expect(
             project.startUnblock(gate, agent: .claude) == Destination(section: .agents, route: .session(restored)),
             "opening the gate goes to it rather than starting another")
-    }
-
-    @Test func onlyOneGateIsHandedOverAtATime() async throws {
-        let tmp = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try await project(tasks: ["Ship it"], in: tmp)
-        let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
-        _ = try await gate("needs-a-key", session: worker, in: project)
-        _ = try block(
-            "needs-an-account",
-            """
-            ---
-            kind: block
-            title: Needs an account
-            status: open
-            ---
-            Sign up.
-            """, in: project)
-        await project.reloadNotebook(frontmatter: true, records: true)
-
-        handOver(in: project)
-        handOver(in: project)
-
-        #expect(project.sessions.count == 1, "a folder full of open gates is not a CLI per file")
-        #expect(project.value.blocksForUser.map(\.title) == ["Needs an account"], "the rest wait their turn")
-    }
-
-    @Test func aDemoIsNeverHandedOver() async throws {
-        let tmp = try makeTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        let project = try await project(tasks: ["Ship it"], in: tmp)
-        let demo = try await gate("hero-demo", kind: "demo", in: project)
-
-        #expect(handOver(in: project) == nil, "a demo is the user's own to look at, not a gate to work through")
-        #expect(project.sessions.isEmpty)
-        #expect(project.value.blocksForUser.map(\.id) == [demo.id])
+        #expect(project.sessions.count == 1, "and not a second row of the same name beside it")
     }
 
     @Test func aGateBeingWorkedReadsAsWorkUntilItsAgentAsks() async throws {
@@ -169,8 +143,8 @@ import Testing
         defer { try? FileManager.default.removeItem(at: tmp) }
         let project = try await project(tasks: ["Ship it"], in: tmp)
         let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
-        _ = try await gate("needs-a-key", session: worker, in: project)
-        handOver(in: project)
+        let gate = try await gate("needs-a-key", session: worker, in: project)
+        _ = project.startUnblock(gate, agent: .claude)
 
         let quiet = project.value.agentRows(summary: project.summary)
         #expect(quiet.count == 1, "one agent, one row")
@@ -187,14 +161,15 @@ import Testing
         let project = try await project(tasks: ["Ship it"], in: tmp)
         let worker = running("Claude Code", in: project, taskIDs: ["ship-it"])
         let gate = try await gate("needs-a-key", session: worker, in: project)
-        handOver(in: project)
+        _ = project.startUnblock(gate, agent: .claude)
         project.sessions[0].exited = true
 
         #expect(project.value.blocksForUser.map(\.id) == [gate.id])
         #expect(
             project.value.agentRows(summary: project.summary).contains { $0.route == .block(gate.id) },
             "back on the desk rather than quietly lost with the session that was on it")
-        #expect(handOver(in: project) == nil, "and not handed out again on a loop")
+        _ = project.startUnblock(gate, agent: .claude)
+        #expect(project.sessions.last?.title == gate.guideTitle, "until the next click opens one of its own")
     }
 
     // MARK: - Assign

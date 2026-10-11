@@ -47,9 +47,9 @@ import YongkangCore
     /// poll says so once rather than on every tick. A workflow that clears a block with its own
     /// message records it here too, or the poll would type "Unblocked" over it.
     var deliveredBlocks: Set<String> = []
-    /// Gates, by id, a session has already been opened for in this run. Not persisted: a
+    /// Gates, by id, the user has handed to an agent in this run (`takeGate`). Not persisted: a
     /// relaunch restores the guide itself (`OpenSessions`), and a gate whose guide is gone is
-    /// one worth another try. See `startGuide`.
+    /// back on the user's desk until they press "Do it now" again.
     var guidedBlocks: Set<String> = []
     /// The sessions here that wrote to another project and have not had an answer typed in
     /// since, each with that project's folder. Set and cleared as messages are delivered (see

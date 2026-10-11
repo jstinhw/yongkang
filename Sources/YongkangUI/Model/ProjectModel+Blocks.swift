@@ -2,9 +2,9 @@ import Foundation
 import YongkangCore
 
 extension ProjectModel {
-    /// A gate starts a session whose only job is unblocking it — or goes to the one already
-    /// on it, since the poll usually got there first. A proposal instead returns to its
-    /// Product transcript, and only a ready proposal's create button sends approval.
+    /// "Do it now": the only way a gate reaches an agent. It goes to the one already on it, or
+    /// is handed to one (`takeGate`). A proposal instead returns to its Product transcript, and
+    /// only a ready proposal's create button sends approval.
     func startUnblock(_ block: UserBlock, agent: AgentKind) -> Destination {
         guard !block.isProposal else {
             return openProposal(block, approve: block.proposalReady, agent: agent)
@@ -22,35 +22,12 @@ extension ProjectModel {
             input: NotebookFormat.unblockPrompt(block: block))
     }
 
-    /// Opens the session that clears a gate, unasked and without going to it. A block file is
-    /// an agent's gate, not news: most of them turn out to need nothing from the user — a CLI
-    /// already logged in, a repo that already exists — and the ones that do are better asked
-    /// one step at a time than filed as a ten-step page. The window hears about it when the
-    /// agent itself comes back with a question, like any other session.
-    ///
-    /// The next gate to hand to an agent, and who should take it — the session that filed it,
-    /// still on the task, or nobody when that session has gone.
-    ///
-    /// Once per gate per run: a guide that gives up leaves the block waiting on the user again,
-    /// which is the honest state, and starting another would be a loop. One at a time, too —
-    /// two agents asking at once is two conversations nobody started, and opening a project
-    /// whose `blocks/` has a year of open files in it would be a CLI per file.
-    func nextGate() -> (block: UserBlock, session: CodeSession?)? {
-        let open = snapshot.blocks.waitingOnUser
-        // The common answer, on every tick of every project: nothing is blocked. Settled off
-        // `blocks` alone, before building a whole `Project` value to ask the rest.
-        guard let next = open.first(where: { $0.isGate && !guidedBlocks.contains($0.id) }) else { return nil }
-        let project = value
-        // Whether a gate has an agent, not whose move it is: a guide restored from the last run
-        // is idle at its prompt, which `guide(of:)` reads as the user's turn — and starting a
-        // second agent of the same name is what the user saw on every launch.
-        guard !open.contains(where: { project.holder(of: $0) != nil }) else { return nil }
-        return (next, project.waitingSession(for: next))
-    }
-
     /// Hands `block` to the agent that filed it — one thread, one row, and it already knows
     /// what it was doing — or, when that agent is gone, opens a session for the gate alone.
     /// Nil when the prompt has to be typed into a session the caller owns the terminal for.
+    ///
+    /// Only ever on the user's click. Handing every new gate over unasked opened sessions
+    /// nobody had started, the moment the file landed.
     func takeGate(_ block: UserBlock, agent: AgentKind) -> Route? {
         guidedBlocks.insert(block.id)
         guard waitingSession(for: block) == nil else { return nil }
