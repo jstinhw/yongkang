@@ -102,6 +102,9 @@ import Testing
         #expect(
             guide.contains("do not ask me to say it is done: poll for it"),
             "a step it can check from the shell, it watches for instead of waiting on me")
+        #expect(
+            guide.contains("in the block's `run:`") && guide.contains("never ask me to run anything that is not in"),
+            "a command I have to run goes where the pane shows all of it, never in a reply alone")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }
@@ -161,6 +164,28 @@ import Testing
         let found = Blocks.load(root: NotebookFormat.root(in: tmp))
         #expect(found.first { $0.slug == "diff-demo" }?.serve == "npm run dev -- --port 3101")
         #expect(found.first { $0.slug == "page-demo" }?.serve == "", "a published demo has nothing to start")
+    }
+
+    /// A command only the user can run rides in the frontmatter, quotes and all, for the pane.
+    @Test func aCommandToRunReadsBack() throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let blocks = Blocks.root(in: NotebookFormat.root(in: tmp))
+        try FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
+        try """
+        ---
+        kind: block
+        title: "Move branches"
+        url: https://github.com/you/repo/settings
+        run: bash "/tmp/scratch/finish.sh" --apply
+        ---
+        """.write(to: blocks.appendingPathComponent("move.md"), atomically: true, encoding: .utf8)
+        try "---\nkind: block\nurl: https://example.com\n---\n"
+            .write(to: blocks.appendingPathComponent("page.md"), atomically: true, encoding: .utf8)
+
+        let found = Blocks.load(root: NotebookFormat.root(in: tmp))
+        #expect(found.first { $0.slug == "move" }?.run == #"bash "/tmp/scratch/finish.sh" --apply"#)
+        #expect(found.first { $0.slug == "page" }?.run == "", "a step on a page has nothing to run")
     }
 
     @Test func onlyAPageOnThisMacIsOursToStart() throws {

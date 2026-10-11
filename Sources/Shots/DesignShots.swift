@@ -68,6 +68,7 @@ enum DesignShots {
                     openBlock: { _ in }, openReview: { _ in }, remove: { _ in })
             }, "board-narrow", into: directory, width: 1120)
         writeRequestShots(project, agents: agents, into: directory)
+        writeCommandShot(project, into: directory)
 
         // The gate itself. Both panes are live pages in the app; offscreen they render as
         // the frames, which is enough to catch the layout going wrong.

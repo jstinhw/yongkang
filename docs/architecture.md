@@ -46,7 +46,9 @@ leaves every screen that reads it alone.
   `blocksForUser`). One gate at a time per project, once each per run: an agent that gives up
   puts the gate back on your desk rather than being replaced. The page the block names in
   `url:` is shown beside the terminal (`GuideBrowser`), so the agent changes that field instead
-  of opening a browser behind the app.
+  of opening a browser behind the app. While the block's `run:` names a command only the user
+  can run, the same pane shows that instead (`GuidePane`, `CommandPane`): the command and every
+  file it runs, read from disk every 2 s by `BlockCommand`, never the agent's description of them.
   `Project.guided` is in memory only, so a relaunch puts a half-worked gate back on the desk
   and hands it over once more — the resumed session is told again what it was on.
 - **git** is asked at most every 6 s a project (`ProjectModel.repoReadIsDue`): an agent writing

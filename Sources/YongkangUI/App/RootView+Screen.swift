@@ -94,11 +94,12 @@ extension RootView {
                         switch pane {
                         case .session:
                             // A session clearing a gate gets the page that gate names beside it, so
-                            // the instruction and the screen it is about are one glance apart.
-                            if let link = project.value.gate(of: watched)?.link {
+                            // the instruction and the screen it is about are one glance apart —
+                            // or the command it needs run, with everything that command runs.
+                            if let gate = project.value.gate(of: watched), gate.link != nil || !gate.run.isEmpty {
                                 HSplitView {
                                     terminal(for: watched).frame(minWidth: 420)
-                                    GuideBrowser(url: link).frame(minWidth: 360)
+                                    GuidePane(block: gate, directory: project.directory).frame(minWidth: 360)
                                 }
                             } else {
                                 terminal(for: watched)

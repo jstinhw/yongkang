@@ -311,10 +311,11 @@ extension NotebookFormat {
             before `done`, even one your change did not cause, like a flaky test: work it shows
             failing is not ready for my review.
             \(design)
-            When only I can unblock something — an account, a secret, a payment — write
-            `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`, `session: \(id)`,
-            `task`, `title`, `url`, `action`, `created` and `updated`, then `## Needed from you` and
-            the `## Steps` to get there. Carry on with the rest until I say it is unblocked.
+            When only I can unblock something — an account, a secret, a payment, a command your
+            sandbox refuses — write `\(folderName)/blocks/<slug>.md` with `kind: block`, `status: open`,
+            `session: \(id)`, `task`, `title`, `url`, `action`, `created` and `updated`, then
+            `## Needed from you` and the `## Steps` to get there. Carry on with the rest until I say
+            it is unblocked. Never ask me to run a command in your reply alone.
 
             Never stage, commit, push, stash or switch branches: I review each task and commit it.
 
@@ -417,6 +418,11 @@ extension NotebookFormat {
     /// its Product transcript, or to a new Product session once that has exited.
     /// A step the agent can check is polled rather than confirmed by the user. The poll is
     /// bounded because whatever the user types while it runs queues behind it.
+    ///
+    /// A command the user has to run is the one step that is not one or two lines. It goes in
+    /// `run:`, so the pane beside the session shows the command and the files it runs as they
+    /// are on disk; the agent's reply says what it changes. Before, a `! bash <scratch path>`
+    /// was the whole ask, and the two scripts and the program behind it were never seen.
     package static func unblockPrompt(block: UserBlock) -> String {
         """
         Clear the block in `\(relativePath(block.url))`. Work through it yourself first: check \
@@ -445,6 +451,15 @@ extension NotebookFormat {
         I am looking at a browser pane beside this session showing the block's `url:`. It is \
         how you open a page: set `url:` in the block file to the page the current step needs, \
         as the step comes up, and it is in front of me. Do not print a link for me to click.
+
+        When a step needs me to run a command — one your sandbox refuses — I read all of it \
+        first. Put the exact command, on one line with absolute paths, in the block's `run:`: \
+        the pane then shows it, and every file it runs, in place of the page. Clear `run:` once \
+        it has run. If it runs a script, make it one script I can read top to bottom: no second \
+        script it calls and no program you downloaded — if a tool is missing, ask me to install \
+        it with a command of its own. Then, in your reply, say in plain words what it changes, \
+        what it sends anywhere, what cannot be undone and how to back out. Do not take it as \
+        safe because you wrote it, and never ask me to run anything that is not in `run:`.
 
         Never echo a secret I paste or write one anywhere the repo tracks. When it is done, set \
         `status: done` with a one-line `resolution`.

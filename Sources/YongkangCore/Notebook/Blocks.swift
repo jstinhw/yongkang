@@ -46,6 +46,10 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
     /// designer's own session served it, so a quit took the page down with it; this is how
     /// the app brings it back. Empty for a demo published somewhere that stays up.
     package let serve: String
+    /// Gates only: the command the step in hand needs the user to run — one their agent's
+    /// sandbox refused. While it is set, the pane beside the session shows it and everything it
+    /// runs (`BlockCommand`) instead of the page; the agent clears it once it has run.
+    package let run: String
 
     package init(
         id: String,
@@ -64,7 +68,8 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
         before: URL?,
         branch: String,
         revisions: [DemoRevision],
-        serve: String = ""
+        serve: String = "",
+        run: String = ""
     ) {
         self.id = id
         self.url = url
@@ -83,6 +88,7 @@ package struct UserBlock: Identifiable, Equatable, Sendable {
         self.branch = branch
         self.revisions = revisions
         self.serve = serve
+        self.run = run
     }
 
     package var waiting: Bool { status != "done" }
@@ -185,7 +191,8 @@ package enum Blocks {
             before: web(fields["before"]),
             branch: fields["branch"] ?? "",
             revisions: revisions(body),
-            serve: fields["serve"] ?? ""
+            serve: fields["serve"] ?? "",
+            run: fields["run"] ?? ""
         )
     }
 

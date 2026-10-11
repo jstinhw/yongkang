@@ -29,6 +29,19 @@ secret echoed back or written down. The page each step needs is beside the sessi
 window: the agent keeps the block's `url:` pointed at it rather than opening a browser behind
 the app. `Do it now` on the block screen goes to that session; it does not start a second one.
 
+Sometimes the step is a command only you can run — one the agent's sandbox refused, like moving
+your branches onto rewritten history. The agent never asks for it in its reply alone. It puts
+the exact command in the block's `run:`, and the pane beside the session switches from the page
+to the command, with a Copy button and every file it runs drawn in full, read from disk rather
+than described by the agent: the script it names, a second script that one calls, a program a
+script puts on `PATH`. Lines that talk to a server, delete files, rewrite history, change a
+remote or run as administrator are marked, and listed at the top under **What it touches**.
+That list is a pattern match, not a review, and the pane says Yongkang has not checked that the
+command is safe; the agent's reply says in plain words what it changes and what cannot be
+undone, so you can hold one against the other. A file named like a key is listed but not drawn,
+and a program that is not text is named with its size and a note to ask what it is. The page is
+one click away under **Page**; once the command has run, the agent clears `run:`.
+
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark resolved` if you did it yourself. The app sees it on the
 next read and tells the waiting agent to carry on. The file is the whole channel;
