@@ -43,6 +43,9 @@ package struct TaskReview: View {
     /// The brief and its Done when, folded: the title above already names the task, and the
     /// reviewer reads what the agent did with it before what it was asked.
     @State private var taskOpen = false
+    /// The right-hand column, shut until asked for: the review reads on its own, and the
+    /// column is the commit's details. One switch for every review, kept across launches.
+    @AppStorage("reviewInspectorShown") private var inspectorShown = false
 
     package init(
         task: SummaryTask,
@@ -125,7 +128,7 @@ package struct TaskReview: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .background(Theme.bg)
-                inspector
+                if inspectorShown { inspector }
             }
             TaskReviewBar(
                 task: task, draft: draft, cautioned: task.review?.cautions == true, approve: approve,
@@ -143,6 +146,8 @@ package struct TaskReview: View {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 20)
                 Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+                Spacer(minLength: 12)
+                inspectorToggle
             }
             if let summary = task.review?.summary {
                 Text(summary).font(Typography.headline.weight(.regular)).foregroundStyle(Theme.prose)
@@ -405,6 +410,18 @@ package struct TaskReview: View {
     }
 
     // MARK: - Inspector
+
+    private var inspectorToggle: some View {
+        Button {
+            inspectorShown.toggle()
+        } label: {
+            Image(systemName: "sidebar.right")
+        }
+        .buttonStyle(.consoleGhost)
+        .foregroundStyle(inspectorShown ? Theme.accent : Theme.tx2)
+        .help(inspectorShown ? "Hide details" : "Show details")
+        .accessibilityLabel(inspectorShown ? "Hide details" : "Show details")
+    }
 
     private var inspector: some View {
         Inspector(width: 336) {
