@@ -142,10 +142,12 @@ package struct TaskReview: View {
             HStack(spacing: 10) {
                 NotebookStyle.statusRing(task.status, progress: 0, size: 20)
                 Text(task.title).font(Typography.title).fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
             if let summary = task.review?.summary {
                 Text(summary).font(Typography.headline.weight(.regular)).foregroundStyle(Theme.prose)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
             HStack(spacing: 9) {
                 if task.done && !task.commitPaths.isEmpty && task.review?.cautions == true {
@@ -398,6 +400,7 @@ package struct TaskReview: View {
         }
         .buttonStyle(.plain)
         .help(open ? "Fold the diff" : "Unfold the diff")
+        .copyable(file.path, label: "Copy path")
         .accessibilityLabel("\(file.path), \(open ? "unfolded" : "folded")")
     }
 
@@ -453,6 +456,7 @@ package struct TaskReview: View {
                 // the tail of a branch name is what identifies it.
                 Text(branch ?? "no branch").font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
@@ -468,6 +472,7 @@ package struct TaskReview: View {
                         (Text(parts.first ?? "").font(Typography.mono).foregroundStyle(Theme.prose)
                             + Text(parts.count > 1 ? "  \(parts[1])" : "").foregroundStyle(Theme.tx2))
                             .lineLimit(1)
+                            .textSelection(.enabled)
                     }
                 }
                 GridRow {

@@ -48,7 +48,9 @@ Then the cards, most urgent first:
   it, then what goes in the next one.
 
 Click any line of an unfolded diff to leave a comment on it; comments and a note for
-anything that is not about one line collect under **Feedback** until you send them. The same
+anything that is not about one line collect under **Feedback** until you send them. What the
+agent wrote can be selected and copied anywhere on the page; a diff line, a file path, a check
+or a spot — where a click already does something — copies from its right-click menu. The same
 page opens from the agent's row in the sidebar and from its page's **Waiting for your review** — see
 [Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector opens
 on the branch the commit goes to, what it sits on top of and what it takes; then the task's

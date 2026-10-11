@@ -19,6 +19,7 @@ struct ReviewChanged<Report: View>: View {
                     }
                     Text(outcome).font(Typography.body).foregroundStyle(Theme.tx)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
             }
             Button(showing ? "Hide the agent’s report" : "Read the agent’s full report") { showing.toggle() }
@@ -63,6 +64,7 @@ struct ReviewSafety: View {
                         Label {
                             Text(held).font(Typography.body).foregroundStyle(Theme.prose)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
                         } icon: {
                             Image(systemName: "checkmark.shield").foregroundStyle(Theme.green)
                         }
@@ -103,6 +105,7 @@ struct ReviewSafety: View {
             }
             .buttonStyle(.plain)
             .disabled(check.command == nil)
+            .copyable([check.claim, check.result, check.command].compactMap { $0 }.joined(separator: "\n"))
             .accessibilityLabel("\(check.claim), \(check.status.spoken). \(check.result ?? "")")
             if open, let command = check.command {
                 Text(command).font(Typography.code).foregroundStyle(Theme.prose)
@@ -132,6 +135,7 @@ struct ReviewConcerns: View {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 8) {
                             Text(concern.title).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
+                                .textSelection(.enabled)
                             NotebookStyle.pill(
                                 blocks ? "Settle before approving" : "Doesn’t block this",
                                 blocks ? Theme.red : Theme.tx3)
@@ -139,6 +143,7 @@ struct ReviewConcerns: View {
                         if let detail = concern.detail {
                             Text(detail).font(Typography.body).foregroundStyle(Theme.prose)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
                         }
                     }
                 }
@@ -167,6 +172,7 @@ struct ReviewReach: View {
                     NotebookStyle.pill(call.kind, tint(call.kind))
                     Text(call.what).font(Typography.body).foregroundStyle(Theme.prose)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
             }
         }
@@ -176,7 +182,9 @@ struct ReviewReach: View {
             VStack(alignment: .leading, spacing: 7) {
                 SectionLabel("Unblocks next")
                 Text(next).font(Typography.body).foregroundStyle(Theme.prose).fixedSize(
-                    horizontal: false, vertical: true)
+                    horizontal: false, vertical: true
+                )
+                .textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface(padding: 15)

@@ -65,6 +65,8 @@ struct DiffLines: View {
             comment = ""
         }
         .help(draft != nil && line.kind != .hunk ? "Click to comment on this line" : "")
+        // A click here opens a comment, so the line's code is copied from the menu.
+        .copyable(line.text, label: "Copy line")
     }
 
     /// A comment is pinned to its line by number and code together, so an agent's later

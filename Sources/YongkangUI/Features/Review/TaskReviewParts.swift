@@ -28,11 +28,13 @@ struct WorkReport: View {
             }
             Text(work.title).font(Typography.body).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             if !work.result.isEmpty {
                 NotebookContentView(sections: NotebookContent.sections(work.result), cards: cards)
             } else if !work.report.isEmpty {
                 Text(work.report).font(Typography.body).foregroundStyle(Theme.tx2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             } else {
                 Text("Nothing reported back yet.").font(Typography.body).foregroundStyle(Theme.tx3)
             }
@@ -51,6 +53,7 @@ struct WorkReport: View {
                         }
                         .buttonStyle(.plain)
                         .help("Open the diff")
+                        .copyable(path, label: "Copy path")
                     }
                 }
             }
@@ -78,9 +81,11 @@ struct NeedsYouCard: View {
             }
             Text(block.title).font(Typography.headline).foregroundStyle(Theme.tx)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             if !block.action.isEmpty {
                 Text(block.action).font(Typography.body).foregroundStyle(Theme.prose)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
             NotebookContentView(sections: NotebookContent.sections(block.brief), cards: cards)
             HStack(spacing: 8) {
@@ -122,8 +127,10 @@ struct FeedbackCard: View {
                             Text("\(comment.path):\(comment.line)").font(Typography.mono).foregroundStyle(Theme.accent)
                         }
                         .buttonStyle(.plain)
+                        .copyable("\(comment.path):\(comment.line)", label: "Copy path")
                         Text(comment.text).font(Typography.body).foregroundStyle(Theme.tx)
                             .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
                     }
                     Spacer(minLength: 8)
                     Button {
@@ -161,6 +168,7 @@ struct FeedbackCard: View {
                 if !work.report.isEmpty {
                     Text(work.report).font(Typography.body).foregroundStyle(Theme.prose)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 } else if !work.result.isEmpty {
                     NotebookContentView(sections: NotebookContent.sections(work.result), cards: cards)
                 } else {

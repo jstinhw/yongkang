@@ -47,9 +47,11 @@ struct ReviewAsks: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(question.ask).font(Typography.body(.semibold)).foregroundStyle(Theme.tx)
                         .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                     if let context = question.context {
                         Text(context).font(Typography.body).foregroundStyle(Theme.tx2)
                             .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
                     }
                 }
                 if let sent = answered(question.ask) {
@@ -131,6 +133,7 @@ struct ReviewAsks: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Spot \(index + 1), \(spot.path), \(unfolded ? "unfolded" : "folded")")
+            .copyable("\(spot.path) \(place(spot))\n\(spot.why)")
             if unfolded { excerpt(spot) }
         }
         .background(Theme.well)

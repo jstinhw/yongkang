@@ -129,6 +129,7 @@ struct ReviewGlance: View {
             if !said.isEmpty {
                 Text(said).font(Typography.body).foregroundStyle(Theme.prose)
                     .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
