@@ -80,7 +80,16 @@ import YongkangCore
     /// check after the terminal's output that finds none of those in the way.
     func send(_ text: String, to id: UUID) {
         guard let entry = entries[id] else { return }
-        entry.queued.append(text)
+        entry.queued.append((key: "", text: text))
+        typeQueued(id)
+    }
+
+    /// Types `line` after a `!`, the key that turns the CLI's prompt into a shell's, so a command
+    /// the user approved runs in the session and its output lands where the agent reads it.
+    /// Waits as `send` does.
+    func run(_ line: String, in id: UUID) {
+        guard let entry = entries[id] else { return }
+        entry.queued.append((key: "!", text: line))
         typeQueued(id)
     }
 
@@ -125,12 +134,12 @@ import YongkangCore
             return
         }
         guard !entry.showsChild, !view.hasDraft, view.attentionReason == nil else { return }
-        let texts = entry.queued
+        let inputs = entry.queued
         entry.queued = []
         // One message at a time, so a second paste cannot land between the first and its Enter.
         entry.typing = true
         Task {
-            for text in texts { await submit(text, into: view) }
+            for input in inputs { await submit(input.text, after: input.key, into: view) }
             entry.typing = false
             typeQueued(id)
         }
@@ -140,9 +149,16 @@ import YongkangCore
     ///
     /// Claude Code keeps gathering a paste for a moment after it ends, and an Enter that
     /// arrives inside that moment becomes part of it: the message sat in its prompt, unsent.
+    /// A `key` goes first, typed rather than pasted, and in a write of its own too: a `!` read
+    /// with the paste is part of the paste, which leaves the prompt a message, not a shell.
     /// ponytail: 250 ms clears Claude Code's paste window with room to spare. A CLI that still
     /// shows a typed message unsent needs a longer pause here.
-    private func submit(_ text: String, into view: AttentionTerminalView) async {
+    private func submit(_ text: String, after key: String = "", into view: AttentionTerminalView) async {
+        if !key.isEmpty {
+            type(key, into: view)
+            try? await Task.sleep(for: .milliseconds(100))
+            guard view.process.running else { return }
+        }
         type(Self.pasted(text), into: view)
         try? await Task.sleep(for: .milliseconds(250))
         guard view.process.running else { return }
@@ -295,8 +311,8 @@ import YongkangCore
     var onExit: (Int32?) -> Void = { _ in }
     /// Set once the child has exited by itself and SwiftTerm has reaped it.
     private(set) var exited = false
-    /// Messages waiting for the terminal to be free.
-    var queued: [String] = []
+    /// Messages waiting for the terminal to be free, each with the key typed ahead of it.
+    var queued: [(key: String, text: String)] = []
     /// The child agent the CLI was last steered to; nil for the session's own view.
     var child: String?
     /// While a child's view may be up, a message would reach the child instead, so it waits.

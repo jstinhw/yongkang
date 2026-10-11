@@ -440,6 +440,8 @@ extension NotebookFormat {
     /// `run:`, so the pane beside the session shows the command and the files it runs as they
     /// are on disk; the agent's reply says what it changes. Before, a `! bash <scratch path>`
     /// was the whole ask, and the two scripts and the program behind it were never seen.
+    /// Approving it there types it after `!` here, and Claude Code holds a `!` until the turn
+    /// ends: an agent polling for the command's outcome would be waiting on itself.
     package static func unblockPrompt(block: UserBlock) -> String {
         """
         Clear the block in `\(relativePath(block.url))`. Work through it yourself first: check \
@@ -471,7 +473,9 @@ extension NotebookFormat {
 
         When a step needs me to run a command — one your sandbox refuses — I read all of it \
         first. Put the exact command, on one line with absolute paths, in the block's `run:`: \
-        the pane then shows it, and every file it runs, in place of the page. Clear `run:` once \
+        the pane then shows it, and every file it runs, in place of the page. Then end your turn \
+        rather than poll: when I approve it, the app types it after `!` in this session, which \
+        runs it only once your turn is over, and its output comes back to you. Clear `run:` once \
         it has run. If it runs a script, make it one script I can read top to bottom: no second \
         script it calls and no program you downloaded — if a tool is missing, ask me to install \
         it with a command of its own. Then, in your reply, say in plain words what it changes, \

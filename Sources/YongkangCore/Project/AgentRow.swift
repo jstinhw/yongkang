@@ -112,6 +112,15 @@ extension Project {
         return waitingSession(for: block)
     }
 
+    /// Whether this is a session opened for a gate alone whose gate has cleared. Its one job is
+    /// over, and the task the gate held up has gone back to an agent of its own; left open, its
+    /// row said it was your turn for as long as it stayed. Every gate whose name it carries has
+    /// to be done, so one titled after a cleared gate and an open one is still the open one's.
+    package func isClearedGuide(_ session: CodeSession) -> Bool {
+        let gates = blocks.filter { session.title.hasPrefix($0.guideTitle) }
+        return session.taskIDs.isEmpty && !gates.isEmpty && gates.allSatisfy { !$0.waiting }
+    }
+
     /// The gate this session is working through, and so the page that belongs beside it.
     ///
     /// Not `guide(of:)`: whose move it is and which session the gate is in are different

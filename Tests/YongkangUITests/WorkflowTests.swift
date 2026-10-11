@@ -172,6 +172,39 @@ import Testing
         #expect(project.sessions.last?.title == gate.guideTitle, "until the next click opens one of its own")
     }
 
+    /// Cleared in a session of its own, with the agent that filed it gone: the task it held up
+    /// starts again with the news, and the gate's session goes once it is quiet — rather than
+    /// the task staying blocked with nobody on it, and the session saying it is your turn.
+    @Test func aGateClearedAfterItsAgentLeftStartsItsTaskAgain() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let directory = tmp.appendingPathComponent("app")
+        _ = try NotebookFormat.create(.task, title: "Ship it", in: NotebookFormat.root(in: directory), project: nil)
+        // Every session stays up whatever its line, so no agent CLI is needed.
+        let shell = TerminalRegistry(shell: ["/bin/sh", "-c", "exec sleep 60"])
+        let app = AppModel(terminals: shell, notify: { _, _, _ in })
+        let project = app.open(directory)
+        defer { app.close(project) }
+        let gate = try await gate("needs-a-key", session: UUID(), in: project)
+        _ = project.startUnblock(gate, agent: .claude)
+        let guide = try #require(project.sessions.first)
+
+        let text = try String(contentsOf: gate.url, encoding: .utf8)
+        try text.replacingOccurrences(of: "status: open", with: "status: done")
+            .write(to: gate.url, atomically: true, encoding: .utf8)
+        await app.reloadNow()
+        await app.reloadNow()
+        #expect(project.sessions.count == 2, "one agent back on the task, started once")
+        let resumed = try #require(project.sessions.last)
+        #expect(resumed.taskIDs == ["ship-it"] && resumed.line.contains("Unblocked: \(gate.title)."))
+
+        app.endSpentSessions(in: project)
+        #expect(project.sessions.count == 2, "the gate's session is still talking")
+        #expect(project.markIdle(guide.id, true))
+        app.endSpentSessions(in: project)
+        #expect(project.sessions.map(\.id) == [resumed.id], "and goes once it has stopped")
+    }
+
     // MARK: - Assign
 
     @Test func assigningStartsOneSessionOnTheTaskAndItsBlockers() async throws {

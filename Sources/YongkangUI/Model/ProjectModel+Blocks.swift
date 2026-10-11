@@ -89,11 +89,11 @@ extension ProjectModel {
     /// until the user has looked at it, which may be days and an app launch later — so
     /// neither answer may depend on that session still running. With it gone, the design
     /// task starts again carrying the decision, and the demo file tells the new agent where
-    /// the last one got to.
+    /// the last one got to. A gate cleared after its agent has gone goes the same way.
     ///
     /// Nil only when the demo names no task still in the notebook: there is nothing to
     /// reopen, and the block is already cleared.
-    private func decision(on block: UserBlock, agent: AgentKind, _ message: String) -> Destination? {
+    func decision(on block: UserBlock, agent: AgentKind, _ message: String) -> Destination? {
         if let waiting = waitingSession(for: block) {
             return Destination(section: .agents, route: .session(waiting.id), input: message)
         }

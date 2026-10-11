@@ -7,3 +7,5 @@ xcuserdata/
 *.p12
 *.p8
 sparkle.key
+# The app rewrites token counts here every hour an agent runs; churn, not history.
+.notebook/usage.json

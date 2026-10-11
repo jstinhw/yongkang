@@ -105,6 +105,9 @@ import Testing
         #expect(
             guide.contains("in the block's `run:`") && guide.contains("never ask me to run anything that is not in"),
             "a command I have to run goes where the pane shows all of it, never in a reply alone")
+        #expect(
+            guide.contains("end your turn rather than poll"),
+            "an approved command runs only after the turn, so the agent must not poll for it")
         let echoed = try echo(AgentCommand.quoted(guide))
         #expect(echoed == guide, "block prompt mangled by the shell")
     }

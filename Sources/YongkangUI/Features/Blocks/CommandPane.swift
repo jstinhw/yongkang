@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import YongkangCore
 
@@ -10,12 +9,16 @@ import YongkangCore
 struct CommandPane: View {
     let line: String
     let directory: URL
+    /// Types a line after `!` in the session beside this one.
+    let run: (String) -> Void
 
     @State private var command: BlockCommand?
     /// Each file as it first appeared here, so one rewritten while the user was reading it says
     /// so instead of changing quietly under them.
     @State private var firstSeen: [String: BlockCommand.Content] = [:]
-    @State private var copied = false
+    /// Pressed for this line, so a second press cannot run it twice. A new line starts over,
+    /// and so does coming back to the pane: the agent clears `run:` once it has seen it run.
+    @State private var sent = false
     /// The `PATH` of the shell a session runs in, read once: nil until it is, or if it can't be.
     @State private var login: [String]?
     @State private var loginRead = false
@@ -56,6 +59,7 @@ struct CommandPane: View {
         let line = line
         let directory = directory
         firstSeen = [:]
+        sent = false
         while !Task.isCancelled {
             let held = command?.line == line ? command : nil
             let folders = BlockCommand.path(login: login)
@@ -76,10 +80,11 @@ struct CommandPane: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Run this yourself").font(Typography.headline).foregroundStyle(Theme.tx)
+            Text("Approve this command").font(Typography.headline).foregroundStyle(Theme.tx)
             Text(
-                "The agent is asking you to run this. Below is exactly what would run, read from disk "
-                    + "rather than described by the agent. Yongkang shows it; it has not checked that it is safe."
+                "The agent is asking to run this as you, outside its sandbox. Below is exactly what would run, "
+                    + "read from disk rather than described by the agent. Yongkang shows it; it has not checked "
+                    + "that it is safe."
             )
             .font(Typography.body).foregroundStyle(Theme.tx2)
             .fixedSize(horizontal: false, vertical: true)
@@ -91,8 +96,12 @@ struct CommandPane: View {
             HStack {
                 section("Command")
                 Spacer()
-                Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc", action: copy)
-                    .buttonStyle(.consolePrimary)
+                // Not before every file it runs is on screen: approving is approving what is shown.
+                Button(
+                    sent ? "Sent" : "Approve and run", systemImage: sent ? "checkmark" : "play.fill", action: approve
+                )
+                .buttonStyle(.consolePrimary)
+                .disabled(sent || command?.line != line)
             }
             Text(BlockCommand.visible(line)).font(Typography.code).foregroundStyle(Theme.tx)
                 .textSelection(.enabled)
@@ -104,8 +113,8 @@ struct CommandPane: View {
             // A relative path names a different file in another folder, so the folder is said.
             Text(
                 """
-                Paste it after `!` in the session, which runs in \(Text(verbatim: folder).font(Typography.mono)). \
-                In another terminal, `cd` there first.
+                It is typed after `!` in the session beside this, which runs in \
+                \(Text(verbatim: folder).font(Typography.mono)), so you and the agent both see what it prints.
                 """
             )
             .font(Typography.caption).foregroundStyle(Theme.tx3)
@@ -118,14 +127,9 @@ struct CommandPane: View {
         return directory.path.hasPrefix(home + "/") ? "~" + directory.path.dropFirst(home.count) : directory.path
     }
 
-    private func copy() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(line, forType: .string)
-        copied = true
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            copied = false
-        }
+    private func approve() {
+        sent = true
+        run(line)
     }
 
     private func touches(_ command: BlockCommand) -> some View {

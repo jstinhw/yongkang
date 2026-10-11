@@ -101,7 +101,10 @@ extension RootView {
                             if let gate = project.value.gate(of: watched), gate.link != nil || !gate.run.isEmpty {
                                 HSplitView {
                                     terminal(for: watched).frame(minWidth: 420)
-                                    GuidePane(block: gate, directory: project.directory).frame(minWidth: 360)
+                                    GuidePane(block: gate, directory: project.directory) {
+                                        model.terminals.run($0, in: watched.id)
+                                    }
+                                    .frame(minWidth: 360)
                                 }
                             } else {
                                 terminal(for: watched)
