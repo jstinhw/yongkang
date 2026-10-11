@@ -185,6 +185,18 @@ extension ProjectModel {
             before: Set(cards.filter { !changed.contains($0.url.standardizedFileURL.path) }.map(\.id)))
     }
 
+    /// What a Product session wrote beside the plan, as git has it uncommitted: its Page — the
+    /// plan it drew, or a page — and the messages it sent other projects. They go in with the
+    /// plan they explain, so an approval leaves nothing of the session behind.
+    private func sessionChanges(_ session: UUID) -> [String] {
+        let pages = [
+            NotebookFormat.plan(of: session, in: notebookRoot), NotebookFormat.page(of: session, in: notebookRoot),
+        ]
+        let sent = snapshot.messages.filter { $0.session == session }.map(\.url)
+        let own = Set((pages + sent).map(NotebookFormat.relativePath))
+        return repo.changes.map(\.path).filter(own.contains)
+    }
+
     /// Approving a request commits what Product wrote for it and closes it: the banner and its
     /// "new" marks go. Nothing is assigned. Returns the Product session it ran in, if it is still
     /// open, for the caller to close — its work is on the board and in the commit.
@@ -192,7 +204,7 @@ extension ProjectModel {
         guard let request else { return nil }
         // Product's last write may be newer than the last read of the tree.
         await refreshRepo()
-        let paths = planChanges
+        let paths = planChanges + sessionChanges(request.session)
         if !paths.isEmpty {
             let title = filed.first { $0.kind == .project }?.title ?? filed.first?.title ?? "the request"
             let failure = await GitClient.commit(message: "Plan \(title)", paths: paths, in: directory)
@@ -207,8 +219,8 @@ extension ProjectModel {
     /// The Product session with nothing left to do: its turn is over and its plan is committed
     /// — by hand, since `Approve and commit` closes its own — which would leave it at "your
     /// turn" with no banner to close it from. Its plan is what its request filed or, once a
-    /// relaunch has forgotten the request, its Page, which only a commit made by hand puts in
-    /// git: the app never commits one.
+    /// relaunch has forgotten the request, its Page: the app commits one only with the approval
+    /// that closes its session, so one in git with the session still open went in by hand.
     ///
     /// Only right after a read of the tree: one older than the notebook would call a plan
     /// Product has just written committed.

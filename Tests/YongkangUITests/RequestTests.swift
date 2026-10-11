@@ -131,6 +131,17 @@ import Testing
         _ = project.sendRequest("Show the sync time", projects: [], agent: .claude)
         let product = try #require(project.sessions.last)
         _ = try NotebookFormat.create(.task, title: "Read the sync time", in: root, project: nil)
+        // What the session wrote beside its plan goes in with it; another session's message does not.
+        let plan = NotebookFormat.plan(of: product.id, in: root)
+        let messages = root.appendingPathComponent("messages")
+        for folder in [plan.deletingLastPathComponent(), messages] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        try #"{"title": "Read the sync time", "tasks": []}"#.write(to: plan, atomically: true, encoding: .utf8)
+        for (slug, session) in [("ask", product.id), ("other", UUID())] {
+            try "---\nkind: message\nto: \"../sync\"\nsession: \(session.uuidString.lowercased())\n---\n\nWhen?\n"
+                .write(to: messages.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)
+        }
         let active = try String(contentsOf: held, encoding: .utf8)
             .replacingOccurrences(of: "status: todo", with: "status: active")
         try active.write(to: held, atomically: true, encoding: .utf8)
@@ -162,7 +173,7 @@ import Testing
         #expect(project.repo.head?.hasSuffix("Plan Read the sync time") == true)
         #expect(
             project.repo.changes.map { tmp.appendingPathComponent($0.path).standardizedFileURL }
-                == [held.standardizedFileURL],
+                == [messages.appendingPathComponent("other.md"), held].map(\.standardizedFileURL),
             "a task an agent holds waits for its own review")
     }
 

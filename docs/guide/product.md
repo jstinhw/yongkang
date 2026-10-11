@@ -28,14 +28,15 @@ marked `new` under a line saying what landed. `Ask for changes` opens the box ag
 what you type to the same Product session; `Open session` shows its transcript. Once Product
 has stopped, the same line sits on top of its session too — its transcript and the plan on its
 Page — so you can decide where you read it. `Approve and commit` commits the uncommitted
-roadmap, milestone, task and memory files — never the file of a task handed to an agent,
-which goes in with that task's review — then closes the request and the Product session.
+roadmap, milestone, task and memory files, and the session's own Page and the messages it
+sent other projects — never the file of a task handed to an agent, which goes in with that
+task's review — then closes the request and the Product session.
 What is uncommitted is read from git, so a relaunch brings an unapproved request back, and so
 does the end of any Product turn that leaves a plan uncommitted — one asked for in its
 terminal, or after the line was dismissed. A plan you commit yourself instead closes the
 Product session once its turn is over, the way approving it would have: what its request
-filed is all committed, or, after a relaunch, its Page is — the app never commits a Page,
-so one in git went in with your commit.
+filed is all committed, or, after a relaunch, its Page is — the app commits a Page only
+with the approval that closes its session, so one in git went in with your commit.
 Nothing is assigned or run until you pick it.
 
 `Product review` at the bottom left of the board — or `Agent ▸ Product Review`, which works from any screen —
