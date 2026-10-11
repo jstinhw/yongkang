@@ -35,6 +35,7 @@ rest of the details.
 4. Open a pull request against `main` and fill in its template. CI runs `make check` on it,
    and `main` takes changes only through pull requests that pass.
 
-Be kind and assume good faith; that is the whole code of conduct for now.
+Be kind and assume good faith. Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

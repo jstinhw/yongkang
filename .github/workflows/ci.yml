@@ -1,7 +1,8 @@
 name: CI
 
-# The same `make check` the pre-push hook runs, for every pull request and for main. macOS
-# minutes count ten times on a private repo, which is why nothing else runs here.
+# The same `make check` the pre-push hook runs, for every pull request and for main. `main`'s
+# ruleset requires this job by its id, `check`: renamed, every pull request waits on a check
+# that never comes until the ruleset names the new one.
 on:
   pull_request:
   push:
