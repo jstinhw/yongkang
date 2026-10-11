@@ -41,10 +41,15 @@ command is safe; the agent's reply says in plain words what it changes and what 
 undone, so you can hold one against the other. Characters that show differently than they run
 — a bidi override, a zero-width space — are written out as `⟨U+202E⟩` and flagged. The files are
 read again every two seconds, whatever their dates say, and one rewritten while it is on screen
-says so. Data named like a key is listed but not drawn (a script never is: it is what runs), a
-program that is not text is named with its size and a note to ask what it is, and a command that
-runs more files than the pane shows says that too. The page is one click away under **Page**;
-once the command has run, the agent clears `run:`.
+says so. The command is split the way the shell splits it, quotes and all; a program it runs by
+bare name is looked up on `PATH` and shown when it is a script; and a path the shell only fills in
+when it runs — `$S/finish.sh`, `*.sh` — is listed as one Yongkang can't tell you about, with a
+note to have the agent write it out. Only scripts are drawn unasked: a file the command reads,
+or one named like a key, waits behind **Show**, since a token can sit in any of them. A program
+that is not text is named with its size and a note to ask what it is, and a command that runs
+more files than the pane shows says that too. The caption names the folder the session runs in,
+since a relative path means another file anywhere else. The page is one click away under
+**Page**; once the command has run, the agent clears `run:`.
 
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark resolved` if you did it yourself. The app sees it on the

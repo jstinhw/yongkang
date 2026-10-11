@@ -22,9 +22,13 @@ struct CommandPane: View {
             LazyVStack(alignment: .leading, spacing: 18) {
                 heading
                 commandCard
-                if let command {
+                // Only a read of this very line: one of the last command would show its files
+                // under this one, for as long as the read takes.
+                if let command, command.line == line {
                     touches(command)
                     runs(command)
+                } else {
+                    Text("Reading what it runs…").font(Typography.body).foregroundStyle(Theme.tx3)
                 }
                 Text(
                     "Shown: every file the command names, and each script a shown script names beside "
@@ -47,6 +51,9 @@ struct CommandPane: View {
         while !Task.isCancelled {
             let held = command?.line == line ? command : nil
             let next = await Task.detached { BlockCommand.read(line, in: directory, reusing: held) }.value
+            // The block's command moved on while this read ran: its task reads the new one, and
+            // this one's answer must not land on top of it.
+            guard !Task.isCancelled else { return }
             if next != command {
                 command = next
                 let seen = Dictionary(next.files.map { ($0.id, $0.content) }) { first, _ in first }
@@ -83,9 +90,21 @@ struct CommandPane: View {
                 .padding(.horizontal, 12).padding(.vertical, 10)
                 .background(RoundedRectangle(cornerRadius: 7).fill(Theme.well))
                 .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.wellLine, lineWidth: 1))
-            Text("Paste it after `!` in the session, or into your own terminal.")
-                .font(Typography.caption).foregroundStyle(Theme.tx3)
+            // A relative path names a different file in another folder, so the folder is said.
+            Text(
+                """
+                Paste it after `!` in the session, which runs in \(Text(verbatim: folder).font(Typography.mono)). \
+                In another terminal, `cd` there first.
+                """
+            )
+            .font(Typography.caption).foregroundStyle(Theme.tx3)
+            .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var folder: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return directory.path.hasPrefix(home + "/") ? "~" + directory.path.dropFirst(home.count) : directory.path
     }
 
     private func copy() {
@@ -153,9 +172,28 @@ struct CommandPane: View {
                 Spacer()
                 if count > 0 { Text("in full").font(Typography.caption).foregroundStyle(Theme.tx3) }
             }
-            if command.files.isEmpty {
-                Text("No file of its own: the command above is all of it.")
+            if command.files.isEmpty, command.unresolved.isEmpty {
+                Text(
+                    "No script behind it that Yongkang could find: the programs it names are compiled ones installed on this Mac."
+                )
+                .font(Typography.body).foregroundStyle(Theme.tx2)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(command.unresolved, id: \.self) { word in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(BlockCommand.visible(word)).font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
+                        Spacer(minLength: 8)
+                        Text("can't tell which file").font(Typography.caption).foregroundStyle(Theme.amber)
+                    }
+                    Text(
+                        "The shell fills this in when it runs — a variable, a pattern or a command's output — so "
+                            + "Yongkang can't show what it names. Ask the agent to write the path out."
+                    )
                     .font(Typography.body).foregroundStyle(Theme.tx2)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .cardSurface(radius: 8, padding: 10)
             }
             ForEach(command.files) { file in
                 CommandFile(
