@@ -399,21 +399,34 @@ package struct DesignDemo: View {
 /// The cache is main-actor state because a `WKWebView` is: the views are only ever made,
 /// looked up and dropped while a pane's `body` runs.
 @MainActor enum DemoPages {
-    private static var views: [URL: WKWebView] = [:]
-    private static var order: [URL] = []
+    /// A page and the script it runs once loaded: a reviewed screen's outlines are part of
+    /// its view, so a demo and a review at the same address are two views, not one.
+    private struct Key: Hashable {
+        let url: URL
+        let script: String
+    }
+
+    private static var views: [Key: WKWebView] = [:]
+    private static var order: [Key] = []
 
     /// Fetches the page again, keeping the view, so a design edited in place at the same
     /// link shows its latest version. A view not made yet has nothing stale to reload; one
     /// whose first load failed, because the server was down, has no page to reload and is
     /// sent to the address again.
     static func reload(_ url: URL) {
-        guard let view = views[url], !view.isLoading else { return }
-        if view.url == nil { view.load(URLRequest(url: url)) } else { view.reload() }
+        for (key, view) in views where key.url == url && !view.isLoading {
+            if view.url == nil { view.load(URLRequest(url: url)) } else { view.reload() }
+        }
     }
 
-    static func view(for url: URL) -> WKWebView {
-        if let existing = views[url] { return existing }
+    static func view(for url: URL, running script: String = "") -> WKWebView {
+        let key = Key(url: url, script: script)
+        if let existing = views[key] { return existing }
         let view = WKWebView()
+        if !script.isEmpty {
+            view.configuration.userContentController.addUserScript(
+                WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
         // Otherwise a page that has not loaded — or a dev server that is not running —
         // flashes a white rectangle in the middle of a near-black window. The public
         // property covers overscroll; the KVC one is what stops the view painting its own
@@ -421,8 +434,8 @@ package struct DesignDemo: View {
         view.underPageBackgroundColor = NSColor(Theme.bg)
         view.setValue(false, forKey: "drawsBackground")
         view.load(URLRequest(url: url))
-        views[url] = view
-        order.append(url)
+        views[key] = view
+        order.append(key)
         // ponytail: a plain cap rather than an LRU. Two panes and a handful of revisions
         // is the whole working set; anything older is cheaper to reload than to keep.
         while order.count > 8, let oldest = order.first {

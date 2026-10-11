@@ -3,8 +3,10 @@ import YongkangCore
 
 extension DesignShots {
     /// The `## Review` the fixture's finished task is filed with, as the work prompt asks for it:
-    /// a caution-free review with a question, two spots, a check that could not run and a
-    /// concern that does not block, so every part of the page has something in it.
+    /// a caution-free review with a question, a before and after of a screen, a format and an
+    /// error, two spots, a check that could not run and a concern that does not block, so every
+    /// part of the page has something in it. The screen's ports are ones nothing listens on, so
+    /// its sides photograph as not running, the same on every Mac.
     static let sampleReview = WorkReview.read(
         """
         {
@@ -30,6 +32,17 @@ extension DesignShots {
           "holds": [
             "Nothing is committed or pushed until you approve each task.",
             "A blocker outside the notebook is ignored, never followed."
+          ],
+          "shows": [
+            {"kind": "schema", "title": "A block's frontmatter",
+             "before": "kind: block\\nstatus: open\\ntitle: \\"Add the Vercel token\\"",
+             "after": "kind: block\\nstatus: open\\ntask: deploy-to-vercel\\nsession: 9b59ccf3\\ntitle: \\"Add the Vercel token\\""},
+            {"kind": "error", "title": "Two blockers waiting on each other", "test": "LeadBatchTests/cyclicBlocker",
+             "before": "Assigning never returns: the batch expands forever",
+             "after": "Refused: deploy-to-vercel and dns wait on each other"},
+            {"kind": "ui", "title": "The blocks board", "before": "http://localhost:59322/",
+             "after": "http://localhost:59321/", "serve_before": "make serve-board REV=51b0740 PORT=59322",
+             "serve_after": "make serve-board PORT=59321", "highlight": [".batch"]}
           ],
           "spots": [
             {"path": "Sources/YongkangCore/Notebook/LeadCoordination.swift", "lines": [88, 104],

@@ -9,15 +9,19 @@ extension ProjectModel {
         return await DemoServer.answers(url) ? nil : (url, block.serve)
     }
 
-    /// The demo's `serve:` command in a terminal of its own. That terminal is a service, like
-    /// `Run`: shown in the list, so the page can be stopped, and not kept across a quit.
-    /// One already starting is waited on, not joined by a second fighting it for the port.
     func startServing(_ block: UserBlock) {
-        let title = "Serve \(block.task ?? block.slug)"
+        startServing(block.serve, as: "Serve \(block.task ?? block.slug)")
+    }
+
+    /// A page's serve command — a demo's `serve:`, a reviewed screen's `serve_before` — in a
+    /// terminal of its own. That terminal is a service, like `Run`: shown in the list, so the
+    /// page can be stopped, and not kept across a quit. One already starting is waited on, not
+    /// joined by a second fighting it for the port.
+    func startServing(_ command: String, as title: String) {
         guard !sessions.contains(where: { $0.title == title }) else { return }
         addSession(
             id: UUID(), title: title, icon: "play.circle",
-            line: AgentCommand.line(directory: directory.path, run: block.serve))
+            line: AgentCommand.line(directory: directory.path, run: command))
     }
 
     /// Whether the user has let this project run this exact command. `serve:` is read from a

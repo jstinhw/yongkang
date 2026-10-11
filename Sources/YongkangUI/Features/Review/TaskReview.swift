@@ -3,9 +3,9 @@ import YongkangCore
 
 /// One finished task, read the way a person decides whether to accept it — in ten seconds when
 /// the agent wrote a `## Review`: one sentence of what changed, how sure the agent is, what it
-/// checked, what it reaches and what it left for you, then the questions and the few places it
-/// says a person should read, then the evidence. The code is folded under Code changes, each
-/// file unfolding its own diff, for the reviews that need more.
+/// checked, what it reaches and what it left for you, then its questions, the change before
+/// and after, the evidence, and the few places it says are worth reading. The code is folded
+/// under Code changes, each file unfolding its own diff, for the reviews that need more.
 ///
 /// Without a review — a record from before them, or one the agent got wrong — the page falls
 /// back to the task, the agents' reports and their Verification, which is all there is to show.
@@ -32,6 +32,8 @@ package struct TaskReview: View {
     /// What was sent for one of the review's questions, or nil before anything was.
     let answered: (String) -> String?
     let answer: (_ question: String, _ answer: String) -> Void
+    /// Serves one side of a reviewed screen that is down, asking first: true once it answers.
+    let serve: (_ url: URL, _ command: String, _ title: String) async -> Bool
     /// False on a session's Result tab, where the session's header above already names the task.
     let titled: Bool
 
@@ -67,6 +69,7 @@ package struct TaskReview: View {
         discard: @escaping () -> Void,
         answered: @escaping (String) -> String? = { _ in nil },
         answer: @escaping (String, String) -> Void = { _, _ in },
+        serve: @escaping (URL, String, String) async -> Bool = { _, _, _ in false },
         titled: Bool = true
     ) {
         self.task = task
@@ -86,6 +89,7 @@ package struct TaskReview: View {
         self.discard = discard
         self.answered = answered
         self.answer = answer
+        self.serve = serve
         self.titled = titled
     }
 
@@ -190,14 +194,13 @@ package struct TaskReview: View {
 
     // MARK: - The review
 
-    /// The agent's review, most urgent first: what it asks of you, what changed, the evidence,
-    /// and what it is still worried about.
+    /// The agent's review, most urgent first: what it asks of you, the change before and after,
+    /// what changed, the evidence, what it is still worried about, and the code worth reading.
     @ViewBuilder private func reviewed(_ review: WorkReview) -> some View {
-        if !(review.questions ?? []).isEmpty || !(review.spots ?? []).isEmpty {
-            ReviewAsks(
-                review: review, diffs: diffs, loading: diffs.isEmpty && !task.files.isEmpty, draft: $draft,
-                answered: answered, answer: answer, openFile: openFile)
+        if let questions = review.questions, !questions.isEmpty {
+            ReviewAsks(questions: questions, answered: answered, answer: answer)
         }
+        if let shows = review.shows, !shows.isEmpty { ReviewShows(shows: shows, task: task.id, serve: serve) }
         ReviewChanged(changed: review.changed ?? []) {
             ForEach(Array(task.work.enumerated()), id: \.offset) { _, work in
                 WorkReport(work: work, name: name(of: work), cards: cards, openFile: openFile)
@@ -205,6 +208,11 @@ package struct TaskReview: View {
         }
         ReviewSafety(checks: review.checks ?? [], holds: review.holds ?? [])
         if let concerns = review.concerns, !concerns.isEmpty { ReviewConcerns(concerns: concerns) }
+        if let spots = review.spots, !spots.isEmpty {
+            ReviewSpots(
+                spots: spots, diffs: diffs, loading: diffs.isEmpty && !task.files.isEmpty, draft: $draft,
+                openFile: openFile)
+        }
     }
 
     /// The agent wrote a review the page could not read: said, with the field, so the reviewer

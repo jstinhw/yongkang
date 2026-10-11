@@ -50,20 +50,29 @@ extension AppModel {
     /// the page answers; after a question, the panes are reloaded when the server is up.
     func serve(_ block: UserBlock, in project: ProjectModel) async -> Bool {
         guard let down = await project.downDemo(block) else { return false }
-        guard project.trustsServe(down.command) else {
+        return await serve(down.url, with: down.command, as: "Serve \(block.task ?? block.slug)", in: project)
+    }
+
+    /// A page on this Mac that is down, brought back by its command, asked first the same way:
+    /// a demo's, or one side of a reviewed screen. True once it answers, and at once when it
+    /// already does.
+    func serve(_ url: URL, with command: String, as title: String, in project: ProjectModel) async -> Bool {
+        guard DemoServer.isLocal(url), !command.isEmpty else { return false }
+        if await DemoServer.answers(url) { return true }
+        guard project.trustsServe(command) else {
             alert = .confirm(
-                "Serve this demo?",
-                detail: "Its page is not running. This runs, in \(project.name):\n\n\(down.command)",
+                "Serve this page?",
+                detail: "It is not running. This runs, in \(project.name):\n\n\(command)",
                 action: "Run"
             ) {
-                project.trustServe(down.command)
-                project.startServing(block)
-                Task { if await DemoServer.waitUntilAnswering(down.url) { DemoPages.reload(down.url) } }
+                project.trustServe(command)
+                project.startServing(command, as: title)
+                Task { if await DemoServer.waitUntilAnswering(url) { DemoPages.reload(url) } }
             }
             return false
         }
-        project.startServing(block)
-        return await DemoServer.waitUntilAnswering(down.url)
+        project.startServing(command, as: title)
+        return await DemoServer.waitUntilAnswering(url)
     }
 
     func assign(_ tasks: [NotebookCard], in project: ProjectModel, agent: AgentKind, reading: [URL] = []) {

@@ -350,8 +350,10 @@ package enum NotebookFormat {
         names the `session`, `task`, `work_id`, `title`, `status`, the `paths` it changed,
         a one-line `report`, `started_at` and `finished_at`; its body is `## Result`,
         `## Verification` and `## Review` — a JSON block the review page is drawn from: a
-        one-sentence summary, a confidence, the checks run, the places a person should read,
-        questions and concerns — and `## Change request` quotes what the user sent back. Work
+        one-sentence summary, a confidence, the checks run, the change before and after,
+        places worth reading, questions and concerns — and `## Change request` quotes what
+        the user sent back. A screen's before and after are the app served twice, at
+        two addresses, each with the command that serves it again. Work
         states running/blocked/done/failed are separate from task states. These records
         stay out of notebook navigation and appear on the session's result and in Review.
         Keep raw transcripts outside the notebook. Never store secrets, environment
