@@ -185,7 +185,7 @@ extension RootView {
                     return await approve(owner, message: message, in: project)
                 },
                 requestChanges: { if let owner { model.go(to: project.requestChanges(on: owner, agent: agent)) } },
-                discard: { if let owner { model.discard(owner, in: project, rerunningWith: agent) } })
+                discard: { if let owner { model.discard(owner, in: project) } })
         } else if let step = previewStep(in: project) {
             ProjectPreview(
                 repo: step.repo, services: step.services,
@@ -360,7 +360,7 @@ extension RootView {
             startBlock: { model.go(to: project.startUnblock($0, agent: agent)) },
             approve: { await approve(task, message: $0, in: project) },
             requestChanges: { model.go(to: project.requestChanges(on: task, agent: agent)) },
-            discard: { model.discard(task, in: project, rerunningWith: agent) },
+            discard: { model.discard(task, in: project) },
             answered: { project.answered($0, on: task.id) },
             answer: { model.answer($0, with: $1, on: task, in: project, agent: agent) }
         )

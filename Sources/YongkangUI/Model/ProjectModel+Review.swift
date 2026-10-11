@@ -83,15 +83,6 @@ extension ProjectModel {
         }
     }
 
-    /// Discarding, then handing the task to an agent the way a change request does, to start over.
-    func discardAndRerun(_ task: SummaryTask, agent: AgentKind) async throws(CommitFailure) -> Destination? {
-        try await discard(task)
-        return send(
-            "Discarded \(task.id) — \"\(task.title)\": its changes and its reports are gone. Do it again "
-                + "from the start, check the Done when, and mark it done again. Do not commit.",
-            about: task, agent: agent)
-    }
-
     private func send(_ message: String, about task: SummaryTask, agent: AgentKind) -> Destination? {
         if let holder = sessions.first(where: { $0.taskIDs.contains(task.id) && !$0.exited }) {
             return Destination(section: .agents, route: .session(holder.id), input: message)
