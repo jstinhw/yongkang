@@ -222,5 +222,6 @@ import Testing
             #expect(rows.first?.reason == "Check failed: Tests pass")
         }
         #expect(summary.waitingIDs == ["audit"], "still the user's move, so the board keeps it")
+        #expect(ChangeSummary(tasks: [failed, failed]).cautions.count == 1, "two files with one id do not trap")
     }
 }

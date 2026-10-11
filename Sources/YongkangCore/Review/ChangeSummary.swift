@@ -115,7 +115,9 @@ package struct ChangeSummary: Equatable, Sendable {
     /// ready for review — the agent says so itself — but still the user's move: send it back,
     /// or approve over it.
     package var cautions: [String: String] {
-        Dictionary(uniqueKeysWithValues: waiting.compactMap { task in task.caution.map { (task.id, $0) } })
+        // Two task files can carry the same `id:`, and the first wins, as `NotebookIndex` reads them.
+        Dictionary(
+            waiting.compactMap { task in task.caution.map { (task.id, $0) } }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The part of that one session holds: what turns its row in the Agents list green.
