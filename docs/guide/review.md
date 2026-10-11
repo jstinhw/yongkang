@@ -50,14 +50,15 @@ Then the cards, most urgent first:
 Click any line of an unfolded diff to leave a comment on it; comments and a note for
 anything that is not about one line collect under **Feedback** until you send them. The same
 page opens from the agent's row in the sidebar and from its page's **Waiting for your review** — see
-[Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector carries the task's brief and
-`Done when`, what the agent did outside the repo (network reads, downloads, writes — or
-nothing), what landing it unblocks, the areas, what the commit will hold, and a warning when a
-file is also changed by another task still waiting.
+[Shipping tasks](engineering-lead.md), and from the session's **Page** row. The inspector opens
+on the branch the commit goes to, what it sits on top of and what it takes; then the task's
+brief and `Done when`, folded to how many are met and one click from the whole text; what the
+agent did outside the repo (network reads, downloads, writes — or nothing), what landing it
+unblocks, the areas, and a warning when a file is also changed by another task still waiting.
 
 All of this is drawn from the `## Review` the agent writes into its run record, as JSON, so
 every review reads the same whichever agent wrote it. A record without one — from a session
-started before reviews — opens on **The task**, **What changed** in the agent's words and
+started before reviews — opens on **The task** (folded, as above), **What changed** in the agent's words and
 **Self-review**, its `## Verification`; one the app cannot read says which field was wrong. A
 failed check, a low confidence or a concern that blocks makes the button **Approve anyway**,
 and no longer the primary.

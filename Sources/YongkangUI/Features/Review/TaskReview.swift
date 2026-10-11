@@ -40,6 +40,9 @@ package struct TaskReview: View {
     /// The same read's lines, kept for the files the reviewer unfolds.
     @State private var diffs: [String: [DiffLine]] = [:]
     @State private var unfolded: Set<String> = []
+    /// The brief and its Done when, folded: the title above already names the task, and the
+    /// reviewer reads what the agent did with it before what it was asked.
+    @State private var taskOpen = false
 
     package init(
         task: SummaryTask,
@@ -215,17 +218,46 @@ package struct TaskReview: View {
 
     // MARK: - The task
 
-    @ViewBuilder private var taskCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("The task", trailing: task.url.map(NotebookFormat.relativePath))
-            if content.isEmpty {
-                Text("The task file could not be read.").font(Typography.body).foregroundStyle(Theme.tx3)
-            } else {
-                NotebookContentView(sections: content, cards: cards)
+    private var taskCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                taskOpen.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: taskOpen ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.tx3).frame(width: 10)
+                    Text("THE TASK").font(Typography.section).tracking(1.4).foregroundStyle(Theme.tx2)
+                    Spacer(minLength: 8)
+                    if taskOpen, let url = task.url {
+                        Text(NotebookFormat.relativePath(url)).font(Typography.mono).foregroundStyle(Theme.tx3)
+                            .lineLimit(1).truncationMode(.head)
+                    } else if !checklist.isEmpty {
+                        let done = checklist.filter(\.done).count
+                        Image(systemName: "checkmark").font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(done == checklist.count ? Theme.green : Theme.tx3)
+                        Text("\(done) / \(checklist.count) done when").font(Typography.mono).foregroundStyle(Theme.tx2)
+                    }
+                }
+                .padding(.horizontal, 15)
+                .frame(height: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(taskOpen ? "Fold the task" : "Read the task and its Done when")
+            .accessibilityLabel("The task, \(taskOpen ? "unfolded" : "folded")")
+            if taskOpen {
+                Group {
+                    if content.isEmpty {
+                        Text("The task file could not be read.").font(Typography.body).foregroundStyle(Theme.tx3)
+                    } else {
+                        NotebookContentView(sections: content, cards: cards)
+                    }
+                }
+                .padding([.horizontal, .bottom], 15)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(padding: 15)
+        .cardSurface(padding: 0)
     }
 
     // MARK: - Checked
@@ -374,6 +406,8 @@ package struct TaskReview: View {
     private var inspector: some View {
         Inspector(width: 336) {
             if let review = task.review {
+                // Where approving puts the work leads, since the task under it is folded.
+                commitCard
                 taskCard
                 ReviewReach(outside: review.outside ?? [], next: review.next)
             } else {
@@ -388,6 +422,7 @@ package struct TaskReview: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .cardSurface(padding: 15)
+                commitCard
             }
 
             if !grouped.isEmpty {
@@ -397,27 +432,6 @@ package struct TaskReview: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("This commit")
-                HStack(spacing: 9) {
-                    Image(systemName: "arrow.triangle.branch").foregroundStyle(Theme.accent)
-                    // Wraps rather than truncates, for the same reason as in `ChangeReview`:
-                    // the tail of a branch name is what identifies it.
-                    Text(branch ?? "no branch").font(Typography.code).foregroundStyle(Theme.tx)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Text("\(task.commitPaths.count) file\(task.commitPaths.count == 1 ? "" : "s")")
-                        .font(Typography.body).foregroundStyle(Theme.tx3)
-                }
-                Text("Only this task's files and its run records. Nothing is pushed.")
-                    .font(Typography.body).foregroundStyle(Theme.tx3).fixedSize(horizontal: false, vertical: true)
-                if let head {
-                    Text("on top of \(head)").font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface(padding: 15)
-
             ForEach(
                 task.files.compactMap { file in summary.sharing(file.path, besides: task).map { (file, $0) } },
                 id: \.0.path
@@ -426,6 +440,53 @@ package struct TaskReview: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    /// The branch approving commits to, set apart from what the commit takes, so it is read
+    /// first and at a glance.
+    private var commitCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Commits to")
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.triangle.branch").font(.system(size: 12)).foregroundStyle(Theme.accent)
+                // Wraps rather than truncates, for the same reason as in `ChangeReview`:
+                // the tail of a branch name is what identifies it.
+                Text(branch ?? "no branch").font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.raised))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.chipLine, lineWidth: 1))
+            Grid(alignment: .topLeading, horizontalSpacing: 10, verticalSpacing: 6) {
+                if let head, !head.isEmpty {
+                    // "51b0740 Show all agents": the hash in mono, the subject after it.
+                    let parts = head.split(separator: " ", maxSplits: 1).map(String.init)
+                    GridRow {
+                        Text("On top of").foregroundStyle(Theme.tx3)
+                        (Text(parts.first ?? "").font(Typography.mono).foregroundStyle(Theme.prose)
+                            + Text(parts.count > 1 ? "  \(parts[1])" : "").foregroundStyle(Theme.tx2))
+                            .lineLimit(1)
+                    }
+                }
+                GridRow {
+                    Text("Takes").foregroundStyle(Theme.tx3)
+                    Text(
+                        "\(task.commitPaths.count) file\(task.commitPaths.count == 1 ? "" : "s"): "
+                            + "only this task's and its run records"
+                    )
+                    .foregroundStyle(Theme.tx2).fixedSize(horizontal: false, vertical: true)
+                }
+                GridRow {
+                    Text("Push").foregroundStyle(Theme.tx3)
+                    Text("Nothing is pushed").foregroundStyle(Theme.tx2)
+                }
+            }
+            .font(Typography.body)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(padding: 15)
     }
 
     @ViewBuilder private var verdictLine: some View {
