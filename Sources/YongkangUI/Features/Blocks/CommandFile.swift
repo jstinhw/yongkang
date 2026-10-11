@@ -81,13 +81,21 @@ struct CommandFile: View {
         case .text(let text):
             let count = text.components(separatedBy: "\n").count
             let parts = [
-                file.namedBy.map { $0 == "PATH" ? "found on PATH" : "named in \($0)" },
+                source,
                 "\(count) \(count == 1 ? "line" : "lines")",
                 file.modified.map { "written \(Self.when($0))" },
             ]
             return parts.compactMap { $0 }.joined(separator: " · ")
         case .missing: return "not found"
         case .binary, .tooLarge: return "can't be shown"
+        }
+    }
+
+    private var source: String? {
+        switch file.namedBy {
+        case .command: nil
+        case .path: "found on PATH"
+        case .file(let name): "named in \(name)"
         }
     }
 

@@ -41,8 +41,10 @@ command is safe; the agent's reply says in plain words what it changes and what 
 undone, so you can hold one against the other. Characters that show differently than they run
 — a bidi override, a zero-width space — are written out as `⟨U+202E⟩` and flagged. The files are
 read again every two seconds, whatever their dates say, and one rewritten while it is on screen
-says so. The command is split the way the shell splits it, quotes and all; a program it runs by
-bare name is looked up on `PATH` and shown when it is a script; and a path the shell only fills in
+says so. The command is split the way the shell splits it, quotes and all. Each program it runs
+by bare name is listed under **Programs it runs** with where it is found — on your shell's `PATH`
+first, then the app's — and every match, when there is more than one, since a script early on the
+`PATH` runs in place of the `git` you meant; any script among them is drawn. A path the shell only fills in
 when it runs — `$S/finish.sh`, `*.sh` — is listed as one Yongkang can't tell you about, with a
 note to have the agent write it out. Only scripts are drawn unasked: a file the command reads,
 or one named like a key, waits behind **Show**, since a token can sit in any of them. A program

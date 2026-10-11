@@ -21,19 +21,31 @@ package struct BlockCommand: Equatable, Sendable {
     /// Words of the command that look like a path the shell fills in when it runs — `$S/x.sh`,
     /// `*.sh`, `$(…)` — so which file they name cannot be known from here, only said.
     package let unresolved: [String]
+    /// What it runs by bare name, and where each is found — said for every one, since a script
+    /// put early on the `PATH` runs in place of the program the name usually means.
+    package let programs: [Program]
 
     package struct File: Equatable, Sendable, Identifiable {
         package var id: String { url.path }
         package let url: URL
-        /// The file whose text named it, `PATH` for a program the command runs by bare name,
-        /// nil when the command names it itself.
-        package let namedBy: String?
+        package let namedBy: Source
         package let content: Content
         package let modified: Date?
         /// Why it is not drawn until the user asks: anything but a script, or a name that says
         /// key or token. A rule by name leaks — `.netrc` and a `config.json` hold tokens too —
         /// so only a script is drawn unasked, and only when its name does not say secret.
         package let withheld: Withheld?
+    }
+
+    /// How a file came to be shown. An enum, not the file's name: a script called `PATH` is a
+    /// script like any other.
+    package enum Source: Equatable, Sendable {
+        /// The command names it.
+        case command
+        /// The command runs it by bare name, and the `PATH` leads to it.
+        case path
+        /// A shown script names it, by this file name.
+        case file(String)
     }
 
     package enum Withheld: Equatable, Sendable {
@@ -116,16 +128,20 @@ package struct BlockCommand: Equatable, Sendable {
     /// not exist last time, or one rewritten with its old date put back. Only the line matching
     /// is skipped, when `previous` read exactly these files with exactly this text.
     package static func read(
-        _ line: String, in directory: URL, reusing previous: BlockCommand? = nil, searching path: [String] = path
+        _ line: String, in directory: URL, reusing previous: BlockCommand? = nil, searching folders: [String] = path()
     ) -> BlockCommand {
         let words = ShellWords.split(line, home: FileManager.default.homeDirectoryForCurrentUser.path)
         let unresolved = words.filter { $0.expands && looksLikePath($0.text) }.map(\.text)
-        let (files, truncated) = discover(words, in: directory, searching: path)
-        if let previous, previous.line == line, previous.files == files, previous.truncated == truncated {
+        let programs = programs(of: words, in: folders)
+        let (files, truncated) = discover(words, programs: programs, in: directory)
+        if let previous, previous.line == line, previous.files == files, previous.truncated == truncated,
+            previous.programs == programs
+        {
             return previous
         }
         return BlockCommand(
-            line: line, files: files, flags: flags(line, files), truncated: truncated, unresolved: unresolved)
+            line: line, files: files, flags: flags(line, files), truncated: truncated, unresolved: unresolved,
+            programs: programs)
     }
 
     /// `text` with every character `hiddenCharacters` matches written out as `⟨U+202E⟩`, so the
@@ -159,11 +175,11 @@ package struct BlockCommand: Equatable, Sendable {
     /// script names beside itself, breadth first. A program found on `PATH` is shown but not
     /// followed: its folder is an install, not an agent's scratch.
     private static func discover(
-        _ words: [ShellWord], in directory: URL, searching path: [String]
+        _ words: [ShellWord], programs: [Program], in directory: URL
     ) -> (files: [File], truncated: Bool) {
         var found: [File] = []
         var seen: Set<String> = []
-        var queue = named(byCommand: words, in: directory, searching: path)
+        var queue = named(byCommand: words, programs: programs, in: directory)
         while !queue.isEmpty, found.count < fileLimit {
             let next = queue.removeFirst()
             guard seen.insert(next.url.path).inserted else { continue }
@@ -171,22 +187,23 @@ package struct BlockCommand: Equatable, Sendable {
             let withheld: Withheld? = looksSecret(next.url) ? .secretName : (isScript(next.url) ? nil : .data)
             found.append(
                 File(url: next.url, namedBy: next.namedBy, content: content, modified: modified, withheld: withheld))
-            if case .text(let text) = content, next.namedBy != "PATH" {
-                queue += named(in: text, beside: next.url).map { ($0, next.url.lastPathComponent) }
+            if case .text(let text) = content, next.namedBy != .path {
+                queue += named(in: text, beside: next.url).map { ($0, .file(next.url.lastPathComponent)) }
             }
         }
         return (found, queue.contains { !seen.contains($0.url.path) })
     }
 
     /// Each word of the command that is a file, or a script's name with nothing there yet, and
-    /// each program it runs by bare name that is a script on `PATH`. A word the shell still
-    /// rewrites names nothing here: it is listed in `unresolved` instead.
+    /// every script outside the system's folders that a program it runs by bare name could be.
+    /// A word the shell still rewrites names nothing here: it is listed in `unresolved` instead.
     static func named(
-        byCommand words: [ShellWord], in directory: URL, searching path: [String]
-    ) -> [(url: URL, namedBy: String?)] {
-        words.filter { !$0.expands }.compactMap { word -> (url: URL, namedBy: String?)? in
+        byCommand words: [ShellWord], programs: [Program], in directory: URL
+    ) -> [(url: URL, namedBy: Source)] {
+        words.filter { !$0.expands }.flatMap { word -> [(url: URL, namedBy: Source)] in
             if word.isCommand, !word.text.contains("/") {
-                return scriptOnPath(word.text, in: path).map { ($0, "PATH") }
+                let found = programs.first { $0.name == word.text }?.found ?? []
+                return found.filter(isUserScript).map { ($0, .path) }
             }
             // `--file=/x`, `VAR=/x` and curl's `@/x` name the file after the sign.
             var text = word.text
@@ -194,42 +211,18 @@ package struct BlockCommand: Equatable, Sendable {
                 text = String(text[text.index(after: sign)...])
             }
             if text.hasPrefix("@") { text.removeFirst() }
-            guard !text.isEmpty, !text.hasPrefix("-") else { return nil }
+            guard !text.isEmpty, !text.hasPrefix("-") else { return [] }
             let url = resolve(text, in: directory)
             var folder: ObjCBool = false
             if FileManager.default.fileExists(atPath: url.path, isDirectory: &folder) {
-                return folder.boolValue ? nil : (url, nil)
+                return folder.boolValue ? [] : [(url, .command)]
             }
-            return scriptExtensions.contains(url.pathExtension.lowercased()) ? (url, nil) : nil
+            return scriptExtensions.contains(url.pathExtension.lowercased()) ? [(url, .command)] : []
         }
-    }
-
-    /// Where a bare command name is looked for.
-    ///
-    /// ponytail: this app's `PATH` plus the usual install folders, which can differ from the
-    /// user's shell. Ask a login shell for its `PATH` if a script there is ever missed.
-    package static var path: [String] {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
-            + ["/opt/homebrew/bin", "/usr/local/bin", home + "/.local/bin", home + "/bin"]
     }
 
     private static func looksLikePath(_ word: String) -> Bool {
         word.contains("/") || scriptExtensions.contains(URL(fileURLWithPath: word).pathExtension.lowercased())
-    }
-
-    /// Where a bare command name leads, when that is a script rather than a compiled program —
-    /// one an agent could have written and put there. The system's own folders are left out.
-    ///
-    private static func scriptOnPath(_ name: String, in folders: [String]) -> URL? {
-        let system = ["/bin/", "/sbin/", "/usr/bin/", "/usr/sbin/", "/usr/libexec/", "/System/"]
-        guard
-            let found = folders.lazy.map({ URL(fileURLWithPath: $0).appendingPathComponent(name) })
-                .first(where: { FileManager.default.isExecutableFile(atPath: $0.path) && !isFolder($0) })
-        else { return nil }
-        let real = found.resolvingSymlinksInPath()
-        guard !system.contains(where: { real.path.hasPrefix($0) }), startsWithShebang(real) else { return nil }
-        return found
     }
 
     /// The scripts in `file`'s folder that its text names — `"$S/rewrite.sh"` — and the
@@ -259,7 +252,7 @@ package struct BlockCommand: Equatable, Sendable {
         return names.sorted().map { folder.appendingPathComponent($0) }
     }
 
-    private static func isFolder(_ url: URL) -> Bool {
+    static func isFolder(_ url: URL) -> Bool {
         var folder: ObjCBool = false
         return FileManager.default.fileExists(atPath: url.path, isDirectory: &folder) && folder.boolValue
     }
@@ -271,7 +264,7 @@ package struct BlockCommand: Equatable, Sendable {
         return startsWithShebang(url)
     }
 
-    private static func startsWithShebang(_ url: URL) -> Bool {
+    static func startsWithShebang(_ url: URL) -> Bool {
         let handle = try? FileHandle(forReadingFrom: url)
         defer { try? handle?.close() }
         return (try? handle?.read(upToCount: 2)) == Data("#!".utf8)

