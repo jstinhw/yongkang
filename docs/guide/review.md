@@ -48,11 +48,12 @@ Then the cards, most urgent first:
 - **Concerns it raised** — each saying whether it should be settled before approving.
 - **Worth a read** — optional: the few places the agent says no check or show covers, each
   with why, and an arrow unfolding its own lines of the diff, where a line can be commented on.
-- **Code changes** — the task's files grouped as Database, API & services, Frontend,
+- **Code changes** — the task's files grouped as Database, API & services, Frontend, Code,
   Tests, Config, Docs & other, and Notebook records, each with the lines it added and removed.
   The area is worked out by the app from the path, SQL in the diff, and the owning agent's
   skill, so a data layer that writes SQL is flagged as Database even with no migration
-  folder. Every file starts folded; clicking one unfolds its diff in place.
+  folder. Source no rule places is Code; Docs & other holds only what isn't source. Every
+  file starts folded; clicking one unfolds its diff in place.
 - **Feedback** — each earlier round, what you asked and what the agent said it did about
   it, then what goes in the next one.
 
