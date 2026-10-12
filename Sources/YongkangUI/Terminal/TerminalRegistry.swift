@@ -24,6 +24,10 @@ import YongkangCore
     @ObservationIgnored var onAttention: (UUID, String?) -> Void = { _, _ in }
     /// A session's terminal has gone still, so its agent may be waiting for a reply.
     @ObservationIgnored var onQuiet: (UUID) -> Void = { _ in }
+    /// What the program in each plain shell last titled it, by session id: Claude Code names its
+    /// terminal after what it was asked, so a New Terminal's row can say what it is for. Only a
+    /// change of name is published — a CLI spins a glyph in front of it on every frame of work.
+    private(set) var titles: [UUID: String] = [:]
 
     @ObservationIgnored private var entries: [UUID: Entry] = [:]
     private let shell: [String]
@@ -61,6 +65,8 @@ import YongkangCore
         let entry = Entry(view: view, label: session.title, agent: session.agent, folder: folder)
         let id = session.id
         entry.onExit = { [weak self] code in self?.onExit(id, code) }
+        // An agent's row is named by its task or request, never by what its CLI titles itself.
+        if session.isTerminal { entry.onTitle = { [weak self] title in self?.name(id, after: title) } }
         view.processDelegate = entry
         view.onAttention = { [weak self] reason in self?.onAttention(id, reason) }
         view.onAnswer = { [weak self] question, keys in self?.answer(question, with: keys, from: id) }
@@ -101,6 +107,7 @@ import YongkangCore
     func terminate(_ id: UUID) {
         guard let entry = entries.removeValue(forKey: id) else { return }
         notice(nil, for: id)
+        titles[id] = nil
         // SwiftTerm reaped a child that exited by itself, so its pid may be another process's now.
         guard !entry.exited else { return }
         let pid = entry.view.process.shellPid
@@ -122,6 +129,23 @@ import YongkangCore
         Log.terminal.notice("pid \(pid, privacy: .public) ignored SIGTERM for 5s; killed")
         kill(pid, SIGKILL)
         waitpid(pid, nil, 0)
+    }
+
+    // MARK: - Titles
+
+    private func name(_ id: UUID, after title: String) {
+        let name = Self.name(fromTitle: title)
+        if titles[id] != name { titles[id] = name }
+    }
+
+    /// A terminal's title as a row's name: "✳ Fix the login", or a spinner frame in place of the
+    /// ✳ while Claude Code works, is "Fix the login". A first word with no letter or digit in it
+    /// is that glyph; a path or a command keeps its own. Nil when nothing else is left.
+    nonisolated static func name(fromTitle title: String) -> String? {
+        let words = title.split(whereSeparator: \.isWhitespace)
+        let glyph = words.first?.contains { $0.isLetter || $0.isNumber } == false
+        let name = words.dropFirst(glyph ? 1 : 0).joined(separator: " ")
+        return name.isEmpty ? nil : name
     }
 
     // MARK: - Typing
@@ -309,6 +333,8 @@ import YongkangCore
     /// Where the session runs, when the caller said. Nil answers only its own questions.
     let folder: URL?
     var onExit: (Int32?) -> Void = { _ in }
+    /// The title its program set, as the terminal escape sent it.
+    var onTitle: (String) -> Void = { _ in }
     /// Set once the child has exited by itself and SwiftTerm has reaped it.
     private(set) var exited = false
     /// Messages waiting for the terminal to be free, each with the key typed ahead of it.
@@ -348,7 +374,9 @@ import YongkangCore
     }
 
     nonisolated func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
-    nonisolated func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
+    nonisolated func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
+        MainActor.assumeIsolated { onTitle(title) }
+    }
     nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
 }
 

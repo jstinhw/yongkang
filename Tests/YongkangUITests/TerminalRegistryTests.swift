@@ -148,6 +148,33 @@ struct TerminalRegistryTests {
         #expect(model.terminals.view(for: id) == nil)
     }
 
+    /// `claude` run in a New Terminal titles it after what it was asked, a spinner frame in front
+    /// while it works and ✳ once it has stopped. The row is called that, through the glyphs.
+    @Test func aTerminalIsNamedAfterWhatItsProgramWasAsked() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let model = AppModel(terminals: registry(), notify: { _, _, _ in })
+        let project = model.open(tmp)
+        defer { model.close(project) }
+        let id = UUID()
+        project.addSession(
+            id: id, title: "app", icon: CodeSession.terminalIcon,
+            line: """
+                printf '\\033]0;⠂ Fix the login\\007'; sleep 0.5
+                printf '\\033]0;✳ Fix the login\\007'; exec sleep 30
+                """)
+        let row = { project.value.agentRows(summary: project.summary).first { $0.session?.id == id } }
+
+        #expect(row()?.label == "app", "named after its folder until its program says otherwise")
+        #expect(try await eventually { row()?.label == "Fix the login" })
+        #expect(row()?.line == "app · terminal", "and still says what it is under the name")
+        try await Task.sleep(for: .seconds(1))
+        #expect(model.terminals.titles[id] == "Fix the login", "the ✳ is the same name")
+
+        #expect(TerminalRegistry.name(fromTitle: "~/code/app") == "~/code/app", "a path keeps its own")
+        #expect(TerminalRegistry.name(fromTitle: "✳ ") == nil, "a glyph alone names nothing")
+    }
+
     // MARK: - Attention
 
     /// Codex's captured trust screen, printed through a real PTY, up to the notice and the

@@ -27,7 +27,8 @@ extension AgentRow {
     var name: String { session?.title ?? title }
 
     /// What the sidebar calls it: the task it is on, "Astro project scaffold", the request a
-    /// Product is on, "Open source and release", or its own name when it is on neither.
+    /// Product is on, "Open source and release" — or a plain shell was given, as its program
+    /// titled it — or its own name when it is on neither.
     var label: String { request ?? (task == nil ? name : title) }
 
     /// The coding agent it runs, "Codex", or its own name for a service runner.
@@ -58,8 +59,8 @@ extension AgentRow {
 
     /// What it is doing, then the coding agent doing it: "working · Codex". A session on no task
     /// is already named after itself, so it says only the first. One talking to another project
-    /// says which instead: "waiting on notebook-sync". One named after its request says it is
-    /// Product first: "Product · your turn".
+    /// says which instead: "waiting on notebook-sync". One named after its request says who it
+    /// is first: "Product · your turn", "yongkang · terminal".
     var line: String {
         let line =
             talkingTo.map { "\($0.verb) \($0.project)" } ?? (task == nil ? doing : "\(doing) · \(agentName)")

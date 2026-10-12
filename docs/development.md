@@ -252,7 +252,9 @@ for.
     - **Agent → New Terminal**, `⌘T`, opens a shell in the project's folder, the same as the
       **New Terminal** row under each project in the Agents sidebar. Its row is named after the
       folder, has a terminal icon instead of a state, and reads **terminal** under its name;
-      `exit` closes it. It does not come back on a relaunch.
+      run `claude` in it and ask something, and the row takes the name Claude Code titles the
+      terminal with, the folder moving under it: **app · terminal**. `exit` closes it. It does
+      not come back on a relaunch.
     - **Notebook → New Task…** asks for a title and opens the new task. The toolbar has no
       **+** menu.
     - There is no **New Window**: the model and its terminals are app-wide, so a second

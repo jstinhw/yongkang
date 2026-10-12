@@ -25,8 +25,8 @@ package struct Project: Identifiable, Equatable, Sendable {
     /// The other open project each session here is talking to, by session id. In memory only,
     /// like `guided` — see `ProjectModel.peers`.
     package var peers: [UUID: Peer] = [:]
-    /// The name of the request each Product session here is on, by session id. In memory only,
-    /// like `peers` — see `ProjectModel.requestName`.
+    /// The name of the request each Product session here is on, or each plain shell was given,
+    /// by session id. In memory only, like `peers` — see `ProjectModel.requests`.
     package var requests: [UUID: String] = [:]
 
     package init(
