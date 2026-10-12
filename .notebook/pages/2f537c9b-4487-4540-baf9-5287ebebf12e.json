@@ -1,0 +1,23 @@
+{
+  "title": "Group picker in New Project",
+  "outcomes": [
+    "Choose a group when creating a project",
+    "Plus menu starts on no group",
+    "Group menu starts on that group"
+  ],
+  "needs_you": [
+    {"task": "new-project-group-picker-design", "action": "Approve the group picker demo"}
+  ],
+  "tasks": [
+    {"id": "new-project-group-picker-design", "title": "Design the group picker", "project": "new-project-in-group",
+     "depends_on": ["new-project-in-group-design"], "design": true,
+     "detail": "Where the picker sits, its no-group wording, the title"},
+    {"id": "new-project-group-picker", "title": "Pick the group in sheet", "project": "new-project-in-group",
+     "depends_on": ["new-project-group-picker-design", "open-project-into-group"], "design": false,
+     "detail": "Sheet choice reaches open into group; defaults to no group"}
+  ],
+  "outside": [
+    {"id": "new-project-in-group-design", "title": "Approved new project demo", "where": "new-project-in-group", "done": true},
+    {"id": "open-project-into-group", "title": "Open a project into group", "where": "new-project-in-group", "done": true}
+  ]
+}
