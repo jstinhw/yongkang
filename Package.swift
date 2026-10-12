@@ -20,7 +20,11 @@ let package = Package(
         .executable(name: "shots", targets: ["Shots"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
+        // 1.99 is SwiftTerm 2.0's preview: it drops `getTerminal()` and stops calling
+        // `LocalProcessTerminalView.dataReceived`, which `AttentionTerminalView` overrides.
+        // ponytail: capped below it, as in .github/dependabot.yml; lift both once 2.0 is final,
+        // moving the attention check onto `setProcessOutputHandler` and the view's copied reads.
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", "1.2.0"..<"1.99.0"),
         // The in-app updater (docs/release.md). 2.9 is the first to render Markdown release notes.
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.0"),
     ],
