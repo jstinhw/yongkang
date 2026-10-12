@@ -20,10 +20,9 @@ designer made is a chip on the `Revisions` strip, so you can follow how the chan
 there rather than being handed one finished thing; a pass they kept serving opens again.
 
 The demo is a live page, never a picture of one: opening it, or a new revision arriving,
-loads the latest version, and each pane's reload button fetches it again; the button beside it
-opens the page in your browser. A demo published as a claude.ai artifact is private to your
-account, so the first time, its pane shows claude.ai's login; Continue with Google opens Google's
-sign-in in a small window of its own, and the pane stays signed in after that. A demo served on
+loads the latest version, and each pane's reload button fetches it again. A demo published
+as a claude.ai artifact is the exception: it is private to your account, and claude.ai cannot
+sign in from inside an app, so its pane offers `Open in your browser` instead. A demo served on
 this Mac stops when Yongkang quits, since the designer's session was serving it. The demo
 file's `serve:` line is the command that serves it. The first time a demo's page is down when
 you open it, Yongkang shows you that exact command and asks before running it, since the line
