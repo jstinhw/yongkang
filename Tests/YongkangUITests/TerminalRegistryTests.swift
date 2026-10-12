@@ -257,6 +257,24 @@ struct TerminalRegistryTests {
         #expect(lines(in: log) == ["1b5b3230307e68691b5b3230317e", "0d"], "the paste, then Enter alone")
     }
 
+    // A `!` read with the paste is part of the paste: the prompt never becomes a shell.
+    @Test func anApprovedCommandsBangArrivesInAReadOfItsOwn() async throws {
+        let tmp = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let log = tmp.appendingPathComponent("reads")
+        let terminals = registry()
+        let agent = session(
+            "stty raw -echo; while :; do dd bs=65536 count=1 2>/dev/null | od -An -tx1 | tr -d ' \\n' >> '\(log.path)'; echo >> '\(log.path)'; done"
+        )
+        terminals.start(agent)
+        defer { terminals.terminate(agent.id) }
+        try await Task.sleep(for: .milliseconds(300))  // Past `stty`, or the PTY is still cooked.
+
+        terminals.run("ls", in: agent.id)
+        #expect(try await eventually { lines(in: log).count == 3 })
+        #expect(lines(in: log) == ["21", "1b5b3230307e6c731b5b3230317e", "0d"], "`!`, the paste, then Enter")
+    }
+
     @Test func aMessageCannotEndItsPasteOrPressAKey() {
         #expect(
             TerminalRegistry.pasted("Hi\u{1b}[201~\r!rm -rf ~\u{3}\u{9b}\n\tok")
@@ -369,7 +387,10 @@ struct TerminalRegistryTests {
         #expect(try await eventually { keys().hasSuffix("\u{1b}[B") }, "another child's row moves down")
         view.feed(text: picker(selected: "wire-auth-1-dev"))
         await steering.value
-        #expect(keys() == paste("/tasks") + "\r" + "\u{1b}[B" + "\r", "Enter on the child's row, and nothing else")
+        // Waits: the Enter is in the PTY once `showChild` returns, but `cat` logs it later.
+        #expect(
+            try await eventually { keys() == paste("/tasks") + "\r" + "\u{1b}[B" + "\r" },
+            "Enter on the child's row, and nothing else")
         #expect(terminals.childNavigation[lead.id] == nil)
 
         await terminals.showChild(child, in: lead.id)

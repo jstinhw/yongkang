@@ -354,6 +354,14 @@ extension NotebookFormat {
                               "result": "<what it printed, ten words at most>",
                               "command": "<the command and its output>"}],
                   "holds": ["<what keeps it safe whatever the code does, 20 words at most>"],
+                  "shows": [{"kind": "ui | error | schema | api", "title": "<what it shows, six words at most>",
+                             "before": "<for ui the address the app as it was runs at, otherwise the old text>",
+                             "after": "<the same, as it is now>",
+                             "serve_before": "<ui: the command that serves before again>",
+                             "serve_after": "<ui: the command that serves after again>",
+                             "highlight": ["<ui: a CSS selector of what changed, on either side>"],
+                             "test": "<the test that runs an error case>",
+                             "note": "<a difference you kept on purpose, 25 words at most>"}],
                   "spots": [{"path": "<repo-relative file>", "lines": [<first>, <last>],
                              "label": "<where, two words>", "why": "<why I read it, 25 words at most>"}],
                   "questions": [{"ask": "<what only I can decide>", "context": "<20 words at most>",
@@ -369,12 +377,21 @@ extension NotebookFormat {
             The Review is what the app shows me when you stop, and I read it in seconds: keep to the
             word limits, plain words, and leave the detail to Result and Verification. Every check
             you ran goes in `checks`, and one you could not run is `not_run`, never left out.
-            `spots` are the few places a person should read because no check covers them, with
-            line numbers in the file as it is now. `outside` is every call that left this repo — a
-            network read, a download, a write anywhere — and empty when there was none. Ask in
-            `questions` only what you cannot decide; my answer comes back to you here. Rewrite the
-            record whenever any of it changes. Never draw a page, publish an artifact or open a
-            browser for it.
+            `shows` lets me see the change instead of reading code, its before beside its after.
+            For a change I can see in a browser, serve the whole app twice on this Mac: the commit
+            you started from, copied out with `git archive` into a folder outside this repo (never
+            by switching branches or stashing), and your work. Put their two addresses in `before`
+            and `after`, the commands that serve each again from this repo once your servers are
+            gone in `serve_before` and `serve_after`, and in `highlight` the CSS selectors of what
+            changed: I see each side outlined. For an error, the case that went wrong before and
+            how it is caught now; for a schema or an API, its old and new definition, the lines
+            that matter and no more. Leave `before` out for something new and `after` for
+            something removed. `spots` are optional reading, the few places no check or show
+            covers, with line numbers in the file as it is now.
+            `outside` is every call that left this repo — a network read, a download, a write
+            anywhere — and empty when there was none. Ask in `questions` only what you cannot
+            decide; my answer comes back to you here. Rewrite the record whenever any of it
+            changes. Never draw a page, publish an artifact or open a browser for it.
             """
     }
 
@@ -423,6 +440,8 @@ extension NotebookFormat {
     /// `run:`, so the pane beside the session shows the command and the files it runs as they
     /// are on disk; the agent's reply says what it changes. Before, a `! bash <scratch path>`
     /// was the whole ask, and the two scripts and the program behind it were never seen.
+    /// Approving it there types it after `!` here, and Claude Code holds a `!` until the turn
+    /// ends: an agent polling for the command's outcome would be waiting on itself.
     package static func unblockPrompt(block: UserBlock) -> String {
         """
         Clear the block in `\(relativePath(block.url))`. Work through it yourself first: check \
@@ -454,7 +473,9 @@ extension NotebookFormat {
 
         When a step needs me to run a command — one your sandbox refuses — I read all of it \
         first. Put the exact command, on one line with absolute paths, in the block's `run:`: \
-        the pane then shows it, and every file it runs, in place of the page. Clear `run:` once \
+        the pane then shows it, and every file it runs, in place of the page. Then end your turn \
+        rather than poll: when I approve it, the app types it after `!` in this session, which \
+        runs it only once your turn is over, and its output comes back to you. Clear `run:` once \
         it has run. If it runs a script, make it one script I can read top to bottom: no second \
         script it calls and no program you downloaded — if a tool is missing, ask me to install \
         it with a command of its own. Then, in your reply, say in plain words what it changes, \

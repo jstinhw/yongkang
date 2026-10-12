@@ -35,6 +35,20 @@ import Testing
         #expect(blocked.cautions)
     }
 
+    @Test func aScreenIsAPageRunning() throws {
+        let show = try #require(
+            try WorkReview.read(
+                #"{"summary": "s", "confidence": "high", "shows": [{"kind": "ui", "title": "Home", "after": "http://localhost:4321/", "serve_after": "npm run dev", "highlight": [".dl"]}]}"#
+            )?.get().shows?.first)
+        #expect(show.before == nil, "a new screen has nothing before it")
+        #expect(show.serveAfter == "npm run dev")
+        #expect(show.highlight == [".dl"])
+        #expect(WorkReview.Show.page(show.after)?.port == 4321)
+        #expect(WorkReview.Show.page("file:///etc/hosts") == nil, "only a web address is loaded")
+        #expect(WorkReview.Show.page("docs/home.png") == nil)
+        #expect(WorkReview.Show.page("https://example.com/?k=v") == nil, "opening a review asks no other server")
+    }
+
     /// Lines 3–4 of the new file: the removed line between them, and the one right before them,
     /// have no new number but belong to the change.
     @Test func aSpotTakesItsLinesAndTheRemovalsAmongThem() throws {

@@ -11,7 +11,8 @@ struct ReviewGlance: View {
     let review: WorkReview
     let task: SummaryTask
     let areas: [ReviewArea]
-    /// Open blocks, unanswered questions and spots: everything under Needs you.
+    /// Open blocks and unanswered questions: everything under Needs you. Spots are reading,
+    /// not a wait, so they are not counted.
     let blocks: Int
     let questions: Int
 
@@ -101,18 +102,19 @@ struct ReviewGlance: View {
         {
             Text(asks > 0 ? needs : "Nothing").font(Typography.headline).foregroundStyle(Theme.tx)
         } detail: {
-            asks > 0 ? "Below, before anything else" : "Approve when the checks satisfy you"
+            asks > 0
+                ? "Below, before anything else"
+                : (review.shows ?? []).isEmpty
+                    ? "Approve when the checks satisfy you" : "Look at the change below, then approve"
         }
     }
 
-    private var spots: Int { review.spots?.count ?? 0 }
-    private var asks: Int { blocks + questions + spots }
+    private var asks: Int { blocks + questions }
 
     private var needs: String {
         [
             blocks > 0 ? "\(blocks) block\(blocks == 1 ? "" : "s")" : "",
             questions > 0 ? "\(questions) question\(questions == 1 ? "" : "s")" : "",
-            spots > 0 ? "\(spots) spot\(spots == 1 ? "" : "s")" : "",
         ].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

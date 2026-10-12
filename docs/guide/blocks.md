@@ -20,7 +20,9 @@ wrote it — the same session, still on the same task, so there is one thread an
 than two agents with the same name. It does every step that does not need you first, and a
 good many gates turn out not to need you at all: a CLI already logged in, a repo that already
 exists. Those clear themselves without asking you anything. If that agent has since gone, a
-session is opened for the gate alone, named after the gate.
+session is opened for the gate alone, named after the gate. Once it clears, the task starts again
+with an agent of its own, and the gate's session closes when it has finished and you have moved
+on.
 
 When one genuinely needs you, that session finishes its turn and says so the way any agent
 does, with a banner and an amber row. It explains in two or three lines what is being set up,
@@ -32,9 +34,9 @@ the app. Pressing `Do it now` again goes to that session; it does not start a se
 Sometimes the step is a command only you can run — one the agent's sandbox refused, like moving
 your branches onto rewritten history. The agent never asks for it in its reply alone. It puts
 the exact command in the block's `run:`, and the pane beside the session switches from the page
-to the command, with a Copy button and every file it runs drawn in full, read from disk rather
-than described by the agent: the script it names, a second script that one calls, a program a
-script puts on `PATH`. Lines that talk to a server, delete files, rewrite history, change a
+to the command, with an **Approve and run** button and every file it runs drawn in full, read
+from disk rather than described by the agent: the script it names, a second script that one
+calls, a program a script puts on `PATH`. Lines that talk to a server, delete files, rewrite history, change a
 remote or run as administrator are marked, and listed at the top under **What it touches**.
 That list is a pattern match, not a review, and the pane says Yongkang has not checked that the
 command is safe; the agent's reply says in plain words what it changes and what cannot be
@@ -50,8 +52,10 @@ note to have the agent write it out. Only scripts are drawn unasked: a file the 
 or one named like a key, waits behind **Show**, since a token can sit in any of them. A program
 that is not text is named with its size and a note to ask what it is, and a command that runs
 more files than the pane shows says that too. The caption names the folder the session runs in,
-since a relative path means another file anywhere else. The page is one click away under
-**Page**; once the command has run, the agent clears `run:`.
+since a relative path means another file anywhere else. The button waits until every file is on
+screen, and approving types the command after `!` in the session beside the pane, once: its
+output lands there, for you and the agent both. The page is one click away under **Page**; once
+the command has run, the agent clears `run:`.
 
 Clearing it is one edit to the block file — `status: done` and a `resolution:` line —
 made by that session, or by `Mark resolved` if you did it yourself. The app sees it on the

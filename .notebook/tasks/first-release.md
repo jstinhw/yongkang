@@ -2,13 +2,13 @@
 id: first-release
 kind: task
 title: "Cut v0.1.0"
-status: todo
+status: active
 depends_on: [go-public, release-provenance]
 designer: ""
 project: open-source-release
 owner: ""
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-11
 external: {}
 ---
 
@@ -19,7 +19,7 @@ from the latest-release URL and opened on a clean Mac.
 
 - [ ] The release secrets in `docs/release.md` One-time setup are set on `jstinhw/yongkang`
       (Developer ID, notarization, Sparkle), each confirmed by the user in a block.
-- [ ] `CHANGELOG.md` has a `## [0.1.0] - <date>` section describing the app as first released,
+- [x] `CHANGELOG.md` has a `## [0.1.0] - <date>` section describing the app as first released,
       and a fresh `## [Unreleased]` above it.
 - [ ] The `v0.1.0` tag's workflow run succeeds, and its release holds `Yongkang.dmg`,
       `Yongkang.dmg.sha256`, `appcast.xml`, the dSYMs zip and an attestation.

@@ -9,14 +9,17 @@ import YongkangCore
 /// someone is halfway through signing in on.
 package struct GuidePane: View {
     let block: UserBlock
-    /// The project folder: where the session the command is pasted into runs.
+    /// The project folder: where the session the command is typed into runs.
     let directory: URL
+    /// Types the approved command into that session.
+    let run: (String) -> Void
 
     @State private var showingPage = false
 
-    package init(block: UserBlock, directory: URL) {
+    package init(block: UserBlock, directory: URL, run: @escaping (String) -> Void) {
         self.block = block
         self.directory = directory
+        self.run = run
     }
 
     package var body: some View {
@@ -30,7 +33,7 @@ package struct GuidePane: View {
                     GuideBrowser(url: link).opacity(pageOnTop ? 1 : 0).allowsHitTesting(pageOnTop)
                 }
                 if hasCommand {
-                    CommandPane(line: block.run, directory: directory)
+                    CommandPane(line: block.run, directory: directory, run: run)
                         .opacity(pageOnTop ? 0 : 1).allowsHitTesting(!pageOnTop)
                 }
             }

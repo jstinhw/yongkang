@@ -55,9 +55,12 @@ For every task it writes `.notebook/runs/<session-id>-work-<work-id>.md` — the
 then `-2`, `-3` for a later attempt — with the files it changed in `paths`, a one-line
 `report`, and `## Result`, `## Verification` and `## Review` in the body. That record is what
 Review reads and what approving a task commits beside its code. `## Review` is JSON — a
-one-sentence summary, a confidence, the checks it ran, the spots a person should read, its
-questions and concerns — and the app draws the task's review from it, which also opens from
-the **Result** row under the session in the sidebar. Nothing opens a browser. Setup and Product hand their plan over as
+one-sentence summary, a confidence, the checks it ran, the change before and after, the
+spots worth reading, its questions and concerns — and the app draws the task's review from it, which also opens from
+the **Result** row under the session in the sidebar. For a change you can see in a browser,
+the agent serves the app twice, before and after, and names in the review the addresses, the
+commands that serve each again, and the CSS selectors of what changed. Nothing opens a
+browser. Setup and Product hand their plan over as
 `.notebook/pages/<session-id>.json` instead, and the app draws it on the **Plan** row under theirs: what you
 get, what needs you, and the tasks as a graph you drag, zoom, and click to trace what a task
 waits on and what waits on it.

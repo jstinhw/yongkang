@@ -191,9 +191,14 @@ for.
       above it.
     - Four tiles under it: **Agent's confidence**, **Checks it ran**, **What it touches**,
       **Needs you**.
-    - The cards, in order: **Needs you** (the agent's questions and the spots it wants read,
-      when it has any), **What changed**, **Why it's safe**, **Concerns it raised** (when it
-      raised any), **Code changes**, **Feedback**. Every spot and every file is folded.
+    - The cards, in order: **Needs you** (the agent's questions, when it has any), **See the
+      change** (when it left a before and after), **What changed**, **Why it's safe**,
+      **Concerns it raised** (when it raised any), **Worth a read** (its spots, when it has
+      any), **Code changes**, **Feedback**. Every spot and every file is folded.
+    - A spot alone never makes the **Needs you** tile amber: it reads **Nothing**.
+    - A screen in **See the change** opens on **After**, live, with what changed outlined in
+      green and scrolled into view; **Before** outlines in red. A side that is down shows its
+      command and **Run it**, which asks once per project and command, then loads the page.
     - The green **Result** row under the session in the sidebar opens the same page; the
       session's own row still opens its terminal.
     - A run record without a `## Review` shows the older cards instead: **The task**,

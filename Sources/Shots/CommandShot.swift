@@ -36,7 +36,7 @@ extension DesignShots {
                     content: {
                         HSplitView {
                             Theme.bg.frame(minWidth: 420)
-                            GuidePane(block: gate, directory: asking.directory).frame(minWidth: 360)
+                            GuidePane(block: gate, directory: asking.directory) { _ in }.frame(minWidth: 360)
                         }
                     })
             }, "session-command", into: directory)

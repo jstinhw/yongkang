@@ -101,7 +101,10 @@ extension RootView {
                             if let gate = project.value.gate(of: watched), gate.link != nil || !gate.run.isEmpty {
                                 HSplitView {
                                     terminal(for: watched).frame(minWidth: 420)
-                                    GuidePane(block: gate, directory: project.directory).frame(minWidth: 360)
+                                    GuidePane(block: gate, directory: project.directory) {
+                                        model.terminals.run($0, in: watched.id)
+                                    }
+                                    .frame(minWidth: 360)
                                 }
                             } else {
                                 terminal(for: watched)
@@ -364,6 +367,7 @@ extension RootView {
             discard: { model.discard(task, in: project) },
             answered: { project.answered($0, on: task.id) },
             answer: { model.answer($0, with: $1, on: task, in: project, agent: agent) },
+            serve: { await model.serve($0, with: $1, as: $2, in: project) },
             titled: titled
         )
     }

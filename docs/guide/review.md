@@ -22,7 +22,8 @@ seconds. Under the title, one sentence of what changed, then four tiles:
   run here.
 - **What it touches** — the agent's few words for it, over git's count of files and lines and
   their areas, so the one tile it could get wrong has the numbers beside it.
-- **Needs you** — open blocks, unanswered questions and the spots it wants read.
+- **Needs you** — open blocks and unanswered questions: only what waits on you. Code it
+  suggests reading is not counted.
 
 Then the cards, most urgent first:
 
@@ -30,15 +31,23 @@ Then the cards, most urgent first:
   with **Walk me through it** (or **Open the demo**) and **Open the block**. Under it, the
   agent's questions, each answered with one click on an option (the one it would pick is
   filled) or in your own words; the answer is typed into the session holding the task, with
-  none running a new one starts with it, and the card says **Sent**. Then the spots: the few
-  places the agent says a person should read because no check covers them, each with why,
-  and an arrow unfolding its own lines of the diff, where a line can be commented on.
+  none running a new one starts with it, and the card says **Sent**.
+- **See the change** — the change before and after, so you look at it instead of reading
+  code. A screen is the whole app running twice, the commit the agent started from and its
+  work, live at full width: **Before**, **After** (the default) or **Both**, scrolled like a
+  browser, with what changed outlined, red on the before and green on the after, and the first
+  of it scrolled into view. A side that is not running says so with the command that serves
+  it; **Run it** starts it in a terminal of its own, asking first the first time this project
+  runs that command. A schema or an API shows its old and new text with the lines that differ
+  lit; an error case, what went wrong before, how it is caught now, and the test that runs it.
 - **What changed** — outcomes you can see or check, with the agent's full report
   (`## Result`) one click below.
 - **Why it's safe** — every check it ran, what it proved and, behind its arrow, the command and
   what it printed; one it could not run is listed in amber rather than left out. Then what
   keeps the work safe whatever the code does.
 - **Concerns it raised** — each saying whether it should be settled before approving.
+- **Worth a read** — optional: the few places the agent says no check or show covers, each
+  with why, and an arrow unfolding its own lines of the diff, where a line can be commented on.
 - **Code changes** — the task's files grouped as Database, API & services, Frontend,
   Tests, Config, Docs & other, and Notebook records, each with the lines it added and removed.
   The area is worked out by the app from the path, SQL in the diff, and the owning agent's

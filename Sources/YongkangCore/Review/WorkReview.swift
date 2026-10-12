@@ -5,8 +5,8 @@ import Foundation
 /// same whichever agent wrote it — the move `Plan` made for plans, for the same reason: when
 /// each agent drew its own report page, each was only as readable as the agent that drew it.
 ///
-/// Only the claims the agent alone can make are here: how sure it is, what it checked, where a
-/// person should look, what it wants to ask. The files, their line counts and the Done when
+/// Only the claims the agent alone can make are here: how sure it is, what it checked, what the
+/// change looks like, where a person might read, what it wants to ask. The files, their line counts and the Done when
 /// are read from git and the task file, so the agent cannot misreport those. Read leniently,
 /// like everything an agent writes: a summary and a confidence are required, every list may be
 /// left out.
@@ -28,6 +28,43 @@ package struct WorkReview: Decodable, Equatable, Sendable {
         package let result: String?
         /// The command and its output, shown when the check is unfolded.
         package let command: String?
+    }
+
+    /// The change made visible, its before beside its after, so the reviewer looks at it rather
+    /// than reads the code for it: the app itself running as it was and as it is, a case that
+    /// went wrong and now does not, or the old and new text of a schema or an API.
+    package struct Show: Decodable, Equatable, Sendable {
+        /// `ui`, whose sides are the app running at two addresses; `error`, a case run on both
+        /// sides; anything else, `schema` and `api` among them, has text for sides. A string, so
+        /// a kind the page does not know still shows, as text under its own name.
+        package let kind: String
+        package let title: String
+        /// For `ui` the address the app as it was runs at, otherwise what it was. Nil when there
+        /// was nothing: a new screen, a new table.
+        package let before: String?
+        /// Nil when it is gone.
+        package let after: String?
+        /// `ui` only: the commands, run in the project, that serve each side again once the
+        /// agent's own servers are gone. Never run without the user's say-so.
+        package let serveBefore: String?
+        package let serveAfter: String?
+        /// `ui` only: CSS selectors of what changed, outlined on whichever side has them, so
+        /// what went away is marked on the before and what is new on the after.
+        package let highlight: [String]?
+        /// The test that runs an `error` case, for the reviewer to run again.
+        package let test: String?
+        /// What the agent wants said beside it: a difference it kept on purpose.
+        package let note: String?
+
+        /// A side of a `ui` show as a page to load: a web address on this Mac and nothing else,
+        /// so a path or a script in the agent's JSON is never handed to a web view, and opening a
+        /// review never sends a request to a server the agent named, past its sandbox.
+        package static func page(_ address: String?) -> URL? {
+            guard let address, let url = URL(string: address), ["http", "https"].contains(url.scheme?.lowercased()),
+                DemoServer.isLocal(url)
+            else { return nil }
+            return url
+        }
     }
 
     /// A place the agent wants a person to read: what no check covers.
@@ -97,6 +134,7 @@ package struct WorkReview: Decodable, Equatable, Sendable {
     package let checks: [Check]?
     /// What keeps the work safe whatever the code does: nothing ships until a tag is pushed.
     package let holds: [String]?
+    package let shows: [Show]?
     package let spots: [Spot]?
     package let questions: [Question]?
     package let concerns: [Concern]?

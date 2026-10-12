@@ -39,7 +39,9 @@ leaves every screen that reads it alone.
   (`ProjectModel.startUnblock`/`takeGate`). Then it goes back to the session its `session:`
   names, typed into its prompt: that session knows the task, and it is one thread and one
   sidebar row. A session of the gate's own, `Unblock <title>`, is the fallback for when that
-  agent has gone. No poll hands a gate over: doing it unasked opened sessions nobody had
+  agent has gone. When that one clears it, the task starts again in a session carrying the
+  news (`AppModel.deliverUnblocks`), and `Unblock <title>` closes once it is quiet and off screen
+  (`Project.isClearedGuide`). No poll hands a gate over: doing it unasked opened sessions nobody had
   started, the moment the file landed. Most gates turn out to need nothing from the user; the
   ones that do are asked one step at a time, and you hear about it when the agent finishes its
   turn, like any other session. While it is being worked the gate is that session's row and is
@@ -49,6 +51,8 @@ leaves every screen that reads it alone.
   of opening a browser behind the app. While the block's `run:` names a command only the user
   can run, the same pane shows that instead (`GuidePane`, `CommandPane`): the command and every
   file it runs, read from disk every 2 s by `BlockCommand`, never the agent's description of them.
+  Approving it types the line after `!` in that session (`TerminalRegistry.run`), so it runs
+  outside the agent's sandbox and its output reaches the agent.
   `Project.guided` is in memory only, so a relaunch puts a half-worked gate back on the desk
   unless its own `Unblock` session came back with the app.
 - **git** is asked at most every 6 s a project (`ProjectModel.repoReadIsDue`): an agent writing

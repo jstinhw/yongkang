@@ -578,11 +578,15 @@ import YongkangCore
     /// a task marked done whose work nobody has committed is still in Review, and an agent
     /// mid-answer is still typing. Its reports live in `runs/`, so closing it never takes its
     /// work out of Review.
+    ///
+    /// A gate's own session goes too once its gate has cleared, but not while it is on screen:
+    /// its last reply is the only account of what it did until the task's agent reports.
     func endSpentSessions(in project: ProjectModel) {
         let notebook = project.value
         for session in project.sessions
-        where !session.exited && session.idle && notebook.isSpent(session.taskIDs)
-            && project.summary.waiting(for: session).isEmpty
+        where !session.exited && session.idle
+            && (notebook.isSpent(session.taskIDs) && project.summary.waiting(for: session).isEmpty
+                || notebook.isClearedGuide(session) && selection?.pane(of: session.id) == nil)
         {
             end(session, in: project)
         }
@@ -594,11 +598,23 @@ import YongkangCore
     ///
     /// In the project you are in, the window goes to that session too. Anywhere else it is only
     /// typed in: the window stays where you are, and the sidebar shows the agent back at work.
+    ///
+    /// With that agent gone, a gate you handed over this run was cleared in a session of its
+    /// own, and its task starts again carrying the news, the way a demo's decision does. Only
+    /// this run's: on launch every cleared gate would otherwise start its task over. The window
+    /// stays on the gate's session, whose last reply you are reading.
     private func deliverUnblocks(in project: ProjectModel) {
         for block in project.snapshot.blocks where !block.waiting && !project.deliveredBlocks.contains(block.id) {
-            guard let session = project.waitingSession(for: block) else { continue }
-            project.deliveredBlocks.insert(block.id)
             let message = NotebookFormat.unblockedMessage(block: block)
+            guard let session = project.waitingSession(for: block) else {
+                let open = project.snapshot.cards.contains { $0.id == block.task && $0.status != "done" }
+                if open, project.guidedBlocks.contains(block.id) {
+                    project.deliveredBlocks.insert(block.id)
+                    _ = project.decision(on: block, agent: agent, message)
+                }
+                continue
+            }
+            project.deliveredBlocks.insert(block.id)
             if project === entered {
                 go(to: Destination(section: .agents, route: .session(session.id), input: message))
             } else {
