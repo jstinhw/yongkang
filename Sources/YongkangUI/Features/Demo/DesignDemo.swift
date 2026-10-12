@@ -235,19 +235,23 @@ package struct DesignDemo: View {
                     .foregroundStyle(Theme.tx3)
                     .help("Load the latest version of this page")
                     .accessibilityLabel("Reload \(label)")
+                    // The browser already has the user's sign-ins, which a claude.ai artifact —
+                    // private to the account that published it — needs before it shows.
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Image(systemName: "arrow.up.right.square").font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.tx3)
+                    .help("Open this page in your browser")
+                    .accessibilityLabel("Open \(label) in your browser")
                 }
             }
             .padding(.horizontal, 12)
             .frame(height: 34)
             .overlay(alignment: .bottom) { Rectangle().fill(Theme.line2).frame(height: 1) }
-            if let url, url.host() == "claude.ai" {
-                // A published artifact is private to the account that published it, and
-                // claude.ai cannot sign anyone in from inside an app — Google refuses an
-                // embedded web view — so it opens where the user is signed in already.
-                empty(
-                    "This design is a claude.ai artifact. It opens in your browser, where you are signed in.",
-                    opening: url)
-            } else if let url {
+            if let url {
                 // Opening the demo shows the design as it is now, not as it was the first
                 // time this link was loaded in this run of the app.
                 WebPane(webView: DemoPages.view(for: url))
@@ -262,18 +266,13 @@ package struct DesignDemo: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    private func empty(_ text: String, opening url: URL? = nil) -> some View {
-        VStack(spacing: 12) {
-            Text(text)
-                .font(Typography.body).foregroundStyle(Theme.tx3)
-                .multilineTextAlignment(.center)
-            if let url {
-                Button("Open in your browser") { NSWorkspace.shared.open(url) }.buttonStyle(.console)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.bg)
+    private func empty(_ text: String) -> some View {
+        Text(text)
+            .font(Typography.body).foregroundStyle(Theme.tx3)
+            .multilineTextAlignment(.center)
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg)
     }
 
     // MARK: - Inspector
@@ -431,6 +430,7 @@ package struct DesignDemo: View {
         // flashes a white rectangle in the middle of a near-black window. The public
         // property covers overscroll; the KVC one is what stops the view painting its own
         // white ground before the first paint of the page.
+        view.uiDelegate = PagePopups.shared
         view.underPageBackgroundColor = NSColor(Theme.bg)
         view.setValue(false, forKey: "drawsBackground")
         view.load(URLRequest(url: url))
@@ -443,5 +443,40 @@ package struct DesignDemo: View {
             order.removeFirst()
         }
         return view
+    }
+}
+
+/// claude.ai signs in with Google in a popup, and a web view with no UI delegate refuses
+/// every `window.open` — which claude.ai reports as "There was an error logging you in". So
+/// a page's popup opens in a small window of its own, made from the configuration WebKit
+/// hands over so it can pass the sign-in back to its opener, and goes when the page closes it.
+@MainActor final class PagePopups: NSObject, WKUIDelegate {
+    static let shared = PagePopups()
+    /// The windows open now. A web view does not keep its window alive, so this does.
+    private var windows: [NSWindow] = []
+
+    func webView(
+        _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+        for action: WKNavigationAction, windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        // ponytail: one the user closed is let go at the next popup, not at once.
+        windows.removeAll { !$0.isVisible }
+        let popup = WKWebView(frame: .zero, configuration: configuration)
+        popup.uiDelegate = self
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 640),
+            styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        // Whose page this is, so a sign-in window says it is Google's and not the app's.
+        window.title = action.request.url?.host() ?? ""
+        window.contentView = popup
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        windows.append(window)
+        return popup
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        webView.window?.close()
     }
 }

@@ -88,14 +88,6 @@ enum DesignShots {
                     waiting: lead, approve: { _ in }, revise: {})
             }, "demo-narrow", into: directory, width: 1120)
 
-        // A design published as a claude.ai artifact, which cannot sign in inside the app.
-        write(
-            console(project, section: .board) {
-                DesignDemo(
-                    block: demo(lead.id, after: "https://claude.ai/artifact/CUC1Ld7B2cxZc3nFTrhCi3"),
-                    cards: project.cards, waiting: lead, approve: { _ in }, revise: {})
-            }, "demo-artifact", into: directory)
-
         // An agent on its terminal, and one answering a question in it — the pane offscreen is
         // the frame a real terminal is borrowed into.
         for (name, session, asking) in [
@@ -727,7 +719,7 @@ enum DesignShots {
     }
 
     /// A design waiting on the user, written the way the designer skill writes one.
-    private static func demo(_ session: UUID, after: String = "http://localhost:3101") -> UserBlock {
+    private static func demo(_ session: UUID) -> UserBlock {
         let body = """
             The task page grows a diff of its own work — one change on the project's demo,
             and the task that builds it waits on this.
@@ -740,7 +732,7 @@ enum DesignShots {
             ## Revisions
 
             - v1 · two panes side by side · http://localhost:3100
-            - v2 · one column, the file list under the criteria · \(after)
+            - v2 · one column, the file list under the criteria · http://localhost:3101
             """
         return UserBlock(
             id: "/tmp/design-task-diff-demo.md",
@@ -748,7 +740,7 @@ enum DesignShots {
             slug: "design-task-diff-demo", title: "Design the task page's diff",
             status: "open", kind: "demo", stage: "ready", session: session,
             action: "Approve the task-page diff, or say what is wrong with it.",
-            link: URL(string: after), task: "design-task-diff",
+            link: URL(string: "http://localhost:3101"), task: "design-task-diff",
             resolution: "", body: body,
             before: URL(string: "http://localhost:3000"),
             branch: "demo/build-ui-foundation", revisions: Blocks.revisions(body))
