@@ -39,8 +39,8 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package var request: String? = nil
 
     /// Whether this is a running session's own row, which is all the Agents tab lists. The
-    /// others — a proposal, a block or a review no running session stands behind — still count
-    /// on the project, and wait on the board.
+    /// others — a proposal, a block or a review no running session stands behind — wait on the
+    /// board, and are counted there.
     package var isRunningSession: Bool {
         guard let session, !session.exited else { return false }
         return id == session.id.uuidString

@@ -20,8 +20,8 @@ package struct AskedSession {
 /// or its tasks that are not idle (Board), in the order they want you.
 package struct SidebarProject: Identifiable {
     package let project: Project
-    /// Everything its agents have going, which its counts under Agents are made of: what a
-    /// session that has exited left waiting on you still needs you, even with no row of its own.
+    /// Everything its agents have going, the running sessions it lists under Agents among them:
+    /// what a session that has exited left waiting on you has no row there, and waits on the board.
     package let rows: [AgentRow]
     /// Its tasks that are not idle, which it lists under Board.
     let tasks: [AgentRow]
@@ -72,9 +72,10 @@ package struct SidebarProject: Identifiable {
     package var id: Project.ID { project.id }
     /// The rows it lists: one per running session.
     var sessions: [AgentRow] { rows.filter(\.isRunningSession) }
-    /// What its counts count in a section: under Board the tasks it lists, so a task held up by
-    /// two blocks is one; under Agents everything its agents have going, a row per open block.
-    func counted(in section: ConsoleSection) -> [AgentRow] { section == .board ? tasks : rows }
+    /// What its counts count in a section: what it lists there. Under Board its tasks, so a task
+    /// held up by two blocks is one; under Agents its running sessions, so two blocks an exited
+    /// session left are not a 2 beside a project with nothing under it.
+    func counted(in section: ConsoleSection) -> [AgentRow] { section == .board ? tasks : sessions }
     func needsYou(in section: ConsoleSection) -> Int { counted(in: section).filter { $0.state == .needsYou }.count }
     func toReview(in section: ConsoleSection) -> Int { counted(in: section).filter { $0.state == .review }.count }
 }

@@ -24,7 +24,7 @@ import Testing
 
         #expect(item.tasks.count == 1)
         #expect(item.needsYou(in: .board) == 1, "one task listed, one counted")
-        #expect(item.needsYou(in: .agents) == 2, "Agents keeps a row per open block")
+        #expect(item.needsYou(in: .agents) == 0, "no running session, nothing listed under Agents")
         #expect(item.toReview(in: .board) == 0 && item.toReview(in: .agents) == 0)
     }
 }

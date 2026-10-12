@@ -197,8 +197,9 @@ HStack
 
 - **Every project at once.** The sidebar lists every open project with its running sessions
   under it — `Project.agentRows`, in Core, so the sidebar and the project's Agents page read one
-  rule. The sidebar and the page list only `isRunningSession` rows; the rest, what a session that
-  has exited left waiting on you, only counts on the project and is opened from the board. Under
+  rule. The sidebar and the page list only `isRunningSession` rows, and a project's count under
+  Agents counts only those; the rest, what a session that has exited left waiting on you, waits on
+  the board and is counted there. Under
   Board a project lists its tasks that are not idle instead — `Project.taskRows`, the board's own
   states for a task — and a task row opens its page, block or review without leaving the board.
   **Usage** is every project's, so `AppModel.openUsage()` opens it with none entered, and the
