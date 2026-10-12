@@ -100,6 +100,8 @@ package struct ProjectSidebar: View {
     /// A group named but not filled yet, drawn last, asking for its first project. Nil once one
     /// is in it: from then on the run draws the group.
     let pending: String?
+    /// Describes a new project that joins this group, from the group's own menu.
+    let createIn: (String) -> Void
     /// Opens a plain shell in the project's folder, under Agents.
     let newTerminal: (Project.ID) -> Void
     let closeSession: (Project.ID, CodeSession) -> Void
@@ -131,6 +133,7 @@ package struct ProjectSidebar: View {
         open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
         create: @escaping () -> Void, add: @escaping () -> Void,
         newGroup: @escaping () -> Void, pending: String? = nil,
+        createIn: @escaping (String) -> Void = { _ in },
         newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
         close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void,
@@ -148,6 +151,7 @@ package struct ProjectSidebar: View {
         self.add = add
         self.newGroup = newGroup
         self.pending = pending
+        self.createIn = createIn
         self.newTerminal = newTerminal
         self.closeSession = closeSession
         self.close = close

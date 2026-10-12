@@ -63,7 +63,7 @@ struct YongkangCommands: Commands {
     @ViewBuilder private var file: some View {
         // Both open from any screen: the sheet and the panel hang on `RootView`'s root. ⌘N is
         // New Agent's: putting an agent on work is what this window is for.
-        Button("New Project…") { model.creatingProject = true }
+        Button("New Project…") { model.newProject() }
             .keyboardShortcut("n", modifiers: [.command, .shift])
         Button("Open Project…") { model.pickingFolder = true }
             .keyboardShortcut("o")

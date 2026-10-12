@@ -47,7 +47,7 @@ struct RootView: View {
         .sheet(isPresented: $model.creatingProject) {
             NewProjectForm(
                 parent: projectsParent, agent: agent, found: model.foundAgents, lookUp: model.lookUpAgents,
-                create: createProject, cancel: { model.creatingProject = false })
+                group: model.newProjectGroup, create: createProject, cancel: { model.creatingProject = false })
         }
         .sheet(isPresented: $model.startingAgent) {
             NewAgentSheet(
@@ -155,8 +155,9 @@ struct RootView: View {
                             model.section = section
                             model.enter(project, at: route)
                         },
-                        create: { model.creatingProject = true }, add: { model.pickingFolder = true },
+                        create: { model.newProject() }, add: { model.pickingFolder = true },
                         newGroup: nameNewGroup, pending: model.pendingGroup,
+                        createIn: { group in model.newProject(in: group) },
                         newTerminal: { id in
                             guard let project = model.project(id) else { return }
                             model.section = .agents
@@ -250,7 +251,7 @@ struct RootView: View {
         } else {
             NothingPicked(
                 hasProjects: !model.projects.isEmpty,
-                create: { model.creatingProject = true }, add: { model.pickingFolder = true })
+                create: { model.newProject() }, add: { model.pickingFolder = true })
         }
     }
 

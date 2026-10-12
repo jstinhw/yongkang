@@ -61,6 +61,8 @@ package struct NewProjectForm: View {
     /// `AppModel.foundAgents`, and the look that refreshes it, for the agent picker.
     let found: Set<AgentKind>?
     let lookUp: () -> Void
+    /// The group the project joins, which the title names; nil for a loose one.
+    let group: String?
     let create: (URL, String, AgentKind) -> Void
     let cancel: () -> Void
 
@@ -74,11 +76,12 @@ package struct NewProjectForm: View {
 
     package init(
         parent: URL, agent: AgentKind, found: Set<AgentKind>?, lookUp: @escaping () -> Void,
-        create: @escaping (URL, String, AgentKind) -> Void, cancel: @escaping () -> Void
+        group: String? = nil, create: @escaping (URL, String, AgentKind) -> Void, cancel: @escaping () -> Void
     ) {
         self.parent = parent
         self.found = found
         self.lookUp = lookUp
+        self.group = group
         _agent = State(initialValue: agent)
         self.create = create
         self.cancel = cancel
@@ -97,14 +100,16 @@ package struct NewProjectForm: View {
     package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("New project").font(Typography.headline).foregroundStyle(Theme.tx)
-                Spacer()
+                title.font(Typography.headline).foregroundStyle(Theme.tx).lineLimit(1)
+                Spacer(minLength: 12)
                 AgentPicker(
                     agent: $agent, found: found, lookUp: lookUp, purpose: "Agent for this project's session"
                 )
                 // The CLI already asked keeps naming; switching under it would hand the
                 // notebook to a different one than the line below says.
                 .disabled(naming != nil)
+                // The title gives way to a long group name, never the picker.
+                .fixedSize()
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -141,6 +146,13 @@ package struct NewProjectForm: View {
         .frame(width: 520)
         .background(Theme.bg)
         .onDisappear { naming?.cancel() }
+    }
+
+    /// Which group the project joins, in the dimmer ink the sidebar names groups in. A long
+    /// name is cut short rather than pushing the agent picker out.
+    private var title: Text {
+        guard let group else { return Text("New project") }
+        return Text("New project in \(Text(group).foregroundStyle(Theme.tx2))")
     }
 
     /// A path named in the prompt wins; a folder it names that is already there is a

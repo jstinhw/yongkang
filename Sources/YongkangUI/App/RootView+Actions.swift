@@ -71,7 +71,7 @@ extension RootView {
             model.enter(existing)
             return
         }
-        let project = model.open(directory)
+        let project = model.open(directory, into: model.newProjectGroup)
         persist()
         model.enter(project)
         guard let started = model.entered, !started.hasNotebook else { return }
