@@ -2,7 +2,7 @@
 id: new-project-group-picker-design
 kind: task
 title: "Design the sheet's group picker"
-status: todo
+status: done
 depends_on: [new-project-in-group-design]
 designer: Allen
 project: new-project-in-group
@@ -18,14 +18,14 @@ new-project-in-group demo.
 
 ## Done when
 
-- [ ] The demo shows the sheet opened from the + menu with the group control on no group, and
+- [x] The demo shows the sheet opened from the + menu with the group control on no group, and
       what "no group" is called there.
-- [ ] The demo shows the control open, listing the sidebar's groups in their order, a pending
+- [x] The demo shows the control open, listing the sidebar's groups in their order, a pending
       empty group among them, and no group.
-- [ ] The demo shows the sheet opened from a group's **New Project…**, with the control already
+- [x] The demo shows the sheet opened from a group's **New Project…**, with the control already
       on that group, and what becomes of the "New project in <group>" title next to it.
-- [ ] The demo shows the sheet when no group exists: no control, as today.
-- [ ] The user has approved the demo.
+- [x] The demo shows the sheet when no group exists: no control, as today.
+- [x] The user has approved the demo.
 
 ## Context
 
