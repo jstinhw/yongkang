@@ -56,10 +56,12 @@ package struct WorkReview: Decodable, Equatable, Sendable {
         /// What the agent wants said beside it: a difference it kept on purpose.
         package let note: String?
 
-        /// A side of a `ui` show as a page to load: a web address and nothing else, so a path
-        /// or a script in the agent's JSON is never handed to a web view.
+        /// A side of a `ui` show as a page to load: a web address on this Mac and nothing else,
+        /// so a path or a script in the agent's JSON is never handed to a web view, and opening a
+        /// review never sends a request to a server the agent named, past its sandbox.
         package static func page(_ address: String?) -> URL? {
-            guard let address, let url = URL(string: address), ["http", "https"].contains(url.scheme?.lowercased())
+            guard let address, let url = URL(string: address), ["http", "https"].contains(url.scheme?.lowercased()),
+                DemoServer.isLocal(url)
             else { return nil }
             return url
         }

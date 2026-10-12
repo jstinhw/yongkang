@@ -69,13 +69,15 @@ struct CommandPane: View {
             // The block's command moved on while this read ran: its task reads the new one, and
             // this one's answer must not land on top of it.
             guard !Task.isCancelled else { return }
-            if next != command {
-                command = next
-                let seen = Dictionary(next.files.map { ($0.id, $0.content) }) { first, _ in first }
-                firstSeen = firstSeen.merging(seen) { first, _ in first }
-            }
+            if next != command { show(next) }
             try? await Task.sleep(for: .seconds(2))
         }
+    }
+
+    private func show(_ next: BlockCommand) {
+        command = next
+        let seen = Dictionary(next.files.map { ($0.id, $0.content) }) { first, _ in first }
+        firstSeen = firstSeen.merging(seen) { first, _ in first }
     }
 
     private var heading: some View {
@@ -127,9 +129,26 @@ struct CommandPane: View {
         return directory.path.hasPrefix(home + "/") ? "~" + directory.path.dropFirst(home.count) : directory.path
     }
 
+    /// Read once more before it runs: the pane's last read is up to two seconds old, and a file
+    /// rewritten since then is not what the user approved. Then it is shown as it is now, marked
+    /// changed, and waits for another press.
+    /// ponytail: the shell still reads the files after this; an agent rewriting one between this
+    /// read and the run gets past it. Closing that means running a pinned copy of every file.
     private func approve() {
+        guard let shown = command, shown.line == line else { return }
         sent = true
-        run(line)
+        let line = line
+        let directory = directory
+        let folders = BlockCommand.path(login: login)
+        Task {
+            let now = await Task.detached { BlockCommand.read(line, in: directory, searching: folders) }.value
+            guard now == shown else {
+                show(now)
+                sent = false
+                return
+            }
+            run(line)
+        }
     }
 
     private func touches(_ command: BlockCommand) -> some View {

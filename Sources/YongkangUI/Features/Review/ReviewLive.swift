@@ -146,7 +146,7 @@ private struct LiveSide: View {
         if given == nil {
             say(label == "Before" ? "Nothing before: it is new." : "Gone.")
         } else if url == nil {
-            say("Not a web address: \(given ?? "")")
+            say("Not a page on this Mac: \(given ?? "")")
         } else if let url, up == true {
             WebPane(webView: DemoPages.view(for: url, running: script))
         } else if let url, up == false {
@@ -159,7 +159,7 @@ private struct LiveSide: View {
     private func down(_ url: URL) -> some View {
         VStack(spacing: 10) {
             Text(starting ? "Starting…" : "Not running.").font(Typography.body(.semibold)).foregroundStyle(Theme.tx2)
-            if command.isEmpty || !DemoServer.isLocal(url) {
+            if command.isEmpty {
                 Text("The agent left no command here to serve it again.")
                     .font(Typography.body).foregroundStyle(Theme.tx3)
             } else {

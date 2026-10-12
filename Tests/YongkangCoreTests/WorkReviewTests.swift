@@ -46,6 +46,7 @@ import Testing
         #expect(WorkReview.Show.page(show.after)?.port == 4321)
         #expect(WorkReview.Show.page("file:///etc/hosts") == nil, "only a web address is loaded")
         #expect(WorkReview.Show.page("docs/home.png") == nil)
+        #expect(WorkReview.Show.page("https://example.com/?k=v") == nil, "opening a review asks no other server")
     }
 
     /// Lines 3–4 of the new file: the removed line between them, and the one right before them,
