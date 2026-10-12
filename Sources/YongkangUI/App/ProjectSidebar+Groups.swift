@@ -53,8 +53,8 @@ extension ProjectSidebar {
                 Text("\(members.count)").font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                 Spacer(minLength: 4)
                 if shut {
-                    let needsYou = members.reduce(0) { $0 + $1.needsYou }
-                    let toReview = members.reduce(0) { $0 + $1.toReview }
+                    let needsYou = members.reduce(0) { $0 + $1.needsYou(in: section) }
+                    let toReview = members.reduce(0) { $0 + $1.toReview(in: section) }
                     if needsYou > 0 { count(needsYou, Theme.amber, dot: true) }
                     if toReview > 0 { count(toReview, Theme.green, dot: false) }
                 }
