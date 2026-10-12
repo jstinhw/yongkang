@@ -6,6 +6,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # SwiftTerm 1.99 is 2.0's preview, which Package.swift caps below.
+    ignore:
+      - dependency-name: github.com/migueldeicaza/swiftterm
+        versions: [">= 1.99.0"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
