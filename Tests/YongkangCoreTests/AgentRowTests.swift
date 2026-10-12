@@ -87,6 +87,33 @@ import Testing
         #expect(rows.first?.reason == "wants your opinion")
     }
 
+    /// A designer files its demo, then goes on checking it and writing its report: a row that
+    /// said "demo ready" all that while sent the user to a demo still being drawn. A gate is
+    /// yours at once, while its agent carries on with the rest of its chain.
+    @Test func aDemoIsNotYoursUntilItsDesignerStopsTalking() {
+        let designer = CodeSession(title: "Claude Code", icon: "", line: "", agent: .claude, taskIDs: ["design"])
+        let demo = block("design-demo", kind: "demo", session: designer.id, task: "design")
+        let card = NotebookCard(
+            id: "design", url: directory, kind: .task, title: "Design it", status: "designing", project: nil,
+            dependsOn: [])
+        var project = Project(directory: directory, cards: [card], blocks: [demo], sessions: [designer])
+
+        let rows = project.agentRows(summary: ChangeSummary())
+        #expect(rows.map(\.state) == [.working], "still at work, it has not handed the demo over")
+        #expect(rows.first?.block == nil && rows.first?.task == "design", "nor is the demo a row of its own")
+        #expect(project.taskRows(summary: ChangeSummary()).map(\.state) == [.working], "and the board agrees")
+
+        let gate = block("token", session: designer.id, task: "design")
+        #expect(
+            Project(directory: directory, cards: [card], blocks: [gate], sessions: [designer])
+                .agentRows(summary: ChangeSummary()).map(\.state) == [.needsYou],
+            "a gate is not held back")
+
+        project.sessions[0].idle = true
+        #expect(project.agentRows(summary: ChangeSummary()).first?.block?.id == "design-demo")
+        #expect(project.taskRows(summary: ChangeSummary()).map(\.state) == [.needsYou], "its turn over, it is yours")
+    }
+
     @Test func aQuestionOnScreenLeavesItsBlockARowOfItsOwn() {
         let product = CodeSession(title: "Product", icon: "", line: "", agent: .claude)
         let project = Project(
