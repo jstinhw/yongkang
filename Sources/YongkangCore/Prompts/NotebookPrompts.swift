@@ -377,7 +377,11 @@ extension NotebookFormat {
             The Review is what the app shows me when you stop, and I read it in seconds: keep to the
             word limits, plain words, and leave the detail to Result and Verification. Every check
             you ran goes in `checks`, and one you could not run is `not_run`, never left out.
-            `shows` lets me see the change instead of reading code, its before beside its after.
+            `shows` lets me see the change instead of reading code, its before beside its after,
+            and is only for a change to an interface: a screen, an error someone meets, a schema,
+            a public API. A change behind one has nothing to show: leave `shows` out rather than
+            paste its code, which the diff already has. A screen that is not in a browser, a
+            native app's, is no `ui` show either: say what changed on it in `changed`.
             For a change I can see in a browser, serve the whole app twice on this Mac: the commit
             you started from, copied out with `git archive` into a folder outside this repo (never
             by switching branches or stashing), and your work. Put their two addresses in `before`

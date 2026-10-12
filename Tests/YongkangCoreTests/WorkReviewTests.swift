@@ -47,6 +47,12 @@ import Testing
         #expect(WorkReview.Show.page("file:///etc/hosts") == nil, "only a web address is loaded")
         #expect(WorkReview.Show.page("docs/home.png") == nil)
         #expect(WorkReview.Show.page("https://example.com/?k=v") == nil, "opening a review asks no other server")
+        #expect(show.drawable)
+        let picture = try #require(
+            try WorkReview.read(
+                #"{"summary": "s", "confidence": "high", "shows": [{"kind": "ui", "title": "Count", "before": "/tmp/before.png", "after": "/tmp/after.png"}]}"#
+            )?.get().shows?.first)
+        #expect(!picture.drawable, "a screen the page cannot load is left out, not drawn as a box saying so")
     }
 
     /// Lines 3–4 of the new file: the removed line between them, and the one right before them,

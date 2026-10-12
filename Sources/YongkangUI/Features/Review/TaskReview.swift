@@ -200,7 +200,9 @@ package struct TaskReview: View {
         if let questions = review.questions, !questions.isEmpty {
             ReviewAsks(questions: questions, answered: answered, answer: answer)
         }
-        if let shows = review.shows, !shows.isEmpty { ReviewShows(shows: shows, task: task.id, serve: serve) }
+        if let shows = review.shows?.filter(\.drawable), !shows.isEmpty {
+            ReviewShows(shows: shows, task: task.id, serve: serve)
+        }
         ReviewChanged(changed: review.changed ?? []) {
             ForEach(Array(task.work.enumerated()), id: \.offset) { _, work in
                 WorkReport(work: work, name: name(of: work), cards: cards, openFile: openFile)

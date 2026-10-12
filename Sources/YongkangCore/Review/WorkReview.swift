@@ -65,6 +65,11 @@ package struct WorkReview: Decodable, Equatable, Sendable {
             else { return nil }
             return url
         }
+
+        /// Whether the page can draw it. A `ui` side is only ever a page, so a screen with no
+        /// side it can load — a picture's path, a native app's window — would be a tall box
+        /// saying so: it is left out, and what changed on screen is in `changed`.
+        package var drawable: Bool { kind != "ui" || Self.page(before) != nil || Self.page(after) != nil }
     }
 
     /// A place the agent wants a person to read: what no check covers.
