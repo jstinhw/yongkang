@@ -22,10 +22,14 @@ the end; everything before it is the routine.
 
 ```sh
 # 1. Rename "## [Unreleased]" to "## [1.4.0] - 2026-10-01", add a fresh Unreleased above it
-git commit -am "Release 1.4.0"
-git push                                  # CI runs make check on main
+git switch -c release-1.4.0 && git commit -am "Release 1.4.0"
+git push -u origin release-1.4.0          # open a pull request, merge it once `check` passes
+git switch main && git pull               # main's ruleset takes changes only that way
 git tag v1.4.0 && git push origin v1.4.0  # the release workflow takes it from here
 ```
+
+Tag the commit on `main` that holds the version's section: the workflow reads the notes from the
+tagged commit, and a tag on an unmerged branch would release code `main` never had.
 
 `.github/workflows/release.yml` then, in about fifteen minutes:
 
