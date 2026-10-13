@@ -146,7 +146,9 @@ private struct LiveSide: View {
                     .buttonStyle(.plain).font(Typography.body).foregroundStyle(Theme.tx2)
             }
             if let picture, image != nil {
-                Button("Open") { NSWorkspace.shared.open(picture) }
+                // Revealed, never opened: the agent can swap the path for a symlink to an app
+                // or a script after it was drawn, and opening it would run that outside its sandbox.
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([picture]) }
                     .buttonStyle(.plain).font(Typography.body).foregroundStyle(Theme.tx2)
             }
         }
