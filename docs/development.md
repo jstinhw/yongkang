@@ -199,7 +199,9 @@ for.
     - A screen in **See the change** opens on **After**, live, with what changed outlined in
       green and scrolled into view; **Before** outlines in red. A side that is down shows its
       command and **Run it**, which asks once per project and command, then loads the page.
-      A screen with no side that is a page on this Mac (a picture's path) is left out.
+      A native app's screen shows the agent's two pictures in the same frame instead, with
+      **Open** on each. A screen with no side that is a page on this Mac or a picture still
+      there is left out.
     - The green **Result** row under the session in the sidebar opens the same page; the
       session's own row still opens its terminal.
     - A run record without a `## Review` shows the older cards instead: **The task**,

@@ -355,7 +355,7 @@ extension NotebookFormat {
                               "command": "<the command and its output>"}],
                   "holds": ["<what keeps it safe whatever the code does, 20 words at most>"],
                   "shows": [{"kind": "ui | error | schema | api", "title": "<what it shows, six words at most>",
-                             "before": "<for ui the address the app as it was runs at, otherwise the old text>",
+                             "before": "<for ui the address the app as it was runs at, or its picture's path; otherwise the old text>",
                              "after": "<the same, as it is now>",
                              "serve_before": "<ui: the command that serves before again>",
                              "serve_after": "<ui: the command that serves after again>",
@@ -380,18 +380,23 @@ extension NotebookFormat {
             `shows` lets me see the change instead of reading code, its before beside its after,
             and is only for a change to an interface: a screen, an error someone meets, a schema,
             a public API. A change behind one has nothing to show: leave `shows` out rather than
-            paste its code, which the diff already has. A screen that is not in a browser, a
-            native app's, is no `ui` show either: say what changed on it in `changed`.
+            paste its code, which the diff already has. A change to what a screen draws is a `ui`
+            show.
             For a change I can see in a browser, serve the whole app twice on this Mac: the commit
             you started from, copied out with `git archive` into a folder outside this repo (never
             by switching branches or stashing), and your work. Put their two addresses in `before`
             and `after`, the commands that serve each again from this repo once your servers are
             gone in `serve_before` and `serve_after`, and in `highlight` the CSS selectors of what
-            changed: I see each side outlined. For an error, the case that went wrong before and
-            how it is caught now; for a schema or an API, its old and new definition, the lines
-            that matter and no more. Leave `before` out for something new and `after` for
-            something removed. `spots` are optional reading, the few places no check or show
-            covers, with line numbers in the file as it is now.
+            changed: I see each side outlined. For a screen no browser draws, a native app's,
+            `before` and `after` are pictures instead: the absolute paths of PNGs of it at the
+            commit you started from and with your work, drawn the way this project draws its
+            screens offscreen, in a folder outside this repo, with no `serve_` or `highlight`.
+            Only a project with no way to draw one says what changed on it in `changed` instead.
+            For an error, the case that went wrong before and how it is caught now; for a schema
+            or an API, its old and new definition, the lines that matter and no more. Leave
+            `before` out for something new and `after` for something removed. `spots` are optional
+            reading, the few places no check or show covers, with line numbers in the file as it
+            is now.
             `outside` is every call that left this repo — a network read, a download, a write
             anywhere — and empty when there was none. Ask in `questions` only what you cannot
             decide; my answer comes back to you here. Rewrite the record whenever any of it

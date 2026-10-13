@@ -38,8 +38,10 @@ Then the cards, most urgent first:
   browser, with what changed outlined, red on the before and green on the after, and the first
   of it scrolled into view. A side that is not running says so with the command that serves
   it; **Run it** starts it in a terminal of its own, asking first the first time this project
-  runs that command. A schema or an API shows its old and new text with the lines that differ
-  lit; an error case, what went wrong before, how it is caught now, and the test that runs it.
+  runs that command. A screen no browser draws, a native app's, is two pictures the agent drew
+  of it instead, in the same frame. A schema or an API shows its old and new text with the
+  lines that differ lit; an error case, what went wrong before, how it is caught now, and the
+  test that runs it.
 - **What changed** — outcomes you can see or check, with the agent's full report
   (`## Result`) one click below.
 - **Why it's safe** — every check it ran, what it proved and, behind its arrow, the command and
