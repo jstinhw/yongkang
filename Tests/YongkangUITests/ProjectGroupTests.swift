@@ -22,6 +22,13 @@ import Testing
         model.projects.map(\.group)
     }
 
+    /// Every group is one run of neighbours: once a group's run ends, its name never comes back.
+    private func adjacent(_ model: AppModel) -> Bool {
+        let named = groups(model)
+        let runs = zip(named, [nil] + named).filter { $0 != $1 }.compactMap(\.0)
+        return Set(runs).count == runs.count
+    }
+
     @Test func aProjectDraggedDownLandsWhereTheLineWas() {
         let model = model(["a", "b", "c", "d"])
         let a = model.projects[0].id
@@ -104,6 +111,128 @@ import Testing
         model.newGroup(named: "Client work")
         model.renameGroup("Client work", to: "Paid")
         #expect(model.pendingGroup == "Paid", "it is still the same offer, under a new name")
+    }
+
+    @Test func aProjectOpenedIntoAGroupInTheMiddleLandsAfterItsLastMember() {
+        let model = model(["a", "b", "c", "d"])
+        model.group(model.projects[0].id, as: "One")
+        model.move(model.projects[1].id, before: 1, into: "One")
+        model.group(model.projects[2].id, as: "Two")
+
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: "One")
+        #expect(order(model) == ["a", "b", "e", "c", "d"])
+        #expect(groups(model) == ["One", "One", "One", "Two", nil])
+        #expect(adjacent(model))
+
+        let after = AppModel(terminals: TerminalRegistry(), notify: { _, _, _ in })
+        after.restore(model.storedProjects, groups: model.storedGroups)
+        #expect(order(after) == ["a", "b", "e", "c", "d"], "a relaunch keeps where it was opened")
+        #expect(groups(after) == ["One", "One", "One", "Two", nil])
+        model.stop()
+    }
+
+    @Test func aProjectOpenedIntoTheLastGroupLandsAtTheEnd() {
+        let model = model(["a", "b", "c"])
+        model.group(model.projects[1].id, as: "One")
+        model.group(model.projects[2].id, as: "Two")
+
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: "Two")
+        #expect(order(model) == ["a", "b", "c", "e"])
+        #expect(groups(model) == [nil, "One", "Two", "Two"])
+        #expect(adjacent(model))
+        model.stop()
+    }
+
+    @Test func aProjectOpenedIntoTheGroupNamedFromThePlusMenuFillsIt() {
+        let model = model(["a", "b"])
+        model.group(model.projects[0].id, as: "One")
+        model.newGroup(named: "Client work")
+
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: "Client work")
+        #expect(order(model) == ["a", "b", "e"], "where the empty group's placeholder was drawn")
+        #expect(groups(model) == ["One", nil, "Client work"])
+        #expect(model.pendingGroup == nil, "the real group replaces the placeholder")
+        #expect(model.storedGroups.contains("Client work"), "and a relaunch brings it back")
+        #expect(adjacent(model))
+        model.stop()
+    }
+
+    @Test func aProjectOpenedWithNoGroupOrAGoneOneIsLooseAtTheEnd() {
+        let model = model(["a", "b"])
+        model.group(model.projects[0].id, as: "One")
+
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"))
+        // A group ungrouped while its sheet was up is not brought back.
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-f"), into: "Gone")
+        #expect(order(model) == ["a", "b", "e", "f"])
+        #expect(groups(model) == ["One", nil, nil, nil])
+        #expect(adjacent(model))
+        model.stop()
+    }
+
+    @Test func theSheetFromAGroupJoinsItAndTheNextFromTheFileMenuDoesNot() {
+        let model = model(["a", "b"])
+        model.group(model.projects[0].id, as: "One")
+
+        model.newProject(in: "One")
+        #expect(model.creatingProject)
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: model.newProjectGroup)
+        model.creatingProject = false
+        // File > New Project… and the + menu open it with no group, whatever the last one had.
+        model.newProject()
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-f"), into: model.newProjectGroup)
+        #expect(order(model) == ["a", "e", "b", "f"])
+        #expect(groups(model) == ["One", "One", nil, nil])
+        model.stop()
+    }
+
+    @Test func theSheetOffersEveryGroupInSidebarOrderWithTheEmptyOneLast() {
+        let model = model(["a", "b", "c"])
+        #expect(model.groupNames.isEmpty, "no groups, no picker")
+        model.group(model.projects[2].id, as: "Two")
+        model.group(model.projects[0].id, as: "One")
+        model.newGroup(named: "Side projects")
+        #expect(model.groupNames == ["One", "Two", "Side projects"])
+        // A pending name a run already carries is that group, offered once.
+        model.newGroup(named: "One")
+        #expect(model.groupNames == ["One", "Two"])
+        model.stop()
+    }
+
+    @Test func aGroupPickedInTheSheetIsWhereTheProjectLandsAndCancelForgetsIt() {
+        let model = model(["a", "b"])
+        model.group(model.projects[0].id, as: "One")
+        model.newGroup(named: "Side projects")
+
+        // Picked from the + menu's sheet, then cancelled: nothing moves, and the next sheet from
+        // the + menu starts on no group again.
+        model.newProject()
+        model.newProjectGroup = "One"
+        model.creatingProject = false
+        #expect(groups(model) == ["One", nil])
+        model.newProject()
+        #expect(model.newProjectGroup == nil)
+
+        model.newProjectGroup = "One"
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: model.newProjectGroup)
+        model.newProject()
+        model.newProjectGroup = "Side projects"
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-f"), into: model.newProjectGroup)
+        #expect(order(model) == ["a", "e", "b", "f"], "the group's last member, and the empty one's first")
+        #expect(groups(model) == ["One", "One", nil, "Side projects"])
+        #expect(model.pendingGroup == nil)
+        #expect(adjacent(model))
+        model.stop()
+    }
+
+    @Test func cancellingTheSheetFromAnEmptyGroupLeavesItWaiting() {
+        let model = model(["a"])
+        model.newGroup(named: "Side projects")
+        model.newProject(in: "Side projects")
+        model.creatingProject = false
+        #expect(model.pendingGroup == "Side projects")
+        #expect(groups(model) == [nil])
+        model.stop()
     }
 
     @Test func theGroupsComeBackWithTheProjectsAfterARelaunch() {

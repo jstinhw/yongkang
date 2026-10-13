@@ -1,0 +1,17 @@
+{
+  "title": "Counts and group projects",
+  "outcomes": ["Board count matches the tasks listed", "Start a new project inside a group"],
+  "needs_you": [{"task": "new-project-in-group-design", "action": "Approve the group menu demo"}],
+  "tasks": [
+    {"id": "board-sidebar-task-counts", "title": "Count tasks under Board", "project": "sidebar-counts",
+     "depends_on": [], "design": false, "detail": "A task with two blocks counts once in the sidebar"},
+    {"id": "new-project-in-group-design", "title": "Design new project in group", "project": "new-project-in-group",
+     "depends_on": [], "design": true, "detail": "Group menu entry, sheet naming the group, where it lands"},
+    {"id": "open-project-into-group", "title": "Open a project into group", "project": "new-project-in-group",
+     "depends_on": [], "design": false, "detail": "AppModel places it last in the group, keeps runs adjacent"},
+    {"id": "new-project-in-group-ui", "title": "New Project on a group", "project": "new-project-in-group",
+     "depends_on": ["new-project-in-group-design", "open-project-into-group", "board-sidebar-task-counts"],
+     "design": false, "detail": "Context menu and sheet send the group through"}
+  ],
+  "outside": []
+}

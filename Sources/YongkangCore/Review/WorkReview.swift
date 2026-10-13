@@ -34,13 +34,14 @@ package struct WorkReview: Decodable, Equatable, Sendable {
     /// than reads the code for it: the app itself running as it was and as it is, a case that
     /// went wrong and now does not, or the old and new text of a schema or an API.
     package struct Show: Decodable, Equatable, Sendable {
-        /// `ui`, whose sides are the app running at two addresses; `error`, a case run on both
-        /// sides; anything else, `schema` and `api` among them, has text for sides. A string, so
-        /// a kind the page does not know still shows, as text under its own name.
+        /// `ui`, whose sides are the app running at two addresses, or two pictures of a native
+        /// app's screen; `error`, a case run on both sides; anything else, `schema` and `api`
+        /// among them, has text for sides. A string, so a kind the page does not know still
+        /// shows, as text under its own name.
         package let kind: String
         package let title: String
-        /// For `ui` the address the app as it was runs at, otherwise what it was. Nil when there
-        /// was nothing: a new screen, a new table.
+        /// For `ui` the address the app as it was runs at, or its picture's path, otherwise what
+        /// it was. Nil when there was nothing: a new screen, a new table.
         package let before: String?
         /// Nil when it is gone.
         package let after: String?
@@ -64,6 +65,26 @@ package struct WorkReview: Decodable, Equatable, Sendable {
                 DemoServer.isLocal(url)
             else { return nil }
             return url
+        }
+
+        /// A side of a `ui` show as a picture: a screen no browser draws, a native app's, drawn
+        /// offscreen by the agent. An image file on this Mac that is there, by its absolute path,
+        /// and only ever decoded as an image, so a path in the agent's JSON never shows a file
+        /// that is not a picture.
+        package static func picture(_ path: String?) -> URL? {
+            guard let path, path.hasPrefix("/") else { return nil }
+            let url = URL(fileURLWithPath: path)
+            guard ["png", "jpg", "jpeg"].contains(url.pathExtension.lowercased()),
+                FileManager.default.fileExists(atPath: url.path)
+            else { return nil }
+            return url
+        }
+
+        /// Whether the page can draw it. A screen with no side it can load — a page that is not
+        /// on this Mac, a picture that is gone — would be a tall box saying so: it is left out,
+        /// and what changed on screen is in `changed`.
+        package var drawable: Bool {
+            kind != "ui" || [before, after].contains { Self.page($0) != nil || Self.picture($0) != nil }
         }
     }
 

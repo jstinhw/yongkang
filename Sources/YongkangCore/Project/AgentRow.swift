@@ -39,8 +39,8 @@ package struct AgentRow: Identifiable, Equatable, Sendable {
     package var request: String? = nil
 
     /// Whether this is a running session's own row, which is all the Agents tab lists. The
-    /// others — a proposal, a block or a review no running session stands behind — still count
-    /// on the project, and wait on the board.
+    /// others — a proposal, a block or a review no running session stands behind — wait on the
+    /// board, and are counted there.
     package var isRunningSession: Bool {
         guard let session, !session.exited else { return false }
         return id == session.id.uuidString
@@ -153,6 +153,34 @@ extension Project {
         blocks.waitingOnUser.filter { guide(of: $0) == nil }
     }
 
+    /// Whether `session` filed this block: by its id, or, written without one, by the task it
+    /// holds. A proposal holds up the notebook rather than a task, so only its writer counts.
+    func filed(_ block: UserBlock, by session: CodeSession) -> Bool {
+        block.session == session.id
+            || (!block.isProposal && block.session == nil && block.task.map(session.taskIDs.contains) == true)
+    }
+
+    /// Whether the session that filed this demo is still drawing it: checking it, writing its
+    /// report, or revising it on your word. A row that said "demo ready" all that while sent
+    /// you to an unfinished one; the end of its turn is when it is yours.
+    ///
+    /// Only a demo. A gate is the user's the moment it is filed, while its agent carries on with
+    /// the rest of its chain — and so is a demo it has moved on from, to a task it set `active`.
+    ///
+    /// ponytail: a CLI that keeps no transcript (Agy) never reads idle, so its demo reads as
+    /// work until it exits, as its finished work does (`reworking`). A demo drawn by a subagent
+    /// beside another one at work reads ready early. Give `AgentProvider` a way to say a turn
+    /// is over, or ask the subagent named after the task, if either matters.
+    func isDrawing(_ block: UserBlock) -> Bool {
+        guard block.isDemo else { return false }
+        return sessions.contains { session in
+            !session.idle && !session.exited && filed(block, by: session)
+                && !session.taskIDs.contains { id in
+                    id != block.task && cards.first { $0.id == id }?.status == "active"
+                }
+        }
+    }
+
     /// Every agent of this project worth a row: needs you first, then review, then working,
     /// each in the order the sessions were started. `asking` is each session's terminal question,
     /// which only the window can see.
@@ -164,13 +192,7 @@ extension Project {
         var claimedBlocks: Set<String> = []
         var claimedTasks: Set<String> = []
         for session in sessions {
-            // A proposal holds up the notebook rather than a task, so only the session that
-            // wrote it waits on it.
-            let raised = blocks.waitingOnUser.first { block in
-                block.session == session.id
-                    || (!block.isProposal && block.session == nil
-                        && block.task.map(session.taskIDs.contains) == true)
-            }
+            let raised = blocks.waitingOnUser.first { filed($0, by: session) }
             // A question on its screen is what the row is about; a block beside it is counted
             // with a row of its own below.
             let question = session.exited ? nil : asking[session.id]
@@ -179,6 +201,9 @@ extension Project {
             // working until the agent itself asks something.
             let guiding = blocks.waitingOnUser.first { guide(of: $0)?.id == session.id }
             let block = question == nil ? (guiding ?? raised) : nil
+            // Still drawing its demo, it has not handed it to you yet: its row is work, and
+            // keeps the demo only to claim it.
+            let drawing = block.map(isDrawing) == true
             let waiting = summary.waiting(for: session)
             // The task it is on now: the first of its chain not yet done. None left means its
             // chain is spent, and the row keeps the last one's name rather than going anonymous.
@@ -197,7 +222,7 @@ extension Project {
             var standsForWaiting = false
             if let question {
                 (state, reason) = (.needsYou, question)
-            } else if guiding != nil {
+            } else if guiding != nil || drawing {
                 state = .working
             } else if let block {
                 (state, reason) = (
@@ -237,7 +262,8 @@ extension Project {
             rows.append(
                 AgentRow(
                     id: session.id.uuidString, state: state, title: title, reason: reason,
-                    session: session, task: task, block: block, route: route, peer: peers[session.id],
+                    session: session, task: task, block: drawing ? nil : block, route: route,
+                    peer: peers[session.id],
                     request: requests[session.id]))
         }
         // Everything else waiting on you gets a row of its own: a proposal no session wrote, a
@@ -274,10 +300,12 @@ extension Project {
         let cautions = summary.cautions
         let assigned = assignedTaskIDs
         let rows = NotebookIndex.ordered(cards.filter { $0.kind == .task }).compactMap { task -> AgentRow? in
-            let block = blocksForUser.waiting(on: task.id)
+            let open = blocksForUser.waiting(on: task.id)
+            // A demo its session is still drawing is not yours yet: the task reads as at work.
+            let block = open.flatMap { isDrawing($0) ? nil : $0 }
             // A gate a session is already clearing keeps its row — the task is neither idle nor
             // yours yet — but reads as work in progress rather than as something to answer.
-            let guided = block == nil ? blocks.waiting(on: task.id) : nil
+            let guided = open == nil ? blocks.waiting(on: task.id) : nil
             let state: AgentRow.State
             let route: Route
             if let block {

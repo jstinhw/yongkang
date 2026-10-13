@@ -68,7 +68,7 @@ waits on and what waits on it.
 The sidebar lists every running session under its project, by its own name, with what it is
 doing and the task it is on, for every open project at once: needs you first, then ready for
 review, then working. A session that has exited leaves the list; what it left waiting on you
-still counts on its project, and waits on the board. The project's **Agents** page shows the
+waits on the board, and is counted on its project there. The project's **Agents** page shows the
 same sessions as cards in those three columns, with what each is asking, what it finished or what
 its subagents are on, and the button that acts on it. Work is started from the board, or with
 **New Agent**. A task's own page names who is on it under **Working

@@ -202,6 +202,11 @@ depends on, and nobody's transcript. Cut the tasks so that is enough.
   check, with a `## Done when` checklist another agent can verify. A Done when that joins
   two outcomes is usually two tasks. Five to nine engineering tasks is normally one
   project, its design tasks on top of that; split a larger plan before writing it.
+- **Cut by outcome, never by layer.** A task named for something a person does in the app
+  carries it to the screen they do it from: the model change and the menu, sheet or row
+  that reaches it are one task. A model-only task marked done leaves the user looking for
+  a feature that is not there. Work with nothing to see stands alone only when it is useful
+  on its own — a fix, a migration, an endpoint another project calls.
 - **`depends_on` names only what a task cannot start without:** something another task
   builds that this one uses — an endpoint, a table, a type, an approved design. Not the
   order you would do them in, and not that they share a project. Every extra edge makes
@@ -214,7 +219,8 @@ depends on, and nobody's transcript. Cut the tasks so that is enough.
   would change the same one, merge them or make one wait on the other; two agents in one
   file at once is a collision, not parallel work.
 - **Wide over deep.** A chain runs one agent at a time. When a task waits on only part of
-  another, split that part out so the rest can start.
+  another, split that part out so the rest can start — but not the model out from under a
+  screen still waiting on its design: that half has no outcome of its own.
 
 ## Design work
 

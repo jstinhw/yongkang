@@ -61,6 +61,11 @@ package struct NewProjectForm: View {
     /// `AppModel.foundAgents`, and the look that refreshes it, for the agent picker.
     let found: Set<AgentKind>?
     let lookUp: () -> Void
+    /// The group the project joins, nil for a loose one, which the group picker changes.
+    @Binding var group: String?
+    /// Every group it could join, in the sidebar's order. With none there is no picker, so a
+    /// first run's sheet looks as it always has.
+    let groups: [String]
     let create: (URL, String, AgentKind) -> Void
     let cancel: () -> Void
 
@@ -74,11 +79,14 @@ package struct NewProjectForm: View {
 
     package init(
         parent: URL, agent: AgentKind, found: Set<AgentKind>?, lookUp: @escaping () -> Void,
+        group: Binding<String?> = .constant(nil), groups: [String] = [],
         create: @escaping (URL, String, AgentKind) -> Void, cancel: @escaping () -> Void
     ) {
         self.parent = parent
         self.found = found
         self.lookUp = lookUp
+        _group = group
+        self.groups = groups
         _agent = State(initialValue: agent)
         self.create = create
         self.cancel = cancel
@@ -97,14 +105,17 @@ package struct NewProjectForm: View {
     package var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("New project").font(Typography.headline).foregroundStyle(Theme.tx)
-                Spacer()
+                Text("New project").font(Typography.headline).foregroundStyle(Theme.tx).fixedSize()
+                Spacer(minLength: 12)
+                if !groups.isEmpty { groupPicker }
                 AgentPicker(
                     agent: $agent, found: found, lookUp: lookUp, purpose: "Agent for this project's session"
                 )
                 // The CLI already asked keeps naming; switching under it would hand the
                 // notebook to a different one than the line below says.
                 .disabled(naming != nil)
+                // A long group name is cut short, never the agent.
+                .fixedSize()
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -141,6 +152,33 @@ package struct NewProjectForm: View {
         .frame(width: 520)
         .background(Theme.bg)
         .onDisappear { naming?.cancel() }
+    }
+
+    /// Which group the project joins, drawn like the agent picker beside it, so the title no
+    /// longer names it. A plain menu: there is nothing to type for, and making a group stays
+    /// New Group… on the + menu.
+    private var groupPicker: some View {
+        Menu {
+            Picker("Group", selection: $group) {
+                Text("No group").tag(String?.none)
+                Divider()
+                ForEach(groups, id: \.self) { Text($0).tag(Optional($0)) }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "square.stack").font(.system(size: 11)).foregroundStyle(Theme.tx2)
+                Text(group ?? "No group").lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Theme.tx3)
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(.console)
+        .accessibilityLabel("Group for this project")
+        .accessibilityValue(group ?? "No group")
+        .help("Group for this project")
     }
 
     /// A path named in the prompt wins; a folder it names that is already there is a

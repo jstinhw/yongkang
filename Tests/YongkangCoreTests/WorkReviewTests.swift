@@ -47,6 +47,33 @@ import Testing
         #expect(WorkReview.Show.page("file:///etc/hosts") == nil, "only a web address is loaded")
         #expect(WorkReview.Show.page("docs/home.png") == nil)
         #expect(WorkReview.Show.page("https://example.com/?k=v") == nil, "opening a review asks no other server")
+        #expect(show.drawable)
+        let gone = try #require(
+            try WorkReview.read(
+                #"{"summary": "s", "confidence": "high", "shows": [{"kind": "ui", "title": "Count", "before": "/tmp/yk-gone-before.png", "after": "docs/after.png"}]}"#
+            )?.get().shows?.first)
+        #expect(!gone.drawable, "a screen the page cannot load is left out, not drawn as a box saying so")
+    }
+
+    /// A native app's screen has no page: its sides are pictures the agent drew, by absolute path.
+    @Test func aNativeScreenIsTwoPictures() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let after = folder.appendingPathComponent("after.png")
+        let notes = folder.appendingPathComponent("notes.txt")
+        try Data().write(to: after)
+        try Data().write(to: notes)
+        let show = try #require(
+            try WorkReview.read(
+                #"{"summary": "s", "confidence": "high", "shows": [{"kind": "ui", "title": "Sheet", "after": "\#(after.path)"}]}"#
+            )?.get().shows?.first)
+        #expect(WorkReview.Show.picture(show.after) == after)
+        #expect(show.drawable)
+        #expect(WorkReview.Show.picture(notes.path) == nil, "only an image is shown")
+        #expect(WorkReview.Show.picture("after.png") == nil, "only an absolute path")
+        let gone = folder.appendingPathComponent("before.png").path
+        #expect(WorkReview.Show.picture(gone) == nil, "a gone one is no side")
     }
 
     /// Lines 3–4 of the new file: the removed line between them, and the one right before them,

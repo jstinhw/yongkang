@@ -18,7 +18,10 @@ import Testing
         ("package.json", .config, ""),
         (".github/workflows/ci.yml", .config, ""),
         (".notebook/runs/a-work-b.md", .notebook, ""),
-        ("lib/task-groups.ts", .other, ""),
+        ("lib/task-groups.ts", .code, "source no rule places is code, not docs"),
+        ("Sources/YongkangUI/Features/Home/NewProjectForm.swift", .frontend, "a Swift UI target"),
+        ("Sources/YongkangCore/Review/ReviewArea.swift", .code, ""),
+        ("docs/guide/review.md", .other, ""),
     ])
     func areaFromThePath(path: String, area: ReviewArea, why: String) {
         #expect(ReviewArea.of(path) == area, Comment(rawValue: why))

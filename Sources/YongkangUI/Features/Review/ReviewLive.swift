@@ -5,8 +5,9 @@ import YongkangCore
 
 /// A screen's change as the app itself, running twice — the commit the agent started from, and
 /// its work — rather than pictures of it, which shrink a whole window into something nobody can
-/// read. Full width by default, one side at a time, with what changed outlined: red on the
-/// before where it went away, green on the after where it is new.
+/// read. Pictures only for a screen no browser draws, a native app's, which has no page to run.
+/// Full width by default, one side at a time, with what changed outlined: red on the before
+/// where it went away, green on the after where it is new.
 struct ReviewLive: View {
     let show: WorkReview.Show
     /// The task, which names the terminal a side is served in.
@@ -28,12 +29,7 @@ struct ReviewLive: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Text(
-                    (show.highlight ?? []).isEmpty
-                        ? "Scroll it like a browser."
-                        : "Scroll it like a browser. What changed is outlined: red on the before, green on the after."
-                )
-                .font(Typography.body).foregroundStyle(Theme.tx3).lineLimit(1)
+                Text(caption).font(Typography.body).foregroundStyle(Theme.tx3).lineLimit(1)
                 Spacer(minLength: 8)
                 Picker("", selection: $pane) {
                     ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
@@ -48,6 +44,15 @@ struct ReviewLive: View {
         }
     }
 
+    private var caption: String {
+        if WorkReview.Show.picture(show.before) != nil || WorkReview.Show.picture(show.after) != nil {
+            return "Pictures of the screen, as it was and as it is."
+        }
+        return (show.highlight ?? []).isEmpty
+            ? "Scroll it like a browser."
+            : "Scroll it like a browser. What changed is outlined: red on the before, green on the after."
+    }
+
     private func side(before: Bool) -> some View {
         let given = before ? show.before : show.after
         return LiveSide(
@@ -55,6 +60,7 @@ struct ReviewLive: View {
             tint: before ? Theme.problem : Theme.insertion,
             given: given,
             url: WorkReview.Show.page(given),
+            picture: WorkReview.Show.picture(given),
             command: (before ? show.serveBefore : show.serveAfter) ?? "",
             script: Self.outline(show.highlight ?? [], in: before ? Theme.red : Theme.green),
             title: "Serve \(task) \(before ? "before" : "after")",
@@ -86,13 +92,14 @@ struct ReviewLive: View {
     }
 }
 
-/// One side: the page live, or why it is not, with the way to bring it back.
+/// One side: the page live, or why it is not, with the way to bring it back; or its picture.
 private struct LiveSide: View {
     let label: String
     let tint: Color
     /// What the agent wrote for this side, said back when it is not an address.
     let given: String?
     let url: URL?
+    let picture: URL?
     let command: String
     let script: String
     let title: String
@@ -101,6 +108,7 @@ private struct LiveSide: View {
     /// Whether the page answers; nil until asked.
     @State private var up: Bool?
     @State private var starting = false
+    @State private var image: NSImage?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -115,12 +123,14 @@ private struct LiveSide: View {
             guard let url else { return }
             up = await DemoServer.answers(url)
         }
+        .task(id: picture) { image = picture.flatMap(NSImage.init(contentsOf:)) }
     }
 
     private var header: some View {
         HStack(spacing: 8) {
             Text(label.uppercased()).font(Typography.section).tracking(1.2).foregroundStyle(tint)
-            Text(url?.absoluteString ?? "—").font(Typography.mono).foregroundStyle(Theme.tx3).lineLimit(1)
+            Text(url?.absoluteString ?? picture?.path ?? "—").font(Typography.mono).foregroundStyle(Theme.tx3)
+                .lineLimit(1).truncationMode(.middle)
                 .textSelection(.enabled)
             Spacer(minLength: 0)
             if let url, up == true {
@@ -135,6 +145,12 @@ private struct LiveSide: View {
                 Button("Open in browser") { NSWorkspace.shared.open(url) }
                     .buttonStyle(.plain).font(Typography.body).foregroundStyle(Theme.tx2)
             }
+            if let picture, image != nil {
+                // Revealed, never opened: the agent can swap the path for a symlink to an app
+                // or a script after it was drawn, and opening it would run that outside its sandbox.
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([picture]) }
+                    .buttonStyle(.plain).font(Typography.body).foregroundStyle(Theme.tx2)
+            }
         }
         .padding(.horizontal, 12)
         .frame(height: 32)
@@ -145,8 +161,16 @@ private struct LiveSide: View {
     @ViewBuilder private var content: some View {
         if given == nil {
             say(label == "Before" ? "Nothing before: it is new." : "Gone.")
+        } else if picture != nil {
+            if let image {
+                // Never past its own size: a sheet stays the size it is drawn at.
+                Image(nsImage: image).resizable().scaledToFit()
+                    .frame(maxWidth: image.size.width, maxHeight: image.size.height)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
         } else if url == nil {
-            say("Not a page on this Mac: \(given ?? "")")
+            say("Not a page or a picture on this Mac: \(given ?? "")")
         } else if let url, up == true {
             WebPane(webView: DemoPages.view(for: url, running: script))
         } else if let url, up == false {

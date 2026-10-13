@@ -20,8 +20,8 @@ package struct AskedSession {
 /// or its tasks that are not idle (Board), in the order they want you.
 package struct SidebarProject: Identifiable {
     package let project: Project
-    /// Everything its agents have going, which its counts are made of: what a session that has
-    /// exited left waiting on you still needs you, even with no row of its own.
+    /// Everything its agents have going, the running sessions it lists under Agents among them:
+    /// what a session that has exited left waiting on you has no row there, and waits on the board.
     package let rows: [AgentRow]
     /// Its tasks that are not idle, which it lists under Board.
     let tasks: [AgentRow]
@@ -72,8 +72,12 @@ package struct SidebarProject: Identifiable {
     package var id: Project.ID { project.id }
     /// The rows it lists: one per running session.
     var sessions: [AgentRow] { rows.filter(\.isRunningSession) }
-    var needsYou: Int { rows.filter { $0.state == .needsYou }.count }
-    var toReview: Int { rows.filter { $0.state == .review }.count }
+    /// What its counts count in a section: what it lists there. Under Board its tasks, so a task
+    /// held up by two blocks is one; under Agents its running sessions, so two blocks an exited
+    /// session left are not a 2 beside a project with nothing under it.
+    func counted(in section: ConsoleSection) -> [AgentRow] { section == .board ? tasks : sessions }
+    func needsYou(in section: ConsoleSection) -> Int { counted(in: section).filter { $0.state == .needsYou }.count }
+    func toReview(in section: ConsoleSection) -> Int { counted(in: section).filter { $0.state == .review }.count }
 }
 
 /// The column beside the rail: every open project at once, in every section, so what is waiting
@@ -97,6 +101,8 @@ package struct ProjectSidebar: View {
     /// A group named but not filled yet, drawn last, asking for its first project. Nil once one
     /// is in it: from then on the run draws the group.
     let pending: String?
+    /// Describes a new project that joins this group, from the group's own menu.
+    let createIn: (String) -> Void
     /// Opens a plain shell in the project's folder, under Agents.
     let newTerminal: (Project.ID) -> Void
     let closeSession: (Project.ID, CodeSession) -> Void
@@ -128,6 +134,7 @@ package struct ProjectSidebar: View {
         open: @escaping (Project.ID, Route, ConsoleSection) -> Void,
         create: @escaping () -> Void, add: @escaping () -> Void,
         newGroup: @escaping () -> Void, pending: String? = nil,
+        createIn: @escaping (String) -> Void = { _ in },
         newTerminal: @escaping (Project.ID) -> Void,
         closeSession: @escaping (Project.ID, CodeSession) -> Void,
         close: @escaping (Project.ID) -> Void, openUsage: @escaping () -> Void,
@@ -145,6 +152,7 @@ package struct ProjectSidebar: View {
         self.add = add
         self.newGroup = newGroup
         self.pending = pending
+        self.createIn = createIn
         self.newTerminal = newTerminal
         self.closeSession = closeSession
         self.close = close
@@ -308,8 +316,10 @@ package struct ProjectSidebar: View {
                         .font(Typography.caption)
                         .help("Remove \(item.project.name) from Yongkang. Nothing on disk is touched.")
                 }
-                if item.needsYou > 0 { count(item.needsYou, Theme.amber, dot: true) }
-                if item.toReview > 0 { count(item.toReview, Theme.green, dot: false) }
+                let needsYou = item.needsYou(in: section)
+                let toReview = item.toReview(in: section)
+                if needsYou > 0 { count(needsYou, Theme.amber, dot: true) }
+                if toReview > 0 { count(toReview, Theme.green, dot: false) }
             }
             .padding(.leading, 6)
             .padding(.trailing, 10)
@@ -354,8 +364,10 @@ package struct ProjectSidebar: View {
     private func summary(of item: SidebarProject) -> String {
         var parts = [item.project.name]
         if item.missing { parts.append("project not found") }
-        if item.needsYou > 0 { parts.append("\(item.needsYou) need you") }
-        if item.toReview > 0 { parts.append("\(item.toReview) to review") }
+        let needsYou = item.needsYou(in: section)
+        let toReview = item.toReview(in: section)
+        if needsYou > 0 { parts.append("\(needsYou) need you") }
+        if toReview > 0 { parts.append("\(toReview) to review") }
         return parts.joined(separator: ", ")
     }
 

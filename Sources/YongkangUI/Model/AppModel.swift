@@ -26,6 +26,10 @@ import YongkangCore
     /// The new-project sheet: a prompt, which is also what says where its folder goes. Here
     /// rather than in the view because the File menu opens it too, from any screen.
     var creatingProject = false
+    /// The group the sheet's project joins, nil for a loose one. `newProject(in:)` sets it with
+    /// the sheet, so one opened from the File menu never inherits the last group's; the sheet's
+    /// picker changes it while the sheet is up.
+    var newProjectGroup: String?
     /// The other door: a folder that already exists, picked in a panel. Same reason.
     var pickingFolder = false
     /// The New Agent sheet: a task from any project, the folders it may read, and its CLI. Here
@@ -216,6 +220,12 @@ import YongkangCore
         return project
     }
 
+    /// Opens the new-project sheet, for a project that joins `group` or, with none, lands loose.
+    func newProject(in group: String? = nil) {
+        newProjectGroup = group
+        creatingProject = true
+    }
+
     func project(at directory: URL) -> ProjectModel? {
         projects.first { $0.directory.path == directory.path }
     }
@@ -224,10 +234,19 @@ import YongkangCore
         projects.first { $0.id == id }
     }
 
-    /// Adds a folder to the open projects. Check `project(at:)` first: a folder opens once.
-    func open(_ directory: URL) -> ProjectModel {
+    /// Adds a folder to the open projects: at the end, or as `group`'s last member, so the run
+    /// that is the group stays one. Check `project(at:)` first: a folder opens once. A group no
+    /// project carries is joined only when it is `pendingGroup`, which this fills; any other
+    /// name, like a group ungrouped while its sheet was up, leaves the folder loose at the end
+    /// rather than bringing back a group the user let go.
+    func open(_ directory: URL, into group: String? = nil) -> ProjectModel {
         let project = model(of: directory)
-        projects.append(project)
+        let last = group.flatMap { name in projects.lastIndex { $0.group == name } }
+        if let group, last != nil || group == pendingGroup {
+            project.group = group
+            if group == pendingGroup { pendingGroup = nil }
+        }
+        projects.insert(project, at: last.map { $0 + 1 } ?? projects.count)
         watch(project)
         return project
     }
@@ -255,6 +274,13 @@ import YongkangCore
     func newGroup(named name: String) {
         guard !trimmed(name).isEmpty else { return }
         pendingGroup = trimmed(name)
+    }
+
+    /// The groups a new project can join, in the sidebar's order: each run's name, then the one
+    /// still waiting for its first project, which the sidebar draws last.
+    var groupNames: [String] {
+        var seen = Set<String>()
+        return (projects.compactMap(\.group) + [pendingGroup].compactMap { $0 }).filter { seen.insert($0).inserted }
     }
 
     /// Starts a group at `id`, the other way one is made: a group is a name on the projects in

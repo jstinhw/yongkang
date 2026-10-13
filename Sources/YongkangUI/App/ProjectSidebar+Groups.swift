@@ -53,8 +53,8 @@ extension ProjectSidebar {
                 Text("\(members.count)").font(Typography.monoCaption).foregroundStyle(Theme.tx4)
                 Spacer(minLength: 4)
                 if shut {
-                    let needsYou = members.reduce(0) { $0 + $1.needsYou }
-                    let toReview = members.reduce(0) { $0 + $1.toReview }
+                    let needsYou = members.reduce(0) { $0 + $1.needsYou(in: section) }
+                    let toReview = members.reduce(0) { $0 + $1.toReview(in: section) }
                     if needsYou > 0 { count(needsYou, Theme.amber, dot: true) }
                     if toReview > 0 { count(toReview, Theme.green, dot: false) }
                 }
@@ -71,10 +71,7 @@ extension ProjectSidebar {
         .accessibilityLabel("\(group), \(members.count) project\(members.count == 1 ? "" : "s")")
         // At the top level: dropping here puts a project above the whole group, not into it.
         .dropTarget(before: index, into: nil, line: $insertion, move: move)
-        .contextMenu {
-            Button("Rename Group…") { renameGroup(group) }
-            Button("Ungroup") { ungroup(group) }
-        }
+        .contextMenu { groupMenu(group) }
     }
 
     /// A group named from the + menu with nothing in it yet: its header, and under it the one
@@ -94,10 +91,7 @@ extension ProjectSidebar {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.top, 10)
-        .contextMenu {
-            Button("Rename Group…") { renameGroup(group) }
-            Button("Ungroup") { ungroup(group) }
-        }
+        .contextMenu { groupMenu(group) }
 
         Text("Drag a project here")
             .font(Typography.caption).foregroundStyle(Theme.tx3)
@@ -112,6 +106,16 @@ extension ProjectSidebar {
             .contentShape(Rectangle())
             .groupIndented(placeholder: true, top: 2)
             .dropTarget(before: projects.count, into: group, line: $insertion, move: move)
+            .contextMenu { groupMenu(group) }
+    }
+
+    /// What a right-click on a group offers, on its header and on an empty one's drop row alike.
+    /// Starting a project in it comes first, apart from the two that change the group itself.
+    @ViewBuilder func groupMenu(_ group: String) -> some View {
+        Button("New Project…") { createIn(group) }
+        Divider()
+        Button("Rename Group…") { renameGroup(group) }
+        Button("Ungroup") { ungroup(group) }
     }
 
     /// The gap after a run's last project, so a project can be dragged to the end of a group

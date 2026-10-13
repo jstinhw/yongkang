@@ -8,6 +8,7 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
     case database = "Database"
     case api = "API & services"
     case frontend = "Frontend"
+    case code = "Code"
     case tests = "Tests"
     case config = "Config"
     case other = "Docs & other"
@@ -20,6 +21,7 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
         case .database: return "cylinder.split.1x2"
         case .api: return "server.rack"
         case .frontend: return "macwindow"
+        case .code: return "chevron.left.forwardslash.chevron.right"
         case .tests: return "testtube.2"
         case .config: return "gearshape"
         case .other: return "doc.text"
@@ -28,10 +30,11 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
     }
 
     /// Rules in order, first match wins: records, tests, database, config, API, frontend,
-    /// then the owning agent's skill. Tests go before the database so a test that seeds
-    /// rows reads as the test it is.
+    /// the owning agent's skill, then any source file as Code. Tests go before the database
+    /// so a test that seeds rows reads as the test it is. A work run names no skill, so a
+    /// layout the folder rules don't know lands on Code — never on Docs & other.
     /// ponytail: name and folder heuristics, not a parser — a repo with its own layout gets
-    /// the skill fallback, and a report with no skill falls to Other.
+    /// Code, and only what isn't source falls to Other.
     package static func of(_ path: String, skill: String = "", diff: [DiffLine] = []) -> ReviewArea {
         let lower = path.lowercased()
         let folders = Set(lower.split(separator: "/").dropLast().map(String.init))
@@ -71,7 +74,9 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
         {
             return .api
         }
-        if !folders.isDisjoint(with: ["components", "pages", "views", "ui", "styles", "screens", "frontend", "client"])
+        // A folder ending in "ui" is a UI target as a Swift package names one: `YongkangUI`.
+        if !folders.isDisjoint(with: ["components", "pages", "views", "styles", "screens", "frontend", "client"])
+            || folders.contains(where: { $0.hasSuffix("ui") })
             || ["tsx", "jsx", "vue", "svelte", "css", "scss", "html"].contains(ext)
         {
             return .frontend
@@ -82,8 +87,16 @@ package enum ReviewArea: String, CaseIterable, Identifiable {
         if owner.contains("backend") { return .api }
         if owner.contains("qa") { return .tests }
         if owner.contains("sre") { return .config }
+        if sourceExtensions.contains(ext) { return .code }
         return .other
     }
+
+    /// Source code the rules above could not place. Markup, styles and shell already have an
+    /// area; what's left of a repo is docs, data and assets.
+    static let sourceExtensions: Set<String> = [
+        "swift", "m", "mm", "c", "h", "cc", "cpp", "hpp", "ts", "js", "mjs", "cjs", "py", "go", "rs",
+        "rb", "java", "kt", "kts", "cs", "php", "scala", "dart", "ex", "exs", "lua", "zig",
+    ]
 
     /// SQL written into the change itself — a data layer with no migration folder still
     /// touches the database, and that is exactly the file a reviewer must not miss.
