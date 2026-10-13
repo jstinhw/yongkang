@@ -24,22 +24,22 @@ enum DesignShots {
                 NothingPicked(hasProjects: true, create: {}, add: {})
             }, "empty", into: directory)
 
-        write(
-            NewProjectForm(
-                parent: project.directory.deletingLastPathComponent(), agent: .claude,
-                found: [.claude, .codex], lookUp: {}, create: { _, _, _ in }, cancel: {}
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
-            "new-project", into: directory, width: 900)
-
-        // The same sheet opened from a group's menu, which its title names.
-        write(
-            NewProjectForm(
-                parent: project.directory.deletingLastPathComponent(), agent: .claude,
-                found: [.claude, .codex], lookUp: {}, group: "Client work", create: { _, _, _ in }, cancel: {}
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
-            "new-project-group", into: directory, width: 900)
+        // The sheet with no group to offer, from the + menu with groups to pick from, and from a
+        // group's menu, already on it. The picker's list is a menu, which no shot can open.
+        let groups = ["Client work", "Side projects"]
+        for (name, group, offered) in [
+            ("new-project", nil, []), ("new-project-loose", nil, groups),
+            ("new-project-group", "Client work", groups),
+        ] as [(String, String?, [String])] {
+            write(
+                NewProjectForm(
+                    parent: project.directory.deletingLastPathComponent(), agent: .claude,
+                    found: [.claude, .codex], lookUp: {}, group: .constant(group), groups: offered,
+                    create: { _, _, _ in }, cancel: {}
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.bg),
+                name, into: directory, width: 900)
+        }
 
         // The agent picker's list, which a popover draws in a window of its own, so the sheet's
         // shot never has it open. Two of the four found, so the fold below them shows.

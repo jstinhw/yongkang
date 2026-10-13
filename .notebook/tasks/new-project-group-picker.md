@@ -2,13 +2,13 @@
 id: new-project-group-picker
 kind: task
 title: "Pick the group in New Project"
-status: todo
+status: done
 depends_on: [new-project-group-picker-design]
 designer: ""
 project: new-project-in-group
 owner: ""
 created: 2026-10-12
-updated: 2026-10-12
+updated: 2026-10-13
 external: {}
 ---
 
@@ -18,17 +18,17 @@ approved demo shows.
 
 ## Done when
 
-- [ ] The sheet shows the group control as the demo does, listing every group in sidebar order,
+- [x] The sheet shows the group control as the demo does, listing every group in sidebar order,
       the pending empty group if there is one, and no group.
-- [ ] Opened from the + menu or File > New Project…, it starts on no group, and creating without
+- [x] Opened from the + menu or File > New Project…, it starts on no group, and creating without
       touching it lands the project loose at the end of the list, as today.
-- [ ] Opened from a group's **New Project…**, it starts on that group.
-- [ ] Picking a group and creating adds the project as that group's last member; picking the
+- [x] Opened from a group's **New Project…**, it starts on that group.
+- [x] Picking a group and creating adds the project as that group's last member; picking the
       pending group makes it that group's first member.
-- [ ] With no groups at all, the sheet shows no control.
-- [ ] Cancelling leaves every group as it was, and reopening from the + menu starts on no group
+- [x] With no groups at all, the sheet shows no control.
+- [x] Cancelling leaves every group as it was, and reopening from the + menu starts on no group
       again, never the last choice.
-- [ ] Shots rendered before and after, with the differences in the sheet named. `make check`
+- [x] Shots rendered before and after, with the differences in the sheet named. `make check`
       passes.
 
 ## Context

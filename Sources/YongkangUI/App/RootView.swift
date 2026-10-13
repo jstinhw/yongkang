@@ -47,7 +47,8 @@ struct RootView: View {
         .sheet(isPresented: $model.creatingProject) {
             NewProjectForm(
                 parent: projectsParent, agent: agent, found: model.foundAgents, lookUp: model.lookUpAgents,
-                group: model.newProjectGroup, create: createProject, cancel: { model.creatingProject = false })
+                group: $model.newProjectGroup, groups: model.groupNames, create: createProject,
+                cancel: { model.creatingProject = false })
         }
         .sheet(isPresented: $model.startingAgent) {
             NewAgentSheet(

@@ -26,9 +26,10 @@ import YongkangCore
     /// The new-project sheet: a prompt, which is also what says where its folder goes. Here
     /// rather than in the view because the File menu opens it too, from any screen.
     var creatingProject = false
-    /// The group the sheet's project joins, nil for a loose one. Set only by `newProject(in:)`,
-    /// with the sheet, so one opened from the File menu never inherits the last group's.
-    private(set) var newProjectGroup: String?
+    /// The group the sheet's project joins, nil for a loose one. `newProject(in:)` sets it with
+    /// the sheet, so one opened from the File menu never inherits the last group's; the sheet's
+    /// picker changes it while the sheet is up.
+    var newProjectGroup: String?
     /// The other door: a folder that already exists, picked in a panel. Same reason.
     var pickingFolder = false
     /// The New Agent sheet: a task from any project, the folders it may read, and its CLI. Here
@@ -273,6 +274,13 @@ import YongkangCore
     func newGroup(named name: String) {
         guard !trimmed(name).isEmpty else { return }
         pendingGroup = trimmed(name)
+    }
+
+    /// The groups a new project can join, in the sidebar's order: each run's name, then the one
+    /// still waiting for its first project, which the sidebar draws last.
+    var groupNames: [String] {
+        var seen = Set<String>()
+        return (projects.compactMap(\.group) + [pendingGroup].compactMap { $0 }).filter { seen.insert($0).inserted }
     }
 
     /// Starts a group at `id`, the other way one is made: a group is a name on the projects in

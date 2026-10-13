@@ -186,6 +186,45 @@ import Testing
         model.stop()
     }
 
+    @Test func theSheetOffersEveryGroupInSidebarOrderWithTheEmptyOneLast() {
+        let model = model(["a", "b", "c"])
+        #expect(model.groupNames.isEmpty, "no groups, no picker")
+        model.group(model.projects[2].id, as: "Two")
+        model.group(model.projects[0].id, as: "One")
+        model.newGroup(named: "Side projects")
+        #expect(model.groupNames == ["One", "Two", "Side projects"])
+        // A pending name a run already carries is that group, offered once.
+        model.newGroup(named: "One")
+        #expect(model.groupNames == ["One", "Two"])
+        model.stop()
+    }
+
+    @Test func aGroupPickedInTheSheetIsWhereTheProjectLandsAndCancelForgetsIt() {
+        let model = model(["a", "b"])
+        model.group(model.projects[0].id, as: "One")
+        model.newGroup(named: "Side projects")
+
+        // Picked from the + menu's sheet, then cancelled: nothing moves, and the next sheet from
+        // the + menu starts on no group again.
+        model.newProject()
+        model.newProjectGroup = "One"
+        model.creatingProject = false
+        #expect(groups(model) == ["One", nil])
+        model.newProject()
+        #expect(model.newProjectGroup == nil)
+
+        model.newProjectGroup = "One"
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-e"), into: model.newProjectGroup)
+        model.newProject()
+        model.newProjectGroup = "Side projects"
+        _ = model.open(URL(fileURLWithPath: "/tmp/yk-f"), into: model.newProjectGroup)
+        #expect(order(model) == ["a", "e", "b", "f"], "the group's last member, and the empty one's first")
+        #expect(groups(model) == ["One", "One", nil, "Side projects"])
+        #expect(model.pendingGroup == nil)
+        #expect(adjacent(model))
+        model.stop()
+    }
+
     @Test func cancellingTheSheetFromAnEmptyGroupLeavesItWaiting() {
         let model = model(["a"])
         model.newGroup(named: "Side projects")
